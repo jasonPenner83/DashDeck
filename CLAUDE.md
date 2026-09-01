@@ -17,8 +17,11 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 ## Current state
 
-**Pre-code.** The outline, architecture, hardware research and ADRs exist. No solution,
-no source yet. Next step is the P0 skeleton.
+**Pre-code.** The outline, architecture, hardware research, release model and ADRs exist.
+No solution, no source yet. Next step is the P0 skeleton — buildable now, no hardware
+needed.
+
+Adapter chosen but not bought: **OBDLink EX**, wired USB (ADR-0007).
 
 ## Things that are easy to get wrong here
 
@@ -45,6 +48,16 @@ no source yet. Next step is the P0 skeleton.
    `Unavailable` / `Simulated`. A confidently wrong number on a dash is worse than a blank.
 8. **`IClock` is injected.** Never `DateTime.Now` — it breaks replay and scripted-drive
    tests.
+
+## Branching and versions
+
+`main` is **the build on the truck tablet** — never commit directly to it, only tagged
+merges from `develop`. `develop` is day-to-day work and may be broken. See
+[`docs/05-releases-and-branching.md`](docs/05-releases-and-branching.md).
+
+Three things version independently, and **must not be welded together** (ADR-0008): the
+app (SemVer tags), `DashDeck.Abstractions` (`apiVersion`, bumped only when the component
+contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is normal.
 
 ## Conventions
 

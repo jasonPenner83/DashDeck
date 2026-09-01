@@ -21,6 +21,7 @@ truck is a completely normal F-150.
 | [Hardware](docs/02-hardware.md) | 2019 F-150 CAN specifics, adapter recommendation |
 | [Component SDK](docs/03-component-sdk.md) | How to write a component |
 | [Open questions](docs/04-open-questions.md) | What is still undecided |
+| [Releases & branching](docs/05-releases-and-branching.md) | `main`/`develop`, versioning, how a build reaches the truck |
 | [Decisions](docs/decisions/) | ADRs — why each call was made |
 
 ## The idea in one paragraph
