@@ -1,6 +1,7 @@
-# ADR-0001 — .NET 9 + WPF for the shell
+# ADR-0001 — .NET 10 + WPF for the shell
 
 **Status:** Accepted · 2026-09-01
+**Superseded in part by:** [ADR-0009](ADR-0009-target-net10.md) — the runtime version is .NET 10, not .NET 9. The framework choice below stands unchanged.
 
 ## Context
 
@@ -11,7 +12,7 @@ the truck. Candidates were WPF, Avalonia 11, WinUI 3, and an Electron/web fronte
 
 ## Decision
 
-**.NET 9 + WPF**, with a custom design system built on top of the Fluent theme that
+**.NET 10 + WPF**, with a custom design system built on top of the Fluent theme that
 shipped with .NET 9.
 
 ## Reasoning

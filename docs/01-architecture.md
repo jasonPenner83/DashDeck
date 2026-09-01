@@ -8,18 +8,23 @@ layers, the contracts between them, and the reasoning behind the non-obvious cho
 ```
 DashDeck.sln
 ├─ src/
-│  ├─ DashDeck.Abstractions/     ← the SDK. The ONLY thing components reference.
-│  ├─ DashDeck.Core/             ← signal catalog, state bus, request arbiter
-│  ├─ DashDeck.Vehicle/          ← transports + adapters (ELM/STN, synthetic, replay)
-│  ├─ DashDeck.Storage/          ← SQLite, per-component isolated scopes
-│  ├─ DashDeck.Host/             ← WPF shell, component host, settings UI
-│  └─ DashDeck.Simulator/        ← synthetic F-150 + scripted drives
+│  ├─ DashDeck.Abstractions/     ← the SDK contract. net10.0, no UI, no dependencies.
+│  ├─ DashDeck.Vehicle/          ← transports + adapters (ELM/STN, recording, replay)
+│  ├─ DashDeck.Core/             ← signal catalog, request arbiter, state bus, poll loop
+│  ├─ DashDeck.Simulator/        ← synthetic F-150 + scripted drives
+│  ├─ DashDeck.DebugConsole/     ← runnable harness; no UI needed to exercise the stack
+│  ├─ DashDeck.Storage/          ← SQLite, per-component scopes            (P1)
+│  ├─ DashDeck.Abstractions.Wpf/ ← the view half of the SDK, net10.0-windows (P0.5)
+│  └─ DashDeck.Host/             ← WPF shell, component host, settings UI  (P0.5)
+├─ catalog/                      ← signal definitions as JSON, not code
 ├─ components/
-│  └─ DashDeck.Components.TripComputer/
+│  └─ DashDeck.Components.TripComputer/                                    (P1)
 ├─ tests/
-├─ tools/
-│  └─ templates/dashdeck-component/   ← dotnet new template
 └─ docs/
+
+Everything except `Abstractions.Wpf` and `Host` targets plain `net10.0` and builds on any
+OS — see ADR-0010. That is what let the entire engine be built and tested before any
+Windows machine was involved.
 ```
 
 `DashDeck.Abstractions` is load-bearing. It must stay small, stable, dependency-free, and
@@ -163,7 +168,7 @@ Portrait-first (constraint C4):
   in a truck dash, that is the only band comfortably reachable from the driver's seat;
   putting navigation at the top would be a genuine ergonomic error.
 
-The visual language is a custom design system over WPF's .NET 9 Fluent theme. No stock
+The visual language is a custom design system over the Fluent theme WPF gained in .NET 9. No stock
 control survives contact with a touch target sized for a moving vehicle, so "modern
 looking" is our job, not the framework's (ADR-0001).
 

@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DashDeck.Abstractions/DashDeck.Abstractions.csproj" />
+    <Project Path="src/DashDeck.Core/DashDeck.Core.csproj" />
+    <Project Path="src/DashDeck.DebugConsole/DashDeck.DebugConsole.csproj" />
+    <Project Path="src/DashDeck.Simulator/DashDeck.Simulator.csproj" />
+    <Project Path="src/DashDeck.Vehicle/DashDeck.Vehicle.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DashDeck.Tests/DashDeck.Tests.csproj" />
+  </Folder>
+</Solution>

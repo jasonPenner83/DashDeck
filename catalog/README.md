@@ -1,0 +1,53 @@
+# Signal catalog
+
+Signals are **data, not code**. Adding one is a JSON edit; it never requires a rebuild.
+
+That is deliberate. Ford's interesting values — transmission temperature, per-wheel TPMS
+pressures, real coolant, odometer — are not in the legislated OBD-II set and are largely
+undocumented. They will be found by trial and error against the truck during P1.5, and
+discovering one must cost a config edit rather than a code change.
+
+## Files
+
+| File | Contents |
+|---|---|
+| `signals.obd2-standard.json` | Legislated OBD-II mode 01 PIDs. Should work on any modern vehicle, not just the F-150. |
+
+Ford-specific definitions will land in a `signals.ford-f150-2019.json` once they are
+discovered on the truck. Keeping them in a separate file matters: the standard set is
+known-good and should not be churned by the trial and error of PID discovery.
+
+## Fields
+
+```jsonc
+{
+  "id": "vehicle.speed",        // what components subscribe to; stable forever once used
+  "name": "Vehicle Speed",      // human label
+  "bus": "Hs",                  // Hs (pins 6/14, 500k) or Ms (pins 3/11, 125k)
+  "mode": 1,                    // OBD-II service, defaults to 01
+  "pid": 13,                    // decimal in JSON — 13 is 0x0D
+  "decode": {
+    "byteOffset": 0,            // index into the payload, after the echoed mode and PID
+    "byteLength": 1,            // 1, 2 or 4, big-endian
+    "signed": false,
+    "scale": 1,                 // value = (raw * scale) + offset
+    "offset": 0,                // temperatures use -40 here
+    "unit": "km/h"              // travels with every reading; never assumed by a component
+  },
+  "defaultRateHz": 4,           // used when a component does not ask for a rate
+  "stalenessSeconds": null,     // defaults to five poll intervals
+  "min": 0,                     // decoded values outside the range are rejected, not shown
+  "max": 255
+}
+```
+
+`min`/`max` are a correctness guard, not decoration. A wrong `decode` spec or a corrupt
+response usually produces a wildly out-of-range number, and publishing it would put a
+plausible-looking wrong value on a dash. Out-of-range readings are dropped instead.
+
+## Note on PID support
+
+Not every vehicle answers every standard PID. `engine.fuelRate` (0x5E) in particular may
+not be supported on the 2019 F-150 — open question Q4. When the vehicle replies `NO DATA`,
+the polling loop marks the signal unsupported and stops asking, because on a tight request
+budget, polling a signal that will never answer spends real capacity on nothing.

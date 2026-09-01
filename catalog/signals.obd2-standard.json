@@ -1,0 +1,112 @@
+[
+  {
+    "id": "engine.rpm",
+    "name": "Engine Speed",
+    "bus": "Hs",
+    "pid": 12,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 0.25, "offset": 0, "unit": "rpm" },
+    "defaultRateHz": 4,
+    "min": 0,
+    "max": 8000
+  },
+  {
+    "id": "vehicle.speed",
+    "name": "Vehicle Speed",
+    "bus": "Hs",
+    "pid": 13,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "km/h" },
+    "defaultRateHz": 4,
+    "min": 0,
+    "max": 255
+  },
+  {
+    "id": "engine.coolantTemp",
+    "name": "Coolant Temperature",
+    "bus": "Hs",
+    "pid": 5,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": -40, "unit": "°C" },
+    "defaultRateHz": 0.5,
+    "min": -40,
+    "max": 215
+  },
+  {
+    "id": "engine.load",
+    "name": "Calculated Engine Load",
+    "bus": "Hs",
+    "pid": 4,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
+    "defaultRateHz": 2,
+    "min": 0,
+    "max": 100
+  },
+  {
+    "id": "engine.throttlePosition",
+    "name": "Throttle Position",
+    "bus": "Hs",
+    "pid": 17,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
+    "defaultRateHz": 2,
+    "min": 0,
+    "max": 100
+  },
+  {
+    "id": "engine.mafRate",
+    "name": "Mass Air Flow",
+    "bus": "Hs",
+    "pid": 16,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 0.01, "offset": 0, "unit": "g/s" },
+    "defaultRateHz": 2,
+    "min": 0,
+    "max": 655
+  },
+  {
+    "id": "engine.fuelRate",
+    "name": "Engine Fuel Rate",
+    "bus": "Hs",
+    "pid": 94,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 0.05, "offset": 0, "unit": "L/h" },
+    "defaultRateHz": 2,
+    "min": 0,
+    "max": 3212
+  },
+  {
+    "id": "fuel.levelPercent",
+    "name": "Fuel Tank Level",
+    "bus": "Hs",
+    "pid": 47,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
+    "defaultRateHz": 0.2,
+    "min": 0,
+    "max": 100
+  },
+  {
+    "id": "engine.intakeAirTemp",
+    "name": "Intake Air Temperature",
+    "bus": "Hs",
+    "pid": 15,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": -40, "unit": "°C" },
+    "defaultRateHz": 0.5,
+    "min": -40,
+    "max": 215
+  },
+  {
+    "id": "ambient.airTemp",
+    "name": "Ambient Air Temperature",
+    "bus": "Hs",
+    "pid": 70,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": -40, "unit": "°C" },
+    "defaultRateHz": 0.1,
+    "min": -40,
+    "max": 215
+  },
+  {
+    "id": "engine.runTime",
+    "name": "Run Time Since Engine Start",
+    "bus": "Hs",
+    "pid": 31,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 1, "offset": 0, "unit": "s" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 65535
+  }
+]

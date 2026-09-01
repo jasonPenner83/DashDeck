@@ -17,9 +17,17 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 ## Current state
 
-**Pre-code.** The outline, architecture, hardware research, release model and ADRs exist.
-No solution, no source yet. Next step is the P0 skeleton — buildable now, no hardware
-needed.
+**P0 engine complete and verified. No UI yet.**
+
+Built and passing on Linux with no hardware: `Abstractions`, `Vehicle` (ELM/STN adapter,
+recording, replay), `Core` (catalog, arbiter, state bus, polling loop), `Simulator`
+(synthetic F-150 + scripted drives), `DebugConsole`. 45 tests green.
+
+Run it: `dotnet run --project src/DashDeck.DebugConsole -- cold-start-city --seconds 60`
+
+**Next: P0.5, the WPF shell — which requires Windows.** Everything above targets plain
+`net10.0` and builds anywhere; `Host` and `Abstractions.Wpf` will target `net10.0-windows`
+and cannot be built on Linux (ADR-0010).
 
 Adapter chosen but not bought: **OBDLink EX**, wired USB (ADR-0007).
 
@@ -61,7 +69,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 
 ## Conventions
 
-- **Stack:** .NET 9, C#, WPF (ADR-0001). Custom design system over the .NET 9 Fluent theme.
+- **Stack:** .NET 10, C#, WPF (ADR-0001). Custom design system over WPF's Fluent theme.
 - **Portrait-first.** Primary navigation lives in the bottom third — the only band
   reachable from the driver's seat.
 - **Layering is strict.** Transport → adapter → catalog → arbiter → state bus → services →

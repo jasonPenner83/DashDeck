@@ -48,23 +48,33 @@ rather than half-working.
 
 ## The interface
 
+The contract is split in two, because a UI type in the core contract would drag WPF into
+every component and make the engine unbuildable off Windows (ADR-0010).
+
 ```csharp
+// DashDeck.Abstractions (net10.0) — no UI types. Every component implements this.
 public interface IDashComponent
 {
     string Id { get; }
 
     Task InitializeAsync(IComponentContext context, CancellationToken ct);
 
-    // Called only for surfaces declared in the manifest.
-    FrameworkElement CreateTile();
-    FrameworkElement CreateScreen();
-
     Task StartAsync(CancellationToken ct);   // became visible / activated
     Task StopAsync(CancellationToken ct);    // hidden — release expensive resources
     Task SuspendAsync(CancellationToken ct); // app backgrounded or vehicle disconnected
     Task ResumeAsync(CancellationToken ct);
 }
+
+// DashDeck.Abstractions.Wpf (net10.0-windows) — implemented only by components with a UI.
+public interface IDashComponentView
+{
+    FrameworkElement CreateTile();
+    FrameworkElement CreateScreen();
+}
 ```
+
+A headless component — a trip logger, a Home Assistant bridge — implements only the first
+and never references a UI framework at all.
 
 Lifecycle is tied to visibility, and that is enforced rather than advisory: a component
 that is not on screen has its signal declarations dropped to background priority so it
