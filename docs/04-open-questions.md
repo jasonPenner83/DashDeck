@@ -12,7 +12,7 @@ Live list. Resolved items move to an ADR in [`decisions/`](decisions/).
 | Q3 | Mount hardware and power in the cab. | Affects nothing in software, but decides portrait geometry and whether the tablet charges while docked. |
 | Q4 | Does this truck support the fuel-rate PID (0x5E)? | Unanswerable until an adapter exists. MAF fallback plus tank calibration is designed to cover either answer (risk R5). |
 | Q5 | How much does the Gateway Module filter at the OBD-II port? | Measured on first bring-up. Determines whether MS-CAN signals are reachable without a behind-dash tap (risk R4). |
-| Q12 | What is the *real* sustained request ceiling over USB? | Unknown and deliberately unguessed until measured in P1.5. It decides whether live gauges are viable, so it is the first measurement taken once the adapter arrives. |
+| Q12 | What is the *real* sustained request ceiling over USB? | **Machinery built, answer still unknown.** `VehicleService.MeasuredRequestsPerSecond` measures it continuously from request service time and feeds the arbiter's budget, so the number will be read off the truck rather than estimated. Until then the simulator holds the pessimistic 15 req/sec figure. It decides whether live gauges are viable. |
 
 ## Product questions for you
 

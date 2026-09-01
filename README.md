@@ -9,8 +9,14 @@ can add by dropping a folder into `plugins/`.
 It sits **alongside** the factory SYNC 3 unit, not in place of it. Close DashDeck and the
 truck is a completely normal F-150.
 
-> **Status: pre-code.** This repository currently contains the project outline,
-> architecture, hardware research and decision records. No source yet.
+> **Status: P0 engine complete, no UI yet.** The vehicle stack, signal catalog, request
+> arbiter, state bus and a synthetic 2019 F-150 are built and tested — with no adapter and
+> no truck. The WPF shell is next, and needs Windows.
+
+```bash
+dotnet test
+dotnet run --project src/DashDeck.DebugConsole -- cold-start-city --seconds 60
+```
 
 ## Start here
 
@@ -21,6 +27,7 @@ truck is a completely normal F-150.
 | [Hardware](docs/02-hardware.md) | 2019 F-150 CAN specifics, adapter recommendation |
 | [Component SDK](docs/03-component-sdk.md) | How to write a component |
 | [Open questions](docs/04-open-questions.md) | What is still undecided |
+| [Development setup](docs/06-development-setup.md) | What to install, how to run it, conventions |
 | [Releases & branching](docs/05-releases-and-branching.md) | `main`/`develop`, versioning, how a build reaches the truck |
 | [Decisions](docs/decisions/) | ADRs — why each call was made |
 
