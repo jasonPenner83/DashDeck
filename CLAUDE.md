@@ -22,17 +22,21 @@ no source yet. Next step is the P0 skeleton.
 
 ## Things that are easy to get wrong here
 
-1. **No hardware exists yet.** No OBD-II adapter has been purchased. Everything runs on
-   the synthetic vehicle (ADR-0005). Do not write code that assumes a truck is attached,
-   and do not defer work waiting for hardware.
+1. **No hardware exists yet.** The adapter is *chosen* (OBDLink EX over wired USB,
+   ADR-0007) but not bought. Everything runs on the synthetic vehicle (ADR-0005). Do not
+   write code that assumes a truck is attached, and do not defer work waiting for hardware.
 2. **The Surface is a personal device.** No kiosk mode, no shell replacement, no services,
-   no drivers, no registry writes. Self-contained folder deploy, settings in
-   `%LOCALAPPDATA%`. This rules out solutions that would otherwise be obvious.
+   no registry writes. Self-contained folder deploy, settings in `%LOCALAPPDATA%`. One
+   Microsoft-signed FTDI USB serial driver is the single accepted exception (ADR-0007).
+   This rules out solutions that would otherwise be obvious.
 3. **Components never touch CAN.** They subscribe to named signals. If a component needs
    a PID, the signal catalog is missing a definition — fix it there, in config.
 4. **Nothing polls the adapter directly.** Components *declare* signals; the Request
-   Arbiter builds one plan. The adapter sustains only ~10–20 requests/second in total
-   (ADR-0004). This is the constraint most likely to be forgotten.
+   Arbiter builds one plan (ADR-0004). The old "~10–20 requests/second" figure was a
+   *Bluetooth* limit and no longer applies now the link is USB — but **the real ceiling is
+   unmeasured**, so do not assume headroom. The simulator keeps the conservative number
+   until P1.5 measures a real one (Q12).
+   Signals also declare a bus (`hs` / `ms`) and the arbiter interleaves across both.
 5. **Read-only until Phase 3.** No writes to the vehicle. When they arrive they pass the
    five gates in ADR-0006 — all five, or it does not ship.
 6. **The truck must work without us** (ADR-0006). SYNC 3 stays. Nothing here may degrade

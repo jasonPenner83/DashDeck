@@ -6,11 +6,13 @@ Live list. Resolved items move to an ADR in [`decisions/`](decisions/).
 
 | # | Question | Notes |
 |---|----------|-------|
-| Q1 | Buy the OBDLink MX+, or the wired EX? | Recommendation and reasoning in [`02-hardware.md`](02-hardware.md). MX+ unless you commit to the dock. Not urgent — P0 and P1 need no hardware. |
-| Q2 | Is the Surface dock scenario real enough to build `UsbSerialTransport` early? | If it is a maybe, we build Bluetooth first and leave the interface in place. |
+| ~~Q1~~ | ~~Bluetooth MX+ or wired EX?~~ | **Resolved 2026-09-01 → ADR-0007.** Wired USB, OBDLink EX. Electronic bus switching was the deciding property. |
+| ~~Q2~~ | ~~Is the dock scenario real enough to build `UsbSerialTransport` early?~~ | **Resolved by Q1.** The EX is USB-A and the SP9 has none, so the dock or a USB-C adapter is now on the critical path. `UsbSerialTransport` is the primary transport and gets built first; Bluetooth may never be built at all. |
+| Q11 | Dock, or a bare USB-C adapter? | Only matters for how the tablet is powered and seated in the truck. Software is identical either way. |
 | Q3 | Mount hardware and power in the cab. | Affects nothing in software, but decides portrait geometry and whether the tablet charges while docked. |
 | Q4 | Does this truck support the fuel-rate PID (0x5E)? | Unanswerable until an adapter exists. MAF fallback plus tank calibration is designed to cover either answer (risk R5). |
 | Q5 | How much does the Gateway Module filter at the OBD-II port? | Measured on first bring-up. Determines whether MS-CAN signals are reachable without a behind-dash tap (risk R4). |
+| Q12 | What is the *real* sustained request ceiling over USB? | Unknown and deliberately unguessed until measured in P1.5. It decides whether live gauges are viable, so it is the first measurement taken once the adapter arrives. |
 
 ## Product questions for you
 

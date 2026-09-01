@@ -1,8 +1,8 @@
 # DashDeck — Hardware
 
-> **Nothing has been purchased yet.** This document is research and a recommendation, not
-> a bill of materials. Development proceeds on mock data until an adapter is bought
-> (see outline §5a); this exists so the decision is ready when you want it.
+> **Adapter selected, not yet purchased.** The link is **wired USB** and the adapter is
+> the **OBDLink EX** (ADR-0007). Development still proceeds entirely on mock data until it
+> arrives (see outline §5a).
 
 ## The vehicle: 2019 Ford F-150
 
@@ -27,42 +27,64 @@ How much the GWM filters from the OBD-II port on this specific truck is unknown 
 measured (risk R4). The fallback, if it proves restrictive, is a behind-dash tap directly
 onto the buses — a real wiring job, and explicitly a last resort.
 
-## Recommended adapter: OBDLink MX+
+## Chosen adapter: OBDLink EX (USB)
 
-Given the interview constraints — Bluetooth preferred, possible USB via a Surface dock
-later, Intel SP9, no drivers on a personal device — the **OBDLink MX+** is the pick.
+**Decision made 2026-09-01: wired USB, not Bluetooth** (ADR-0007). The pick is the
+**OBDLink EX**, ~$47–70 USD.
 
-- Built on the **STN2120** interpreter, which is ELM327 command-compatible while adding
-  an extended `ST` command set for filtering and monitor modes.
-- Speaks **both HS-CAN and MS-CAN** with electronic switching, which the pinout table
-  above makes non-negotiable. It is also what makes it the de-facto FORScan adapter for
-  Ford owners.
-- **Bluetooth, and documented on Windows** — it pairs as a serial COM port (PIN `0000`),
-  which is precisely what `BluetoothSerialTransport` needs. No driver install, so
-  constraint C1 holds.
-- Bi-directional, which the Phase 3 action work will eventually need.
+### Why the EX
 
-**Alternative — OBDLink EX (USB).** Cheaper and faster, no pairing to go wrong, but wired
-every single time you get in the truck. Worth considering only if you commit to the dock.
+| Property | Why it matters here |
+|---|---|
+| **Electronic bus switching**, simultaneous HS-CAN + MS-CAN | The decisive property. Cheap adapters use a **physical toggle switch** to change buses. A dash showing engine data *and* tire pressures needs both buses interleaved continuously — no software fixes a switch you have to reach down and flip. OBDLink claims up to 20× the throughput of toggle-switch adapters on this basis. |
+| **STN2230** interpreter | ELM327-compatible plus the extended `ST` command set, which is what `IVehicleAdapter` targets. |
+| Firmware **co-developed with the FORScan project** | The Ford-specific edge cases have been found by someone else already. |
+| FTDI USB bridge | The best-supported virtual COM port path on Windows. |
+| 3-year warranty | |
 
-**What to avoid:** generic ELM327 clones. Most are HS-CAN only, which forfeits everything
-on MS-CAN, and their firmware is unreliable under sustained polling.
+### Runner-up: Vgate vLinker FS
 
-### The constraint to internalise
+Roughly half the price, auto HS/MS-CAN switching, FORScan-recommended — with an asterisk.
+FORScan removed vLinker USB adapters from its recommended list in February 2025 over a
+compatibility problem on newer laptops, and reinstated them on 30 May 2025 after a
+verified fix. A reasonable choice if budget outweighs wanting the fewest unknowns.
 
-An ELM/STN adapter is a **text-protocol device**, not a raw CAN interface. Every request
-is an ASCII command and every response an ASCII string, over a Bluetooth serial link.
-Sustained throughput is on the order of **10–20 requests per second in total** — shared
-across every component in the app.
+### The trap: OBDLink SX
 
-That is entirely adequate for the trip computer, which needs a handful of signals at
-1–4 Hz. It is nowhere near enough for smooth 30 Hz gauges. This single fact is why the
-Request Arbiter exists (architecture §4), and why the synthetic vehicle deliberately
-simulates the same ceiling: components built on mock data must hit the same wall they
-will hit in the truck.
+Same brand, similar name, similar price, and **HS-CAN only**. It cannot see MS-CAN at
+all — precisely the half of the feature set the adapter is being bought for. This mistake
+is made constantly. Do not buy the SX.
 
-The escape hatch, if raw bus access is ever needed, is a proper CAN interface behind the
-same `IVehicleAdapter` contract. Nothing above the adapter layer would change.
+### Consequences for DashDeck
+
+**Two buses, one adapter, one plan.** Every signal definition in the catalog declares its
+bus (`hs` or `ms`). The request arbiter must interleave across both, and
+`AdapterCapabilities` reports whether simultaneous access is available. An adapter without
+electronic switching would make a large part of the signal catalog permanently
+unreachable, which is why this is a hardware requirement and not a preference.
+
+**The throughput ceiling is no longer a Bluetooth serial limit.** The ~10–20 requests per
+second figure that motivated the arbiter (ADR-0004) is what an ELM-class adapter sustains
+over *Bluetooth SPP*. USB removes that bottleneck; the ceiling becomes the STN chip and
+the bus itself. **No number is claimed here until it is measured on the truck during
+P1.5** — the simulator keeps the conservative Bluetooth-era ceiling until then, because a
+simulator that is too generous is worse than one that is too harsh. The practical effect
+is that live gauges move from "probably not viable" to "measure it and decide." The
+arbiter remains necessary regardless: it is what lets components share whatever the real
+ceiling turns out to be.
+
+**One driver, and constraint C1 softens slightly.** The EX requires **FTDI VCP drivers**.
+They normally arrive through Windows Update, but OBDLink explicitly says to install them
+before first connect, and a red LED on the adapter means they did not take. This is a
+Microsoft-signed, cleanly uninstallable USB serial driver rather than anything invasive —
+an accepted, deliberate softening of "no drivers on the personal tablet", taken in
+exchange for eliminating the Bluetooth reconnect problem (R3). It is recorded in ADR-0007
+rather than quietly absorbed.
+
+**Physical fit.** The EX terminates in **USB-A**. The Surface Pro 9 has neither USB-A nor
+a spare port to lose, so the link runs through the Surface dock or a USB-C adapter. This
+is what makes the dock scenario real rather than hypothetical, and it resolves Q2 — the
+USB transport is now the primary one and gets built first.
 
 ## The computer: Surface Pro 9 (Intel)
 
@@ -73,7 +95,10 @@ same `IVehicleAdapter` contract. Nothing above the adapter layer would change.
   bitmap assets at fixed sizes.
 - **Two USB-C ports only, no USB-A.** Power should go over Surface Connect so a USB-C
   port stays free — one more argument for Bluetooth as the daily path.
-- Sleep/resume will kill COM ports. The transport layer treats this as routine (risk R3).
+- Sleep/resume can still invalidate a COM port handle, so the transport continues to treat
+  reconnection as routine — but with USB this is a handle to re-acquire rather than a
+  Bluetooth link to re-establish, which is a substantially smaller problem than R3
+  originally described.
 
 ## Open hardware questions
 
@@ -86,7 +111,15 @@ cab, and whether the dock scenario is real enough to build the USB transport ear
 - [FORScan forum — OBD2 connector pins](https://forscan.org/forum/viewtopic.php?f=4&p=8940)
 - [FORScan forum — choosing an ELM327-compatible adapter](https://forscan.org/forum/viewtopic.php?t=6142)
 - [2019 F-150 gateway module and connector detail — JustAnswer](https://www.justanswer.com/ford/c786q-show-pinout-obd2-port-gateway-module.html)
-- [OBDLink MX+ product page](https://www.obdlink.com/products/obdlink-mxp/)
+- [OBDLink EX product page](https://www.obdlink.com/products/obdlink-ex/)
+- [OBDLink EX on scantool.net](https://www.scantool.net/obdlink-ex/)
+- [OBDLink EX support — FTDI driver setup](https://www.obdlink.com/support/ex/)
+- [OBDLink EX Windows quick start guide](https://www.obdlink.com/windows_qsg_ex/)
+- [FORScan forum — OBDLink EX](https://forscan.org/forum/viewtopic.php?t=11845)
+- [FORScan forum — installing USB drivers for OBDLink EX](https://forum.forscan.org/viewtopic.php?t=19001)
+- [Vgate vLinker FS (FORScan HS/MS-CAN auto switch)](https://www.amazon.com/Vgate-vLinker-Adapter-FORScan-MS-CAN/dp/B094Z7PBLS)
+- [Best FORScan adapters, 2026 review — OBDadvisor](https://obdadvisor.com/best-forscan-adapter-review/)
+- [OBDLink MX+ product page (Bluetooth alternative, not chosen)](https://www.obdlink.com/products/obdlink-mxp/)
 - [STN2120 interpreter IC — OBD Solutions](https://www.obdsol.com/solutions/chips/stn2120/)
 - [Get started with your OBDLink adapter on Windows](https://support.obdlink.com/support/solutions/articles/43000727094-get-started-with-your-obdlink-adapter-windows-)
 - [Resolving OBDLink Bluetooth issues on Windows 11](https://support.obdlink.com/support/solutions/articles/43000706058-resolve-bluetooth-connection-issues-on-windows-11)

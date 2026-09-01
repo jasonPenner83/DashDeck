@@ -12,3 +12,4 @@ including the reasoning that later turns out to be wrong.
 | [0004](ADR-0004-request-arbiter.md) | Components declare signals; an arbiter schedules them | Accepted |
 | [0005](ADR-0005-mock-first.md) | Synthetic vehicle is the primary data source until hardware exists | Accepted |
 | [0006](ADR-0006-additive-not-replacement.md) | DashDeck is additive to SYNC 3, and read-only before Phase 3 | Accepted |
+| [0007](ADR-0007-usb-link-and-adapter.md) | Wired USB link, OBDLink EX adapter | Accepted |
