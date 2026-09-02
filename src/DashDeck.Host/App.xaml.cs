@@ -124,6 +124,26 @@ public partial class App : Application
             _shell.IsStagePickerOpen = true;
         }
 
+        // Same again for edit mode, which is otherwise a 600 ms hold on a card.
+        if (e.Args.Contains("--edit"))
+        {
+            _shell.Dashboard.ToggleEditCommand.Execute(null);
+        }
+
+        // --page <n> opens on a later page of cards, so paging can be reviewed in a
+        // screenshot rather than only by swiping.
+        if (ArgValue(e.Args, "--page") is { } page && int.TryParse(page, out var pageIndex))
+        {
+            _shell.Dashboard.GoToPageCommand.Execute(pageIndex);
+        }
+
+        // --edit-card <n> opens the card editor on the nth card. The editor is otherwise
+        // three deliberate gestures deep, which is three too many to reach in a screenshot.
+        if (ArgValue(e.Args, "--edit-card") is { } card && int.TryParse(card, out var cardIndex))
+        {
+            _shell.Dashboard.OpenCardAt(cardIndex);
+        }
+
         var window = new MainWindow { DataContext = _shell };
         MainWindow = window;
         window.Show();
@@ -193,7 +213,8 @@ public partial class App : Application
     /// It has to skip the value that follows a flag. Taking the first argument without a
     /// leading dash looks equivalent and is not — <c>--nav SETTINGS</c> makes SETTINGS the
     /// first such argument, and the shell died on startup with "Unknown drive 'SETTINGS'".
-    /// Every flag here takes a value except <c>--picker</c>, so that is the only exception.
+    /// So the scan has to know which flags take a value, which means <see cref="Switches"/>
+    /// has to be kept honest as flags are added.
     /// </remarks>
     private static string? PositionalArg(string[] args)
     {
@@ -201,8 +222,8 @@ public partial class App : Application
         {
             if (args[i].StartsWith('-'))
             {
-                // Skip its value too, unless it is the one flag that does not take one.
-                if (args[i] is not "--picker")
+                // Skip its value too, unless this flag is a switch and has none.
+                if (!Switches.Contains(args[i]))
                 {
                     i++;
                 }
@@ -215,6 +236,9 @@ public partial class App : Application
 
         return null;
     }
+
+    /// <summary>The flags that take no value. Everything else consumes the argument after it.</summary>
+    private static readonly HashSet<string> Switches = ["--picker", "--edit"];
 
     /// <summary>
     /// Record a fatal error where it can be read later.

@@ -1,0 +1,199 @@
+<UserControl x:Class="DashDeck.Host.Views.CardEditorView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:DashDeck.Host.Converters"
+             Width="912">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <!--
+            One chip. The command lives on the editor rather than on the chip, and the chip
+            carries which setting it belongs to — one command for seven rows of options
+            instead of seven near-identical ones.
+        -->
+        <DataTemplate x:Key="ChipTemplate">
+            <Button Style="{StaticResource OptionChipButton}"
+                    IsEnabled="{Binding IsEnabled}"
+                    Command="{Binding DataContext.ChooseCommand,
+                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    CommandParameter="{Binding}">
+                <TextBlock FontFamily="{StaticResource MonoFont}"
+                           FontSize="15"
+                           Text="{Binding Caption}" />
+            </Button>
+        </DataTemplate>
+
+        <!-- A signal, which needs its id and unit underneath the name to be pickable. -->
+        <DataTemplate x:Key="SignalChipTemplate">
+            <Button Style="{StaticResource OptionChipButton}"
+                    Width="270" Height="62"
+                    Command="{Binding DataContext.ChooseCommand,
+                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    CommandParameter="{Binding}">
+                <StackPanel HorizontalAlignment="Left">
+                    <TextBlock FontFamily="{StaticResource MonoFont}"
+                               FontSize="14"
+                               TextTrimming="CharacterEllipsis"
+                               Text="{Binding Caption}" />
+                    <TextBlock Style="{StaticResource MicroText}"
+                               Margin="0,2,0,0"
+                               TextTrimming="CharacterEllipsis"
+                               Text="{Binding Detail}" />
+                </StackPanel>
+            </Button>
+        </DataTemplate>
+
+        <Style x:Key="ChipRow" TargetType="ItemsControl">
+            <Setter Property="ItemTemplate" Value="{StaticResource ChipTemplate}" />
+            <Setter Property="ItemsPanel">
+                <Setter.Value>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="31,18,31,18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header. DONE and DELETE are far apart on purpose. -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,18">
+            <Button DockPanel.Dock="Right"
+                    Style="{StaticResource StageLauncherButton}"
+                    Margin="10,0,0,0"
+                    Command="{Binding DoneCommand}">
+                <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="15" Text="DONE" />
+            </Button>
+
+            <Button DockPanel.Dock="Right"
+                    Style="{StaticResource StageLauncherButton}"
+                    Command="{Binding RemoveCommand}">
+                <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="15" Text="DELETE" />
+            </Button>
+
+            <TextBlock VerticalAlignment="Center"
+                       FontFamily="{StaticResource UiFont}"
+                       FontSize="26"
+                       Foreground="{DynamicResource TextHighBrush}"
+                       Text="EDIT CARD" />
+        </DockPanel>
+
+        <!--
+            The preview is the real card, live on the real signal. It is kept declared for as
+            long as this screen is open, so choosing a format shows actual readings rather
+            than a placeholder.
+        -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,18">
+            <!--
+                The width comes through the UserControl rather than off this element: a
+                ContentPresenter re-points its own DataContext at its Content, so
+                "{Binding Card.Width}" here resolves against the card, finds no Card, and
+                silently falls back to auto-sizing — which drew a 133-wide preview of a
+                270-wide card.
+            -->
+            <ContentPresenter Content="{Binding Card}"
+                              ContentTemplate="{StaticResource WidgetCardFace}"
+                              Width="{Binding DataContext.Card.Width,
+                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                              Height="155" />
+
+            <StackPanel Margin="20,0,0,0" Width="290" VerticalAlignment="Center">
+                <TextBlock Style="{StaticResource FieldLabel}" Text="LABEL" />
+                <TextBox Style="{StaticResource InputField}"
+                         MaxLength="18"
+                         CharacterCasing="Upper"
+                         Text="{Binding Label, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Style="{StaticResource MicroText}"
+                           Margin="0,8,0,0"
+                           TextWrapping="Wrap"
+                           Text="{Binding LabelPlaceholder, StringFormat=Leave it empty for {0}.}" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- What it shows. -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,10">
+            <TextBlock Style="{StaticResource FieldLabel}" Text="SIGNAL" />
+            <ItemsControl ItemsSource="{Binding Signals}"
+                          ItemTemplate="{StaticResource SignalChipTemplate}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </StackPanel>
+
+        <!-- How it shows it. -->
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Grid.Column="0">
+                <TextBlock Style="{StaticResource FieldLabel}" Text="SIZE" />
+                <ItemsControl ItemsSource="{Binding Widths}" Style="{StaticResource ChipRow}" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="0" Grid.Column="2">
+                <TextBlock Style="{StaticResource FieldLabel}" Text="STYLE" />
+                <ItemsControl ItemsSource="{Binding Styles}" Style="{StaticResource ChipRow}" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="1" Grid.Column="0"
+                        Visibility="{Binding HasUnitChoice, Converter={StaticResource BoolToVis}}">
+                <TextBlock Style="{StaticResource FieldLabel}" Text="UNIT" />
+                <ItemsControl ItemsSource="{Binding Units}" Style="{StaticResource ChipRow}" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="1" Grid.Column="2">
+                <TextBlock Style="{StaticResource FieldLabel}" Text="DECIMALS" />
+                <ItemsControl ItemsSource="{Binding Formats}" Style="{StaticResource ChipRow}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- What it costs. -->
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Style="{StaticResource FieldLabel}" Text="RATE" />
+                <ItemsControl ItemsSource="{Binding Rates}" Style="{StaticResource ChipRow}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Style="{StaticResource FieldLabel}" Text="PRIORITY" />
+                <ItemsControl ItemsSource="{Binding Priorities}" Style="{StaticResource ChipRow}" />
+            </StackPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="5" VerticalAlignment="Bottom">
+            <TextBlock Style="{StaticResource MicroText}"
+                       TextWrapping="Wrap"
+                       Text="{Binding CostNote}" />
+            <TextBlock Style="{StaticResource MicroText}"
+                       Margin="0,6,0,0"
+                       TextWrapping="Wrap"
+                       Text="{Binding StorePath, StringFormat=Saved to {0} — kept across updates.}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

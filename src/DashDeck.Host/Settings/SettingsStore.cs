@@ -1,5 +1,3 @@
-using System.IO;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace DashDeck.Host.Settings;
@@ -31,32 +29,17 @@ public sealed record UserSettings
 /// Loads and saves <see cref="UserSettings"/>.
 /// </summary>
 /// <remarks>
-/// The file lives in <c>%LOCALAPPDATA%\DashDeck\</c>, and where it lives is the whole point.
-/// The application is a self-contained folder that <c>publish.ps1</c> <b>deletes and
-/// rewrites</b> on every build, so anything stored beside the executable would be destroyed
-/// by the next update. <c>%LOCALAPPDATA%</c> is outside that folder: settings survive a
-/// rebuild, an update, and deleting the app entirely.
-/// <para>
-/// That is also constraint C1 working as intended — settings in <c>%LOCALAPPDATA%</c>, never
-/// the registry, and uninstalling is still deleting a folder.
-/// </para>
+/// The file lives in <c>%LOCALAPPDATA%\DashDeck\</c>, and where it lives is the whole point
+/// — see <see cref="JsonFile.InLocalAppData"/>, which is also what guarantees the settings
+/// file and the dashboard file cannot end up in different places.
 /// </remarks>
 public static class SettingsStore
 {
-    private static readonly JsonSerializerOptions Options = new()
-    {
-        WriteIndented = true,
-        PropertyNameCaseInsensitive = true,
-    };
-
     /// <summary>Why the last load or save failed, if it did.</summary>
     public static string? LastError { get; private set; }
 
     /// <summary>Where the settings file is. Shown in the settings screen.</summary>
-    public static string Path => System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "DashDeck",
-        "settings.json");
+    public static string Path => JsonFile.InLocalAppData("settings.json");
 
     /// <summary>
     /// Read what is stored, or the defaults.
@@ -67,35 +50,15 @@ public static class SettingsStore
     /// </remarks>
     public static UserSettings Load()
     {
-        try
-        {
-            if (!File.Exists(Path))
-            {
-                return new UserSettings();
-            }
-
-            return JsonSerializer.Deserialize<UserSettings>(File.ReadAllText(Path), Options)
-                   ?? new UserSettings();
-        }
-        catch (Exception ex)
-        {
-            LastError = $"{ex.GetType().Name}: {ex.Message}";
-            return new UserSettings();
-        }
+        var settings = JsonFile.Load<UserSettings>(Path, out var error);
+        LastError = error;
+        return settings ?? new UserSettings();
     }
 
     /// <summary>Write settings out. Never throws, for the same reason.</summary>
     public static void Save(UserSettings settings)
     {
-        try
-        {
-            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
-            File.WriteAllText(Path, JsonSerializer.Serialize(settings, Options));
-            LastError = null;
-        }
-        catch (Exception ex)
-        {
-            LastError = $"{ex.GetType().Name}: {ex.Message}";
-        }
+        JsonFile.Save(Path, settings, out var error);
+        LastError = error;
     }
 }

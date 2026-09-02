@@ -5,6 +5,7 @@ using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashDeck.Abstractions;
+using DashDeck.Host.Dash;
 using DashDeck.Host.Stage;
 using DashDeck.Host.Theme;
 
@@ -41,6 +42,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(StageBands))]
     [NotifyPropertyChangedFor(nameof(WidgetBands))]
     [NotifyPropertyChangedFor(nameof(IsOccupantVisible))]
+    [NotifyPropertyChangedFor(nameof(IsFullScreenOpen))]
+    [NotifyPropertyChangedFor(nameof(IsDashVisible))]
     private string _activeDestination = "DASH";
 
     [ObservableProperty]
@@ -70,6 +73,17 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         RefreshQuickOptions();
 
+        // The cards come from a file now, not from this constructor. Rates are still declared
+        // honestly — the whole app shares one serialised link, and asking for more than you
+        // need degrades everyone (ADR-0004) — but the honesty is the user's to keep, so the
+        // editor shows what each card costs.
+        //
+        // Built here, and with no band count, for two ordering reasons that both showed up as
+        // a null reference on startup: choosing the opening stage re-syncs the widget bands
+        // and so needs this to exist, and StageBands reads IsCardEditorOpen, which reads this.
+        // It starts on its own default and SyncWidgetBands settles it below.
+        Dashboard = new DashboardViewModel(vehicle.Signals, SignalChoice.From(vehicle.Catalog));
+
         // Start on whatever was asked for at launch, and otherwise on the clock. The stage
         // is never empty now: an idle dash showing the time is more use than one announcing
         // that it has nothing to show.
@@ -84,17 +98,28 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             SetStage(opening);
         }
 
-        // Six widgets across two bands. Rates are declared honestly: the whole app shares
-        // one serialised link, and asking for more than you need degrades everyone (ADR-0004).
-        Widgets =
-        [
-            new SignalWidgetViewModel(vehicle.Signals, "SPEED", "vehicle.speed", SignalPriority.High, 4, "0"),
-            new SignalWidgetViewModel(vehicle.Signals, "RPM", "engine.rpm", SignalPriority.High, 4, "0"),
-            new SignalWidgetViewModel(vehicle.Signals, "COOLANT", "engine.coolantTemp", SignalPriority.Normal, 0.5, "0"),
-            new SignalWidgetViewModel(vehicle.Signals, "FUEL", "fuel.levelPercent", SignalPriority.Low, 0.2, "0"),
-            new SignalWidgetViewModel(vehicle.Signals, "ENGINE LOAD", "engine.load", SignalPriority.Normal, 2, "0"),
-            new SignalWidgetViewModel(vehicle.Signals, "FUEL RATE", "engine.fuelRate", SignalPriority.Normal, 2, "0.0"),
-        ];
+        // Also for the case where nothing opened, so the dash is never packed against the
+        // wrong number of bands.
+        SyncWidgetBands();
+
+        Dashboard.PropertyChanged += (_, e) =>
+        {
+            // The card editor is a full-screen view, so it claims the stage the way Settings
+            // does (Q17). The stage keeps running underneath either way.
+            if (e.PropertyName is nameof(DashboardViewModel.IsCardEditorOpen)
+                or nameof(DashboardViewModel.IsEditing))
+            {
+                OnPropertyChanged(nameof(StageBands));
+                OnPropertyChanged(nameof(WidgetBands));
+                OnPropertyChanged(nameof(IsOccupantVisible));
+                OnPropertyChanged(nameof(IsCardEditorOpen));
+                OnPropertyChanged(nameof(IsDashVisible));
+                OnPropertyChanged(nameof(IsFullScreenOpen));
+                OnPropertyChanged(nameof(IsDashEditing));
+                OnPropertyChanged(nameof(IsNavVisible));
+                SyncWidgetBands();
+            }
+        };
 
         _timer = new DispatcherTimer(DispatcherPriority.Background)
         {
@@ -106,8 +131,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Refresh();
     }
 
-    /// <summary>The widgets filling the bands below the stage.</summary>
-    public IReadOnlyList<SignalWidgetViewModel> Widgets { get; }
+    /// <summary>The arranged cards filling the bands below the stage.</summary>
+    public DashboardViewModel Dashboard { get; }
 
     /// <summary>Appearance and, in time, the rest.</summary>
     public SettingsViewModel Settings { get; }
@@ -207,7 +232,45 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// </para>
     /// </remarks>
     public bool IsOccupantVisible =>
-        StageContent is not null && !IsStagePickerOpen && !IsSettingsActive;
+        StageContent is not null && !IsStagePickerOpen && !IsFullScreenOpen;
+
+    /// <summary>True when a card is open in the editor.</summary>
+    public bool IsCardEditorOpen => Dashboard.IsCardEditorOpen;
+
+    /// <summary>True while the dash is being rearranged.</summary>
+    public bool IsDashEditing => Dashboard.IsEditing;
+
+    /// <summary>
+    /// True when something is covering the stage entirely.
+    /// </summary>
+    /// <remarks>
+    /// Settings was the first of these and is no longer the only one, so the special case it
+    /// used to be has become the general rule Q17 described: a full-screen view takes all six
+    /// bands, the stage keeps running underneath, and the nav stays on top so there is always
+    /// a way back out.
+    /// </remarks>
+    public bool IsFullScreenOpen => IsSettingsActive || IsCardEditorOpen;
+
+    /// <summary>
+    /// Whether the cards are showing.
+    /// </summary>
+    /// <remarks>
+    /// Not the same as being on the DASH destination, which is what it was first bound to —
+    /// the card editor is opened <em>from</em> the dash and so leaves that destination
+    /// active, and the two then rendered into the same region with the cards on top. The
+    /// editor was fully drawn and completely invisible underneath them.
+    /// </remarks>
+    public bool IsDashVisible => IsDashActive && !IsCardEditorOpen;
+
+    /// <summary>
+    /// Whether the destination strip is showing.
+    /// </summary>
+    /// <remarks>
+    /// Replaced by the edit toolbar while the dash is being rearranged. The nav band is the
+    /// only one reachable from the driver's seat, so the controls that are in use belong
+    /// there — and navigating away mid-edit was never going to be useful anyway.
+    /// </remarks>
+    public bool IsNavVisible => !IsDashEditing;
 
     /// <summary>
     /// True when nothing occupies the stage. Rendered as an explicit empty state rather
@@ -228,10 +291,27 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// does not stop while you change the accent colour, and the nav strip is still there to
     /// get back out.
     /// </remarks>
-    public int StageBands => IsSettingsActive ? 0 : _stage?.PreferredBands ?? 4;
+    public int StageBands => IsFullScreenOpen ? 0 : _stage?.PreferredBands ?? 4;
 
     /// <summary>Whatever the stage did not take. Widget rows line up either way.</summary>
     public int WidgetBands => BandGrid.BandCount - StageBands;
+
+    /// <summary>
+    /// Tell the dashboard how much room it has.
+    /// </summary>
+    /// <remarks>
+    /// It re-packs on the way in, so a three-band stage gets three rows of cards rather than
+    /// two and a spare band (F9). Only ever synced while the dash is the visible destination:
+    /// Settings and the card editor both take all six bands, and re-flowing the pages to fit
+    /// a region nobody is looking at would rearrange the dash behind their back.
+    /// </remarks>
+    private void SyncWidgetBands()
+    {
+        if (IsDashActive && !IsCardEditorOpen)
+        {
+            Dashboard.WidgetBands = WidgetBands;
+        }
+    }
 
     /// <summary>
     /// What the stage occupant is actually doing, when it can say.
@@ -287,6 +367,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(StageName));
         OnPropertyChanged(nameof(StageBands));
         OnPropertyChanged(nameof(WidgetBands));
+
+        // A new occupant can claim a different number of bands, which changes how many rows
+        // of cards fit and therefore how they page.
+        SyncWidgetBands();
     }
 
     /// <inheritdoc />
@@ -294,10 +378,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     {
         _timer.Stop();
 
-        foreach (var widget in Widgets)
-        {
-            widget.Dispose();
-        }
+        Dashboard.Dispose();
 
         // The stage is a layer with its own lifecycle (B2) — it outlives navigation, but
         // not the shell.

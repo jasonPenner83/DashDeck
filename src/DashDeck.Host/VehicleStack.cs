@@ -24,11 +24,12 @@ public sealed class VehicleStack : IAsyncDisposable
 {
     private readonly VehicleService _service;
 
-    private VehicleStack(VehicleService service, SyntheticTransport synthetic, string driveName)
+    private VehicleStack(VehicleService service, SyntheticTransport synthetic, string driveName, SignalCatalog catalog)
     {
         _service = service;
         Synthetic = synthetic;
         DriveName = driveName;
+        Catalog = catalog;
     }
 
     /// <summary>Named-signal access. This is all the UI is allowed to know about.</summary>
@@ -36,6 +37,23 @@ public sealed class VehicleStack : IAsyncDisposable
 
     /// <summary>The synthetic truck, for the ground-truth figures the status strip shows.</summary>
     public SyntheticTransport Synthetic { get; }
+
+    /// <summary>
+    /// The loaded catalog, so the card editor can offer what actually exists.
+    /// </summary>
+    /// <remarks>
+    /// Exposed for one purpose: a picker cannot offer signals it cannot enumerate, and
+    /// <see cref="IVehicleSignals.KnownSignals"/> gives ids alone — no name, no unit, no
+    /// sensible default rate, which makes for a list of <c>engine.mafRate</c> rather than
+    /// one a person can read.
+    /// <para>
+    /// The UI still never sees a <c>SignalDefinition</c>. It is projected into
+    /// <see cref="Dash.SignalChoice"/> at the boundary, which deliberately drops mode, PID,
+    /// bus and the decode spec — components subscribe to named signals and know nothing
+    /// about PIDs, and an editor that picks signals is held to the same line.
+    /// </para>
+    /// </remarks>
+    public SignalCatalog Catalog { get; }
 
     /// <summary>Which scripted drive is running.</summary>
     public string DriveName { get; }
@@ -72,7 +90,7 @@ public sealed class VehicleStack : IAsyncDisposable
         };
 
         await service.StartAsync(cancellationToken);
-        return new VehicleStack(service, synthetic, drive.Name);
+        return new VehicleStack(service, synthetic, drive.Name, catalog);
     }
 
     /// <inheritdoc />

@@ -1,0 +1,182 @@
+<UserControl x:Class="DashDeck.Host.Views.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:DashDeck.Host.Converters"
+             xmlns:dash="clr-namespace:DashDeck.Host.Dash"
+             xmlns:vm="clr-namespace:DashDeck.Host.ViewModels"
+             Width="912">
+
+    <UserControl.Resources>
+        <conv:EqualityConverter x:Key="Equality" />
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <!--
+            A card. One band tall; one or two columns wide, which the packer decided and the
+            slot carries. Everything that changes in edit mode is an overlay on top of the
+            same card rather than a second template: what you are rearranging has to look
+            like what you will be reading.
+        -->
+        <DataTemplate DataType="{x:Type vm:WidgetCardViewModel}">
+            <Grid Width="{Binding Width}" Height="155">
+                <ContentPresenter Content="{Binding}"
+                                  ContentTemplate="{StaticResource WidgetCardFace}" />
+
+                <!-- Edit affordances. Hit targets are deliberately larger than they look. -->
+                <Grid Visibility="{Binding DataContext.IsEditing,
+                                           RelativeSource={RelativeSource AncestorType=UserControl},
+                                           Converter={StaticResource BoolToVis}}">
+
+                    <!--
+                        A scrim over the card face. Two jobs: it makes edit mode
+                        unmistakable at a glance, and it settles the collision between the
+                        reorder chevrons and the card's own footer line — the controls have
+                        to sit on the card because the gutters are 20 pixels wide, so the
+                        card underneath them is dimmed instead of being fought with.
+                    -->
+                    <Border Background="#B0000000" CornerRadius="18" IsHitTestVisible="False" />
+
+                    <!-- The whole card opens its editor. -->
+                    <Button Style="{StaticResource CardSurfaceButton}"
+                            Command="{Binding DataContext.OpenEditorCommand,
+                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{Binding}" />
+
+                    <Button Style="{StaticResource CardBadgeButton}"
+                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Margin="0,-10,-10,0"
+                            Content="✕"
+                            Command="{Binding DataContext.RemoveCardCommand,
+                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{Binding}" />
+
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                Margin="-10,0,0,-10">
+                        <Button Style="{StaticResource CardBadgeButton}"
+                                Content="‹"
+                                Command="{Binding DataContext.MoveEarlierCommand,
+                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}" />
+                        <Button Style="{StaticResource CardBadgeButton}"
+                                Margin="8,0,0,0"
+                                Content="›"
+                                Command="{Binding DataContext.MoveLaterCommand,
+                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}" />
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </DataTemplate>
+
+        <!-- The add tile. Flows through the packer, so it sits exactly where the next card will. -->
+        <DataTemplate DataType="{x:Type dash:AddCardSlot}">
+            <Button Width="{Binding Width}" Height="155"
+                    Style="{StaticResource AddCardButton}"
+                    Command="{Binding DataContext.AddCardCommand,
+                                      RelativeSource={RelativeSource AncestorType=UserControl}}" />
+        </DataTemplate>
+
+        <!-- One row of cards. -->
+        <DataTemplate DataType="{x:Type dash:CardRow}">
+            <ItemsControl ItemsSource="{Binding Slots}" Height="155" Margin="0,0,0,20">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemContainerStyle>
+                    <Style TargetType="ContentPresenter">
+                        <Setter Property="Margin" Value="0,0,20,0" />
+                    </Style>
+                </ItemsControl.ItemContainerStyle>
+            </ItemsControl>
+        </DataTemplate>
+
+        <!--
+            One page: a full design width, so the strip slides by exactly 912 per page and
+            nothing has to know about margins to work out where a page starts.
+        -->
+        <DataTemplate DataType="{x:Type dash:CardPage}">
+            <Grid Width="912">
+                <!-- 31 + three 270 columns and their 20 gutters + the last card's trailing
+                     gutter + 11 = 912. The right margin is the odd one out because the
+                     gutter after the final card is carried by the card itself. -->
+                <ItemsControl ItemsSource="{Binding Rows}" Margin="31,20,11,0"
+                              VerticalAlignment="Top" />
+            </Grid>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid x:Name="Root" ClipToBounds="True" Background="Transparent">
+
+        <!--
+            The strip of pages. Slid, not scrolled: see the code-behind.
+
+            It sits in a Canvas, and that is not decoration. A strip of three pages wants
+            2736 pixels and the region is 912, so any normal panel arranges it at 912 and
+            WPF applies a *layout clip* at that width — the pages past the first are laid
+            out, then clipped away before the transform ever moves them, and sliding reveals
+            nothing but canvas. A Canvas gives its children their full desired size instead,
+            and the clipping that is actually wanted happens once, on Root.
+        -->
+        <Canvas>
+            <ItemsControl x:Name="Strip" ItemsSource="{Binding Pages}">
+                <ItemsControl.RenderTransform>
+                    <TranslateTransform x:Name="Slide" />
+                </ItemsControl.RenderTransform>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </Canvas>
+
+        <!-- Nothing left on the dash. Said plainly rather than rendered as a void. -->
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}"
+                    IsHitTestVisible="False">
+            <TextBlock Text="NO CARDS"
+                       HorizontalAlignment="Center"
+                       FontFamily="{StaticResource UiFont}"
+                       FontSize="24"
+                       Foreground="{DynamicResource TextLowBrush}" />
+            <TextBlock Margin="0,10,0,0"
+                       HorizontalAlignment="Center"
+                       Style="{StaticResource MicroText}"
+                       Text="hold the dash to edit, then add one" />
+        </StackPanel>
+
+        <!--
+            Page dots, in the bottom gutter. Two rows of cards use 350 of 370 bands, so there
+            are exactly 20 pixels here and the dots are sized for them.
+        -->
+        <ItemsControl ItemsSource="{Binding Pages}"
+                      HorizontalAlignment="Center"
+                      VerticalAlignment="Bottom"
+                      Margin="0,0,0,3"
+                      Visibility="{Binding HasMultiplePages, Converter={StaticResource BoolToVis}}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button Command="{Binding DataContext.GoToPageCommand,
+                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{Binding Index}"
+                            Style="{StaticResource PageDotButton}">
+                        <Button.Tag>
+                            <MultiBinding Converter="{StaticResource Equality}">
+                                <Binding Path="Index" />
+                                <Binding Path="DataContext.PageIndex"
+                                         RelativeSource="{RelativeSource AncestorType=UserControl}" />
+                            </MultiBinding>
+                        </Button.Tag>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
+</UserControl>

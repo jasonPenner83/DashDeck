@@ -20,3 +20,4 @@ including the reasoning that later turns out to be wrong.
 | [0012](ADR-0012-widgets-and-applets.md) | Declarative widgets and sandboxed web applets for third parties (supersedes 0002 in part) | Accepted |
 | [0013](ADR-0013-theming.md) | Bounded theming: day/night, one curated accent, quality colours fixed | Accepted |
 | [0014](ADR-0014-custom-accents.md) | Custom accents, allowed by validation rather than curation (supersedes one clause of 0013); settings persist in `%LOCALAPPDATA%` | Accepted |
+| [0015](ADR-0015-arranged-dashboard.md) | The dash is a user-arranged list of cards, flowed into pages; only the visible page declares signals | Accepted |

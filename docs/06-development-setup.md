@@ -56,15 +56,56 @@ DashDeck.Host.exe --nav SETTINGS           # open on a destination below the sta
 DashDeck.Host.exe --theme NIGHT            # force a palette without waiting for sunset
 DashDeck.Host.exe --accent CYAN            # force an accent — a preset name...
 DashDeck.Host.exe --accent "#26C6DA"       # ...or any colour that passes validation
+DashDeck.Host.exe --edit                   # open with the dash in edit mode
+DashDeck.Host.exe --page 1                 # open on a later page of cards
+DashDeck.Host.exe --edit-card 2            # open the card editor on the third card
 ```
 
 `--theme` and `--accent` **preview without saving** (ADR-0014). Everything chosen in Settings
 is written to `%LOCALAPPDATA%\DashDeck\settings.json` the moment it changes, and a development
 flag that went through the same path would make looking at night mode permanent.
 
-Note that the drive name is positional and everything else takes a value. `--nav SETTINGS`
-once put the shell on the floor with *Unknown drive 'SETTINGS'*, because "the first argument
-without a dash" is a flag's value as often as it is the drive.
+Note that the drive name is positional and everything else takes a value *except* `--picker`
+and `--edit`, which are switches. `--nav SETTINGS` once put the shell on the floor with
+*Unknown drive 'SETTINGS'*, because "the first argument without a dash" is a flag's value as
+often as it is the drive. `App.Switches` is the list that keeps that honest — a new
+valueless flag has to be added to it.
+
+The last three flags are for reviewing states that otherwise need a finger: edit mode is a
+600 ms hold on a card, and the card editor is three gestures deep. Both are worth putting in
+a `--shot`.
+
+### Arranging the dash
+
+The cards are yours to arrange (ADR-0015). Hold any card for a moment to enter edit mode: the
+nav strip becomes a toolbar, each card gains a ✕ and ‹ › to move it, and tapping one opens a
+full-screen editor for its signal, size, style, unit, rate, decimals and priority. Swipe the
+dash sideways for more pages; the dots sit under the cards.
+
+Two things worth knowing:
+
+- **Only the visible page asks the truck for anything.** Cards on other pages withdraw their
+  signal declarations and re-declare on return, because every card is demand on one shared
+  link (ADR-0004). This is why paging is snapped rather than free-scrolling — a page that
+  comes to rest half way leaves "which page am I on" without an answer, and that question is
+  what decides which cards are live.
+- **The `req/s` in the status strip is the adapter's measured *capability*, not the load.**
+  It barely moves when cards are added or suspended, so it is not the way to check any of
+  this. `DashboardViewModelTests` is.
+
+The arrangement lives in `%LOCALAPPDATA%\DashDeck\dashboard.json`, beside `settings.json`, and
+is plain enough to edit or hand to someone else:
+
+```jsonc
+{ "id": "trans", "signal": "engine.coolantTemp", "label": "COOLANT",
+  "priority": "Normal", "rateHz": 0.5, "format": "0",
+  "width": 2, "style": "Bar", "unit": "Fahrenheit" }
+```
+
+Every field has a default and unknown ones are ignored, so a file from an older or newer build
+still loads. A card naming a signal the catalog does not define is **kept and rendered as
+UNAVAIL** rather than dropped — deleting someone's card because a catalog moved is the worst
+possible way to tell them. RESET in the edit toolbar puts the shipped six back.
 
 The stage is chosen at runtime from the **stage chip**, top right of the stage — tap it for
 a grid of app buttons. `--stage` and `--video` just skip the tap at launch.

@@ -1,5 +1,7 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:conv="clr-namespace:DashDeck.Host.Converters"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime">
 
     <!--
         The design system ADR-0001 leaves to us, as named tokens rather than literals.
@@ -146,7 +148,7 @@
         </Setter>
     </Style>
 
-    <!-- A widget: one band tall, one column wide (270 x 165 on the Pro 7). -->
+    <!-- A widget: one band tall, one or two columns wide (270 or 560 on the Pro 7). -->
     <Style x:Key="WidgetCard" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource HairlineBrush}" />
@@ -154,5 +156,267 @@
         <Setter Property="CornerRadius" Value="18" />
         <Setter Property="Padding" Value="18,16,18,16" />
     </Style>
+
+    <!--
+        An invisible button covering a whole card in edit mode. Transparent rather than
+        absent: a null Background is not hit-testable, so the card would look tappable and
+        do nothing.
+    -->
+    <Style x:Key="CardSurfaceButton" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="18"
+                            BorderThickness="2" BorderBrush="Transparent" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        The remove and reorder badges on a card in edit mode. 40 across, which is under the
+        usual touch floor for a target you must not hit by accident and over it for one you
+        are aiming at deliberately — they sit proud of the card corners so the card itself
+        stays the big target.
+    -->
+    <Style x:Key="CardBadgeButton" TargetType="Button">
+        <Setter Property="Width" Value="40" />
+        <Setter Property="Height" Value="40" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="Foreground" Value="{DynamicResource TextHighBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome"
+                            Background="{DynamicResource RaisedBrush}"
+                            BorderBrush="{DynamicResource HairlineStrongBrush}"
+                            BorderThickness="1"
+                            CornerRadius="999">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The add tile. A dashed outline so it reads as a slot rather than as a card. -->
+    <Style x:Key="AddCardButton" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome"
+                            Background="Transparent"
+                            BorderBrush="{DynamicResource HairlineStrongBrush}"
+                            BorderThickness="2"
+                            CornerRadius="18">
+                        <Border.Style>
+                            <Style TargetType="Border" />
+                        </Border.Style>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock x:Name="Plus" Text="+"
+                                       HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource UiFont}"
+                                       FontSize="40"
+                                       Foreground="{DynamicResource TextLowBrush}" />
+                            <TextBlock x:Name="Caption" Text="ADD CARD"
+                                       Margin="0,4,0,0"
+                                       HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource MonoFont}"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextLowBrush}" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            <Setter TargetName="Plus" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                            <Setter TargetName="Caption" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        A page dot. Six pixels of paint inside a 28-wide target, because the visual belongs
+        in a 20-pixel gutter and the finger does not. Tag carries whether it is the current
+        page, from a multi-binding the dot cannot express on its own.
+    -->
+    <Style x:Key="PageDotButton" TargetType="Button">
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="18" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="Transparent">
+                        <Ellipse x:Name="Dot" Width="7" Height="7"
+                                 HorizontalAlignment="Center" VerticalAlignment="Center"
+                                 Fill="{DynamicResource TextFaintBrush}" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <!--
+                            The value has to be a typed Boolean, not the string "True".
+                            Tag is declared as object, so XAML has no target type to convert
+                            against and leaves the literal as a string — which never equals
+                            the boxed bool the multi-binding puts there, and the current page
+                            silently never lit up.
+                        -->
+                        <Trigger Property="Tag">
+                            <Trigger.Value>
+                                <sys:Boolean>True</sys:Boolean>
+                            </Trigger.Value>
+                            <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource AccentBrush}" />
+                            <Setter TargetName="Dot" Property="Width" Value="9" />
+                            <Setter TargetName="Dot" Property="Height" Value="9" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Dot" Property="Fill" Value="{DynamicResource TextMidBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        A chip in the card editor. Chips rather than combo boxes or sliders because every
+        setting here has a small set of sane values and a thumb has to hit one in a truck.
+    -->
+    <Style x:Key="OptionChipButton" TargetType="Button">
+        <Setter Property="Height" Value="56" />
+        <Setter Property="MinWidth" Value="96" />
+        <Setter Property="Margin" Value="0,0,10,10" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Foreground" Value="{DynamicResource TextMidBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome"
+                            Background="Transparent"
+                            BorderBrush="{DynamicResource HairlineStrongBrush}"
+                            BorderThickness="1"
+                            CornerRadius="14"
+                            Padding="16,0,16,0">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource AccentWashBrush}" />
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                        </DataTrigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Chrome" Property="Opacity" Value="0.35" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A heading above a row of chips. -->
+    <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
+        <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+
+    <conv:QualityToBrushConverter x:Key="QualityBrushToken" />
+    <conv:QualityToLabelConverter x:Key="QualityLabelToken" />
+    <conv:QualityToValueBrushConverter x:Key="ValueBrushToken" />
+    <conv:FractionToStarConverter x:Key="BarFillToken" />
+    <conv:FractionToStarConverter x:Key="BarRestToken" Inverse="True" />
+    <BooleanToVisibilityConverter x:Key="BoolToVisToken" />
+    <conv:InverseBoolToVisibilityConverter x:Key="NotBoolToVisToken" />
+
+    <!--
+        The face of a card, without any of the editing chrome.
+        Shared so the preview in the card editor is the same drawing as the dash, rather than
+        a second template that renders subtly differently from the thing being edited.
+    -->
+    <DataTemplate x:Key="WidgetCardFace">
+        <Border Style="{StaticResource WidgetCard}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <DockPanel Grid.Row="0">
+                    <Border DockPanel.Dock="Right"
+                            CornerRadius="999"
+                            Padding="9,4,9,4"
+                            BorderThickness="1"
+                            BorderBrush="{Binding Quality, Converter={StaticResource QualityBrushToken}}">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                     Fill="{Binding Quality, Converter={StaticResource QualityBrushToken}}" />
+                            <TextBlock Margin="6,0,0,0"
+                                       FontFamily="{StaticResource MonoFont}"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"
+                                       Foreground="{Binding Quality, Converter={StaticResource QualityBrushToken}}"
+                                       Text="{Binding Quality, Converter={StaticResource QualityLabelToken}}" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Style="{StaticResource CaptionText}"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               Text="{Binding Label}" />
+                </DockPanel>
+
+                <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                    <TextBlock Style="{StaticResource ValueText}"
+                               Foreground="{Binding Quality, Converter={StaticResource ValueBrushToken}}"
+                               Text="{Binding Text}" />
+                    <TextBlock Style="{StaticResource UnitText}"
+                               Margin="8,0,0,9"
+                               VerticalAlignment="Bottom"
+                               Text="{Binding UnitText}" />
+                </StackPanel>
+
+                <!-- The bar, when the card asked for one and the catalog gave it a range to
+                     be a fraction of. Star columns, so one template serves 270 and 560. -->
+                <Grid Grid.Row="2" Height="6" Margin="0,0,0,8"
+                      Visibility="{Binding IsBar, Converter={StaticResource BoolToVisToken}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="{Binding BarFraction, Converter={StaticResource BarFillToken}}" />
+                        <ColumnDefinition Width="{Binding BarFraction, Converter={StaticResource BarRestToken}}" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" CornerRadius="3"
+                            Background="{Binding Quality, Converter={StaticResource QualityBrushToken}}" />
+                    <Border Grid.Column="1" CornerRadius="3" Margin="3,0,0,0"
+                            Background="{DynamicResource HairlineBrush}" />
+                </Grid>
+
+                <TextBlock Grid.Row="2"
+                           Style="{StaticResource MicroText}"
+                           TextTrimming="CharacterEllipsis"
+                           Visibility="{Binding IsBar, Converter={StaticResource NotBoolToVisToken}}"
+                           Text="{Binding RateText}" />
+            </Grid>
+        </Border>
+    </DataTemplate>
 
 </ResourceDictionary>

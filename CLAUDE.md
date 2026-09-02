@@ -21,20 +21,22 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **79 tests green** — 47 engine, 32 shell.
+(ADR-0010). **110 tests green** — 47 engine, 63 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
 dotnet run --project src/DashDeck.DebugConsole -- cold-start-city --seconds 60
 ```
 
-The shell renders the six-band layout, the status strip and the nav, with six widgets bound
-to live synthetic signals through `ObservableSignal`. The **stage** takes occupants chosen
-from the launcher bar below it: a clock-and-weather face, local video (LibVLC), and web
-applets in WebView2. Settings is the one destination that takes all six bands and hides the
-stage; it carries day/night/auto and the accent (ADR-0013, ADR-0014).
+The shell renders the six-band layout, the status strip and the nav. The **stage** takes
+occupants chosen from the launcher bar below it: a clock-and-weather face, local video
+(LibVLC), and web applets in WebView2. Below it, the **dash is a user-arranged list of cards**
+(ADR-0015) loaded from `dashboard.json` — add, remove, reorder, resize, and pick each card's
+signal, style, unit, rate and format. Cards flow into rows and rows into pages that snap
+sideways; **only the visible page declares signals.** Settings and the card editor are
+full-screen views that take all six bands and hide the stage, which keeps running (Q17).
 
-Three traps already hit and worth not re-learning:
+Five traps already hit and worth not re-learning:
 
 - **`InvariantGlobalization` breaks WPF.** `Directory.Build.props` sets it for the whole
   solution, which is right for the headless engine. WPF's font stack builds a
@@ -49,9 +51,24 @@ Three traps already hit and worth not re-learning:
   instance anyway. Day and night rendered pixel-identical until this was measured.
   WPF's Fluent theme also brings its own `TextBox`/control chrome, so a control needs a
   template, not just a `Background`.
+- **WPF applies a *layout clip* to anything wider than the space it is arranged in.** The
+  paged card strip is 912 × *n* wide inside a 912 region; in any normal panel the pages past
+  the first were laid out and then clipped away *before* the slide transform could move them,
+  so sliding revealed blank canvas. It sits in a `Canvas`, which gives children their full
+  desired size. Clip once, deliberately, at the outer edge.
+- **`<Trigger Property="Tag" Value="True"/>` never fires.** `Tag` is typed `object`, so XAML
+  has no target type to convert against and leaves the literal as the *string* `"True"`,
+  which never equals a boxed `bool`. Use `<Trigger.Value><sys:Boolean>True</sys:Boolean>`.
+  Cost: the current page's dot silently never lit.
 
-**Next: the component host** — discovery, manifest, lifecycle — so the widgets stop being
-built by the shell and start arriving from `plugins/`.
+Also worth knowing: `MeasuredRequestsPerSecond` — the `req/s` on the status strip — is the
+adapter's measured **capability**, not the achieved load. It is not a way to check whether
+something is consuming budget, and reading it as one is an easy mistake to make twice.
+
+**Next: the component host** — discovery, manifest, lifecycle — so cards stop being built by
+the shell and start arriving from `plugins/`. ADR-0015 settled the instance format and the
+activation rule it will have to honour; what is missing is a *source* other than a catalog
+signal.
 
 Adapter chosen but not bought: **OBDLink EX**, wired USB (ADR-0007).
 
@@ -106,9 +123,9 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Fourteen exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Fifteen exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
-additive/read-only posture, the widget/applet split and theming.
+additive/read-only posture, the widget/applet split, theming and the arranged dashboard.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

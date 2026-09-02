@@ -18,56 +18,6 @@
         <conv:QualityToValueBrushConverter x:Key="ValueBrush" />
         <conv:BandsToGridLengthConverter x:Key="Bands" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
-
-        <!-- One widget. 270 x 165 on the Pro 7 — one column wide, one band tall. -->
-        <DataTemplate x:Key="WidgetCardTemplate">
-            <Border Style="{StaticResource WidgetCard}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-
-                    <DockPanel Grid.Row="0">
-                        <Border DockPanel.Dock="Right"
-                                CornerRadius="999"
-                                Padding="9,4,9,4"
-                                BorderThickness="1"
-                                BorderBrush="{Binding Signal.Quality, Converter={StaticResource QualityBrush}}">
-                            <StackPanel Orientation="Horizontal">
-                                <Ellipse Width="7" Height="7" VerticalAlignment="Center"
-                                         Fill="{Binding Signal.Quality, Converter={StaticResource QualityBrush}}" />
-                                <TextBlock Margin="6,0,0,0"
-                                           FontFamily="{StaticResource MonoFont}"
-                                           FontSize="11"
-                                           VerticalAlignment="Center"
-                                           Foreground="{Binding Signal.Quality, Converter={StaticResource QualityBrush}}"
-                                           Text="{Binding Signal.Quality, Converter={StaticResource QualityLabel}}" />
-                            </StackPanel>
-                        </Border>
-
-                        <TextBlock Style="{StaticResource CaptionText}"
-                                   VerticalAlignment="Center"
-                                   Text="{Binding Label}" />
-                    </DockPanel>
-
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Bottom">
-                        <TextBlock Style="{StaticResource ValueText}"
-                                   Foreground="{Binding Signal.Quality, Converter={StaticResource ValueBrush}}"
-                                   Text="{Binding Signal.Text}" />
-                        <TextBlock Style="{StaticResource UnitText}"
-                                   Margin="8,0,0,9"
-                                   VerticalAlignment="Bottom"
-                                   Text="{Binding Signal.Unit}" />
-                    </StackPanel>
-
-                    <TextBlock Grid.Row="2"
-                               Style="{StaticResource MicroText}"
-                               Text="{Binding Signal.EffectiveRateHz, StringFormat={}{0:0.##} Hz allocated}" />
-                </Grid>
-            </Border>
-        </DataTemplate>
     </Window.Resources>
 
     <!--
@@ -294,17 +244,18 @@
                     </Grid>
                 </Border>
 
-                <!--
-                    Widgets: 31 side margin, 20 gutter, three 270-wide columns — and a
-                    gutter below as well as above, so the cards do not sit hard against the
-                    navigation strip. Paying for that bottom gutter is why a widget row is
-                    155 rather than 165: two rows plus three gutters is exactly two bands.
-                -->
                 <!-- Settings takes the whole lower region. The stage keeps running above
                      it, which is the point of the stage being a layer (B2). -->
                 <ContentControl Grid.Row="1"
                                 Visibility="{Binding IsSettingsActive, Converter={StaticResource BoolToVis}}">
                     <views:SettingsView DataContext="{Binding Settings}" />
+                </ContentControl>
+
+                <!-- Editing a card is a full-screen view like any other (Q17): it takes all
+                     six bands and the stage keeps running underneath it. -->
+                <ContentControl Grid.Row="1"
+                                Visibility="{Binding IsCardEditorOpen, Converter={StaticResource BoolToVis}}">
+                    <views:CardEditorView DataContext="{Binding Dashboard.Editor}" />
                 </ContentControl>
 
                 <!-- Drawn in the nav because the nav is the destination list (B3), but
@@ -323,35 +274,24 @@
                                Text="not built yet" />
                 </StackPanel>
 
-                <Grid Grid.Row="1" Margin="31,20,31,20"
-                      Visibility="{Binding IsDashActive, Converter={StaticResource BoolToVis}}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="270" />
-                        <ColumnDefinition Width="20" />
-                        <ColumnDefinition Width="270" />
-                        <ColumnDefinition Width="20" />
-                        <ColumnDefinition Width="270" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="155" />
-                        <RowDefinition Height="20" />
-                        <RowDefinition Height="155" />
-                    </Grid.RowDefinitions>
-
-                    <ContentControl Grid.Row="0" Grid.Column="0" Content="{Binding Widgets[0]}" ContentTemplate="{StaticResource WidgetCardTemplate}" />
-                    <ContentControl Grid.Row="0" Grid.Column="2" Content="{Binding Widgets[1]}" ContentTemplate="{StaticResource WidgetCardTemplate}" />
-                    <ContentControl Grid.Row="0" Grid.Column="4" Content="{Binding Widgets[2]}" ContentTemplate="{StaticResource WidgetCardTemplate}" />
-                    <ContentControl Grid.Row="2" Grid.Column="0" Content="{Binding Widgets[3]}" ContentTemplate="{StaticResource WidgetCardTemplate}" />
-                    <ContentControl Grid.Row="2" Grid.Column="2" Content="{Binding Widgets[4]}" ContentTemplate="{StaticResource WidgetCardTemplate}" />
-                    <ContentControl Grid.Row="2" Grid.Column="4" Content="{Binding Widgets[5]}" ContentTemplate="{StaticResource WidgetCardTemplate}" />
-                </Grid>
+                <!--
+                    The cards. Side margins, gutters and page geometry all live inside the
+                    view now, because a page has to be exactly one design width for the
+                    strip to slide by one page — see DashboardView.
+                -->
+                <views:DashboardView Grid.Row="1"
+                                     DataContext="{Binding Dashboard}"
+                                     Visibility="{Binding DataContext.IsDashVisible,
+                                                          RelativeSource={RelativeSource AncestorType=Window},
+                                                          Converter={StaticResource BoolToVis}}" />
             </Grid>
 
             <!-- Navigation. Switches only what sits below the stage (B2/B3): the
                  stage keeps running, so choosing Settings does not stop the music. -->
             <Border Grid.Row="2"
                     BorderBrush="{DynamicResource HairlineBrush}"
-                    BorderThickness="0,1,0,0">
+                    BorderThickness="0,1,0,0"
+                    Visibility="{Binding IsNavVisible, Converter={StaticResource BoolToVis}}">
                 <UniformGrid Columns="4">
 
                     <Button Command="{Binding NavigateCommand}" CommandParameter="DASH" Cursor="Hand">
@@ -459,6 +399,51 @@
                     </Button>
 
                 </UniformGrid>
+            </Border>
+
+            <!--
+                The edit toolbar takes the nav band while the dash is being rearranged.
+                It replaces the destinations rather than sitting somewhere else, for two
+                reasons: this is the only band reachable from the driver's seat, so the
+                controls in use belong here — and navigating away mid-edit was never going
+                to be useful. The dash region above stays pixel-identical, so what you are
+                arranging is exactly what you will be reading.
+            -->
+            <Border Grid.Row="2"
+                    BorderBrush="{DynamicResource HairlineBrush}"
+                    BorderThickness="0,1,0,0"
+                    Visibility="{Binding IsDashEditing, Converter={StaticResource BoolToVis}}">
+                <Grid Margin="31,0,31,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Style="{StaticResource StageLauncherButton}"
+                                Command="{Binding Dashboard.AddCardCommand}">
+                            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="15" Text="+ ADD CARD" />
+                        </Button>
+
+                        <Button Style="{StaticResource StageLauncherButton}"
+                                Command="{Binding Dashboard.ResetToDefaultsCommand}">
+                            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="15" Text="RESET" />
+                        </Button>
+                    </StackPanel>
+
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                IsHitTestVisible="False">
+                        <TextBlock HorizontalAlignment="Center"
+                                   Style="{StaticResource CaptionText}"
+                                   Text="EDITING THE DASH" />
+                        <TextBlock HorizontalAlignment="Center"
+                                   Margin="0,4,0,0"
+                                   Style="{StaticResource MicroText}"
+                                   Text="tap a card to change it · ‹ › to move it · ✕ to remove it" />
+                    </StackPanel>
+
+                    <Button Style="{StaticResource StageLauncherButton}"
+                            HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Margin="10,0,0,0"
+                            Command="{Binding Dashboard.ToggleEditCommand}">
+                        <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="15" Text="DONE" />
+                    </Button>
+                </Grid>
             </Border>
 
         </Grid>
