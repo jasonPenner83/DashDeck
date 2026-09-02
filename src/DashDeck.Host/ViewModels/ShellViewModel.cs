@@ -52,17 +52,18 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _vehicle = vehicle;
         _clock = clock;
 
-        StageOptions = [.. StageOption.All(videoPath).Select(o => new StageOptionViewModel(o))];
+        StageOptions = [.. StageOption.All(videoPath, clock).Select(o => new StageOptionViewModel(o))];
 
         RefreshQuickOptions();
 
-        // Start on whatever was asked for at launch. With nothing asked for that is an
-        // empty stage, which is a real state rather than a failure to load something.
+        // Start on whatever was asked for at launch, and otherwise on the clock. The stage
+        // is never empty now: an idle dash showing the time is more use than one announcing
+        // that it has nothing to show.
         var opening = startOn is not null
             ? StageOptions.FirstOrDefault(o => string.Equals(o.Name, startOn, StringComparison.OrdinalIgnoreCase))
             : videoPath is not null
                 ? StageOptions.First(o => o.Name == "VIDEO")
-                : null;
+                : StageOptions.First(o => o.Name == "CLOCK");
 
         if (opening is not null)
         {

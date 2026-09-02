@@ -5,8 +5,13 @@ namespace DashDeck.Host;
 /// </summary>
 /// <remarks>
 /// Derived for the Surface Pro 7's 912 × 1368 portrait screen, and it divides exactly:
-/// 90 status strip + six 185 bands + 168 navigation = 1368. A band is a 165 widget row plus
-/// a 20 gutter, which is why a band and a widget row are the same thing.
+/// 90 status strip + six 185 bands + 168 navigation = 1368.
+/// <para>
+/// Within a band region, widget rows are <b>155</b> with a <b>20</b> gutter above, between
+/// and below — so <i>n</i> rows and <i>n</i>+1 gutters fill <i>n</i> bands exactly
+/// (2 × 155 + 3 × 20 = 370 = two bands). The bottom gutter is the point: without it the
+/// cards sit hard against the navigation strip.
+/// </para>
 /// <para>
 /// These are the numbers the design system is drawn against. If the tablet ever changes,
 /// this is the file to re-derive — not a dozen literals scattered through XAML.

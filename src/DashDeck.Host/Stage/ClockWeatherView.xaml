@@ -1,0 +1,108 @@
+<UserControl x:Class="DashDeck.Host.Stage.ClockWeatherView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource CanvasBrush}">
+
+    <Grid Margin="40,0,40,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Time on the left, conditions on the right. The clock is the biggest thing on
+             the dash because it is the thing most often glanced at. -->
+        <Grid Grid.Row="0" VerticalAlignment="Center">
+            <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
+                <TextBlock Text="{Binding TimeText}"
+                           FontFamily="{StaticResource UiFont}"
+                           FontSize="150"
+                           FontWeight="Bold"
+                           Foreground="{StaticResource TextHighBrush}"
+                           LineHeight="150"
+                           LineStackingStrategy="BlockLineHeight" />
+                <TextBlock Text="{Binding DateText}"
+                           Margin="6,10,0,0"
+                           FontFamily="{StaticResource UiFont}"
+                           FontSize="22"
+                           Foreground="{StaticResource TextMidBrush}" />
+            </StackPanel>
+
+            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
+                <!-- One TextBlock with two runs, not two blocks side by side: runs share a
+                     baseline, so the degree sign sits against the digits instead of
+                     floating above them. -->
+                <TextBlock HorizontalAlignment="Right"
+                           FontFamily="{StaticResource UiFont}"
+                           Foreground="{StaticResource TextHighBrush}">
+                    <Run Text="{Binding TemperatureText, Mode=OneWay}"
+                         FontSize="86"
+                         FontWeight="Bold" />
+                    <Run Text="°"
+                         FontSize="46"
+                         Foreground="{StaticResource TextMidBrush}" />
+                </TextBlock>
+
+                <TextBlock Text="{Binding ConditionText}"
+                           HorizontalAlignment="Right"
+                           FontFamily="{StaticResource UiFont}"
+                           FontSize="24"
+                           Foreground="{StaticResource TextMidBrush}" />
+
+                <TextBlock Text="{Binding FeelsLikeText}"
+                           HorizontalAlignment="Right"
+                           Margin="0,6,0,0"
+                           Style="{StaticResource CaptionText}" />
+
+                <!-- Weather says how much it can be trusted, like every other number here. -->
+                <TextBlock Text="{Binding WeatherStatus}"
+                           HorizontalAlignment="Right"
+                           Margin="0,10,0,0"
+                           Style="{StaticResource MicroText}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- The forecast. Words rather than glyphs, to match the rest of the dash. -->
+        <ItemsControl Grid.Row="1"
+                      Margin="0,0,0,36"
+                      ItemsSource="{Binding Forecast}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <UniformGrid Rows="1" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Background="{StaticResource SurfaceBrush}"
+                            BorderBrush="{StaticResource HairlineBrush}"
+                            BorderThickness="1"
+                            CornerRadius="16"
+                            Margin="0,0,16,0"
+                            Padding="20,16,20,16">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Day}" Style="{StaticResource CaptionText}" />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <TextBlock Text="{Binding High}"
+                                           FontFamily="{StaticResource UiFont}"
+                                           FontSize="34"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextHighBrush}" />
+                                <TextBlock Text="{Binding Low}"
+                                           Margin="12,0,0,4"
+                                           VerticalAlignment="Bottom"
+                                           FontFamily="{StaticResource UiFont}"
+                                           FontSize="22"
+                                           Foreground="{StaticResource TextLowBrush}" />
+                            </StackPanel>
+
+                            <TextBlock Text="{Binding Condition}"
+                                       Margin="0,8,0,0"
+                                       TextTrimming="CharacterEllipsis"
+                                       Style="{StaticResource CaptionText}" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
+</UserControl>

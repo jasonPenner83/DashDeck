@@ -1,3 +1,4 @@
+using DashDeck.Abstractions;
 using Microsoft.Win32;
 
 namespace DashDeck.Host.Stage;
@@ -22,20 +23,20 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
     /// <summary>False for the placeholders — listed, but not choosable.</summary>
     public bool IsAvailable => Create is not null;
 
-    /// <summary>Clearing the stage. Always available; the empty stage is a real state.</summary>
-    public static StageOption Nothing { get; } =
-        new("NOTHING", "Give the bands back to the widgets", () => null);
-
     /// <summary>
-    /// Build the list the picker shows.
+    /// Build the list the launcher shows.
     /// </summary>
     /// <param name="videoPath">
     /// A file from <c>--video</c>, if one was given. Without it the video option still
     /// works — it just asks which file when chosen.
     /// </param>
-    public static IReadOnlyList<StageOption> All(string? videoPath) =>
+    /// <param name="clock">Injected, because nothing here reads the wall clock directly.</param>
+    public static IReadOnlyList<StageOption> All(string? videoPath, IClock clock) =>
     [
-        Nothing,
+        // The idle stage, and the default. There is no "nothing" option any more: an empty
+        // stage announcing its own emptiness was honest but useless, and a clock is the
+        // thing most often glanced at anyway.
+        new StageOption("CLOCK", "Time and weather", () => new ClockWeatherStageOccupant(clock)),
 
         new StageOption(
             "VIDEO",
