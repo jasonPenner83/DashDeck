@@ -149,7 +149,7 @@ public sealed class SensorTests
     {
         var bus = new FakeBus(("vehicle.lateralAccel", 0.42, SignalQuality.Live));
         using var service = new SensorService(
-            CatalogOf(Lateral), bus, Clock, new FakeDevice(0.99), Level());
+            CatalogOf(Lateral), bus, Clock, new FakeDevice(0.99), new MemoryStore(Level()));
 
         var reading = service.Read("motion.lateralG");
 
@@ -164,7 +164,7 @@ public sealed class SensorTests
         // is found. The arbiter throws on an unknown id, so this also proves it is not asked.
         var bus = new FakeBus();
         using var service = new SensorService(
-            CatalogOf(Lateral), bus, Clock, new FakeDevice(0.99), Level());
+            CatalogOf(Lateral), bus, Clock, new FakeDevice(0.99), new MemoryStore(Level()));
 
         var reading = service.Read("motion.lateralG");
 
@@ -180,7 +180,7 @@ public sealed class SensorTests
     {
         var bus = new FakeBus(("vehicle.lateralAccel", 0.42, SignalQuality.Stale));
         using var service = new SensorService(
-            CatalogOf(Lateral), bus, Clock, new FakeDevice(0.99), Level());
+            CatalogOf(Lateral), bus, Clock, new FakeDevice(0.99), new MemoryStore(Level()));
 
         Assert.Equal("TABLET", service.Read("motion.lateralG").Source);
 
@@ -191,7 +191,8 @@ public sealed class SensorTests
     [Fact]
     public void An_unknown_sensor_id_says_so_rather_than_throwing()
     {
-        using var service = new SensorService(CatalogOf(Lateral), new FakeBus(), Clock, new FakeDevice(0));
+        using var service = new SensorService(
+            CatalogOf(Lateral), new FakeBus(), Clock, new FakeDevice(0), new MemoryStore(Level()));
 
         var reading = service.Read("motion.somethingElse");
 
@@ -202,13 +203,21 @@ public sealed class SensorTests
     [Fact]
     public void Levelling_captures_a_reference_and_makes_readings_possible()
     {
-        var device = new FakeDevice(0.5);
-        using var service = new SensorService(CatalogOf(Lateral), new FakeBus(), Clock, device);
+        var store = new MemoryStore(new MountReference());
+
+        using var service = new SensorService(
+            CatalogOf(Lateral), new FakeBus(), Clock, new FakeDevice(0.5), store);
 
         Assert.False(service.IsLevelled);
+        Assert.False(service.Read("motion.lateralG").IsUsable);
 
         Assert.True(service.Level());
         Assert.True(service.IsLevelled);
+        Assert.True(service.Read("motion.lateralG").IsUsable);
+
+        // Written out at once, not on exit: a dash is closed by having its power pulled, and
+        // a levelling that survived only a graceful shutdown would be redone every drive.
+        Assert.True(store.Load().IsSet);
     }
 
     // ---- The compass point ----
@@ -238,6 +247,23 @@ public sealed class SensorTests
         Gz = -0.406,
         CapturedUtc = DateTimeOffset.UnixEpoch,
     };
+
+    /// <summary>
+    /// Keeps the reference in memory.
+    /// </summary>
+    /// <remarks>
+    /// Added after a test levelled a fake device and <b>overwrote the real tablet's</b>
+    /// mount.json, then failed on the next machine that had been levelled. A test that reads
+    /// the user's state is flaky; one that writes it is worse.
+    /// </remarks>
+    private sealed class MemoryStore(MountReference initial) : IMountReferenceStore
+    {
+        private MountReference _reference = initial;
+
+        public MountReference Load() => _reference;
+
+        public void Save(MountReference reference) => _reference = reference;
+    }
 
     private sealed class FakeDevice(double value) : IDeviceSensors
     {

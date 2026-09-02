@@ -41,6 +41,7 @@ public sealed class SensorService : IDisposable
     private readonly IVehicleSignals _signals;
     private readonly IClock _clock;
     private readonly IDeviceSensors _device;
+    private readonly IMountReferenceStore _store;
     private readonly Dictionary<string, ISignalSubscription> _demands = new(StringComparer.Ordinal);
 
     public SensorService(
@@ -48,13 +49,14 @@ public sealed class SensorService : IDisposable
         IVehicleSignals signals,
         IClock clock,
         IDeviceSensors? device = null,
-        MountReference? reference = null)
+        IMountReferenceStore? store = null)
     {
         _catalog = catalog;
         _signals = signals;
         _clock = clock;
         _device = device ?? new DeviceSensors();
-        Reference = reference ?? MountReferenceStore.Load();
+        _store = store ?? new FileMountReferenceStore();
+        Reference = _store.Load();
 
         foreach (var definition in catalog.Definitions)
         {
@@ -125,7 +127,7 @@ public sealed class SensorService : IDisposable
         }
 
         Reference = captured;
-        MountReferenceStore.Save(captured);
+        _store.Save(captured);
         return true;
     }
 

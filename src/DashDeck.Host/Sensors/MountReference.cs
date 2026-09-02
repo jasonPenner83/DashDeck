@@ -123,6 +123,35 @@ public sealed record MountReference
     }
 }
 
+/// <summary>
+/// Where the mount reference is kept.
+/// </summary>
+/// <remarks>
+/// A seam, and it was added the hard way. Without it <see cref="SensorService"/> reached
+/// straight into <c>%LOCALAPPDATA%</c>, so a test that levelled a fake device <b>overwrote the
+/// real tablet's levelling</b> — and a test asserting an unlevelled start failed as soon as the
+/// machine running it had been levelled. Tests that read the user's state are flaky; tests that
+/// write it are worse.
+/// </remarks>
+public interface IMountReferenceStore
+{
+    /// <summary>Read the reference, or an unset one.</summary>
+    MountReference Load();
+
+    /// <summary>Write it out. Must never throw.</summary>
+    void Save(MountReference reference);
+}
+
+/// <summary>The real one: a JSON file beside the settings and the dashboard.</summary>
+public sealed class FileMountReferenceStore : IMountReferenceStore
+{
+    /// <inheritdoc />
+    public MountReference Load() => MountReferenceStore.Load();
+
+    /// <inheritdoc />
+    public void Save(MountReference reference) => MountReferenceStore.Save(reference);
+}
+
 /// <summary>Loads and saves the mount reference. Same folder, same promises, as everything else.</summary>
 public static class MountReferenceStore
 {
