@@ -49,8 +49,39 @@ public partial class App : Application
 
         _shell = new ShellViewModel(_vehicle, SystemClock.Instance);
 
-        MainWindow = new MainWindow { DataContext = _shell };
-        MainWindow.Show();
+        var window = new MainWindow { DataContext = _shell };
+        MainWindow = window;
+        window.Show();
+
+        // Development affordance: --shot <path> renders the layout to a PNG once the drive
+        // has produced some data, then exits. Lets the shell be reviewed without a screen
+        // grab, which on a 200%-scaled tablet is more trouble than it sounds.
+        if (ArgValue(e.Args, "--shot") is { } shotPath)
+        {
+            var after = ArgValue(e.Args, "--shot-after") is { } s
+                ? double.Parse(s, System.Globalization.CultureInfo.InvariantCulture)
+                : 20;
+
+            var timer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(after),
+            };
+
+            timer.Tick += (_, _) =>
+            {
+                timer.Stop();
+                window.SaveDesignSurface(shotPath);
+                Shutdown();
+            };
+
+            timer.Start();
+        }
+    }
+
+    private static string? ArgValue(string[] args, string name)
+    {
+        var index = Array.IndexOf(args, name);
+        return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
     }
 
     /// <summary>

@@ -29,6 +29,9 @@
       drawn. Overridden here only, so the engine keeps the property and the shell can render.
     -->
     <InvariantGlobalization>false</InvariantGlobalization>
+
+    <!-- Declares PerMonitorV2 DPI awareness. The tablet runs at 200%; see app.manifest. -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
 </Project>

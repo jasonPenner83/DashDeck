@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 
 namespace DashDeck.Host;
 
@@ -43,6 +45,34 @@ public partial class MainWindow : Window
         Top = area.Top;
         Width = area.Width;
         Height = area.Height;
+    }
+
+    /// <summary>
+    /// Render the design surface to a PNG at its true 912 × 1368, whatever the window size.
+    /// </summary>
+    /// <remarks>
+    /// A development affordance, not a product feature. Screen-grabbing the shell means
+    /// fighting DPI virtualisation and whatever else has focus; rendering the visual tree
+    /// directly gives an exact, repeatable image of the layout at tablet size from any
+    /// machine. Useful for design review, and for noticing when a change moves something
+    /// that was not supposed to move.
+    /// </remarks>
+    public void SaveDesignSurface(string path)
+    {
+        var bitmap = new RenderTargetBitmap(
+            (int)DesignSurface.Width,
+            (int)DesignSurface.Height,
+            96,
+            96,
+            PixelFormats.Pbgra32);
+
+        bitmap.Render(DesignSurface);
+
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+
+        using var stream = System.IO.File.Create(path);
+        encoder.Save(stream);
     }
 
     /// <summary>

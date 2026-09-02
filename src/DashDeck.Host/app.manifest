@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+
+  <!--
+    The Surface Pro 7 runs at 200% scale, so DPI awareness is not optional here.
+    Without this manifest the process is treated as unaware: WPF lays out in what it
+    believes are device-independent pixels while Windows hands it a window measured in
+    physical ones, and the shell renders at roughly twice its intended size, anchored
+    off-screen. Declaring PerMonitorV2 makes the two agree, which is what lets the
+    912 x 1368 design surface land 1:1 on the tablet in portrait.
+  -->
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">permonitorv2,permonitor</dpiAwareness>
+    </windowsSettings>
+  </application>
+
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Windows 10 and 11 -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
+    </application>
+  </compatibility>
+
+</assembly>

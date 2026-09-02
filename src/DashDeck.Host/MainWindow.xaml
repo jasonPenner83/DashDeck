@@ -72,7 +72,7 @@
         convenience rather than the final arrangement.
     -->
     <Viewbox Stretch="Uniform">
-        <Grid Width="912" Height="1368">
+        <Grid x:Name="DesignSurface" Width="912" Height="1368" Background="{StaticResource CanvasBrush}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="90" />
                 <RowDefinition Height="1110" />
