@@ -18,16 +18,16 @@ public sealed class BandGridTests
             + BandGrid.Height(BandGrid.BandCount)
             + BandGrid.NavigationHeight;
 
-        // 90 + 1110 + 168 = 1368. That it divides exactly is the whole reason the layout
+        // 90 + 1170 + 108 = 1368. That it divides exactly is the whole reason the layout
         // was re-derived when the tablet turned out to be a Pro 7 (Q16).
         Assert.Equal(BandGrid.DesignHeight, total);
     }
 
     [Theory]
-    [InlineData(4, 740)]  // a map wants four
-    [InlineData(3, 555)]  // video wants three: 16:9 at 912 wide needs 513, so it fits
-    [InlineData(2, 370)]
-    [InlineData(1, 185)]
+    [InlineData(4, 780)]  // a map wants four
+    [InlineData(3, 585)]  // video and the compass want three: 16:9 at 912 wide needs 513, so it fits
+    [InlineData(2, 390)]
+    [InlineData(1, 195)]
     public void A_stage_of_n_bands_is_n_times_the_band_height(int bands, double expected)
     {
         Assert.Equal(expected, BandGrid.Height(bands));
@@ -51,6 +51,6 @@ public sealed class BandGridTests
 
         var length = (GridLength)converter.Convert(3, typeof(GridLength), null, CultureInfo.InvariantCulture);
 
-        Assert.Equal(555, length.Value);
+        Assert.Equal(585, length.Value);
     }
 }

@@ -153,6 +153,32 @@ public sealed class DashboardViewModelTests
         Assert.Equal(before, bus.TotalDeclarations);
     }
 
+    /// <summary>
+    /// Found by using it: a shipped card labelled RPM was pointed at coolant and kept saying
+    /// RPM above a temperature. A label naming the wrong quantity is worse than one that has
+    /// to be retyped, and an empty label is never nameless — it falls back to the signal.
+    /// </summary>
+    [Fact]
+    public void Changing_a_card_signal_drops_a_label_that_named_the_old_one()
+    {
+        var bus = new FakeBus();
+        var store = new MemoryStore(new DashboardLayout
+        {
+            Cards = [new CardSpec { Id = "a", SignalId = "engine.rpm", Label = "RPM" }],
+        });
+
+        using var dashboard = Build(bus, store);
+        var card = dashboard.Pages[0].Slots.OfType<WidgetCardViewModel>().Single();
+
+        var editor = new CardEditorViewModel(dashboard, card, Choices());
+        editor.ChooseCommand.Execute(
+            editor.Signals.Single(c => (string)c.Value == "engine.coolantTemp"));
+
+        Assert.Equal("engine.coolantTemp", card.Spec.SignalId);
+        Assert.Empty(card.Spec.Label);
+        Assert.DoesNotContain("RPM", card.Label, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Changing_the_rate_does_redeclare_it()
     {

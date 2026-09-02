@@ -6,7 +6,8 @@
       on any OS, which is what let the whole engine be finished before a Windows machine was
       involved (ADR-0010). Windows-only tests live here so that property is never quietly lost.
     -->
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- Matches the Host, which raised its floor for the WinRT sensor projection. -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

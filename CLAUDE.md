@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **110 tests green** — 47 engine, 63 shell.
+(ADR-0010). **125 tests green** — 47 engine, 78 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -29,8 +29,8 @@ dotnet run --project src/DashDeck.DebugConsole -- cold-start-city --seconds 60
 ```
 
 The shell renders the six-band layout, the status strip and the nav. The **stage** takes
-occupants chosen from the launcher bar below it: a clock-and-weather face, local video
-(LibVLC), and web applets in WebView2. Below it, the **dash is a user-arranged list of cards**
+occupants chosen from the launcher bar below it: a clock-and-weather face, a **compass**,
+local video (LibVLC), and web applets in WebView2. Below it, the **dash is a user-arranged list of cards**
 (ADR-0015) loaded from `dashboard.json` — add, remove, reorder, resize, and pick each card's
 signal, style, unit, rate and format. Cards flow into rows and rows into pages that snap
 sideways; **only the visible page declares signals.** Settings and the card editor are
@@ -83,6 +83,10 @@ Adapter chosen but not bought: **OBDLink EX**, wired USB (ADR-0007).
    This rules out solutions that would otherwise be obvious.
 3. **Components never touch CAN.** They subscribe to named signals. If a component needs
    a PID, the signal catalog is missing a definition — fix it there, in config.
+   **And ask the truck before the tablet** (ADR-0016). Where the vehicle knows something,
+   that is the source; a device sensor is a *declared* fallback whose name is on screen, never
+   a silent stand-in. Never guess a PID to fill the gap — a wrong heading is in range, so the
+   catalog's own `min`/`max` guard cannot catch it.
 4. **Nothing polls the adapter directly.** Components *declare* signals; the Request
    Arbiter builds one plan (ADR-0004). The old "~10–20 requests/second" figure was a
    *Bluetooth* limit and no longer applies now the link is USB — but **the real ceiling is
@@ -123,9 +127,10 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Fifteen exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Sixteen exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
-additive/read-only posture, the widget/applet split, theming and the arranged dashboard.
+additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
+vehicle-first rule for anything the tablet could also guess at.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

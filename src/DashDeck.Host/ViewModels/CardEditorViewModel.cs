@@ -196,7 +196,14 @@ public sealed partial class CardEditorViewModel : ObservableObject
     /// re-derived rather than carried over. Keeping a 4 Hz request when the card is switched
     /// from speed to ambient air temperature would silently spend the budget on a value that
     /// changes once a minute; keeping °F on a value now measured in km/h would just be wrong.
-    /// The label is kept only if it was typed by hand.
+    /// <para>
+    /// <b>The label goes too</b>, and that is worth the annoyance of retyping a good one. It
+    /// was kept at first, on the reasoning that a hand-typed caption is worth preserving —
+    /// which produced a card reading <c>RPM</c> above a coolant temperature within minutes of
+    /// the feature being used. A label that names the wrong quantity is the exact failure this
+    /// project refuses everywhere else, and the card is never left nameless: an empty label
+    /// falls back to the new signal's own name.
+    /// </para>
     /// </remarks>
     private CardSpec RespecForSignal(CardSpec spec, string signalId)
     {
@@ -212,6 +219,7 @@ public sealed partial class CardEditorViewModel : ObservableObject
         return spec with
         {
             SignalId = signalId,
+            Label = string.Empty,
             RateHz = choice.DefaultRateHz,
             Unit = DisplayUnit.Auto.ToString(),
             Style = (keepStyle ? CardStyle.Bar : CardStyle.Number).ToString(),

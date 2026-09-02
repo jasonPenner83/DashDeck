@@ -29,7 +29,15 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!--
+      Windows 10 2004 rather than plain net10.0-windows, purely for one thing: the WinRT
+      projection that reaches the tablet's magnetometer, which is the compass' fallback when
+      the truck cannot supply a heading. The Surface runs Windows 11, so the floor costs
+      nothing here, and it is the Host alone — the engine and its tests still target plain
+      net10.0 and still build anywhere (ADR-0010).
+    -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>

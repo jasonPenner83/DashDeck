@@ -128,6 +128,8 @@ Raised while building the shell. None are blocking; all are real.
 | ~~F9~~ | ~~**The sixth band is empty when the stage takes three.**~~ | **Resolved 2026-09-02 → [ADR-0015](decisions/ADR-0015-arranged-dashboard.md).** The rows grow. `BandGrid.RowsIn` fixes the row height and lets the leftover fall into the bottom gutter, so a three-band stage gets three rows rather than two and a spare band. This also corrected the band grid's documented claim that *n* rows and *n*+1 gutters fill *n* bands exactly — true at two, and only at two. |
 | F13 | **Eleven signals is not much of a dash to arrange.** | Paging works and holds as many cards as you like; the catalog defines eleven values and six were already on screen. Nothing here is fixable in the UI — it wants Ford PIDs discovered against the real truck (R2) or non-vehicle sources (B4). Worth stating plainly so the answer is never "invent some cards". |
 | F14 | **Reordering is chevrons, not dragging.** | ‹ › on each card in edit mode. Dragging is the gesture people expect, but inside a `Viewbox`-scaled touch surface it is fiddly, and it competes directly with the swipe that turns the page. Chevrons also work with gloves on. Revisit once the page-turn gesture has been used on the tablet in the truck. |
+| F16 | **`vehicle.heading` has nothing behind it.** | The compass asks the truck first and always falls back to the tablet, because the catalog has no heading signal and will not until a Ford PID is found (R2, ADR-0016). How badly a magnetometer reads inside a steel cab is unmeasured — first real data comes when the Surface is mounted. If the PID never materialises, the fallback is permanent and the constant is a visible dead end. |
+| F17 | **Stage occupants can spend request budget with no suspension rule.** | The compass is the first occupant to declare signals, and it declares for as long as it is on the stage. Cards on an unseen page withdraw (ADR-0015); an occupant hidden behind Settings or a full-screen view does not. Same question as F15, one layer up, and it will matter more as occupants get hungrier. |
 | F15 | **Navigating away does not suspend the cards.** | Off-*page* cards withdraw their signal declarations (ADR-0015); cards on the visible page keep theirs while you are in Settings or an applet, where nobody can see them. Suspending on navigation too would reclaim more budget, at the cost of every card showing a placeholder for a second or two on the way back. Which of those is worse is a question, not an oversight. |
 | F6 | **A test passed while its bug was present.** | The throughput assertion used `SyntheticFaults.Perfect`, whose zero latency made the measured rate absurd before the cable was even pulled. Worth a sweep for other tests that assert against the perfect fault profile where a realistic one is the point. |
 
@@ -141,7 +143,7 @@ Direction settled, no ADR yet — these get one in the change that implements th
 | B2 | **Six-band layout with a persistent stage.** | Home is six horizontal bands between the status strip and the nav. One band = one widget row. The **stage is a layer, not a screen**: it claims the top *n* bands and keeps running while navigation switches only the region *below* it. Settings is the one destination that takes all six and hides the stage. Replaces the 2-column tile grid. Needs an ADR once the contract for claiming bands — and the stage's separate lifecycle — is settled, and once Q17 is answered. Geometry below. |
 | B4 | **Widgets beyond vehicle signals.** | ADR-0012 fixes widgets to named catalog signals for now. Weather, system state and Home Assistant are the obvious next sources, and the clock face already bypasses `IVehicleSignals` entirely to fetch its own — which is the shape of the problem. Needs a provider abstraction broader than the signal bus before it is worth attempting. **More pressing since ADR-0015**: the dash can now hold as many cards as you like and the catalog has eleven things to put on them (F13). |
 | B5 | **The applet vehicle-data bridge.** | ADR-0012 anticipates it — a compass or gauge applet needs signals — and fixes three rules: declared, read-only forever, and visible to the user. Undesigned beyond that. The moment it exists, an applet's sandbox stops being the whole security story, so it is worth building deliberately rather than on demand. |
-| B3 | **Nav is the destination list for the region below the stage.** | It grows as cards are added rather than being a fixed set. Four fit comfortably at 228 wide; beyond about five the strip needs to scroll or paginate, which is undecided and becomes urgent as soon as a second card lands. |
+| B3 | **Nav is the destination list for the region below the stage.** | It grows as cards are added rather than being a fixed set. **Eased 2026-09-02**: the cells were 228 wide and the strip 168 tall, which read as enormous in the truck. At 130 wide and 108 tall it holds **seven**, so the unsolved overflow question starts at about seven destinations rather than about five. Still unsolved — it is deferred, not answered. |
 
 ### B2 geometry — Surface Pro 7, 912 × 1368 portrait
 
@@ -150,17 +152,22 @@ Vertical, and it divides exactly:
 | | |
 |---|---|
 | Status strip | 90 |
-| Six bands @ 185 | 1110 |
-| Navigation | 168 |
+| Six bands @ 195 | 1170 |
+| Navigation | 108 |
 | **Total** | **1368** |
 
-One band is **185** = a **165** widget row plus a **20** gutter. Horizontally: **31** side
+One band is **195** = a **165** widget row plus a **20** gutter — though n rows need 185n + 20,
+which equals 195n only at n = 2, so `BandGrid.RowsIn` is the authority. Horizontally: **31** side
 margin, **20** gutter, **three 270-wide columns** (31 + 270 + 20 + 270 + 20 + 270 + 31 = 912).
 
 Widget sizes: 1×1 is 270 × 165 · 2×1 is 560 × 165 · 3×1 is 850 × 165 · 1×2 is 270 × 350.
-Nav cells are 228 wide. Stage sizes: 4/6 = 740 · 3/6 = 555 · 2/6 = 370 · 1/6 = 185.
+Nav cells are **130** wide, seven across, centred. Stage sizes: 4/6 = 780 · 3/6 = 585 · 2/6 = 390 · 1/6 = 195.
 
-16:9 video at 912 wide needs 513, so it still fits a 3/6 stage with a 42px letterbox —
+**Navigation was 168 and is now 108.** Four buttons at 228 × 168 measured fine on a desk and
+were a target the size of a hand in the truck. The 60 pixels went to the bands, which is why
+a widget row is 165 rather than 155.
+
+16:9 video at 912 wide needs 513, so it still fits a 3/6 stage — now with a 72px letterbox —
 the property that made 3/6 the video size on the Pro 9 survives the change.
 
 > The P0.5 mockups are drawn at the old 960 × 1440 and are **not** yet re-cut to these

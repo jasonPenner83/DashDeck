@@ -31,12 +31,19 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
     /// works — it just asks which file when chosen.
     /// </param>
     /// <param name="clock">Injected, because nothing here reads the wall clock directly.</param>
-    public static IReadOnlyList<StageOption> All(string? videoPath, IClock clock) =>
+    /// <param name="signals">
+    /// Named-signal access, for occupants that want vehicle data. The compass is the first;
+    /// it asks the truck for a heading before it asks the tablet.
+    /// </param>
+    public static IReadOnlyList<StageOption> All(string? videoPath, IClock clock, IVehicleSignals signals) =>
     [
         // The idle stage, and the default. There is no "nothing" option any more: an empty
         // stage announcing its own emptiness was honest but useless, and a clock is the
         // thing most often glanced at anyway.
         new StageOption("CLOCK", "Time and weather", () => new ClockWeatherStageOccupant(clock)),
+
+        // Truck first, tablet second, and it says which — see PreferredHeadingSource.
+        new StageOption("COMPASS", "Heading, speed, outside", () => new CompassStageOccupant(signals)),
 
         new StageOption(
             "VIDEO",

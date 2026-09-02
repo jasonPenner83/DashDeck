@@ -17,7 +17,7 @@
             like what you will be reading.
         -->
         <DataTemplate DataType="{x:Type vm:WidgetCardViewModel}">
-            <Grid Width="{Binding Width}" Height="155">
+            <Grid Width="{Binding Width}" Height="165">
                 <ContentPresenter Content="{Binding}"
                                   ContentTemplate="{StaticResource WidgetCardFace}" />
 
@@ -70,7 +70,7 @@
 
         <!-- The add tile. Flows through the packer, so it sits exactly where the next card will. -->
         <DataTemplate DataType="{x:Type dash:AddCardSlot}">
-            <Button Width="{Binding Width}" Height="155"
+            <Button Width="{Binding Width}" Height="165"
                     Style="{StaticResource AddCardButton}"
                     Command="{Binding DataContext.AddCardCommand,
                                       RelativeSource={RelativeSource AncestorType=UserControl}}" />
@@ -78,7 +78,7 @@
 
         <!-- One row of cards. -->
         <DataTemplate DataType="{x:Type dash:CardRow}">
-            <ItemsControl ItemsSource="{Binding Slots}" Height="155" Margin="0,0,0,20">
+            <ItemsControl ItemsSource="{Binding Slots}" Height="165" Margin="0,0,0,20">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <StackPanel Orientation="Horizontal" />

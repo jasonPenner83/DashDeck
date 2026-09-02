@@ -50,7 +50,7 @@ unused VLC plugins, at the risk of discovering the missing one on a back road.
 DashDeck.Host.exe                          # cold-start-city, empty stage
 DashDeck.Host.exe highway-cruise           # a different scripted drive
 DashDeck.Host.exe --video "D:\clip.mkv"    # video on the stage
-DashDeck.Host.exe --stage MAPS             # open on a named occupant
+DashDeck.Host.exe --stage COMPASS          # open on a named occupant
 DashDeck.Host.exe --picker                 # open on the stage picker
 DashDeck.Host.exe --nav SETTINGS           # open on a destination below the stage
 DashDeck.Host.exe --theme NIGHT            # force a palette without waiting for sunset
@@ -110,6 +110,35 @@ possible way to tell them. RESET in the edit toolbar puts the shipped six back.
 The stage is chosen at runtime from the **stage chip**, top right of the stage — tap it for
 a grid of app buttons. `--stage` and `--video` just skip the tap at launch.
 
+### The compass, and where a heading comes from
+
+`--stage COMPASS` opens it. The bearing, the compass point, and beside them the two numbers
+that belong next to a heading: road speed and outside air temperature, both real catalog
+signals declared through the arbiter like any card.
+
+**It asks the truck first** (ADR-0016). `vehicle.heading` is the signal id, and it is
+deliberately **not in the catalog** — the F-150 has a compass but it lives on a Ford module,
+so reaching it depends on PID discovery against the real vehicle (R2) and on what the Gateway
+Module passes (R4, Q5). Guessing a PID would decode into a confidently wrong bearing, and
+because any heading is between 0 and 360 the catalog's `min`/`max` guard could not catch it.
+
+So today it falls back to the Surface's magnetometer, and the stage says which:
+
+| It says | Meaning |
+|---|---|
+| `TRUCK` | The vehicle supplied it. Does not happen yet. |
+| `TABLET · TRUE` | The tablet's magnetometer, corrected to true north by Windows using a location fix. |
+| `TABLET · MAGNETIC` | The same sensor with no fix, so magnetic north — worth about ten degrees on the prairies. |
+| `NO SENSOR` | No magnetometer on this machine. |
+
+Treat the tablet reading with suspicion in the cab: it is a magnetometer surrounded by steel,
+speakers and a metal mount, and it measures the *tablet's* orientation rather than the
+truck's. Windows' own confidence is rendered as the usual quality badge, and `Approximate` is
+deliberately shown as **Stale** rather than Live.
+
+**When the PID is found, this becomes a JSON edit.** Add `vehicle.heading` to the catalog and
+the compass switches over with no code change — that is the whole point of the arrangement.
+
 Two development flags, both useful for looking at the thing without a camera:
 
 ```powershell
@@ -163,7 +192,7 @@ and why. When something looks wrong on a dash, that plan is the first place to l
 | `DashDeck.Simulator` | `net10.0` | any OS |
 | `DashDeck.DebugConsole` | `net10.0` | any OS |
 | `DashDeck.Abstractions.Wpf` *(P0.5)* | `net10.0-windows` | **Windows only** |
-| `DashDeck.Host` *(P0.5)* | `net10.0-windows` | **Windows only** |
+| `DashDeck.Host` *(P0.5)* | `net10.0-windows10.0.19041.0` | **Windows only** |
 
 The split is deliberate (ADR-0010): the engine and all its tests build anywhere, which is
 what allowed P0 to be finished before any Windows machine was involved. Keep it that way —

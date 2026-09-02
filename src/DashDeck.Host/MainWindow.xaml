@@ -29,9 +29,10 @@
     <Viewbox Stretch="Uniform">
         <Grid x:Name="DesignSurface" Width="912" Height="1368" Background="{DynamicResource CanvasBrush}">
             <Grid.RowDefinitions>
+                <!-- BandGrid is the authority: 90 + six 195 bands + 108 = 1368. -->
                 <RowDefinition Height="90" />
-                <RowDefinition Height="1110" />
-                <RowDefinition Height="168" />
+                <RowDefinition Height="1170" />
+                <RowDefinition Height="108" />
             </Grid.RowDefinitions>
 
             <!-- Status strip -->
@@ -292,19 +293,27 @@
                     BorderBrush="{DynamicResource HairlineBrush}"
                     BorderThickness="0,1,0,0"
                     Visibility="{Binding IsNavVisible, Converter={StaticResource BoolToVis}}">
-                <UniformGrid Columns="4">
+                <!--
+                    Fixed 130-wide cells, centred, rather than a UniformGrid stretching four
+                    buttons across the full 912. Stretched, each destination was 228 × 168 —
+                    a target about the size of a hand, which looked deliberate on a desk and
+                    absurd in the truck. At 130 the strip holds seven, so B3's overflow
+                    problem starts at about seven destinations instead of about five, and
+                    adding one does not resize the others.
+                -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
 
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="DASH" Cursor="Hand">
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="DASH" Cursor="Hand" Width="130">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="Cell" Background="Transparent"
-                                        BorderBrush="Transparent" BorderThickness="0,4,0,0">
+                                        BorderBrush="Transparent" BorderThickness="0,3,0,0">
                                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                         <Path x:Name="Glyph" Data="M3,3 H21 V12 H3 Z M3,15 H10 V21 H3 Z M14,15 H21 V21 H14 Z"
                                               Stroke="{DynamicResource TextMidBrush}" StrokeThickness="1.75"
-                                              Width="32" Height="32" Stretch="Uniform" HorizontalAlignment="Center" />
-                                        <TextBlock x:Name="Label" Margin="0,14,0,0" HorizontalAlignment="Center"
-                                                   FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                              Width="26" Height="26" Stretch="Uniform" HorizontalAlignment="Center" />
+                                        <TextBlock x:Name="Label" Margin="0,7,0,0" HorizontalAlignment="Center"
+                                                   FontFamily="{StaticResource MonoFont}" FontSize="12"
                                                    Foreground="{DynamicResource TextMidBrush}" Text="DASH" />
                                     </StackPanel>
                                 </Border>
@@ -320,17 +329,17 @@
                         </Button.Template>
                     </Button>
 
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="STEREO" Cursor="Hand">
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="STEREO" Cursor="Hand" Width="130">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="Cell" Background="Transparent"
-                                        BorderBrush="Transparent" BorderThickness="0,4,0,0">
+                                        BorderBrush="Transparent" BorderThickness="0,3,0,0">
                                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                         <Path x:Name="Glyph" Data="M12,3 A9,9 0 1 1 11.99,3 Z M12,9.5 A2.5,2.5 0 1 1 11.99,9.5 Z"
                                               Stroke="{DynamicResource TextMidBrush}" StrokeThickness="1.75"
-                                              Width="32" Height="32" Stretch="Uniform" HorizontalAlignment="Center" />
-                                        <TextBlock x:Name="Label" Margin="0,14,0,0" HorizontalAlignment="Center"
-                                                   FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                              Width="26" Height="26" Stretch="Uniform" HorizontalAlignment="Center" />
+                                        <TextBlock x:Name="Label" Margin="0,7,0,0" HorizontalAlignment="Center"
+                                                   FontFamily="{StaticResource MonoFont}" FontSize="12"
                                                    Foreground="{DynamicResource TextMidBrush}" Text="STEREO" />
                                     </StackPanel>
                                 </Border>
@@ -346,17 +355,17 @@
                         </Button.Template>
                     </Button>
 
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="CLIMATE" Cursor="Hand">
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="CLIMATE" Cursor="Hand" Width="130">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="Cell" Background="Transparent"
-                                        BorderBrush="Transparent" BorderThickness="0,4,0,0">
+                                        BorderBrush="Transparent" BorderThickness="0,3,0,0">
                                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                         <Path x:Name="Glyph" Data="M3,8 C5,6 7,6 9,8 C11,10 13,10 15,8 C17,6 19,6 21,8 M3,13 C5,11 7,11 9,13 C11,15 13,15 15,13 C17,11 19,11 21,13 M3,18 C5,16 7,16 9,18 C11,20 13,20 15,18 C17,16 19,16 21,18"
                                               Stroke="{DynamicResource TextMidBrush}" StrokeThickness="1.75"
-                                              Width="32" Height="32" Stretch="Uniform" HorizontalAlignment="Center" />
-                                        <TextBlock x:Name="Label" Margin="0,14,0,0" HorizontalAlignment="Center"
-                                                   FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                              Width="26" Height="26" Stretch="Uniform" HorizontalAlignment="Center" />
+                                        <TextBlock x:Name="Label" Margin="0,7,0,0" HorizontalAlignment="Center"
+                                                   FontFamily="{StaticResource MonoFont}" FontSize="12"
                                                    Foreground="{DynamicResource TextMidBrush}" Text="CLIMATE" />
                                     </StackPanel>
                                 </Border>
@@ -372,17 +381,17 @@
                         </Button.Template>
                     </Button>
 
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="SETTINGS" Cursor="Hand">
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="SETTINGS" Cursor="Hand" Width="130">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="Cell" Background="Transparent"
-                                        BorderBrush="Transparent" BorderThickness="0,4,0,0">
+                                        BorderBrush="Transparent" BorderThickness="0,3,0,0">
                                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                         <Path x:Name="Glyph" Data="M4,7 H20 M4,17 H20 M9,4.5 A2.5,2.5 0 1 1 8.99,4.5 Z M16,14.5 A2.5,2.5 0 1 1 15.99,14.5 Z"
                                               Stroke="{DynamicResource TextMidBrush}" StrokeThickness="1.75"
-                                              Width="32" Height="32" Stretch="Uniform" HorizontalAlignment="Center" />
-                                        <TextBlock x:Name="Label" Margin="0,14,0,0" HorizontalAlignment="Center"
-                                                   FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                              Width="26" Height="26" Stretch="Uniform" HorizontalAlignment="Center" />
+                                        <TextBlock x:Name="Label" Margin="0,7,0,0" HorizontalAlignment="Center"
+                                                   FontFamily="{StaticResource MonoFont}" FontSize="12"
                                                    Foreground="{DynamicResource TextMidBrush}" Text="SETTINGS" />
                                     </StackPanel>
                                 </Border>
@@ -398,7 +407,7 @@
                         </Button.Template>
                     </Button>
 
-                </UniformGrid>
+                </StackPanel>
             </Border>
 
             <!--

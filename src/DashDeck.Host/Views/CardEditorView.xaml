@@ -105,7 +105,7 @@
                               ContentTemplate="{StaticResource WidgetCardFace}"
                               Width="{Binding DataContext.Card.Width,
                                               RelativeSource={RelativeSource AncestorType=UserControl}}"
-                              Height="155" />
+                              Height="165" />
 
             <StackPanel Margin="20,0,0,0" Width="290" VerticalAlignment="Center">
                 <TextBlock Style="{StaticResource FieldLabel}" Text="LABEL" />

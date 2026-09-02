@@ -69,7 +69,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         Settings = new SettingsViewModel(theme);
 
-        StageOptions = [.. StageOption.All(videoPath, clock).Select(o => new StageOptionViewModel(o))];
+        StageOptions = [.. StageOption.All(videoPath, clock, vehicle.Signals).Select(o => new StageOptionViewModel(o))];
 
         RefreshQuickOptions();
 

@@ -5,10 +5,10 @@ namespace DashDeck.Host;
 /// </summary>
 /// <remarks>
 /// Derived for the Surface Pro 7's 912 × 1368 portrait screen, and it divides exactly:
-/// 90 status strip + six 185 bands + 168 navigation = 1368.
+/// 90 status strip + six 195 bands + 108 navigation = 1368.
 /// <para>
-/// Within a band region, widget rows are <b>155</b> with a <b>20</b> gutter above, between
-/// and below. At two rows that fills two bands exactly (2 × 155 + 3 × 20 = 370), which is
+/// Within a band region, widget rows are <b>165</b> with a <b>20</b> gutter above, between
+/// and below. At two rows that fills two bands exactly (2 × 165 + 3 × 20 = 390), which is
 /// where the numbers came from — but see <see cref="RowsIn"/>, because the identity holds
 /// only at two and the widget region is no longer always two bands. The bottom gutter is
 /// the point of the arithmetic: without it the cards sit hard against the navigation strip.
@@ -29,11 +29,30 @@ public static class BandGrid
     /// <summary>The status strip, above the bands.</summary>
     public const double StatusStripHeight = 90;
 
-    /// <summary>Navigation, below the bands and in the only band reachable while driving.</summary>
-    public const double NavigationHeight = 168;
+    /// <summary>
+    /// Navigation, below the bands and in the only band reachable while driving.
+    /// </summary>
+    /// <remarks>
+    /// Was 168, which measured fine on a desk and looked enormous in the truck — four buttons
+    /// 228 wide and 168 tall is a target roughly the size of a hand. 108 with 130-wide cells
+    /// leaves each button comfortably above the touch floor and fits <b>seven</b> across
+    /// instead of four, which pushes B3's unsolved overflow problem from about five
+    /// destinations to about seven.
+    /// <para>
+    /// The 60 pixels it gave back had to go somewhere: the design height is fixed at 1368 and
+    /// the status strip is already as small as it reads well at. So the bands took it.
+    /// </para>
+    /// </remarks>
+    public const double NavigationHeight = 108;
 
-    /// <summary>One band: a widget row plus its gutter.</summary>
-    public const double BandHeight = 185;
+    /// <summary>
+    /// One band: a widget row plus its gutter.
+    /// </summary>
+    /// <remarks>
+    /// 195, up from 185, absorbing what the navigation strip gave back:
+    /// 90 + 6 × 195 + 108 = 1368, still exactly.
+    /// </remarks>
+    public const double BandHeight = 195;
 
     /// <summary>How many bands there are. The stage and whatever sits below it share these.</summary>
     public const int BandCount = 6;
@@ -56,8 +75,16 @@ public static class BandGrid
     /// <summary>How many columns fit across. A card is one or two of them.</summary>
     public const int ColumnsPerRow = 3;
 
-    /// <summary>One widget row.</summary>
-    public const double WidgetRowHeight = 155;
+    /// <summary>
+    /// One widget row.
+    /// </summary>
+    /// <remarks>
+    /// 165 rather than 155 now that a band is 195: two rows and three gutters come to
+    /// 2 × 165 + 3 × 20 = 390, which is two bands exactly. The old 155 was derived the same
+    /// way against a 185 band, and keeping it would have left 40 pixels of dead gutter on
+    /// every dash rather than 10 more pixels of card.
+    /// </remarks>
+    public const double WidgetRowHeight = 165;
 
     /// <summary>The width of one page of cards: the design width less both margins.</summary>
     public const double PageWidth = DesignWidth - (2 * SideMargin);
@@ -71,13 +98,13 @@ public static class BandGrid
     /// </summary>
     /// <remarks>
     /// <b>The original comment claimed this divides exactly. It does so only at two rows.</b>
-    /// Rows are <c>155</c> with a <c>20</c> gutter above, between and below, so <i>n</i> rows
-    /// need <c>175n + 20</c> — which equals <c>185n</c> only when <i>n</i> is 2. That was
+    /// Rows are <c>165</c> with a <c>20</c> gutter above, between and below, so <i>n</i> rows
+    /// need <c>185n + 20</c> — which equals <c>195n</c> only when <i>n</i> is 2. That was
     /// fine while the widget region was always two bands; it stops being fine now that a
     /// three-band stage leaves three.
     /// <para>
     /// So the row height stays fixed and the leftover goes to the bottom gutter: three rows
-    /// in three bands use 545 of 555 and the cards keep the same size they have everywhere
+    /// in three bands use 575 of 585 and the cards keep the same size they have everywhere
     /// else. A card that changed height depending on what was on the stage would be worse
     /// than ten spare pixels.
     /// </para>
