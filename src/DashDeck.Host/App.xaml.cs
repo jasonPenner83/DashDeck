@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using DashDeck.Abstractions;
 using DashDeck.Host.ViewModels;
 
@@ -47,15 +47,15 @@ public partial class App : Application
             return;
         }
 
-        // --video <path> puts video on the stage. The first real stage occupant, and the
-        // one that needed the least inventing: VLC's engine already plays everything.
-        Stage.IStageOccupant? stage = null;
+        // --video <path> starts with video already on the stage. Everything else is chosen
+        // from the picker at runtime, so this is a convenience rather than the only way in.
+        string? stagedVideo = null;
 
         if (ArgValue(e.Args, "--video") is { } videoPath)
         {
             if (System.IO.File.Exists(videoPath))
             {
-                stage = new Stage.VideoStageOccupant(System.IO.Path.GetFullPath(videoPath));
+                stagedVideo = System.IO.Path.GetFullPath(videoPath);
             }
             else
             {
@@ -64,7 +64,14 @@ public partial class App : Application
             }
         }
 
-        _shell = new ShellViewModel(_vehicle, SystemClock.Instance, stage);
+        _shell = new ShellViewModel(_vehicle, SystemClock.Instance, stagedVideo);
+
+        // Development affordance: --picker opens the stage picker at launch, so a state
+        // that normally needs a finger can be reviewed like any other.
+        if (e.Args.Contains("--picker"))
+        {
+            _shell.IsStagePickerOpen = true;
+        }
 
         var window = new MainWindow { DataContext = _shell };
         MainWindow = window;
@@ -110,9 +117,9 @@ public partial class App : Application
 
                 // The video surface lives in a child window and never appears in the
                 // render, so record what the player says it is doing beside the image.
-                if (stage is Stage.VideoStageOccupant video)
+                if (_shell?.DescribeStage() is { } state)
                 {
-                    System.IO.File.WriteAllText(shotPath + ".txt", video.Describe());
+                    System.IO.File.WriteAllText(shotPath + ".txt", state);
                 }
 
                 Shutdown();

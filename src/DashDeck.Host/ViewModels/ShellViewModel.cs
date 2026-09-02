@@ -2,6 +2,7 @@
 using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using DashDeck.Abstractions;
 using DashDeck.Host.Stage;
 
@@ -18,7 +19,7 @@ namespace DashDeck.Host.ViewModels;
 public sealed partial class ShellViewModel : ObservableObject, IDisposable
 {
     private readonly VehicleStack _vehicle;
-    private readonly IStageOccupant? _stage;
+    private IStageOccupant? _stage;
     private readonly IClock _clock;
     private readonly DispatcherTimer _timer;
 
@@ -31,15 +32,26 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _activeDestination = "DASH";
 
-    public ShellViewModel(VehicleStack vehicle, IClock clock, IStageOccupant? stage = null)
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StageHasOccupant))]
+    [NotifyPropertyChangedFor(nameof(StageIsEmpty))]
+    private FrameworkElement? _stageContent;
+
+    [ObservableProperty]
+    private bool _isStagePickerOpen;
+
+    public ShellViewModel(VehicleStack vehicle, IClock clock, string? videoPath = null)
     {
         _vehicle = vehicle;
         _clock = clock;
-        _stage = stage;
 
-        if (stage is not null)
+        StageOptions = StageOption.All(videoPath);
+
+        // Start on whatever was asked for at launch. With no --video that is an empty
+        // stage, which is a real state rather than a failure to load something.
+        if (videoPath is not null)
         {
-            StageContent = stage.CreateView();
+            SetStage(StageOptions.First(o => o.Name == "VIDEO"));
         }
 
         // Six widgets across two bands. Rates are declared honestly: the whole app shares
@@ -73,8 +85,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <summary>The scripted drive currently running.</summary>
     public string DriveLabel => _vehicle.DriveName.ToUpperInvariant();
 
-    /// <summary>The occupant's view, or <see langword="null"/> when the stage is empty.</summary>
-    public FrameworkElement? StageContent { get; }
+    /// <summary>Everything the picker can put on the stage, including what is not built.</summary>
+    public IReadOnlyList<StageOption> StageOptions { get; }
 
     /// <summary>True when something is actually on the stage.</summary>
     public bool StageHasOccupant => StageContent is not null;
@@ -85,7 +97,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// </summary>
     public bool StageIsEmpty => StageContent is null;
 
-    /// <summary>What is on the stage, for the chip. Empty stages still say their size.</summary>
+    /// <summary>What is on the stage, for the chip. Empty stages still say so.</summary>
     public string StageName => _stage?.Name ?? "EMPTY";
 
     /// <summary>
@@ -96,6 +108,53 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>Whatever the stage did not take. Widget rows line up either way.</summary>
     public int WidgetBands => BandGrid.BandCount - StageBands;
+
+    /// <summary>
+    /// What the stage occupant is actually doing, when it can say.
+    /// </summary>
+    /// <remarks>
+    /// For <c>--shot</c>, which cannot photograph a video surface drawn into a child window.
+    /// </remarks>
+    public string? DescribeStage() => (_stage as VideoStageOccupant)?.Describe();
+
+    /// <summary>
+    /// Open or close the picker.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not a navigation destination. Navigation switches what sits
+    /// <em>below</em> the stage (B3), and the nav strip already has an unsolved overflow
+    /// problem past about five entries — spending one of them on something you set once
+    /// and then leave would be a poor trade. The control lives on the thing it controls.
+    /// </remarks>
+    [RelayCommand]
+    private void ToggleStagePicker() => IsStagePickerOpen = !IsStagePickerOpen;
+
+    /// <summary>Put something on the stage, or take everything off it.</summary>
+    [RelayCommand]
+    private void ChooseStage(StageOption? option)
+    {
+        if (option is null || !option.IsAvailable)
+        {
+            return;
+        }
+
+        SetStage(option);
+        IsStagePickerOpen = false;
+    }
+
+    private void SetStage(StageOption option)
+    {
+        // The outgoing occupant goes away properly — video keeps decoding otherwise, and a
+        // stage nobody can see is the worst possible consumer of a tablet's battery.
+        _stage?.Dispose();
+
+        _stage = option.Create?.Invoke();
+        StageContent = _stage?.CreateView();
+
+        OnPropertyChanged(nameof(StageName));
+        OnPropertyChanged(nameof(StageBands));
+        OnPropertyChanged(nameof(WidgetBands));
+    }
 
     /// <inheritdoc />
     public void Dispose()
