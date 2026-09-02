@@ -107,6 +107,14 @@ public partial class App : Application
             {
                 timer.Stop();
                 window.SaveDesignSurface(shotPath);
+
+                // The video surface lives in a child window and never appears in the
+                // render, so record what the player says it is doing beside the image.
+                if (stage is Stage.VideoStageOccupant video)
+                {
+                    System.IO.File.WriteAllText(shotPath + ".txt", video.Describe());
+                }
+
                 Shutdown();
             };
 

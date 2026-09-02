@@ -1,4 +1,4 @@
-# DashDeck — Open Questions
+﻿# DashDeck — Open Questions
 
 Live list. Resolved items are struck through and keep their reasoning; the ones that
 settle architecture move to an ADR in [`decisions/`](decisions/).
@@ -29,7 +29,7 @@ settle architecture move to an ADR in [`decisions/`](decisions/).
 | Q14 | Do the Climate and Stereo cards conflict with C3? | **Partly, and it matters.** C3 and ADR-0006 both say plainly: *"No takeover of audio, factory camera, or climate."* A **Stereo card is fine** if it drives DashDeck's own playback on the tablet — that is additive. A **Climate card that controls the factory HVAC is not**: it needs an ADR superseding ADR-0006, plus writes to an undocumented Ford network, and it fails several of the five gates as written. Both cards are **parked** as of 2026-09-01; nav slots exist in the mockups, the cards do not. |
 | ~~Q15~~ | ~~Is the shell MVVM, and is that imposed on components?~~ | **Resolved 2026-09-01 → [ADR-0011](decisions/ADR-0011-view-contract-and-mvvm.md).** MVVM in the shell with `CommunityToolkit.Mvvm`; components are advised, never required, since they hand back a `FrameworkElement`. `ObservableSignal` in `Abstractions.Wpf` solves dispatcher marshalling and quality rendering once. The same ADR settles the component as **widget + optional full-screen view**. |
 | ~~Q17~~ | ~~When a widget's full-screen view opens, what happens to the stage?~~ | **Resolved 2026-09-01. The phone model.** A full-screen view covers the stage entirely and the stage keeps *running* underneath, returning when the view closes. The status strip and nav stay visible over it, so there is always a way back. A pleasant consequence: Settings stops being a special case — every full-screen view takes the same six bands, and "Settings hides the stage" is just what full-screen means. |
-| Q18 | Can Google Maps actually fill the stage, and does it need a connection? | See the analysis below — the short version is that Google's Maps JavaScript API terms forbid in-vehicle turn-by-turn, there is no desktop SDK, and the Pro 7 is Wi-Fi only, so any online map needs a phone hotspot. Decide between a display-only map, a differently-licensed map, or an offline one. |
+| Q18 | Can Google Maps actually fill the stage? | **Connectivity is no longer the issue — there is Wi-Fi in the truck.** What remains is licensing: Google's Maps JavaScript API terms forbid in-vehicle turn-by-turn, there is no desktop SDK, and the licensed Navigation SDK is mobile-only. So the choice is a display-only Google map via the Embed API, or a differently-licensed map (MapLibre, HERE) if real guidance is wanted. See the analysis below. |
 
 ## Stage occupants — what already exists
 
@@ -120,6 +120,9 @@ Raised while building the shell. None are blocking; all are real.
 | F3 | **The shell builds its own widgets.** | They should arrive from `plugins/` through the component host. Until then `IDashComponentView` is a contract nothing implements, which is the least-tested kind. |
 | F4 | **WPF has no letter-spacing.** | The small uppercase captions read tighter than the design system specifies. Needs a custom text run, or the spec relaxing. First place the design and the framework disagree. |
 | F5 | **Two rendering idioms will coexist.** | Binding covers data-driven surfaces; the animated gauges ADR-0001 wants custom-drawn with `DrawingVisual` bypass binding entirely. Accepted in ADR-0011, but nothing has been built the second way yet. |
+| F7 | **`ShellViewModel` depends on the concrete `VehicleStack`.** | Which means it cannot be unit tested without starting a real vehicle pipeline. It should take `IVehicleSignals` and a small status interface instead. The band arithmetic got tests; the view model did not, and this is why. |
+| F8 | **Video has no overlay chrome.** | `VideoView` renders into a child window, so WPF content will not compose over it — the airspace problem. Overlays must go inside `VideoView.Content`, which is a separate layered window with its own quirks. The PARKED chip from the mockups is not built, and neither are transport controls. |
+| F9 | **The sixth band is empty when the stage takes three.** | Six widgets fill two rows; a 3/6 stage leaves a third band spare. Either the widget set grows, or the rows do, or the gap is deliberate. Currently it is just unconsidered. |
 | F6 | **A test passed while its bug was present.** | The throughput assertion used `SyntheticFaults.Perfect`, whose zero latency made the measured rate absurd before the cable was even pulled. Worth a sweep for other tests that assert against the perfect fault profile where a realistic one is the point. |
 
 ## Decided, not yet built

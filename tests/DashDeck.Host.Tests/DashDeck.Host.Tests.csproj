@@ -29,6 +29,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\DashDeck.Abstractions\DashDeck.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\DashDeck.Abstractions.Wpf\DashDeck.Abstractions.Wpf.csproj" />
+    <ProjectReference Include="..\..\src\DashDeck.Host\DashDeck.Host.csproj" />
   </ItemGroup>
 
 </Project>

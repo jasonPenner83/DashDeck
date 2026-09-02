@@ -54,6 +54,28 @@ public sealed class VideoStageOccupant : IStageOccupant
     /// <summary>True once VLC reports it is actually playing.</summary>
     public bool IsPlaying => _player.IsPlaying;
 
+    /// <summary>
+    /// What the player is actually doing, in one line.
+    /// </summary>
+    /// <remarks>
+    /// Needed because <c>VideoView</c> renders into a child window, so the video surface is
+    /// invisible to <c>RenderTargetBitmap</c> — a screenshot of the shell shows the stage as
+    /// a black rectangle whether playback works or not. Asking the player directly is the
+    /// only honest way to tell the difference without a camera pointed at the screen.
+    /// </remarks>
+    public string Describe()
+    {
+        var track = _player.Media?.Tracks?.FirstOrDefault(t => t.TrackType == TrackType.Video);
+
+        var size = track is { } v
+            ? $"{v.Data.Video.Width}x{v.Data.Video.Height}"
+            : "unknown";
+
+        return $"state={_player.State} playing={_player.IsPlaying} " +
+               $"video={size} length={_player.Length}ms position={_player.Position:0.###} " +
+               $"media={System.IO.Path.GetFileName(_mediaPath)}";
+    }
+
     /// <inheritdoc />
     public FrameworkElement CreateView()
     {
