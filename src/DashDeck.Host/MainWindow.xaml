@@ -138,18 +138,30 @@
                         BorderBrush="{StaticResource HairlineBrush}"
                         BorderThickness="0,0,0,1">
                     <Grid>
-                        <ContentControl Content="{Binding StageContent}"
-                                        Visibility="{Binding StageHasOccupant, Converter={StaticResource BoolToVis}}" />
+                        <Grid.RowDefinitions>
+                            <!--
+                                The stage bar. A real row rather than an overlay, because
+                                every occupant so far renders into a child window — LibVLC's
+                                video surface and WebView2 both — and a child window draws
+                                over all WPF content whatever the z-order says. A chip
+                                floating on top of the stage is invisible and untappable the
+                                moment anything loads, which made a loaded stage impossible
+                                to change. Sitting beside the occupant instead of over it is
+                                the only arrangement that survives.
+                            -->
+                            <RowDefinition Height="56" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
 
-                        <!-- The chip is the control for the thing it sits on. Not a nav
-                             destination: nav switches what is *below* the stage (B3). -->
-                        <Button Command="{Binding ToggleStagePickerCommand}"
-                                HorizontalAlignment="Right" VerticalAlignment="Top"
-                                Margin="20" Padding="18,12,18,12"
-                                Background="#D90D0C0B"
-                                BorderBrush="{StaticResource HairlineBrush}"
-                                BorderThickness="1"
-                                Cursor="Hand">
+                        <Border Grid.Row="0" Background="{StaticResource CanvasBrush}"
+                                BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,0,1">
+                            <Button Command="{Binding ToggleStagePickerCommand}"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    Margin="0,0,14,0" Padding="18,10,18,10"
+                                    Background="Transparent"
+                                    BorderBrush="{StaticResource HairlineStrongBrush}"
+                                    BorderThickness="1"
+                                    Cursor="Hand">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Border Background="{TemplateBinding Background}"
@@ -171,14 +183,16 @@
                                       StrokeThickness="2" Width="14" Height="9" Margin="10,2,0,0"
                                       Stretch="Uniform" VerticalAlignment="Center" />
                             </StackPanel>
-                        </Button>
+                            </Button>
+                        </Border>
 
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                        <ContentControl Grid.Row="1"
+                                        Content="{Binding StageContent}"
+                                        Visibility="{Binding IsOccupantVisible, Converter={StaticResource BoolToVis}}" />
+
+                        <StackPanel Grid.Row="1"
+                                    VerticalAlignment="Center" HorizontalAlignment="Center"
                                     Visibility="{Binding StageIsEmpty, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Style="{StaticResource CaptionText}"
-                                   HorizontalAlignment="Center"
-                                   Foreground="{StaticResource TextFaintBrush}"
-                                   Text="STAGE 4/6" />
                         <TextBlock Margin="0,14,0,0"
                                    FontFamily="{StaticResource UiFont}"
                                    FontSize="24"
@@ -190,7 +204,7 @@
                                    FontSize="13"
                                    HorizontalAlignment="Center"
                                    Foreground="{StaticResource TextFaintBrush}"
-                                   Text="tap the stage chip to choose one" />
+                                   Text="tap STAGE above to choose one" />
                         </StackPanel>
 
                         <!-- The picker. Fills the stage, because that is where the thing
@@ -199,7 +213,8 @@
                         <!-- Fully opaque, not a scrim. A translucent panel over the empty
                              state reads as muddy rather than layered, and legibility wins
                              in a vehicle. -->
-                        <Border Background="{StaticResource CanvasBrush}"
+                        <Border Grid.Row="1"
+                                Background="{StaticResource CanvasBrush}"
                                 Visibility="{Binding IsStagePickerOpen, Converter={StaticResource BoolToVis}}">
                             <StackPanel VerticalAlignment="Center" Margin="31,0,31,0">
                                 <TextBlock Style="{StaticResource CaptionText}"

@@ -35,9 +35,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StageHasOccupant))]
     [NotifyPropertyChangedFor(nameof(StageIsEmpty))]
+    [NotifyPropertyChangedFor(nameof(IsOccupantVisible))]
     private FrameworkElement? _stageContent;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOccupantVisible))]
     private bool _isStagePickerOpen;
 
     public ShellViewModel(
@@ -100,6 +102,21 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>True when something is actually on the stage.</summary>
     public bool StageHasOccupant => StageContent is not null;
+
+    /// <summary>
+    /// Whether the occupant's view is shown right now.
+    /// </summary>
+    /// <remarks>
+    /// Collapsed while the picker is open, and that is not cosmetic. Every occupant so far
+    /// renders into a child window — LibVLC's video surface, WebView2's browser — and a
+    /// child window draws over <em>all</em> WPF content regardless of z-order. Leaving the
+    /// occupant visible would hide the picker behind it, which is precisely the bug that
+    /// made a loaded stage impossible to change.
+    /// <para>
+    /// Video keeps playing underneath, so audio continues while you choose.
+    /// </para>
+    /// </remarks>
+    public bool IsOccupantVisible => StageContent is not null && !IsStagePickerOpen;
 
     /// <summary>
     /// True when nothing occupies the stage. Rendered as an explicit empty state rather
