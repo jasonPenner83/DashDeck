@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Windows.Data;
 using System.Windows.Media;
 using DashDeck.Abstractions;
@@ -15,6 +15,8 @@ namespace DashDeck.Host.Converters;
 /// </remarks>
 internal static class QualityPalette
 {
+    internal static readonly SolidColorBrush Fault = Frozen("#FFE5544B");
+
     internal static readonly SolidColorBrush Live = Frozen("#FF5BC77E");
     internal static readonly SolidColorBrush Stale = Frozen("#FFE0B23C");
     internal static readonly SolidColorBrush Unavailable = Frozen("#FF6B665E");

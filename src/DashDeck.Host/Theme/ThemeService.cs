@@ -1,7 +1,8 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using DashDeck.Abstractions;
+using DashDeck.Host.Settings;
 using DashDeck.Host.Stage;
 
 namespace DashDeck.Host.Theme;
@@ -23,19 +24,27 @@ public enum ThemeMode
 /// Owns the live palette: day or night, and which accent.
 /// </summary>
 /// <remarks>
-/// Applied by mutating the <see cref="SolidColorBrush"/> instances already sitting in
-/// <c>Application.Resources</c>. Everything in the shell binds to those brushes by
-/// <c>StaticResource</c>, which resolves to the instance rather than a copy — so changing a
-/// brush's colour repaints every control using it, with no <c>DynamicResource</c> churn and
-/// no XAML changes anywhere. The brushes must therefore stay unfrozen, which is why none of
-/// them are declared with <c>PresentationOptions:Freeze</c>.
+/// Applied by <em>replacing</em> the brushes in <c>Application.Resources</c>, which every
+/// theme token in the shell reaches by <c>DynamicResource</c>. See <see cref="SetBrush"/> for
+/// why the obvious alternative — mutating the existing brush and binding by
+/// <c>StaticResource</c> — compiles, runs, and does nothing at all.
+/// <para>
+/// The choice is written out as soon as it changes; <see cref="Preview"/> is the way to set a
+/// palette without remembering it.
+/// </para>
 /// </remarks>
 public sealed partial class ThemeService : ObservableObject
 {
     private readonly IClock _clock;
 
     private (DateTimeOffset Sunrise, DateTimeOffset Sunset)? _daylight;
-    private DateTimeOffset _daylightFetchedAt;
+
+    /// <summary>When the last fetch was <em>attempted</em>. See <see cref="Reevaluate"/>.</summary>
+    private DateTimeOffset _daylightAttemptedAt;
+
+    private bool _daylightFetchInFlight;
+    private readonly bool _loaded;
+    private bool _suppressPersist;
 
     [ObservableProperty]
     private ThemeMode _mode = ThemeMode.Auto;
@@ -56,11 +65,83 @@ public sealed partial class ThemeService : ObservableObject
     public ThemeService(IClock clock)
     {
         _clock = clock;
+
+        // Restore before the first Apply, so the window comes up wearing the chosen theme
+        // rather than flashing the default and correcting itself.
+        var stored = SettingsStore.Load();
+
+        if (Enum.TryParse<ThemeMode>(stored.ThemeMode, ignoreCase: true, out var mode))
+        {
+            _mode = mode;
+        }
+
+        // Re-checked on load, not just on entry. A stored colour was validated against the
+        // quality palette of whatever build wrote it; if a later build moves one of those
+        // four, an accent that used to be fine can stop being fine, and falling back beats
+        // honouring a stale approval.
+        if (AccentValidation.TryParse(stored.AccentColour, out var colour) &&
+            AccentValidation.Check(colour).IsUsable)
+        {
+            _accent = new AccentOption(stored.AccentName, colour);
+        }
+
+        _loaded = true;
+
         Apply();
         _ = RefreshDaylightAsync();
     }
 
-    /// <summary>Re-evaluate Auto. Called on a timer by the shell.</summary>
+    /// <summary>
+    /// Set the palette without remembering it.
+    /// </summary>
+    /// <remarks>
+    /// For the <c>--theme</c> and <c>--accent</c> flags. Now that a choice is written out the
+    /// moment it changes, a development flag that went through the normal setter would quietly
+    /// overwrite whatever the user had actually chosen — looking at night mode once would make
+    /// it permanent.
+    /// </remarks>
+    public void Preview(ThemeMode? mode, AccentOption? accent)
+    {
+        _suppressPersist = true;
+
+        try
+        {
+            if (mode is { } m)
+            {
+                Mode = m;
+            }
+
+            if (accent is { } a)
+            {
+                Accent = a;
+            }
+        }
+        finally
+        {
+            _suppressPersist = false;
+        }
+    }
+
+    /// <summary>Sunrise and sunset move, but slowly. Once a day is plenty.</summary>
+    private static readonly TimeSpan DaylightRefresh = TimeSpan.FromHours(12);
+
+    /// <summary>
+    /// How long to wait before trying again after a failed fetch.
+    /// </summary>
+    /// <remarks>
+    /// Ten minutes, not twelve hours: an outage during startup should not leave Auto guessing
+    /// until tomorrow. Not one second either — see <see cref="Reevaluate"/>.
+    /// </remarks>
+    private static readonly TimeSpan DaylightRetry = TimeSpan.FromMinutes(10);
+
+    /// <summary>Re-evaluate Auto. Called on a timer by the shell, once a second.</summary>
+    /// <remarks>
+    /// <b>The backoff is timed from the attempt, not the success.</b> It used to be timed from
+    /// the success, and the success time was left unset while the fetch was failing — so a
+    /// service outage put the "is it time to refetch" test permanently true and the shell
+    /// issued one request per second, indefinitely, at a free keyless API. Found during a real
+    /// Open-Meteo outage, in a build that was already deployed.
+    /// </remarks>
     public void Reevaluate()
     {
         if (Mode is ThemeMode.Auto)
@@ -68,16 +149,51 @@ public sealed partial class ThemeService : ObservableObject
             Apply();
         }
 
-        // Sunrise and sunset move; refetch about once a day.
-        if (_clock.UtcNow - _daylightFetchedAt > TimeSpan.FromHours(12))
+        var due = _daylight is null ? DaylightRetry : DaylightRefresh;
+
+        if (!_daylightFetchInFlight && _clock.UtcNow - _daylightAttemptedAt > due)
         {
             _ = RefreshDaylightAsync();
         }
     }
 
-    partial void OnModeChanged(ThemeMode value) => Apply();
+    partial void OnModeChanged(ThemeMode value)
+    {
+        Apply();
+        Persist();
+    }
 
-    partial void OnAccentChanged(AccentOption value) => Apply();
+    partial void OnAccentChanged(AccentOption value)
+    {
+        Apply();
+        Persist();
+    }
+
+    /// <summary>
+    /// Write the choice out.
+    /// </summary>
+    /// <remarks>
+    /// Immediately, not on exit: a dash gets closed by having its power pulled, and a
+    /// setting that only survives a graceful shutdown is a setting that does not survive.
+    /// </remarks>
+    private void Persist()
+    {
+        if (!_loaded || _suppressPersist)
+        {
+            return;
+        }
+
+        SettingsStore.Save(new UserSettings
+        {
+            ThemeMode = Mode.ToString(),
+            AccentName = Accent.Name,
+            AccentColour = ToHex(Accent.Colour),
+        });
+    }
+
+    /// <summary>A colour as <c>#RRGGBB</c> — what gets stored, and what the settings box shows.</summary>
+    public static string ToHex(Color colour) =>
+        $"#{colour.R:X2}{colour.G:X2}{colour.B:X2}";
 
     private void Apply()
     {
@@ -143,22 +259,33 @@ public sealed partial class ThemeService : ObservableObject
 
     private async Task RefreshDaylightAsync()
     {
-        var report = await Weather.FetchAsync(
-            Weather.DefaultLatitude,
-            Weather.DefaultLongitude,
-            CancellationToken.None).ConfigureAwait(true);
+        // Stamped before the await and in a finally, so a failure — or a request still in
+        // flight — cannot leave the caller thinking another attempt is due.
+        _daylightAttemptedAt = _clock.UtcNow;
+        _daylightFetchInFlight = true;
 
-        if (report?.Daylight is not { } daylight)
+        try
         {
-            return;
+            var report = await Weather.FetchAsync(
+                Weather.DefaultLatitude,
+                Weather.DefaultLongitude,
+                CancellationToken.None).ConfigureAwait(true);
+
+            if (report?.Daylight is not { } daylight)
+            {
+                return;
+            }
+
+            _daylight = daylight;
+
+            if (Mode is ThemeMode.Auto)
+            {
+                Apply();
+            }
         }
-
-        _daylight = daylight;
-        _daylightFetchedAt = _clock.UtcNow;
-
-        if (Mode is ThemeMode.Auto)
+        finally
         {
-            Apply();
+            _daylightFetchInFlight = false;
         }
     }
 

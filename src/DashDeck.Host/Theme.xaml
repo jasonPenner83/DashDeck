@@ -105,6 +105,47 @@
         </Setter>
     </Style>
 
+    <!--
+        A text field. Templated rather than merely recoloured: WPF's Fluent theme brings its
+        own TextBox chrome, so setting Background and BorderBrush leaves a pale box sitting
+        in the middle of a dark dash. Matches StageLauncherButton so the two sit together.
+    -->
+    <Style x:Key="InputField" TargetType="TextBox">
+        <Setter Property="Height" Value="56" />
+        <Setter Property="Padding" Value="16,0,16,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="Foreground" Value="{DynamicResource TextHighBrush}" />
+        <Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Chrome"
+                            Background="{DynamicResource RaisedBrush}"
+                            BorderBrush="{DynamicResource HairlineStrongBrush}"
+                            BorderThickness="1"
+                            CornerRadius="14">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Hidden" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- A widget: one band tall, one column wide (270 x 165 on the Pro 7). -->
     <Style x:Key="WidgetCard" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />

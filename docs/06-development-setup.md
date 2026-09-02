@@ -54,8 +54,17 @@ DashDeck.Host.exe --stage MAPS             # open on a named occupant
 DashDeck.Host.exe --picker                 # open on the stage picker
 DashDeck.Host.exe --nav SETTINGS           # open on a destination below the stage
 DashDeck.Host.exe --theme NIGHT            # force a palette without waiting for sunset
-DashDeck.Host.exe --accent CYAN            # force an accent
+DashDeck.Host.exe --accent CYAN            # force an accent — a preset name...
+DashDeck.Host.exe --accent "#26C6DA"       # ...or any colour that passes validation
 ```
+
+`--theme` and `--accent` **preview without saving** (ADR-0014). Everything chosen in Settings
+is written to `%LOCALAPPDATA%\DashDeck\settings.json` the moment it changes, and a development
+flag that went through the same path would make looking at night mode permanent.
+
+Note that the drive name is positional and everything else takes a value. `--nav SETTINGS`
+once put the shell on the floor with *Unknown drive 'SETTINGS'*, because "the first argument
+without a dash" is a flag's value as often as it is the drive.
 
 The stage is chosen at runtime from the **stage chip**, top right of the stage — tap it for
 a grid of app buttons. `--stage` and `--video` just skip the tap at launch.
@@ -78,7 +87,10 @@ that to whatever window it gets. Rotate the Surface into portrait and it is 1:1.
 landscape it still runs, letterboxed into a strip down the middle — fine for development,
 not the intended shape.
 
-Crashes are written to `%LOCALAPPDATA%\DashDeck\crash.log` rather than vanishing.
+Crashes are written to `%LOCALAPPDATA%\DashDeck\crash.log` rather than vanishing, and settings
+to `settings.json` beside it. Both are outside `dist\DashDeck`, which `publish.ps1` deletes
+and rewrites on every build — that is deliberate, and it is why preferences survive an update
+(ADR-0014). Deleting that folder resets DashDeck to factory.
 
 ## The debug console
 

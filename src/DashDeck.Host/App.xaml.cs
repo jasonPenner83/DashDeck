@@ -33,7 +33,7 @@ public partial class App : Application
 
         // Which scripted drive to run. Defaults to the cold start, because a warm-up is
         // where quality transitions actually happen and the shell has to render them.
-        var drive = e.Args.FirstOrDefault(a => !a.StartsWith('-')) ?? "cold-start-city";
+        var drive = PositionalArg(e.Args) ?? "cold-start-city";
 
         try
         {
@@ -70,19 +70,36 @@ public partial class App : Application
         _theme = new Theme.ThemeService(SystemClock.Instance);
 
         // --theme <DAY|NIGHT|AUTO> forces a palette, for looking at one without waiting for
-        // sunset.
-        if (ArgValue(e.Args, "--theme") is { } themeName &&
-            Enum.TryParse<Theme.ThemeMode>(themeName, ignoreCase: true, out var mode))
+        // sunset. --accent <NAME|#RRGGBB> forces an accent, preset or custom.
+        //
+        // Both go through Preview so they are not remembered. They are for looking, and a
+        // look should not become the setting.
+        Theme.ThemeMode? previewMode =
+            ArgValue(e.Args, "--theme") is { } themeName &&
+            Enum.TryParse<Theme.ThemeMode>(themeName, ignoreCase: true, out var mode)
+                ? mode
+                : null;
+
+        Theme.AccentOption? previewAccent = null;
+
+        if (ArgValue(e.Args, "--accent") is { } accentName)
         {
-            _theme.Mode = mode;
+            previewAccent = Theme.AccentOption.All.FirstOrDefault(a =>
+                string.Equals(a.Name, accentName, StringComparison.OrdinalIgnoreCase));
+
+            // Not a preset name, so try it as a colour — the same path the settings box uses,
+            // validation included, so the flag cannot set something the UI would refuse.
+            if (previewAccent is null &&
+                Theme.AccentValidation.TryParse(accentName, out var custom) &&
+                Theme.AccentValidation.Check(custom).IsUsable)
+            {
+                previewAccent = new Theme.AccentOption("CUSTOM", custom);
+            }
         }
 
-        // --accent <NAME> forces an accent, for looking at one without tapping through.
-        if (ArgValue(e.Args, "--accent") is { } accentName &&
-            Theme.AccentOption.All.FirstOrDefault(a =>
-                string.Equals(a.Name, accentName, StringComparison.OrdinalIgnoreCase)) is { } chosen)
+        if (previewMode is not null || previewAccent is not null)
         {
-            _theme.Accent = chosen;
+            _theme.Preview(previewMode, previewAccent);
         }
 
         // --stage <NAME> opens on a named occupant: CLOCK, VIDEO, NUVIO, MAPS or STREMIO.
@@ -167,6 +184,36 @@ public partial class App : Application
     {
         var index = Array.IndexOf(args, name);
         return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
+    }
+
+    /// <summary>
+    /// The one positional argument: the drive name.
+    /// </summary>
+    /// <remarks>
+    /// It has to skip the value that follows a flag. Taking the first argument without a
+    /// leading dash looks equivalent and is not — <c>--nav SETTINGS</c> makes SETTINGS the
+    /// first such argument, and the shell died on startup with "Unknown drive 'SETTINGS'".
+    /// Every flag here takes a value except <c>--picker</c>, so that is the only exception.
+    /// </remarks>
+    private static string? PositionalArg(string[] args)
+    {
+        for (var i = 0; i < args.Length; i++)
+        {
+            if (args[i].StartsWith('-'))
+            {
+                // Skip its value too, unless it is the one flag that does not take one.
+                if (args[i] is not "--picker")
+                {
+                    i++;
+                }
+
+                continue;
+            }
+
+            return args[i];
+        }
+
+        return null;
     }
 
     /// <summary>
