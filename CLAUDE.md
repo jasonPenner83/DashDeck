@@ -17,17 +17,33 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 ## Current state
 
-**P0 engine complete and verified. No UI yet.**
+**P0 engine complete. P0.5 shell underway and running on Windows.**
 
-Built and passing on Linux with no hardware: `Abstractions`, `Vehicle` (ELM/STN adapter,
-recording, replay), `Core` (catalog, arbiter, state bus, polling loop), `Simulator`
-(synthetic F-150 + scripted drives), `DebugConsole`. 45 tests green.
+Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
+`net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
+(ADR-0010). **52 tests green** — 45 engine, 7 shell.
 
-Run it: `dotnet run --project src/DashDeck.DebugConsole -- cold-start-city --seconds 60`
+```bash
+dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
+dotnet run --project src/DashDeck.DebugConsole -- cold-start-city --seconds 60
+```
 
-**Next: P0.5, the WPF shell — which requires Windows.** Everything above targets plain
-`net10.0` and builds anywhere; `Host` and `Abstractions.Wpf` will target `net10.0-windows`
-and cannot be built on Linux (ADR-0010).
+The shell renders the six-band layout, the status strip and the nav, with six widgets bound
+to live synthetic signals through `ObservableSignal`. The **stage is empty** — no map, video
+or media component exists yet (Q13), and it says so rather than inventing an occupant.
+
+Two traps already hit and worth not re-learning:
+
+- **`InvariantGlobalization` breaks WPF.** `Directory.Build.props` sets it for the whole
+  solution, which is right for the headless engine. WPF's font stack builds a
+  `CultureInfo("en")` while measuring the first `TextBlock` and throws. Overridden to
+  `false` in `Host` and `Host.Tests` only.
+- **Don't rely on `WindowState="Maximized"`** for the borderless window. With no explicit
+  bounds it takes its restore size from the fixed 912 × 1368 design surface and lands partly
+  off-screen. `MainWindow` sets the work-area rectangle outright.
+
+**Next: the component host** — discovery, manifest, lifecycle — so the widgets stop being
+built by the shell and start arriving from `plugins/`.
 
 Adapter chosen but not bought: **OBDLink EX**, wired USB (ADR-0007).
 

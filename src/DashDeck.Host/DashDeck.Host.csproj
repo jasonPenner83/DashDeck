@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\DashDeck.Abstractions\DashDeck.Abstractions.csproj" />
+    <ProjectReference Include="..\DashDeck.Abstractions.Wpf\DashDeck.Abstractions.Wpf.csproj" />
+    <ProjectReference Include="..\DashDeck.Core\DashDeck.Core.csproj" />
+    <ProjectReference Include="..\DashDeck.Simulator\DashDeck.Simulator.csproj" />
+    <ProjectReference Include="..\DashDeck.Vehicle\DashDeck.Vehicle.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- MVVM in the shell only (ADR-0011). This must never reach DashDeck.Abstractions,
+         which ADR-0002 keeps dependency-free because it is shared across load contexts. -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!--
+      Directory.Build.props turns on InvariantGlobalization for the whole solution, which is
+      right for the headless engine: smaller, deterministic, no ICU. WPF cannot run under it.
+      Its font stack builds a CultureInfo("en") while measuring the very first TextBlock and
+      throws CultureNotFoundException, so the window dies during Show() before anything is
+      drawn. Overridden here only, so the engine keeps the property and the shell can render.
+    -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,235 @@
+﻿<Window x:Class="DashDeck.Host.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:DashDeck.Host.Converters"
+        Title="DashDeck"
+        WindowStyle="None"
+        WindowStartupLocation="Manual"
+        Background="{StaticResource CanvasBrush}"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Ideal">
+
+    <Window.Resources>
+        <conv:QualityToBrushConverter x:Key="QualityBrush" />
+        <conv:QualityToLabelConverter x:Key="QualityLabel" />
+        <conv:QualityToValueBrushConverter x:Key="ValueBrush" />
+
+        <!-- One widget. 270 x 165 on the Pro 7 — one column wide, one band tall. -->
+        <DataTemplate x:Key="WidgetCardTemplate">
+            <Border Style="{StaticResource WidgetCard}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0">
+                        <Border DockPanel.Dock="Right"
+                                CornerRadius="999"
+                                Padding="9,4,9,4"
+                                BorderThickness="1"
+                                BorderBrush="{Binding Signal.Quality, Converter={StaticResource QualityBrush}}">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                         Fill="{Binding Signal.Quality, Converter={StaticResource QualityBrush}}" />
+                                <TextBlock Margin="6,0,0,0"
+                                           FontFamily="{StaticResource MonoFont}"
+                                           FontSize="11"
+                                           VerticalAlignment="Center"
+                                           Foreground="{Binding Signal.Quality, Converter={StaticResource QualityBrush}}"
+                                           Text="{Binding Signal.Quality, Converter={StaticResource QualityLabel}}" />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Style="{StaticResource CaptionText}"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding Label}" />
+                    </DockPanel>
+
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                        <TextBlock Style="{StaticResource ValueText}"
+                                   Foreground="{Binding Signal.Quality, Converter={StaticResource ValueBrush}}"
+                                   Text="{Binding Signal.Text}" />
+                        <TextBlock Style="{StaticResource UnitText}"
+                                   Margin="8,0,0,9"
+                                   VerticalAlignment="Bottom"
+                                   Text="{Binding Signal.Unit}" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="2"
+                               Style="{StaticResource MicroText}"
+                               Text="{Binding Signal.EffectiveRateHz, StringFormat={}{0:0.##} Hz allocated}" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+
+    <!--
+        The shell is authored at exactly the Pro 7's portrait size and scaled to whatever
+        window it lands in. On the tablet, full-screen, that scale is 1:1 and the numbers in
+        B2 are literal. On a landscape dev screen it simply shrinks, which is a P0.5
+        convenience rather than the final arrangement.
+    -->
+    <Viewbox Stretch="Uniform">
+        <Grid Width="912" Height="1368">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="90" />
+                <RowDefinition Height="1110" />
+                <RowDefinition Height="168" />
+            </Grid.RowDefinitions>
+
+            <!-- Status strip -->
+            <Border Grid.Row="0"
+                    BorderBrush="{StaticResource HairlineBrush}"
+                    BorderThickness="0,0,0,1">
+                <Grid Margin="31,0,31,0">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <TextBlock Style="{StaticResource StatusText}" Text="{Binding SourceLabel}" />
+
+                        <Border Margin="16,0,0,0"
+                                CornerRadius="999"
+                                Padding="12,6,12,6"
+                                BorderThickness="1"
+                                BorderBrush="#8DA6FF">
+                            <TextBlock FontFamily="{StaticResource MonoFont}"
+                                       FontSize="12"
+                                       Foreground="#8DA6FF"
+                                       Text="SIMULATED" />
+                        </Border>
+
+                        <TextBlock Style="{StaticResource StatusText}"
+                                   Margin="16,0,0,0"
+                                   Foreground="{StaticResource TextFaintBrush}"
+                                   Text="{Binding DriveLabel}" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <TextBlock Style="{StaticResource StatusText}"
+                                   Foreground="{StaticResource TextLowBrush}"
+                                   Text="{Binding RequestRateText}" />
+                        <TextBlock Margin="28,0,0,0"
+                                   FontFamily="{StaticResource UiFont}"
+                                   FontSize="22"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   Foreground="{StaticResource TextHighBrush}"
+                                   Text="{Binding ClockText}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- The six bands -->
+            <Grid Grid.Row="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="740" />
+                    <RowDefinition Height="370" />
+                </Grid.RowDefinitions>
+
+                <!-- Stage, four bands. Nothing occupies it yet (Q13), and the shell says so
+                     rather than filling the space with something invented. -->
+                <Border Grid.Row="0"
+                        BorderBrush="{StaticResource HairlineBrush}"
+                        BorderThickness="0,0,0,1">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <TextBlock Style="{StaticResource CaptionText}"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{StaticResource TextFaintBrush}"
+                                   Text="STAGE 4/6" />
+                        <TextBlock Margin="0,14,0,0"
+                                   FontFamily="{StaticResource UiFont}"
+                                   FontSize="24"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{StaticResource TextLowBrush}"
+                                   Text="No stage occupant" />
+                        <TextBlock Margin="0,10,0,0"
+                                   FontFamily="{StaticResource MonoFont}"
+                                   FontSize="13"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{StaticResource TextFaintBrush}"
+                                   Text="maps, video and media are still to be built" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Two bands of widgets: 31 margin, 20 gutter, three 270-wide columns. -->
+                <Grid Grid.Row="1" Margin="31,20,31,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="270" />
+                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition Width="270" />
+                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition Width="270" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="165" />
+                        <RowDefinition Height="20" />
+                        <RowDefinition Height="165" />
+                    </Grid.RowDefinitions>
+
+                    <ContentControl Grid.Row="0" Grid.Column="0" Content="{Binding Widgets[0]}" ContentTemplate="{StaticResource WidgetCardTemplate}" />
+                    <ContentControl Grid.Row="0" Grid.Column="2" Content="{Binding Widgets[1]}" ContentTemplate="{StaticResource WidgetCardTemplate}" />
+                    <ContentControl Grid.Row="0" Grid.Column="4" Content="{Binding Widgets[2]}" ContentTemplate="{StaticResource WidgetCardTemplate}" />
+                    <ContentControl Grid.Row="2" Grid.Column="0" Content="{Binding Widgets[3]}" ContentTemplate="{StaticResource WidgetCardTemplate}" />
+                    <ContentControl Grid.Row="2" Grid.Column="2" Content="{Binding Widgets[4]}" ContentTemplate="{StaticResource WidgetCardTemplate}" />
+                    <ContentControl Grid.Row="2" Grid.Column="4" Content="{Binding Widgets[5]}" ContentTemplate="{StaticResource WidgetCardTemplate}" />
+                </Grid>
+            </Grid>
+
+            <!-- Navigation. Switches only what sits below the stage (B2/B3). -->
+            <Border Grid.Row="2"
+                    BorderBrush="{StaticResource HairlineBrush}"
+                    BorderThickness="0,1,0,0">
+                <UniformGrid Columns="4">
+
+                    <Border Background="{StaticResource AccentWashBrush}"
+                            BorderBrush="{StaticResource AccentBrush}"
+                            BorderThickness="0,4,0,0">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <Path Data="M3,3 H21 V12 H3 Z M3,15 H10 V21 H3 Z M14,15 H21 V21 H14 Z"
+                                  Stroke="{StaticResource AccentBrush}" StrokeThickness="1.75"
+                                  Width="32" Height="32" Stretch="Uniform" HorizontalAlignment="Center" />
+                            <TextBlock Margin="0,14,0,0" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                       Foreground="{StaticResource AccentBrush}" Text="DASH" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border BorderThickness="0,4,0,0" BorderBrush="Transparent">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <Path Data="M12,3 A9,9 0 1 1 11.99,3 Z M12,9.5 A2.5,2.5 0 1 1 11.99,9.5 Z"
+                                  Stroke="{StaticResource TextMidBrush}" StrokeThickness="1.75"
+                                  Width="32" Height="32" Stretch="Uniform" HorizontalAlignment="Center" />
+                            <TextBlock Margin="0,14,0,0" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                       Foreground="{StaticResource TextMidBrush}" Text="STEREO" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border BorderThickness="0,4,0,0" BorderBrush="Transparent">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <Path Data="M3,8 C5,6 7,6 9,8 C11,10 13,10 15,8 C17,6 19,6 21,8 M3,13 C5,11 7,11 9,13 C11,15 13,15 15,13 C17,11 19,11 21,13 M3,18 C5,16 7,16 9,18 C11,20 13,20 15,18 C17,16 19,16 21,18"
+                                  Stroke="{StaticResource TextMidBrush}" StrokeThickness="1.75"
+                                  Width="32" Height="32" Stretch="Uniform" HorizontalAlignment="Center" />
+                            <TextBlock Margin="0,14,0,0" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                       Foreground="{StaticResource TextMidBrush}" Text="CLIMATE" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border BorderThickness="0,4,0,0" BorderBrush="Transparent">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <Path Data="M4,7 H20 M4,17 H20 M9,4.5 A2.5,2.5 0 1 1 8.99,4.5 Z M16,14.5 A2.5,2.5 0 1 1 15.99,14.5 Z"
+                                  Stroke="{StaticResource TextMidBrush}" StrokeThickness="1.75"
+                                  Width="32" Height="32" Stretch="Uniform" HorizontalAlignment="Center" />
+                            <TextBlock Margin="0,14,0,0" HorizontalAlignment="Center"
+                                       FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                       Foreground="{StaticResource TextMidBrush}" Text="SETTINGS" />
+                        </StackPanel>
+                    </Border>
+
+                </UniformGrid>
+            </Border>
+
+        </Grid>
+    </Viewbox>
+</Window>
