@@ -1,8 +1,8 @@
-# DashDeck
+﻿# DashDeck
 
 A pluggable Windows infotainment ecosystem for a **2019 Ford F-150**.
 
-DashDeck runs on a Surface Pro 9 mounted in portrait in the truck, reads live data from
+DashDeck runs on a Surface Pro 7 mounted in portrait in the truck, reads live data from
 the vehicle's CAN networks over an OBD-II adapter, and presents it through components you
 can add by dropping a folder into `plugins/`.
 

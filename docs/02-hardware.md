@@ -81,20 +81,31 @@ an accepted, deliberate softening of "no drivers on the personal tablet", taken 
 exchange for eliminating the Bluetooth reconnect problem (R3). It is recorded in ADR-0007
 rather than quietly absorbed.
 
-**Physical fit.** The EX terminates in **USB-A**. The Surface Pro 9 has neither USB-A nor
-a spare port to lose, so the link runs through the Surface dock or a USB-C adapter. This
-is what makes the dock scenario real rather than hypothetical, and it resolves Q2 — the
-USB transport is now the primary one and gets built first.
+**Physical fit.** The EX terminates in **USB-A**.
 
-## The computer: Surface Pro 9 (Intel)
+> *Amended 2026-09-01 (Q16).* This paragraph previously read that the tablet "has neither
+> USB-A nor a spare port to lose", so the link had to run through a dock or a USB-C
+> adapter. That was written against a **Surface Pro 9**. The truck tablet is in fact a
+> **Surface Pro 7**, which has a **USB-A 3.0 port**. The EX therefore plugs straight in:
+> no dock, no adapter, nothing on the critical path. This **resolves Q11** and removes the
+> dock from the bring-up plan. Power still goes over Surface Connect, so the USB-C port
+> stays free as well.
 
-- **Intel, not SQ3/ARM** — confirmed in the interview. Vendor drivers would work if ever
-  needed, which removes an entire class of risk. We still prefer the driverless COM-port
-  path, because constraint C1 says we do not install drivers on a personal tablet.
-- Portrait mount, ~2880×1920 at 267 PPI. High DPI throughout; the UI is vector, with no
-  bitmap assets at fixed sizes.
-- **Two USB-C ports only, no USB-A.** Power should go over Surface Connect so a USB-C
-  port stays free — one more argument for Bluetooth as the daily path.
+The USB transport remains the primary one and gets built first (Q2) — that conclusion is
+unchanged and is now simply easier to reach. ADR-0007's decision (wired USB, OBDLink EX)
+stands; only a supporting fact about port availability was wrong, and it was wrong in the
+direction that makes the decision better.
+
+## The computer: Surface Pro 7 (Intel)
+
+- **Intel, not SQ3/ARM** — vendor drivers would work if ever needed, which removes an
+  entire class of risk. We still prefer the driverless COM-port path, because constraint
+  C1 says we do not install drivers on a personal tablet.
+- 12.3" panel, **2736×1824 native at 267 PPI**, running at 200% scale. Portrait mount, so
+  the shell gets **912 × 1368 logical pixels**. High DPI throughout; the UI is vector,
+  with no bitmap assets at fixed sizes.
+- **One USB-A 3.0 port and one USB-C port.** The EX takes the USB-A; power goes over
+  Surface Connect, leaving USB-C free.
 - Sleep/resume can still invalidate a COM port handle, so the transport continues to treat
   reconnection as routine — but with USB this is a handle to re-acquire rather than a
   Bluetooth link to re-establish, which is a substantially smaller problem than R3

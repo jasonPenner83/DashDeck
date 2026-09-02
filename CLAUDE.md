@@ -1,11 +1,11 @@
-# CLAUDE.md — DashDeck
+﻿# CLAUDE.md — DashDeck
 
 Working memory for this repo. Read this first; it is kept current deliberately.
 
 ## What this project is
 
-A Windows infotainment app for Jason's **2019 Ford F-150**, running on a **Surface Pro 9
-(Intel)** mounted in **portrait**, carried in and out of the truck. It reads vehicle data
+A Windows infotainment app for Jason's **2019 Ford F-150**, running on a **Surface Pro 7
+(Intel, 912 x 1368 portrait)** mounted in **portrait**, carried in and out of the truck. It reads vehicle data
 over an OBD-II adapter and presents it through **pluggable components**.
 
 The point of the project is the **ecosystem**, not any one feature. Adding a capability

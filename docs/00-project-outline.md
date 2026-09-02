@@ -1,4 +1,4 @@
-# DashDeck — Project Outline
+﻿# DashDeck — Project Outline
 
 > Status: **outline / pre-code**. Nothing here is built yet. This document is the
 > agreed shape of the project, derived from the scoping interview on 2026-09-01.
@@ -6,7 +6,7 @@
 ## 1. What this is
 
 DashDeck is a Windows infotainment application for a **2019 Ford F-150**, running on a
-**Surface Pro 9 (Intel)** that is carried into the truck and mounted in portrait
+**Surface Pro 7 (Intel)** that is carried into the truck and mounted in portrait
 orientation. It reads live data from the truck's CAN networks over an OBD-II adapter and
 presents it through a set of **pluggable components**.
 
@@ -21,7 +21,7 @@ These came out of the interview and are not up for renegotiation without an ADR.
 
 | # | Constraint | Consequence |
 |---|---|---|
-| C1 | The Surface Pro 9 is a **personal device**, swapped in and out of the truck | No kiosk mode, no shell replacement, no services, no registry work. Self-contained folder deploy; settings in `%LOCALAPPDATA%`; uninstall = delete the folder. *Amended 2026-09-01:* one Microsoft-signed FTDI USB serial driver is accepted, in exchange for a wired link (ADR-0007). Nothing more invasive than that. |
+| C1 | The Surface Pro 7 is a **personal device**, swapped in and out of the truck | No kiosk mode, no shell replacement, no services, no registry work. Self-contained folder deploy; settings in `%LOCALAPPDATA%`; uninstall = delete the folder. *Amended 2026-09-01:* one Microsoft-signed FTDI USB serial driver is accepted, in exchange for a wired link (ADR-0007). Nothing more invasive than that. |
 | C2 | **No OBD-II adapter has been purchased yet**, and the app will spend most of its life not connected to a truck anyway | The synthetic vehicle is not test scaffolding — for now it *is* the data source. Every layer above the transport must be buildable, demoable and shippable against mock data. Real hardware is a later swap of the bottom layer, nothing more. |
 | C3 | **SYNC 3 stays.** DashDeck is an additional screen | Phase 1 is purely additive. The truck remains 100% usable if DashDeck is closed, crashed, or left at home. No takeover of audio, factory camera, or climate. |
 | C4 | **Portrait** orientation | Layout system is portrait-first. Primary navigation lives in the bottom third — the only zone reachable from the driver's seat without leaning. |
