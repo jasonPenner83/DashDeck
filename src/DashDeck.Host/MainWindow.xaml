@@ -149,14 +149,14 @@
                                 to change. Sitting beside the occupant instead of over it is
                                 the only arrangement that survives.
                             -->
-                            <RowDefinition Height="72" />
                             <RowDefinition Height="*" />
+                            <RowDefinition Height="72" />
                         </Grid.RowDefinitions>
 
                         <!-- The launcher. A row of app buttons plus a grid button for the
                              rest, sized to be hit from the driver's seat. -->
-                        <Border Grid.Row="0" Background="{StaticResource CanvasBrush}"
-                                BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,0,1">
+						<Border Grid.Row="1" Background="{StaticResource CanvasBrush}"
+                            BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,1,0,0">
                             <DockPanel Margin="14,0,14,0" LastChildFill="False">
 
                                 <Button DockPanel.Dock="Right"
@@ -204,11 +204,11 @@
                             </DockPanel>
                         </Border>
 
-                        <ContentControl Grid.Row="1"
+                        <ContentControl Grid.Row="0"
                                         Content="{Binding StageContent}"
                                         Visibility="{Binding IsOccupantVisible, Converter={StaticResource BoolToVis}}" />
 
-                        <StackPanel Grid.Row="1"
+                        <StackPanel Grid.Row="0"
                                     VerticalAlignment="Center" HorizontalAlignment="Center"
                                     Visibility="{Binding StageIsEmpty, Converter={StaticResource BoolToVis}}">
                         <TextBlock Margin="0,14,0,0"
@@ -222,7 +222,7 @@
                                    FontSize="13"
                                    HorizontalAlignment="Center"
                                    Foreground="{StaticResource TextFaintBrush}"
-                                   Text="tap STAGE above to choose one" />
+                                   Text="pick an app below" />
                         </StackPanel>
 
                         <!-- The picker. Fills the stage, because that is where the thing
@@ -231,7 +231,7 @@
                         <!-- Fully opaque, not a scrim. A translucent panel over the empty
                              state reads as muddy rather than layered, and legibility wins
                              in a vehicle. -->
-                        <Border Grid.Row="1"
+                        <Border Grid.Row="0"
                                 Background="{StaticResource CanvasBrush}"
                                 Visibility="{Binding IsStagePickerOpen, Converter={StaticResource BoolToVis}}">
                             <StackPanel VerticalAlignment="Center" Margin="31,0,31,0">
