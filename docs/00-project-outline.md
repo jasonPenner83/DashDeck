@@ -35,8 +35,15 @@ Naming these now prevents scope drift later.
 - Replacing or emulating SYNC 3.
 - Anything safety-critical, ADAS-adjacent, or that the driver could come to rely on.
 - Module reflashing, tuning, or FORScan-style configuration writes.
-- Public distribution or a component marketplace. The SDK is built as if for others,
-  because that discipline produces a better architecture — but the audience is one truck.
+- ~~Public distribution or a component marketplace. The SDK is built as if for others,
+  because that discipline produces a better architecture — but the audience is one truck.~~
+
+  > *Amended 2026-09-02 → [ADR-0012](decisions/ADR-0012-widgets-and-applets.md).* The
+  > project is going public on GitHub and other people are expected to extend it. That
+  > invalidates the premise ADR-0002 rested on — "the population of component authors is one
+  > person" — so third-party extension moves to **declarative widgets** and **sandboxed web
+  > applets**, with in-process plugins retained for first-party code only. A *marketplace*
+  > remains a non-goal: publishing a repository is not running a distribution channel.
 - Cross-platform. Windows-only (see ADR-0001).
 
 ## 4. Architecture in one picture
