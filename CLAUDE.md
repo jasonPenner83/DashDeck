@@ -39,7 +39,14 @@ signal, style, unit, rate and format. Cards flow into rows and rows into pages t
 sideways; **only the visible page declares signals.** Settings and the card editor are
 full-screen views that take all six bands and hide the stage, which keeps running (Q17).
 
-Five traps already hit and worth not re-learning:
+**The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
+it, which on the road read as the dash rearranging itself. An occupant that wants less picture
+takes a one-band **action bar** instead: video transport, web back/reload/home, compass
+levelling. A three-dot menu in the status strip carries MODIFY WIDGETS and SETTINGS; the status
+strip itself is a quick-info bar (weather, SIM badge, clock) and the diagnostics moved into
+Settings.
+
+Six traps already hit and worth not re-learning:
 
 - **`InvariantGlobalization` breaks WPF.** `Directory.Build.props` sets it for the whole
   solution, which is right for the headless engine. WPF's font stack builds a
@@ -63,6 +70,12 @@ Five traps already hit and worth not re-learning:
   has no target type to convert against and leaves the literal as the *string* `"True"`,
   which never equals a boxed `bool`. Use `<Trigger.Value><sys:Boolean>True</sys:Boolean>`.
   Cost: the current page's dot silently never lit.
+
+- **Touch never reaches the mouse events on a manipulation-enabled element.** Edit mode was a
+  600 ms hold built on `PreviewMouseLeftButtonDown`, on the card strip, which sets
+  `IsManipulationEnabled` for swiping — so the hold could never fire from a finger and worked
+  only in mouse-driven screenshots. Found in the truck. If a gesture must work on glass, test
+  it on glass or drive it from `ManipulationStarted`/`TouchDown`.
 
 Also worth knowing: `MeasuredRequestsPerSecond` — the `req/s` on the status strip — is the
 adapter's measured **capability**, not the achieved load. It is not a way to check whether
@@ -132,10 +145,11 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Seventeen exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Eighteen exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
-vehicle-first rule and sensor catalog for anything the tablet could also guess at.
+vehicle-first rule and sensor catalog for anything the tablet could also guess at, and the
+fixed-height stage that came out of the first drive.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

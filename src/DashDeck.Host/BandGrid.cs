@@ -57,6 +57,18 @@ public static class BandGrid
     /// <summary>How many bands there are. The stage and whatever sits below it share these.</summary>
     public const int BandCount = 6;
 
+    /// <summary>
+    /// How many bands the stage takes. Always four.
+    /// </summary>
+    /// <remarks>
+    /// It used to be whatever the occupant asked for — three for video, four for a map — and
+    /// on the road that was the single most distracting thing about the dash: the cards below
+    /// jumped between two rows and three every time the stage changed, so the thing you were
+    /// reading moved. An occupant that wants less picture takes an action bar instead, which
+    /// is a fixed band and leaves the layout still.
+    /// </remarks>
+    public const int StageBands = 4;
+
 
     /// <summary>Height of <paramref name="bands"/> bands.</summary>
     public static double Height(int bands) => bands * BandHeight;

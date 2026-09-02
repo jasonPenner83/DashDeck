@@ -17,6 +17,7 @@ public partial class App : Application
     private VehicleStack? _vehicle;
     private ShellViewModel? _shell;
     private Theme.ThemeService? _theme;
+    private Stage.WeatherService? _weather;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -67,7 +68,10 @@ public partial class App : Application
 
         // Built before the shell: it writes the palette into Application.Resources, so the
         // window comes up already wearing the right one rather than repainting into it.
-        _theme = new Theme.ThemeService(SystemClock.Instance);
+        // One weather fetch for the whole application. Built before the theme, because Auto
+        // day/night reads sunrise and sunset from it rather than fetching its own.
+        _weather = new Stage.WeatherService(SystemClock.Instance);
+        _theme = new Theme.ThemeService(SystemClock.Instance, _weather);
 
         // --theme <DAY|NIGHT|AUTO> forces a palette, for looking at one without waiting for
         // sunset. --accent <NAME|#RRGGBB> forces an accent, preset or custom.
@@ -107,6 +111,7 @@ public partial class App : Application
             _vehicle,
             SystemClock.Instance,
             _theme,
+            _weather,
             stagedVideo,
             ArgValue(e.Args, "--stage"));
 
@@ -276,6 +281,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _shell?.Dispose();
+        _weather?.Dispose();
 
         if (_vehicle is not null)
         {

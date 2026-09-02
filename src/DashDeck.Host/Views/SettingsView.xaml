@@ -145,6 +145,31 @@
                    Style="{StaticResource MicroText}"
                    Text="{Binding SettingsPath, StringFormat=Saved to {0} — kept across updates.}" />
 
+        <!--
+            The diagnostics that used to sit in the status strip. They answer questions a
+            developer asks and nobody asks while driving, so the strip became a quick-info bar
+            and they came here — where there is room to say what they mean.
+        -->
+        <TextBlock Margin="2,32,0,0" Style="{StaticResource CaptionText}" Text="DIAGNOSTICS" />
+
+        <TextBlock Margin="2,10,0,0"
+                   Style="{StaticResource StatusText}"
+                   Foreground="{DynamicResource TextMidBrush}"
+                   Text="{Binding DataContext.SourceLabel, RelativeSource={RelativeSource AncestorType=Window}}" />
+
+        <TextBlock Margin="2,4,0,0"
+                   Style="{StaticResource MicroText}"
+                   Text="{Binding DataContext.DriveLabel, RelativeSource={RelativeSource AncestorType=Window},
+                                  StringFormat=Scripted drive: {0}}" />
+
+        <TextBlock Margin="2,4,0,0"
+                   MaxWidth="700"
+                   HorizontalAlignment="Left"
+                   TextWrapping="Wrap"
+                   Style="{StaticResource MicroText}"
+                   Text="{Binding DataContext.RequestRateText, RelativeSource={RelativeSource AncestorType=Window},
+                                  StringFormat={}{0} — measured adapter capability rather than load.}" />
+
     </StackPanel>
     </ScrollViewer>
 </UserControl>

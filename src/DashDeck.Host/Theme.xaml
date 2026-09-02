@@ -334,6 +334,71 @@
         </Setter>
     </Style>
 
+    <!--
+        The overflow button in the status strip. 56 square, which is the touch floor used
+        everywhere else — the three dots are 4px each because the target is the button, not
+        the paint.
+    -->
+    <Style x:Key="KebabButton" TargetType="Button">
+        <Setter Property="Width" Value="56" />
+        <Setter Property="Height" Value="56" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            BorderThickness="1"
+                            CornerRadius="14">
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Ellipse x:Name="D1" Width="4" Height="4" Margin="0,2,0,2" Fill="{DynamicResource TextMidBrush}" />
+                            <Ellipse x:Name="D2" Width="4" Height="4" Margin="0,2,0,2" Fill="{DynamicResource TextMidBrush}" />
+                            <Ellipse x:Name="D3" Width="4" Height="4" Margin="0,2,0,2" Fill="{DynamicResource TextMidBrush}" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource HairlineStrongBrush}" />
+                            <Setter TargetName="D1" Property="Fill" Value="{DynamicResource AccentBrush}" />
+                            <Setter TargetName="D2" Property="Fill" Value="{DynamicResource AccentBrush}" />
+                            <Setter TargetName="D3" Property="Fill" Value="{DynamicResource AccentBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- A row in the overflow menu. Full width, so it is hit rather than aimed at. -->
+    <Style x:Key="MenuItemButton" TargetType="Button">
+        <Setter Property="Height" Value="72" />
+        <Setter Property="Margin" Value="0,0,0,10" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Foreground" Value="{DynamicResource TextHighBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome"
+                            Background="{DynamicResource RaisedBrush}"
+                            BorderBrush="{DynamicResource HairlineStrongBrush}"
+                            BorderThickness="1"
+                            CornerRadius="14"
+                            Padding="22,0,22,0">
+                        <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- A heading above a row of chips. -->
     <Style x:Key="FieldLabel" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
         <Setter Property="Margin" Value="0,0,0,8" />

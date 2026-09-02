@@ -23,3 +23,4 @@ including the reasoning that later turns out to be wrong.
 | [0015](ADR-0015-arranged-dashboard.md) | The dash is a user-arranged list of cards, flowed into pages; only the visible page declares signals | Accepted |
 | [0016](ADR-0016-vehicle-first-heading.md) | Vehicle data first, device sensors as a declared and visible fallback | Accepted |
 | [0017](ADR-0017-sensor-catalog.md) | A second catalog for tablet sensors, with a required mount reference | Accepted |
+| [0018](ADR-0018-fixed-stage-and-overflow-menu.md) | Stage fixed at four bands with an optional action bar; overflow menu replaces a hold gesture (supersedes 0015 in part) | Accepted |

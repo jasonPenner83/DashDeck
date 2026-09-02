@@ -57,16 +57,36 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsOccupantVisible))]
     private bool _isStagePickerOpen;
 
+    /// <summary>The current occupant's action bar, or null when it has none.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasStageActionBar))]
+    private FrameworkElement? _stageActionBar;
+
+    /// <summary>
+    /// The overflow menu, opened from the status strip.
+    /// </summary>
+    /// <remarks>
+    /// Exists because the gesture it replaces did not work. Editing the dash was a 600 ms
+    /// hold on a card, implemented on the mouse events — and the card strip has manipulation
+    /// enabled for swiping, which swallows touch before it is ever promoted to a mouse event.
+    /// It could never have worked with a finger, which is exactly how it was found: in the
+    /// truck, by someone trying to use it.
+    /// </remarks>
+    [ObservableProperty]
+    private bool _isMenuOpen;
+
     public ShellViewModel(
         VehicleStack vehicle,
         IClock clock,
         ThemeService theme,
+        WeatherService weather,
         string? videoPath = null,
         string? startOn = null)
     {
         _vehicle = vehicle;
         _clock = clock;
         _theme = theme;
+        Weather = weather;
 
         Settings = new SettingsViewModel(theme);
 
@@ -79,7 +99,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         StageOptions =
         [
-            .. StageOption.All(videoPath, clock, vehicle.Signals, Sensors)
+            .. StageOption.All(videoPath, clock, vehicle.Signals, Sensors, weather)
                 .Select(o => new StageOptionViewModel(o)),
         ];
 
@@ -143,6 +163,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Refresh();
     }
 
+    /// <summary>One weather fetch for the whole app. The status strip and the clock face share it.</summary>
+    public WeatherService Weather { get; }
+
     /// <summary>The tablet's sensors, resolved truck-first (ADR-0016). Outlives every occupant.</summary>
     public SensorService Sensors { get; }
 
@@ -186,6 +209,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             ActiveDestination = destination;
         }
     }
+
+    /// <summary>Outside temperature for the status strip, from the shared forecast.</summary>
+    [ObservableProperty]
+    private string _outsideText = "——°";
+
+    /// <summary>What it is doing outside, in a word or two.</summary>
+    [ObservableProperty]
+    private string _conditionText = string.Empty;
 
     /// <summary>What the link is. Says "synthetic" plainly, because it is (ADR-0005).</summary>
     public string SourceLabel => "SYNTHETIC F-150";
@@ -301,12 +332,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// with none, the stage keeps four and the widgets get two.
     /// </summary>
     /// <remarks>
-    /// Settings is the exception, and Q17 settled why: it takes all six and the stage goes
-    /// to nothing. The occupant keeps running underneath — the phone model — so the music
-    /// does not stop while you change the accent colour, and the nav strip is still there to
-    /// get back out.
+    /// Always four, unless a full-screen view has taken all six (Q17). Fixed rather than
+    /// negotiated: letting each occupant choose meant the cards below moved between two rows
+    /// and three whenever the stage changed, which reads as the dash rearranging itself under
+    /// you while driving.
     /// </remarks>
-    public int StageBands => IsFullScreenOpen ? 0 : _stage?.PreferredBands ?? 4;
+    public int StageBands => IsFullScreenOpen ? 0 : BandGrid.StageBands;
 
     /// <summary>Whatever the stage did not take. Widget rows line up either way.</summary>
     public int WidgetBands => BandGrid.BandCount - StageBands;
@@ -348,6 +379,42 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void ToggleStagePicker() => IsStagePickerOpen = !IsStagePickerOpen;
 
+    /// <summary>True when the occupant contributed an action bar to sit above the launcher.</summary>
+    public bool HasStageActionBar => StageActionBar is not null;
+
+    /// <summary>Open or close the overflow menu.</summary>
+    [RelayCommand]
+    private void ToggleMenu() => IsMenuOpen = !IsMenuOpen;
+
+    /// <summary>
+    /// Go to Settings from the menu.
+    /// </summary>
+    /// <remarks>
+    /// Off the nav strip now. The strip is the only band reachable from the driver's seat, and
+    /// spending a permanent quarter of it on something you set once and then leave was a poor
+    /// trade — B3 always said the strip is the destination list, and Settings is not a
+    /// destination you drive to.
+    /// </remarks>
+    [RelayCommand]
+    private void OpenSettings()
+    {
+        IsMenuOpen = false;
+        ActiveDestination = "SETTINGS";
+    }
+
+    /// <summary>Put the dash into edit mode from the menu.</summary>
+    [RelayCommand]
+    private void EditDash()
+    {
+        IsMenuOpen = false;
+        ActiveDestination = "DASH";
+
+        if (!Dashboard.IsEditing)
+        {
+            Dashboard.ToggleEditCommand.Execute(null);
+        }
+    }
+
     /// <summary>Put something on the stage, or take everything off it.</summary>
     [RelayCommand]
     private void ChooseStage(StageOptionViewModel? option)
@@ -369,6 +436,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         _stage = option.Option.Create?.Invoke();
         StageContent = _stage?.CreateView();
+
+        // Built once, with the view. An occupant that wants controls gets a real row beside
+        // its content rather than an overlay on top of it (F8) — a child window draws over
+        // all WPF content whatever the z-order says, so an overlay would be untappable.
+        StageActionBar = _stage?.CreateActionBar();
 
         foreach (var candidate in StageOptions)
         {
@@ -410,6 +482,19 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // Auto re-checks itself on the same beat as the clock: sunset does not need a
         // dedicated timer.
         _theme.Reevaluate();
+
+        // The status strip carries the weather now, so it is refreshed on the same beat as
+        // the clock. Reading, never fetching — WeatherService owns the one request.
+        if (Weather.Report is { } report)
+        {
+            OutsideText = string.Create(CultureInfo.CurrentCulture, $"{report.Now.TemperatureC:0}°");
+            ConditionText = Stage.Weather.Describe(report.Now.Code);
+        }
+        else
+        {
+            OutsideText = "——°";
+            ConditionText = Weather.Status is "OFFLINE" ? "Weather unavailable" : "Fetching weather";
+        }
 
         var measured = _vehicle.MeasuredRequestsPerSecond;
         RequestRateText = measured > 0

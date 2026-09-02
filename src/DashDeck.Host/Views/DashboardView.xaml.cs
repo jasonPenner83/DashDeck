@@ -37,13 +37,18 @@ public partial class DashboardView : UserControl
     /// <summary>How far a drag must go before it counts as a page turn rather than a tap.</summary>
     private const double TurnThreshold = PageStride * 0.18;
 
-    /// <summary>How long a finger must rest before the dash goes into edit mode.</summary>
-    private static readonly TimeSpan LongPress = TimeSpan.FromMilliseconds(600);
-
-    /// <summary>How far a finger may wander and still count as a hold rather than a drag.</summary>
-    private const double LongPressSlop = 12;
-
-    private readonly DispatcherTimer _holdTimer;
+    /// <summary>
+    /// How far a finger may wander before a press counts as a drag rather than a tap.
+    /// </summary>
+    /// <remarks>
+    /// This used to also be the tolerance for a 600 ms hold that entered edit mode. That
+    /// gesture is gone: it was built on the mouse events, and this element has manipulation
+    /// enabled for swiping — which consumes touch before WPF ever promotes it to a mouse
+    /// event, so the hold could never fire from a finger. It was replaced by the overflow
+    /// menu in the status strip rather than repaired, because a hidden gesture nobody can
+    /// discover is not much better than one that does not work.
+    /// </remarks>
+    private const double DragSlop = 12;
 
     private DashboardViewModel? _model;
     private Point _pressedAt;
@@ -53,9 +58,6 @@ public partial class DashboardView : UserControl
     public DashboardView()
     {
         InitializeComponent();
-
-        _holdTimer = new DispatcherTimer { Interval = LongPress };
-        _holdTimer.Tick += OnHoldElapsed;
 
         DataContextChanged += OnDataContextChanged;
         Unloaded += (_, _) => Detach();
@@ -68,7 +70,6 @@ public partial class DashboardView : UserControl
         Root.PreviewMouseLeftButtonDown += OnPressed;
         Root.PreviewMouseMove += OnMoved;
         Root.PreviewMouseLeftButtonUp += OnReleased;
-        Root.MouseLeave += (_, _) => CancelHold();
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -86,8 +87,6 @@ public partial class DashboardView : UserControl
 
     private void Detach()
     {
-        _holdTimer.Stop();
-
         if (_model is not null)
         {
             _model.PropertyChanged -= OnModelChanged;
@@ -180,7 +179,6 @@ public partial class DashboardView : UserControl
 
     private void OnManipulationDelta(object? sender, ManipulationDeltaEventArgs e)
     {
-        CancelHold();
         Slide.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, null);
         Slide.X = _dragFrom + e.CumulativeManipulation.Translation.X;
     }
@@ -201,13 +199,6 @@ public partial class DashboardView : UserControl
         _pressedAt = e.GetPosition(Root);
         _dragFrom = Slide.X;
         _dragging = false;
-
-        // Only armed when there is something to enter. In edit mode a press on a card is
-        // aimed at one of its buttons, and toggling edit off underneath it would be hostile.
-        if (_model is { IsEditing: false })
-        {
-            _holdTimer.Start();
-        }
     }
 
     private void OnMoved(object sender, MouseEventArgs e)
@@ -219,13 +210,12 @@ public partial class DashboardView : UserControl
 
         var offset = e.GetPosition(Root).X - _pressedAt.X;
 
-        if (!_dragging && Math.Abs(offset) < LongPressSlop)
+        if (!_dragging && Math.Abs(offset) < DragSlop)
         {
             return;
         }
 
         _dragging = true;
-        CancelHold();
 
         Slide.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, null);
         Slide.X = _dragFrom + offset;
@@ -233,8 +223,6 @@ public partial class DashboardView : UserControl
 
     private void OnReleased(object sender, MouseButtonEventArgs e)
     {
-        CancelHold();
-
         if (!_dragging)
         {
             return;
@@ -244,11 +232,4 @@ public partial class DashboardView : UserControl
         SettleAfterDrag(e.GetPosition(Root).X - _pressedAt.X);
     }
 
-    private void CancelHold() => _holdTimer.Stop();
-
-    private void OnHoldElapsed(object? sender, EventArgs e)
-    {
-        _holdTimer.Stop();
-        _model?.ToggleEditCommand.Execute(null);
-    }
 }

@@ -17,19 +17,12 @@ namespace DashDeck.Host.Stage;
 /// apply to it.
 /// </para>
 /// </remarks>
-public sealed class ClockWeatherStageOccupant(IClock clock) : IStageOccupant
+public sealed class ClockWeatherStageOccupant(IClock clock, WeatherService weather) : IStageOccupant
 {
-    private readonly ClockWeatherViewModel _viewModel = new(clock);
+    private readonly ClockWeatherViewModel _viewModel = new(clock, weather);
 
     /// <inheritdoc />
     public string Name => "CLOCK";
-
-    /// <summary>
-    /// Four bands. It is the idle state, so it holds the stage's default size rather than
-    /// asking for something of its own — leaving two bands of widgets, which is the layout
-    /// the dash spends most of its time in.
-    /// </summary>
-    public int PreferredBands => 4;
 
     /// <inheritdoc />
     public FrameworkElement CreateView() => new ClockWeatherView { DataContext = _viewModel };

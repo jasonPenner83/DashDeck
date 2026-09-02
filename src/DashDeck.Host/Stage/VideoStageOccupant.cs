@@ -1,5 +1,7 @@
 ﻿using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 using LibVLCSharp.Shared;
 using LibVLCSharp.WPF;
 
@@ -32,6 +34,13 @@ public sealed class VideoStageOccupant : IStageOccupant
     private VideoView? _view;
     private bool _disposed;
 
+    // The action bar's controls, kept so the ticker can walk them along with the player.
+    private Button? _playPause;
+    private Slider? _position;
+    private TextBlock? _elapsed;
+    private DispatcherTimer? _ticker;
+    private bool _syncingSlider;
+
     public VideoStageOccupant(string mediaPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(mediaPath);
@@ -47,9 +56,6 @@ public sealed class VideoStageOccupant : IStageOccupant
 
     /// <inheritdoc />
     public string Name => "VIDEO";
-
-    /// <inheritdoc />
-    public int PreferredBands => 3;
 
     /// <summary>True once VLC reports it is actually playing.</summary>
     public bool IsPlaying => _player.IsPlaying;
@@ -91,6 +97,55 @@ public sealed class VideoStageOccupant : IStageOccupant
         return _view;
     }
 
+    /// <summary>
+    /// Transport controls, on the stage's action bar.
+    /// </summary>
+    /// <remarks>
+    /// The reason this could not exist before. The picture lives in a child window that draws
+    /// over all WPF content whatever the z-order says, so controls overlaid on the video were
+    /// invisible and untappable — which is F8, and why the stage grew a real row for them
+    /// rather than a floating panel.
+    /// <para>
+    /// The bar drives the player and the player drives the bar: a timer walks the slider
+    /// while it plays, and moving the slider seeks. The flag is what stops those two fighting
+    /// each other every tick.
+    /// </para>
+    /// </remarks>
+    public FrameworkElement? CreateActionBar()
+    {
+        _playPause = ActionBar.Button("PAUSE", TogglePlay, 140);
+
+        _position = new Slider
+        {
+            Width = 430,
+            Margin = new Thickness(16, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Minimum = 0,
+            Maximum = 1,
+            IsMoveToPointEnabled = true,
+        };
+
+        _position.ValueChanged += (_, e) =>
+        {
+            if (!_syncingSlider && Math.Abs(e.NewValue - _player.Position) > 0.001)
+            {
+                _player.Position = (float)e.NewValue;
+            }
+        };
+
+        _elapsed = ActionBar.Caption("--:-- / --:--");
+
+        _ticker = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(500),
+        };
+
+        _ticker.Tick += (_, _) => SyncBar();
+        _ticker.Start();
+
+        return ActionBar.Row(_playPause, _position, _elapsed);
+    }
+
     /// <inheritdoc />
     public void Dispose()
     {
@@ -100,6 +155,7 @@ public sealed class VideoStageOccupant : IStageOccupant
         }
 
         _disposed = true;
+        _ticker?.Stop();
 
         if (_view is not null)
         {
@@ -115,5 +171,61 @@ public sealed class VideoStageOccupant : IStageOccupant
     {
         using var media = new Media(_libVlc, new Uri(_mediaPath));
         _player.Play(media);
+    }
+
+    private void TogglePlay()
+    {
+        if (_player.IsPlaying)
+        {
+            _player.Pause();
+        }
+        else
+        {
+            _player.Play();
+        }
+
+        SyncBar();
+    }
+
+    /// <summary>Walk the bar to wherever the player actually is.</summary>
+    private void SyncBar()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_playPause?.Content is TextBlock caption)
+        {
+            caption.Text = _player.IsPlaying ? "PAUSE" : "PLAY";
+        }
+
+        if (_position is not null)
+        {
+            // The flag is load-bearing: writing Value raises ValueChanged, which would seek
+            // the player to where it already is, twice a second, forever.
+            _syncingSlider = true;
+            _position.Value = double.IsNaN(_player.Position) ? 0 : Math.Clamp(_player.Position, 0, 1);
+            _syncingSlider = false;
+        }
+
+        if (_elapsed is not null)
+        {
+            var length = _player.Length;
+
+            _elapsed.Text = length > 0
+                ? $"{Clock(_player.Time)} / {Clock(length)}"
+                : "--:-- / --:--";
+        }
+    }
+
+    /// <summary>Milliseconds as <c>m:ss</c>, or <c>h:mm:ss</c> once it earns the hours.</summary>
+    private static string Clock(long milliseconds)
+    {
+        var span = TimeSpan.FromMilliseconds(Math.Max(milliseconds, 0));
+
+        return span.TotalHours >= 1
+            ? $"{(int)span.TotalHours}:{span.Minutes:00}:{span.Seconds:00}"
+            : $"{span.Minutes}:{span.Seconds:00}";
     }
 }

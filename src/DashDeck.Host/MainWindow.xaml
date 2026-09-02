@@ -18,6 +18,7 @@
         <conv:QualityToValueBrushConverter x:Key="ValueBrush" />
         <conv:BandsToGridLengthConverter x:Key="Bands" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <conv:BoolToBandLengthConverter x:Key="BandLength" />
     </Window.Resources>
 
     <!--
@@ -39,38 +40,56 @@
             <Border Grid.Row="0"
                     BorderBrush="{DynamicResource HairlineBrush}"
                     BorderThickness="0,0,0,1">
-                <Grid Margin="31,0,31,0">
+                <!--
+                    A quick-info bar, not a diagnostics readout. The source label, the drive
+                    name and the request rate all moved to Settings: they answer questions a
+                    developer asks and nobody asks while driving. What is left is what you
+                    glance at — the weather, the time, and the badge that stops synthetic
+                    numbers being mistaken for real ones.
+                -->
+                <Grid Margin="31,0,16,0">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
-                        <TextBlock Style="{StaticResource StatusText}" Text="{Binding SourceLabel}" />
-
-                        <Border Margin="16,0,0,0"
-                                CornerRadius="999"
-                                Padding="12,6,12,6"
-                                BorderThickness="1"
-                                BorderBrush="#8DA6FF">
-                            <TextBlock FontFamily="{StaticResource MonoFont}"
-                                       FontSize="12"
-                                       Foreground="#8DA6FF"
-                                       Text="SIMULATED" />
-                        </Border>
-
+                        <TextBlock FontFamily="{StaticResource UiFont}"
+                                   FontSize="26"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextHighBrush}"
+                                   Text="{Binding OutsideText}" />
                         <TextBlock Style="{StaticResource StatusText}"
-                                   Margin="16,0,0,0"
-                                   Foreground="{DynamicResource TextFaintBrush}"
-                                   Text="{Binding DriveLabel}" />
+                                   Margin="10,0,0,0"
+                                   Foreground="{DynamicResource TextMidBrush}"
+                                   Text="{Binding ConditionText}" />
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <TextBlock Style="{StaticResource StatusText}"
-                                   Foreground="{DynamicResource TextLowBrush}"
-                                   Text="{Binding RequestRateText}" />
-                        <TextBlock Margin="28,0,0,0"
+                        <!-- Never removed, however tight the bar gets. Synthetic numbers that
+                             could be mistaken for real ones are the one thing this project
+                             will not ship. -->
+                        <Border CornerRadius="999"
+                                Padding="10,4,10,4"
+                                VerticalAlignment="Center"
+                                BorderThickness="1"
+                                BorderBrush="#8DA6FF">
+                            <TextBlock FontFamily="{StaticResource MonoFont}"
+                                       FontSize="11"
+                                       Foreground="#8DA6FF"
+                                       Text="SIM" />
+                        </Border>
+
+                        <TextBlock Margin="18,0,0,0"
                                    FontFamily="{StaticResource UiFont}"
-                                   FontSize="22"
+                                   FontSize="24"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextHighBrush}"
                                    Text="{Binding ClockText}" />
+
+                        <!-- The overflow menu. Replaces a hold gesture that could never have
+                             worked on a touch screen. -->
+                        <Button Margin="14,0,0,0"
+                                Style="{StaticResource KebabButton}"
+                                Command="{Binding ToggleMenuCommand}"
+                                ToolTip="More" />
                     </StackPanel>
                 </Grid>
             </Border>
@@ -102,12 +121,23 @@
                                 the only arrangement that survives.
                             -->
                             <RowDefinition Height="*" />
+                            <!-- One band when the occupant contributes controls, nothing when
+                                 it does not. An occupant with a bar gets 513 of content —
+                                 exactly what a three-band stage used to give it. -->
+                            <RowDefinition Height="{Binding HasStageActionBar, Converter={StaticResource BandLength}}" />
                             <RowDefinition Height="72" />
                         </Grid.RowDefinitions>
 
+                        <!-- The occupant's own controls. A real row rather than an overlay,
+                             for the airspace reason the launcher taught us: a child window
+                             draws over all WPF content whatever the z-order says (F8). -->
+                        <ContentControl Grid.Row="1"
+                                        Content="{Binding StageActionBar}"
+                                        Visibility="{Binding IsOccupantVisible, Converter={StaticResource BoolToVis}}" />
+
                         <!-- The launcher. A row of app buttons plus a grid button for the
                              rest, sized to be hit from the driver's seat. -->
-						<Border Grid.Row="1" Background="{DynamicResource CanvasBrush}"
+						<Border Grid.Row="2" Background="{DynamicResource CanvasBrush}"
                             BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,0">
                             <DockPanel Margin="14,0,14,0" LastChildFill="False">
 
@@ -381,31 +411,6 @@
                         </Button.Template>
                     </Button>
 
-                    <Button Command="{Binding NavigateCommand}" CommandParameter="SETTINGS" Cursor="Hand" Width="130">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border x:Name="Cell" Background="Transparent"
-                                        BorderBrush="Transparent" BorderThickness="0,3,0,0">
-                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                        <Path x:Name="Glyph" Data="M4,7 H20 M4,17 H20 M9,4.5 A2.5,2.5 0 1 1 8.99,4.5 Z M16,14.5 A2.5,2.5 0 1 1 15.99,14.5 Z"
-                                              Stroke="{DynamicResource TextMidBrush}" StrokeThickness="1.75"
-                                              Width="26" Height="26" Stretch="Uniform" HorizontalAlignment="Center" />
-                                        <TextBlock x:Name="Label" Margin="0,7,0,0" HorizontalAlignment="Center"
-                                                   FontFamily="{StaticResource MonoFont}" FontSize="12"
-                                                   Foreground="{DynamicResource TextMidBrush}" Text="SETTINGS" />
-                                    </StackPanel>
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding IsSettingsActive}" Value="True">
-                                        <Setter TargetName="Cell" Property="Background" Value="{DynamicResource AccentWashBrush}" />
-                                        <Setter TargetName="Cell" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                        <Setter TargetName="Glyph" Property="Stroke" Value="{DynamicResource AccentBrush}" />
-                                        <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                                    </DataTrigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
-                    </Button>
 
                 </StackPanel>
             </Border>
@@ -454,6 +459,53 @@
                     </Button>
                 </Grid>
             </Border>
+
+            <!--
+                The overflow menu. Spans every row deliberately: it is modal, and a scrim that
+                only covered part of the screen would leave the rest tappable underneath.
+            -->
+            <Grid Grid.Row="0" Grid.RowSpan="3"
+                  Visibility="{Binding IsMenuOpen, Converter={StaticResource BoolToVis}}">
+
+                <!-- Tap anywhere off the menu to dismiss it. -->
+                <Button Background="#C0000000"
+                        BorderThickness="0"
+                        Command="{Binding ToggleMenuCommand}">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}" />
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
+                <Border Width="420"
+                        HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Margin="0,90,16,0"
+                        Padding="18"
+                        CornerRadius="18"
+                        Background="{DynamicResource SurfaceBrush}"
+                        BorderBrush="{DynamicResource HairlineStrongBrush}"
+                        BorderThickness="1">
+                    <StackPanel>
+                        <Button Style="{StaticResource MenuItemButton}"
+                                Command="{Binding EditDashCommand}">
+                            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="16" Text="MODIFY WIDGETS" />
+                        </Button>
+
+                        <Button Style="{StaticResource MenuItemButton}"
+                                Command="{Binding OpenSettingsCommand}">
+                            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="16" Text="SETTINGS" />
+                        </Button>
+
+                        <Button Style="{StaticResource MenuItemButton}"
+                                Margin="0"
+                                Command="{Binding ToggleMenuCommand}">
+                            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="16"
+                                       Foreground="{DynamicResource TextMidBrush}" Text="CLOSE" />
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
 
         </Grid>
     </Viewbox>

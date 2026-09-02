@@ -44,12 +44,13 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
         string? videoPath,
         IClock clock,
         IVehicleSignals signals,
-        SensorService sensors) =>
+        SensorService sensors,
+        WeatherService weather) =>
     [
         // The idle stage, and the default. There is no "nothing" option any more: an empty
         // stage announcing its own emptiness was honest but useless, and a clock is the
         // thing most often glanced at anyway.
-        new StageOption("CLOCK", "Time and weather", () => new ClockWeatherStageOccupant(clock)),
+        new StageOption("CLOCK", "Time and weather", () => new ClockWeatherStageOccupant(clock, weather)),
 
         // Truck first, tablet second, and it says which — see SensorService.
         new StageOption("COMPASS", "Heading, attitude, G", () => new CompassStageOccupant(signals, sensors)),

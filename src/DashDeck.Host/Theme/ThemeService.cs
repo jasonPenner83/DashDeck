@@ -36,13 +36,7 @@ public enum ThemeMode
 public sealed partial class ThemeService : ObservableObject
 {
     private readonly IClock _clock;
-
-    private (DateTimeOffset Sunrise, DateTimeOffset Sunset)? _daylight;
-
-    /// <summary>When the last fetch was <em>attempted</em>. See <see cref="Reevaluate"/>.</summary>
-    private DateTimeOffset _daylightAttemptedAt;
-
-    private bool _daylightFetchInFlight;
+    private readonly Stage.WeatherService _weather;
     private readonly bool _loaded;
     private bool _suppressPersist;
 
@@ -62,9 +56,22 @@ public sealed partial class ThemeService : ObservableObject
     [ObservableProperty]
     private string _autoSource = "Waiting for sunrise and sunset";
 
-    public ThemeService(IClock clock)
+    public ThemeService(IClock clock, Stage.WeatherService weather)
     {
         _clock = clock;
+        _weather = weather;
+
+        // Observes the shell's single fetch rather than running a second one. This class used
+        // to fetch sunrise and sunset itself, on its own timer with its own backoff — and that
+        // backoff, timed from a success that never came during an outage, issued one request
+        // per second indefinitely. One fetcher, one backoff (see WeatherService).
+        _weather.PropertyChanged += (_, _) =>
+        {
+            if (Mode is ThemeMode.Auto)
+            {
+                Apply();
+            }
+        };
 
         // Restore before the first Apply, so the window comes up wearing the chosen theme
         // rather than flashing the default and correcting itself.
@@ -88,7 +95,6 @@ public sealed partial class ThemeService : ObservableObject
         _loaded = true;
 
         Apply();
-        _ = RefreshDaylightAsync();
     }
 
     /// <summary>
@@ -122,38 +128,20 @@ public sealed partial class ThemeService : ObservableObject
         }
     }
 
-    /// <summary>Sunrise and sunset move, but slowly. Once a day is plenty.</summary>
-    private static readonly TimeSpan DaylightRefresh = TimeSpan.FromHours(12);
-
     /// <summary>
-    /// How long to wait before trying again after a failed fetch.
+    /// Re-evaluate Auto. Called on a timer by the shell, once a second.
     /// </summary>
     /// <remarks>
-    /// Ten minutes, not twelve hours: an outage during startup should not leave Auto guessing
-    /// until tomorrow. Not one second either — see <see cref="Reevaluate"/>.
-    /// </remarks>
-    private static readonly TimeSpan DaylightRetry = TimeSpan.FromMinutes(10);
-
-    /// <summary>Re-evaluate Auto. Called on a timer by the shell, once a second.</summary>
-    /// <remarks>
-    /// <b>The backoff is timed from the attempt, not the success.</b> It used to be timed from
-    /// the success, and the success time was left unset while the fetch was failing — so a
-    /// service outage put the "is it time to refetch" test permanently true and the shell
-    /// issued one request per second, indefinitely, at a free keyless API. Found during a real
-    /// Open-Meteo outage, in a build that was already deployed.
+    /// No longer fetches anything. It used to own a timer and a backoff of its own, and that
+    /// backoff — timed from a success that never arrived during an outage — issued one request
+    /// per second, indefinitely, at a free keyless API. Sunrise and sunset now arrive from the
+    /// shell's single WeatherService like every other forecast value.
     /// </remarks>
     public void Reevaluate()
     {
         if (Mode is ThemeMode.Auto)
         {
             Apply();
-        }
-
-        var due = _daylight is null ? DaylightRetry : DaylightRefresh;
-
-        if (!_daylightFetchInFlight && _clock.UtcNow - _daylightAttemptedAt > due)
-        {
-            _ = RefreshDaylightAsync();
         }
     }
 
@@ -239,7 +227,7 @@ public sealed partial class ThemeService : ObservableObject
     /// </remarks>
     private bool ResolveAuto()
     {
-        if (_daylight is not { } window)
+        if (_weather.Daylight is not { } window)
         {
             // No answer yet. Day is the safer default — a dash that is too bright is
             // annoying, one that is too dim in sunlight is unreadable.
@@ -255,38 +243,6 @@ public sealed partial class ThemeService : ObservableObject
             $"Sunrise {window.Sunrise:HH:mm}, sunset {window.Sunset:HH:mm}");
 
         return night;
-    }
-
-    private async Task RefreshDaylightAsync()
-    {
-        // Stamped before the await and in a finally, so a failure — or a request still in
-        // flight — cannot leave the caller thinking another attempt is due.
-        _daylightAttemptedAt = _clock.UtcNow;
-        _daylightFetchInFlight = true;
-
-        try
-        {
-            var report = await Weather.FetchAsync(
-                Weather.DefaultLatitude,
-                Weather.DefaultLongitude,
-                CancellationToken.None).ConfigureAwait(true);
-
-            if (report?.Daylight is not { } daylight)
-            {
-                return;
-            }
-
-            _daylight = daylight;
-
-            if (Mode is ThemeMode.Auto)
-            {
-                Apply();
-            }
-        }
-        finally
-        {
-            _daylightFetchInFlight = false;
-        }
     }
 
     /// <summary>

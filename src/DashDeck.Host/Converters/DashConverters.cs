@@ -31,6 +31,23 @@ public sealed class FractionToStarConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>
+/// True becomes one band, false becomes nothing.
+/// </summary>
+/// <remarks>
+/// For the stage's action bar row, which is either exactly one band tall or not there at all.
+/// Collapsing to zero rather than hiding the content matters: an occupant without a bar must
+/// get the whole stage, not the whole stage minus an invisible band.
+/// </remarks>
+public sealed class BoolToBandLengthConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        new GridLength(value is true ? BandGrid.BandHeight : 0);
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>Visible when false. For the things that show only when a mode is off.</summary>
 public sealed class InverseBoolToVisibilityConverter : IValueConverter
 {

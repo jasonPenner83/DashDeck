@@ -69,10 +69,28 @@ public static class Weather
 
         try
         {
-            var response = await Http.GetFromJsonAsync<OpenMeteoResponse>(url, ct).ConfigureAwait(false);
+            // Read as text first, then parse.
+            //
+            // Open-Meteo does not fail with a status code when it is having trouble: it
+            // answers **HTTP 200, Content-Type application/json**, with a plain sentence in
+            // the body — "Unexpected error while streaming data: timeoutReached". Deserialising
+            // that directly gives "'U' is an invalid start of a value", which says nothing
+            // about whose fault it is and cost real time to diagnose the first time. Twice.
+            var body = await Http.GetStringAsync(url, ct).ConfigureAwait(false);
+
+            if (body.Length == 0 || (body[0] is not '{' and not '['))
+            {
+                LastError = $"Open-Meteo returned a non-JSON body: {Truncate(body)}";
+                return null;
+            }
+
+            var response = System.Text.Json.JsonSerializer.Deserialize<OpenMeteoResponse>(
+                body,
+                new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
 
             if (response?.Current is null || response.Daily is null)
             {
+                LastError = "Open-Meteo returned JSON with no current or daily block.";
                 return null;
             }
 
@@ -118,6 +136,10 @@ public static class Weather
             return null;
         }
     }
+
+    /// <summary>Enough of a bad response to recognise it, not enough to fill a log.</summary>
+    private static string Truncate(string text) =>
+        text.Length <= 120 ? text.Trim() : text[..120].Trim() + "…";
 
     /// <summary>
     /// A WMO weather code as something a person reads at a glance.

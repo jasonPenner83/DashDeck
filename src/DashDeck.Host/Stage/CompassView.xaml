@@ -121,9 +121,7 @@
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="18" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="18" />
+                <RowDefinition Height="22" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
@@ -169,12 +167,8 @@
                 </StackPanel>
             </StackPanel>
 
-            <Button Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
-                    HorizontalAlignment="Left"
-                    Style="{StaticResource StageLauncherButton}"
-                    Command="{Binding LevelCommand}">
-                <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="15" Text="{Binding LevelCaption}" />
-            </Button>
+            <!-- Levelling moved to the stage action bar: a control used once, parked, does
+                 not belong among numbers read constantly. -->
         </Grid>
     </Grid>
 </UserControl>

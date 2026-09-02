@@ -23,24 +23,16 @@ public sealed class WebStageOccupant : IStageOccupant
     private WebView2? _view;
     private bool _disposed;
 
-    public WebStageOccupant(string name, string url, int preferredBands = 4)
+    public WebStageOccupant(string name, string url)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
         Name = name;
-        PreferredBands = preferredBands;
         _uri = new Uri(url);
     }
 
     /// <inheritdoc />
     public string Name { get; }
-
-    /// <summary>
-    /// Four bands by default. Unlike video there is no aspect ratio forcing the number —
-    /// a web app reflows — so this is a judgement about how much of the dash it deserves
-    /// rather than arithmetic.
-    /// </summary>
-    public int PreferredBands { get; }
 
     /// <inheritdoc />
     public FrameworkElement CreateView()
@@ -59,6 +51,26 @@ public sealed class WebStageOccupant : IStageOccupant
 
         return _view;
     }
+
+    /// <summary>
+    /// Back, reload and home — the three controls a hosted page cannot give you itself.
+    /// </summary>
+    /// <remarks>
+    /// Every call is guarded, because <c>WebView2</c> throws rather than no-ops if its core
+    /// has not finished initialising, and the bar is on screen and tappable from the moment
+    /// the occupant loads.
+    /// </remarks>
+    public FrameworkElement? CreateActionBar() => ActionBar.Row(
+        ActionBar.Button("‹ BACK", () => Guarded(v =>
+        {
+            if (v.CanGoBack)
+            {
+                v.GoBack();
+            }
+        })),
+        ActionBar.Button("RELOAD", () => Guarded(v => v.Reload())),
+        ActionBar.Button("HOME", () => Guarded(v => v.Source = _uri)),
+        ActionBar.Caption(_uri.Host));
 
     /// <inheritdoc />
     public string Describe()
@@ -83,6 +95,24 @@ public sealed class WebStageOccupant : IStageOccupant
         // Without this the browser process outlives the occupant and keeps playing whatever
         // was on screen — audible, invisible, and impossible to stop from the dash.
         _view?.Dispose();
+    }
+
+    /// <summary>Run something against the view only when it is in a state to accept it.</summary>
+    private void Guarded(Action<WebView2> action)
+    {
+        if (_disposed || _view?.CoreWebView2 is null)
+        {
+            return;
+        }
+
+        try
+        {
+            action(_view);
+        }
+        catch (Exception)
+        {
+            // A browser control that objects to being driven must not take the dash down.
+        }
     }
 
     private static string UserDataFolder()

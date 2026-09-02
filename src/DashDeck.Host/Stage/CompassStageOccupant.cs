@@ -13,9 +13,8 @@ namespace DashDeck.Host.Stage;
 /// and the web applets know nothing about the vehicle, so until this the stage was a place
 /// things were displayed rather than a consumer of vehicle data.
 /// <para>
-/// Three bands. The rose, the G meter and the attitude readouts sit side by side across 850,
-/// and leaving three bands below gives the dash three rows of cards rather than two — the
-/// arrangement the row arithmetic was rewritten for (ADR-0015).
+/// Levelling lives on the action bar rather than beside the readouts. It is done once, parked,
+/// and a control you use once does not belong in the middle of the numbers you read constantly.
 /// </para>
 /// </remarks>
 public sealed class CompassStageOccupant(IVehicleSignals signals, SensorService sensors)
@@ -27,10 +26,13 @@ public sealed class CompassStageOccupant(IVehicleSignals signals, SensorService 
     public string Name => "COMPASS";
 
     /// <inheritdoc />
-    public int PreferredBands => 3;
+    public FrameworkElement CreateView() => new CompassView { DataContext = _viewModel };
 
     /// <inheritdoc />
-    public FrameworkElement CreateView() => new CompassView { DataContext = _viewModel };
+    public FrameworkElement? CreateActionBar() => ActionBar.Row(
+        ActionBar.Button("LEVEL THE MOUNT", () => _viewModel.LevelCommand.Execute(null), 240),
+        ActionBar.Button("RESET PEAK", () => _viewModel.ResetPeakCommand.Execute(null), 180),
+        ActionBar.Caption("Level parked, on flat ground, with the tablet in its cradle"));
 
     /// <inheritdoc />
     public string Describe() => _viewModel.Describe();

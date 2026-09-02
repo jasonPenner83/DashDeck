@@ -141,6 +141,14 @@ public sealed partial class CompassViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Forget the largest g seen so far and start again.</summary>
+    [RelayCommand]
+    private void ResetPeak()
+    {
+        PeakG = 0;
+        PeakText = "0.00";
+    }
+
     /// <summary>One line describing the state, for <c>--shot</c>.</summary>
     public string Describe() =>
         $"heading={HeadingText} cardinal={CardinalText} from={HeadingSource} " +
@@ -261,9 +269,24 @@ public sealed partial class CompassViewModel : ObservableObject, IDisposable
         }
     }
 
-    private static string Degrees(SensorReading reading) => reading.IsUsable
-        ? string.Create(CultureInfo.CurrentCulture, $"{reading.Value:0.0}")
-        : "——";
+    /// <summary>
+    /// One decimal, and never <c>-0.0</c>.
+    /// </summary>
+    /// <remarks>
+    /// A roll of -0.04 rounds to a minus sign in front of a zero, which reads as a fault
+    /// rather than as level. Nudging the value off exact zero before formatting is the
+    /// smallest fix that does not lie about the sign of anything that actually has one.
+    /// </remarks>
+    private static string Degrees(SensorReading reading)
+    {
+        if (!reading.IsUsable)
+        {
+            return "——";
+        }
+
+        var value = Math.Abs(reading.Value) < 0.05 ? 0 : reading.Value;
+        return string.Create(CultureInfo.CurrentCulture, $"{value:0.0}");
+    }
 
     private static double Smooth(double previous, double next, double factor = 0.35) =>
         (previous * (1 - factor)) + (next * factor);

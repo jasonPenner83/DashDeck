@@ -20,20 +20,10 @@ public sealed record ForecastDay(string Day, string High, string Low, string Con
 /// </remarks>
 public sealed partial class ClockWeatherViewModel : ObservableObject, IDisposable
 {
-    /// <summary>
-    /// How often the forecast is refetched.
-    /// </summary>
-    /// <remarks>
-    /// Weather does not change faster than this, and the tablet is on someone's Wi-Fi.
-    /// Polling harder would be rude to a free service and buy nothing.
-    /// </remarks>
-    private static readonly TimeSpan RefreshEvery = TimeSpan.FromMinutes(15);
-
     private readonly IClock _clock;
+    private readonly WeatherService _weather;
     private readonly DispatcherTimer _tick;
-    private readonly CancellationTokenSource _stopping = new();
 
-    private DateTimeOffset _fetchedAt;
     private bool _disposed;
 
     [ObservableProperty]
@@ -60,9 +50,14 @@ public sealed partial class ClockWeatherViewModel : ObservableObject, IDisposabl
     [ObservableProperty]
     private IReadOnlyList<ForecastDay> _forecast = [];
 
-    public ClockWeatherViewModel(IClock clock)
+    public ClockWeatherViewModel(IClock clock, WeatherService weather)
     {
         _clock = clock;
+        _weather = weather;
+
+        // Observes rather than fetches. The shell owns one fetch for the whole app; a second
+        // one here is how this project acquired its worst bug (see WeatherService).
+        _weather.PropertyChanged += OnWeatherChanged;
 
         _tick = new DispatcherTimer(DispatcherPriority.Background)
         {
@@ -73,7 +68,7 @@ public sealed partial class ClockWeatherViewModel : ObservableObject, IDisposabl
         _tick.Start();
 
         TickClock();
-        _ = RefreshWeatherAsync();
+        ApplyWeather();
     }
 
     public void Dispose()
@@ -85,9 +80,11 @@ public sealed partial class ClockWeatherViewModel : ObservableObject, IDisposabl
 
         _disposed = true;
         _tick.Stop();
-        _stopping.Cancel();
-        _stopping.Dispose();
+        _weather.PropertyChanged -= OnWeatherChanged;
     }
+
+    private void OnWeatherChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) =>
+        ApplyWeather();
 
     private void TickClock()
     {
@@ -97,37 +94,19 @@ public sealed partial class ClockWeatherViewModel : ObservableObject, IDisposabl
 
         TimeText = now.ToString("HH:mm", CultureInfo.CurrentCulture);
         DateText = now.ToString("dddd d MMMM", CultureInfo.CurrentCulture);
-
-        if (HasWeather)
-        {
-            var age = now - _fetchedAt;
-
-            // Say how old it is once it stops being current, rather than presenting an
-            // hours-old temperature as though it were now.
-            WeatherStatus = age > RefreshEvery + TimeSpan.FromMinutes(5)
-                ? $"STALE {age.TotalMinutes:0}m"
-                : "LIVE";
-
-            if (age > RefreshEvery)
-            {
-                _ = RefreshWeatherAsync();
-            }
-        }
     }
 
-    private async Task RefreshWeatherAsync()
+    /// <summary>Adopt whatever the shared service currently has.</summary>
+    private void ApplyWeather()
     {
-        var report = await Weather.FetchAsync(
-            Weather.DefaultLatitude,
-            Weather.DefaultLongitude,
-            _stopping.Token).ConfigureAwait(true);
-
         if (_disposed)
         {
             return;
         }
 
-        if (report is null)
+        WeatherStatus = _weather.Status;
+
+        if (_weather.Report is not { } report)
         {
             // No number is better than a wrong one. The clock keeps working regardless,
             // which is the point of the two being on the same face.
@@ -135,12 +114,9 @@ public sealed partial class ClockWeatherViewModel : ObservableObject, IDisposabl
             TemperatureText = "——";
             ConditionText = "Weather unavailable";
             FeelsLikeText = string.Empty;
-            WeatherStatus = "OFFLINE";
             Forecast = [];
             return;
         }
-
-        _fetchedAt = _clock.UtcNow.ToLocalTime();
 
         HasWeather = true;
         TemperatureText = report.Now.TemperatureC.ToString("0", CultureInfo.CurrentCulture);
@@ -148,7 +124,6 @@ public sealed partial class ClockWeatherViewModel : ObservableObject, IDisposabl
         FeelsLikeText = string.Create(
             CultureInfo.CurrentCulture,
             $"feels {report.Now.FeelsLikeC:0}°");
-        WeatherStatus = "LIVE";
 
         Forecast =
         [
