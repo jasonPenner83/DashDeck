@@ -149,41 +149,59 @@
                                 to change. Sitting beside the occupant instead of over it is
                                 the only arrangement that survives.
                             -->
-                            <RowDefinition Height="56" />
+                            <RowDefinition Height="72" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
+                        <!-- The launcher. A row of app buttons plus a grid button for the
+                             rest, sized to be hit from the driver's seat. -->
                         <Border Grid.Row="0" Background="{StaticResource CanvasBrush}"
                                 BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,0,1">
-                            <Button Command="{Binding ToggleStagePickerCommand}"
-                                    HorizontalAlignment="Right" VerticalAlignment="Center"
-                                    Margin="0,0,14,0" Padding="18,10,18,10"
-                                    Background="Transparent"
-                                    BorderBrush="{StaticResource HairlineStrongBrush}"
-                                    BorderThickness="1"
-                                    Cursor="Hand">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border Background="{TemplateBinding Background}"
-                                            BorderBrush="{TemplateBinding BorderBrush}"
-                                            BorderThickness="{TemplateBinding BorderThickness}"
-                                            Padding="{TemplateBinding Padding}"
-                                            CornerRadius="999">
-                                        <ContentPresenter />
-                                    </Border>
-                                </ControlTemplate>
-                            </Button.Template>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Style="{StaticResource CaptionText}" Text="STAGE" VerticalAlignment="Center" />
-                                <TextBlock Margin="10,0,0,0" FontFamily="{StaticResource MonoFont}" FontSize="12"
-                                           VerticalAlignment="Center"
-                                           Foreground="{StaticResource TextHighBrush}"
-                                           Text="{Binding StageName}" />
-                                <Path Data="M2,4 L8,10 L14,4" Stroke="{StaticResource TextLowBrush}"
-                                      StrokeThickness="2" Width="14" Height="9" Margin="10,2,0,0"
-                                      Stretch="Uniform" VerticalAlignment="Center" />
-                            </StackPanel>
-                            </Button>
+                            <DockPanel Margin="14,0,14,0" LastChildFill="False">
+
+                                <Button DockPanel.Dock="Right"
+                                        Command="{Binding ToggleStagePickerCommand}"
+                                        Style="{StaticResource StageLauncherButton}"
+                                        Width="58"
+                                        ToolTip="All apps">
+                                    <!-- Nine dots: every app, not just the ones that fit. -->
+                                    <UniformGrid Columns="3" Rows="3" Width="20" Height="20"
+                                                 HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Ellipse Width="4" Height="4" Margin="1" Fill="{StaticResource TextMidBrush}" />
+                                        <Ellipse Width="4" Height="4" Margin="1" Fill="{StaticResource TextMidBrush}" />
+                                        <Ellipse Width="4" Height="4" Margin="1" Fill="{StaticResource TextMidBrush}" />
+                                        <Ellipse Width="4" Height="4" Margin="1" Fill="{StaticResource TextMidBrush}" />
+                                        <Ellipse Width="4" Height="4" Margin="1" Fill="{StaticResource TextMidBrush}" />
+                                        <Ellipse Width="4" Height="4" Margin="1" Fill="{StaticResource TextMidBrush}" />
+                                        <Ellipse Width="4" Height="4" Margin="1" Fill="{StaticResource TextMidBrush}" />
+                                        <Ellipse Width="4" Height="4" Margin="1" Fill="{StaticResource TextMidBrush}" />
+                                        <Ellipse Width="4" Height="4" Margin="1" Fill="{StaticResource TextMidBrush}" />
+                                    </UniformGrid>
+                                </Button>
+
+                                <ItemsControl DockPanel.Dock="Left" ItemsSource="{Binding QuickStageOptions}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource StageLauncherButton}"
+                                                    Command="{Binding DataContext.ChooseStageCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontFamily="{StaticResource MonoFont}"
+                                                           FontSize="13"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                            </DockPanel>
                         </Border>
 
                         <ContentControl Grid.Row="1"

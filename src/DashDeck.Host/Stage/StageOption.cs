@@ -52,6 +52,8 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
         // only ever be a picture (Q18). This is a picture too — but an unencumbered one,
         // and the routing question stays open rather than being quietly violated.
         new StageOption("MAPS", "openstreetmap.org", () => new WebStageOccupant("MAPS", MapsUrl)),
+
+        new StageOption("STREMIO", "web.stremio.com", () => new WebStageOccupant("STREMIO", StremioUrl)),
     ];
 
     /// <summary>Nuvio's web build. Changed here, not hunted through the code.</summary>
@@ -59,6 +61,9 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
 
     /// <summary>Display-only map. Turn-by-turn is a separate, unanswered question (Q18).</summary>
     public const string MapsUrl = "https://www.openstreetmap.org";
+
+    /// <summary>Stremio's official web player. Answered 200 when wired, unlike Nuvio's.</summary>
+    public const string StremioUrl = "https://web.stremio.com/";
 
     private static IStageOccupant? CreateVideo(string? videoPath)
     {

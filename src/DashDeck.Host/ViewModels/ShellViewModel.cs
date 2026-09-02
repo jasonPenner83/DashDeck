@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -51,7 +52,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _vehicle = vehicle;
         _clock = clock;
 
-        StageOptions = StageOption.All(videoPath);
+        StageOptions = [.. StageOption.All(videoPath).Select(o => new StageOptionViewModel(o))];
+
+        RefreshQuickOptions();
 
         // Start on whatever was asked for at launch. With nothing asked for that is an
         // empty stage, which is a real state rather than a failure to load something.
@@ -97,8 +100,42 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <summary>The scripted drive currently running.</summary>
     public string DriveLabel => _vehicle.DriveName.ToUpperInvariant();
 
-    /// <summary>Everything the picker can put on the stage, including what is not built.</summary>
-    public IReadOnlyList<StageOption> StageOptions { get; }
+    /// <summary>Everything that can go on the stage, including what is not built.</summary>
+    public IReadOnlyList<StageOptionViewModel> StageOptions { get; }
+
+    /// <summary>The ones shown directly in the launcher row. The rest are behind the grid.</summary>
+    public ObservableCollection<StageOptionViewModel> QuickStageOptions { get; } = [];
+
+    /// <summary>How many buttons fit in the launcher row beside the grid button.</summary>
+    private const int LauncherSlots = 5;
+
+    /// <summary>
+    /// Decide which options get a button in the row.
+    /// </summary>
+    /// <remarks>
+    /// The rule that matters is the last one: whatever is currently on the stage always has
+    /// a button, even when it would otherwise have overflowed into the grid. Without it the
+    /// row goes dark while something is plainly playing, and the launcher stops being able
+    /// to answer "what is on" — which is half of what it is for.
+    /// </remarks>
+    private void RefreshQuickOptions()
+    {
+        var available = StageOptions.Where(o => o.IsAvailable).ToList();
+        var shown = available.Take(LauncherSlots).ToList();
+        var current = StageOptions.FirstOrDefault(o => o.IsCurrent);
+
+        if (current is not null && !shown.Contains(current))
+        {
+            shown[^1] = current;
+        }
+
+        QuickStageOptions.Clear();
+
+        foreach (var option in shown)
+        {
+            QuickStageOptions.Add(option);
+        }
+    }
 
     /// <summary>True when something is actually on the stage.</summary>
     public bool StageHasOccupant => StageContent is not null;
@@ -158,7 +195,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>Put something on the stage, or take everything off it.</summary>
     [RelayCommand]
-    private void ChooseStage(StageOption? option)
+    private void ChooseStage(StageOptionViewModel? option)
     {
         if (option is null || !option.IsAvailable)
         {
@@ -169,14 +206,23 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         IsStagePickerOpen = false;
     }
 
-    private void SetStage(StageOption option)
+    private void SetStage(StageOptionViewModel option)
     {
         // The outgoing occupant goes away properly — video keeps decoding otherwise, and a
         // stage nobody can see is the worst possible consumer of a tablet's battery.
         _stage?.Dispose();
 
-        _stage = option.Create?.Invoke();
+        _stage = option.Option.Create?.Invoke();
         StageContent = _stage?.CreateView();
+
+        foreach (var candidate in StageOptions)
+        {
+            candidate.IsCurrent = ReferenceEquals(candidate, option) && _stage is not null;
+        }
+
+        // Recomputed after the flags, so a newly-chosen app that lives in the grid gets
+        // pulled into the row rather than leaving it looking like nothing is on.
+        RefreshQuickOptions();
 
         OnPropertyChanged(nameof(StageName));
         OnPropertyChanged(nameof(StageBands));
