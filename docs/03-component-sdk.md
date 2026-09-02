@@ -29,8 +29,8 @@ Drop the folder in, restart the app, and it appears. That is the whole install s
 
   "entry": { "assembly": "TripComputer.dll", "type": "TripComputer.Component" },
 
-  "surfaces": ["tile", "screen"],   // tile | screen | statusItem | backgroundWorker
-  "tile": { "preferredSize": "2x1", "minSize": "1x1" },
+  "surfaces": ["widget", "fullScreen"],  // widget | fullScreen | statusItem | backgroundWorker
+  "widget": { "preferredSize": "2x1", "minSize": "1x1" },
 
   "signals": [                      // declared, not requested — see arbiter
     { "id": "vehicle.speed",   "priority": "high",   "rateHz": 4 },
@@ -68,10 +68,21 @@ public interface IDashComponent
 // DashDeck.Abstractions.Wpf (net10.0-windows) — implemented only by components with a UI.
 public interface IDashComponentView
 {
-    FrameworkElement CreateTile();
-    FrameworkElement CreateScreen();
+    FrameworkElement CreateWidget();               // required
+    FrameworkElement? CreateFullScreen() => null;  // optional
 }
 ```
+
+A visual component is **two parts, and only the first is required** (ADR-0011):
+
+1. A **widget**, which occupies a band on the home screen. Every visual component has one.
+2. An **optional full-screen view**, opened when the widget is tapped. A component with
+   nothing more to show than its widget simply does not override `CreateFullScreen`, and
+   the host makes that widget non-interactive rather than opening an empty screen.
+
+The host receives a `FrameworkElement` — a view, not a view-model — so it cannot impose a
+UI pattern on you. The shell itself is MVVM; you are advised to be, and `ObservableSignal`
+below exists to make that the easy path.
 
 A headless component — a trip logger, a Home Assistant bridge — implements only the first
 and never references a UI framework at all.

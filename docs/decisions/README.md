@@ -1,4 +1,4 @@
-# Architecture Decision Records
+﻿# Architecture Decision Records
 
 One file per decision. Numbered, immutable once accepted — a decision that changes gets a
 new ADR that supersedes the old one, rather than an edit. The point is to preserve *why*,
@@ -16,3 +16,4 @@ including the reasoning that later turns out to be wrong.
 | [0008](ADR-0008-branching-and-versioning.md) | `main`/`develop` branching, three independent version streams | Accepted |
 | [0009](ADR-0009-target-net10.md) | Target .NET 10 LTS (supersedes the version in 0001) | Accepted |
 | [0010](ADR-0010-abstractions-has-no-ui-dependency.md) | `DashDeck.Abstractions` carries no UI dependency | Accepted |
+| [0011](ADR-0011-view-contract-and-mvvm.md) | Component = widget + optional full-screen; MVVM in the shell only | Accepted |
