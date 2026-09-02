@@ -1,0 +1,480 @@
+<title>DashDeck Shell</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground: #0A0908;
+    --surface: #141311;
+    --hairline: #24221F;
+    --hairline-2: #332F2B;
+    --text-hi: #F4F1EB;
+    --text-mid: #A5A096;
+    --text-lo: #6B665E;
+    --text-faint: #4A453E;
+    --accent: #FF7A1A;
+    --warn: #E0B23C;
+    --sans: Archivo, "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--text-hi);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono { font-family: var(--mono); }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 72px 32px 120px; }
+
+  header.masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    padding-bottom: 40px;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(38px, 6vw, 62px);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.02;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    margin: 0;
+    max-width: 62ch;
+    font-size: 19px;
+    line-height: 1.6;
+    color: var(--text-mid);
+    text-wrap: pretty;
+  }
+
+  .facts { display: flex; flex-wrap: wrap; gap: 10px; }
+
+  .fact {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 14px;
+    border: 1px solid var(--hairline-2);
+    border-radius: 999px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    color: var(--text-mid);
+  }
+
+  .fact::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--text-faint);
+  }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 24px;
+    margin: 72px 0 28px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .section-head h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: var(--mono);
+    letter-spacing: 0.18em;
+    color: var(--text-lo);
+  }
+
+  .section-head .hint {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--text-faint);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 48px 40px;
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .wrap { padding: 48px 20px 80px; }
+  }
+
+  figure.screen { margin: 0; display: flex; flex-direction: column; gap: 18px; }
+
+  .viewport {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 1px solid var(--hairline-2);
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+    background: #0D0C0B;
+    cursor: zoom-in;
+    transition: border-color 140ms ease;
+  }
+
+  .viewport:hover { border-color: var(--accent); }
+
+  .viewport:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .stage {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: top left;
+    text-align: left;
+    font-family: var(--sans);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: normal;
+    letter-spacing: normal;
+    color: var(--text-hi);
+  }
+
+  figcaption { display: flex; flex-direction: column; gap: 8px; }
+
+  .cap-name { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+
+  .cap-name strong { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+
+  .cap-name span {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    color: var(--text-faint);
+  }
+
+  figcaption p {
+    margin: 0;
+    max-width: 56ch;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--text-mid);
+    text-wrap: pretty;
+  }
+
+  .callout {
+    background: var(--surface);
+    border: 1px solid rgba(224, 178, 60, 0.3);
+    border-radius: 18px;
+    padding: 30px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .callout h3 {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    color: var(--warn);
+  }
+
+  .callout p {
+    margin: 0;
+    max-width: 78ch;
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--text-mid);
+    text-wrap: pretty;
+  }
+
+  .callout p strong { color: var(--text-hi); font-weight: 600; }
+
+  .notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+
+  @media (max-width: 900px) { .notes { grid-template-columns: minmax(0, 1fr); } }
+
+  .note {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 16px;
+    padding: 26px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .note h3 {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    color: var(--text-lo);
+  }
+
+  .note ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 14px; }
+
+  .note li {
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--text-mid);
+    padding-left: 20px;
+    position: relative;
+    text-wrap: pretty;
+  }
+
+  .note li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 10px;
+    width: 8px;
+    height: 1px;
+    background: var(--text-faint);
+  }
+
+  .note li strong { color: var(--text-hi); font-weight: 600; }
+
+  .note.open li::before { background: var(--accent); }
+
+  #lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(6, 5, 5, 0.94);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    cursor: zoom-out;
+  }
+
+  #lightbox.on { display: flex; }
+
+  #lightbox .holder { position: relative; overflow: hidden; }
+
+  #lightbox .stage { position: absolute; }
+
+  .close-hint {
+    position: fixed;
+    top: 24px;
+    right: 28px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: var(--text-lo);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <span class="eyebrow">DASHDECK &middot; P0.5 SHELL</span>
+    <h1>The stage is a layer</h1>
+    <p class="standfirst">Home is six horizontal bands between the status strip and the navigation, and one band is one widget row. The stage claims the top <em>n</em> of them and <em>keeps running</em> &mdash; navigation switches only the region below it, and tapping a widget expands it in place down there rather than taking over the screen. As cards get built, they become destinations in that lower region.</p>
+    <div class="facts">
+      <span class="fact">960 &times; 1440 PORTRAIT</span>
+      <span class="fact">1 BAND = 195</span>
+      <span class="fact">DARK, TOKENS TWEAKABLE</span>
+      <span class="fact">SYNTHETIC F-150</span>
+    </div>
+  </header>
+
+  <div class="section-head">
+    <h2>THE MODEL</h2>
+    <span class="hint">WHAT NAVIGATION ACTUALLY CHANGES</span>
+  </div>
+
+  <figure class="screen">
+    <button class="viewport" data-w="1240" data-h="980" aria-label="Enlarge the layout model diagram">
+      <div class="stage" style="width: 1240px; height: 980px;"><!--SCREEN:Bands--></div>
+    </button>
+  </figure>
+
+  <div class="section-head">
+    <h2>SCREENS</h2>
+    <span class="hint">SHOWN SCALED &middot; CLICK TO ENLARGE</span>
+  </div>
+
+  <div class="grid">
+
+    <figure class="screen">
+      <button class="viewport" data-w="960" data-h="1440" aria-label="Enlarge the dash with a 4/6 stage">
+        <div class="stage" style="width: 960px; height: 1440px;"><!--SCREEN:Main--></div>
+      </button>
+      <figcaption>
+        <div class="cap-name"><strong>Dash</strong><span>STAGE 4/6 &middot; MAPS</span></div>
+        <p>The stage takes four bands and runs a route with a now-playing strip along its bottom edge. Two bands of widgets underneath: three 1&times;1s, then a 2&times;1 trip beside a 1&times;1 engine.</p>
+      </figcaption>
+    </figure>
+
+    <figure class="screen">
+      <button class="viewport" data-w="960" data-h="1440" aria-label="Enlarge the expanded widget screen">
+        <div class="stage" style="width: 960px; height: 1440px;"><!--SCREEN:Expanded--></div>
+      </button>
+      <figcaption>
+        <div class="cap-name"><strong>Widget tapped</strong><span>STAGE 2/6 &middot; EXPANDED 4/6</span></div>
+        <p>The fuel economy widget expanded in place. History, trip detail and tank calibration open <em>below</em> the stage &mdash; the map keeps navigating in two bands rather than being replaced. Collapse returns the bands.</p>
+      </figcaption>
+    </figure>
+
+    <figure class="screen">
+      <button class="viewport" data-w="960" data-h="1440" aria-label="Enlarge the dash with a 3/6 video stage">
+        <div class="stage" style="width: 960px; height: 1440px;"><!--SCREEN:Video--></div>
+      </button>
+      <figcaption>
+        <div class="cap-name"><strong>Video on the stage</strong><span>STAGE 3/6</span></div>
+        <p>Three bands is 585px, and 960 wide at 16:9 needs 540 &mdash; so video fits with a thin letterbox rather than an awkward crop. The dash widgets take the three bands left over.</p>
+      </figcaption>
+    </figure>
+
+    <figure class="screen">
+      <button class="viewport" data-w="960" data-h="1440" aria-label="Enlarge the adapter-lost screen">
+        <div class="stage" style="width: 960px; height: 1440px;"><!--SCREEN:Degraded--></div>
+      </button>
+      <figcaption>
+        <div class="cap-name"><strong>Adapter lost</strong><span>STAGE 1/6 &middot; DEGRADED</span></div>
+        <p>The stage collapses to one band and five bands of widgets fill the screen. Stale values dim and show their age, unavailable ones go to em-dashes, and a component that faulted twice is replaced by its own stopped row.</p>
+      </figcaption>
+    </figure>
+
+    <figure class="screen">
+      <button class="viewport" data-w="960" data-h="1440" aria-label="Enlarge the Settings screen">
+        <div class="stage" style="width: 960px; height: 1440px;"><!--SCREEN:Settings--></div>
+      </button>
+      <figcaption>
+        <div class="cap-name"><strong>Settings</strong><span>ALL SIX BANDS</span></div>
+        <p>The one destination that takes every band and hides the stage, because it is used parked. Transport picker, component toggles, and the write-path master switch drawn as <em>absent from this build</em> rather than merely switched off.</p>
+      </figcaption>
+    </figure>
+
+  </div>
+
+  <div class="section-head">
+    <h2>FOUNDATIONS</h2>
+    <span class="hint">THE DESIGN SYSTEM ADR-0001 LEAVES TO US</span>
+  </div>
+
+  <figure class="screen">
+    <button class="viewport" data-w="1240" data-h="1320" aria-label="Enlarge the foundations sheet">
+      <div class="stage" style="width: 1240px; height: 1320px;"><!--SCREEN:Foundations--></div>
+    </button>
+  </figure>
+
+  <div class="section-head">
+    <h2>NOTES</h2>
+    <span class="hint">WHAT IS SETTLED AND WHAT IS NOT</span>
+  </div>
+
+  <div class="callout">
+    <h3>CLIMATE AND STEREO ARE PARKED &mdash; AND ONE CONFLICTS WITH C3</h3>
+    <p>Both are nav slots here, not designed cards. Worth knowing before they get built: constraint <strong>C3</strong> and <strong>ADR-0006</strong> both say plainly &mdash; <em>no takeover of audio, factory camera, or climate.</em></p>
+    <p>A <strong>Stereo card is fine</strong> as long as it drives DashDeck's own playback on the tablet rather than remote-controlling SYNC 3; that is additive. A <strong>Climate card that actually drives the factory HVAC is not</strong> &mdash; it needs an ADR superseding ADR-0006, means writing to an undocumented Ford network, and fails several of the five gates as written. Logged as Q14 so the reasoning survives outside this conversation.</p>
+  </div>
+
+  <div class="notes">
+
+    <div class="note">
+      <h3>SETTLED THIS ROUND</h3>
+      <ul>
+        <li><strong>The stage is a layer, not a screen.</strong> It keeps running while navigation switches the region below it &mdash; maps does not stop because you opened a card. That gives the stage its own lifecycle in the component contract.</li>
+        <li><strong>Widgets expand in place.</strong> Tapping one opens history and detail below the stage; the stage yields bands instead of being replaced. No separate full-screen component view, so the old Trip Computer screen is gone.</li>
+        <li><strong>Six bands are a shared budget.</strong> Whatever is below asks for what it needs and the stage takes the remainder, down to one band. Settings is the exception that takes all six.</li>
+        <li><strong>Nav is the destination list for the lower region</strong> and grows with the cards. One band = 195px (175 widget + 20 gutter), so six is exactly 1170 and the whole screen is exactly 1440.</li>
+      </ul>
+    </div>
+
+    <div class="note open">
+      <h3>STILL OPEN</h3>
+      <ul>
+        <li><strong>Nav overflow.</strong> Four destinations fit comfortably at 240 wide. Past about five the strip has to scroll or paginate, and I have not designed that &mdash; it matters as soon as cards start landing.</li>
+        <li><strong>What fills the stage first</strong> &mdash; video, maps or media. Maps is drawn throughout, but nothing behind it exists. Android Auto still cannot fill it (Q13): it is phone projection with no Windows client.</li>
+        <li><strong>Video while moving.</strong> I drew a <em>Parked</em> chip and assumed video is stationary-only. My call, not yours, and easy to remove.</li>
+        <li><strong>Live gauges (Q12).</strong> The speed widget updates continuously, which the unmeasured throughput ceiling has not earned yet.</li>
+      </ul>
+    </div>
+
+  </div>
+
+</div>
+
+<div id="lightbox">
+  <span class="close-hint">ESC TO CLOSE</span>
+  <div class="holder"></div>
+</div>
+
+<script>
+  (function () {
+    var boxes = Array.prototype.slice.call(document.querySelectorAll(".viewport"));
+
+    function fitGrid() {
+      boxes.forEach(function (box) {
+        var w = parseFloat(box.dataset.w);
+        var h = parseFloat(box.dataset.h);
+        var scale = box.clientWidth / w;
+        box.style.height = Math.round(h * scale) + 2 + "px";
+        box.querySelector(".stage").style.transform = "scale(" + scale + ")";
+      });
+    }
+
+    var lightbox = document.getElementById("lightbox");
+    var holder = lightbox.querySelector(".holder");
+
+    function open(box) {
+      var w = parseFloat(box.dataset.w);
+      var h = parseFloat(box.dataset.h);
+      var scale = Math.min(1, (window.innerWidth - 80) / w, (window.innerHeight - 80) / h);
+      var clone = box.querySelector(".stage").cloneNode(true);
+      clone.style.transform = "scale(" + scale + ")";
+      holder.innerHTML = "";
+      holder.style.width = Math.round(w * scale) + "px";
+      holder.style.height = Math.round(h * scale) + "px";
+      holder.appendChild(clone);
+      lightbox.classList.add("on");
+    }
+
+    function close() {
+      lightbox.classList.remove("on");
+      holder.innerHTML = "";
+    }
+
+    boxes.forEach(function (box) {
+      box.addEventListener("click", function () { open(box); });
+    });
+
+    lightbox.addEventListener("click", close);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") { close(); }
+    });
+
+    window.addEventListener("resize", fitGrid);
+    fitGrid();
+    if (document.fonts && document.fonts.ready) { document.fonts.ready.then(fitGrid); }
+  })();
+</script>

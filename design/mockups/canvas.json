@@ -1,0 +1,33 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "title": "Home", "x": 0, "y": 0, "w": 960, "h": 1440 },
+    { "file": "TripComputer.dc.html", "title": "Trip Computer", "x": 1060, "y": 0, "w": 960, "h": 1440 },
+    { "file": "Settings.dc.html", "title": "Settings", "x": 2120, "y": 0, "w": 960, "h": 1440 },
+    { "file": "Degraded.dc.html", "title": "Adapter lost", "x": 3180, "y": 0, "w": 960, "h": 1440 },
+    { "file": "Foundations.dc.html", "title": "Foundations", "x": 0, "y": 1600, "w": 1240, "h": 1320 }
+  ],
+  "annotations": [
+    {
+      "id": "assumptions",
+      "x": 0,
+      "y": -230,
+      "w": 560,
+      "text": "Assumptions worth challenging:\n- Dark only (Q9). No light theme drawn.\n- Bottom nav = Home / Trips / Gauges / Settings. Component screens still open from their tiles.\n- Values are synthetic-drive numbers, not real truck data."
+    },
+    {
+      "id": "degraded-note",
+      "x": 3180,
+      "y": -230,
+      "w": 560,
+      "text": "Same Home screen with the adapter gone. Shows Stale, Unavailable and a faulted component side by side - the states that are easy to skip and expensive to retrofit."
+    },
+    {
+      "id": "foundations-note",
+      "x": 1400,
+      "y": 1600,
+      "w": 520,
+      "text": "The design system ADR-0001 says is our work rather than the framework's. Archivo and IBM Plex Mono are both OFL, so they can ship embedded in the WPF app."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

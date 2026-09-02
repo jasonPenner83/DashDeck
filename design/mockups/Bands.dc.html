@@ -1,0 +1,166 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+  <style>
+    body { margin: 0; background: #0D0C0B; font-family: Archivo, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #FF7A1A; } a:hover { color: #FFA35C; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+    .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
+  </style>
+</helmet>
+
+<div style="width: 1240px; height: 980px; background: #0D0C0B; color: #F4F1EB; padding: 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 34px;">
+
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; padding-bottom: 26px; border-bottom: 1px solid #2C2925;">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <span style="font-size: 34px; font-weight: 600; letter-spacing: -0.02em; color: #F4F1EB;">The stage is a layer, not a screen</span>
+      <span style="font-size: 18px; color: #A5A096;">Navigation switches only what sits below the stage. Six bands are a budget the two share.</span>
+    </div>
+    <span class="mono" style="font-size: 13px; letter-spacing: 0.14em; color: #4A453E;">960 &times; 1440 DIP</span>
+  </div>
+
+  <div style="display: flex; gap: 40px; flex-grow: 1;">
+
+    <div style="display: flex; gap: 24px; flex-shrink: 0; align-items: flex-start;">
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="width: 190px; height: 286px; border: 1px solid #3A3630; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column;">
+          <div style="height: 18px; background: #2C2925; flex-shrink: 0;"></div>
+          <div style="height: 155px; flex-shrink: 0; background: rgba(255,122,26,0.15); border-bottom: 1px solid #3A3630; display: flex; align-items: center; justify-content: center;">
+            <span class="mono" style="font-size: 10px; letter-spacing: 0.14em; color: {{accent}};">STAGE 4/6</span>
+          </div>
+          <div style="flex-grow: 1; display: flex; flex-direction: column; padding: 4px 6px; gap: 4px;">
+            <div style="flex-grow: 1; flex-basis: 0; display: flex; gap: 4px;">
+              <div style="flex-grow: 1; background: #211F1C; border-radius: 2px;"></div>
+              <div style="flex-grow: 1; background: #211F1C; border-radius: 2px;"></div>
+              <div style="flex-grow: 1; background: #211F1C; border-radius: 2px;"></div>
+            </div>
+            <div style="flex-grow: 1; flex-basis: 0; display: flex; gap: 4px;">
+              <div style="flex-grow: 2; background: #211F1C; border-radius: 2px;"></div>
+              <div style="flex-grow: 1; background: #211F1C; border-radius: 2px;"></div>
+            </div>
+          </div>
+          <div style="height: 35px; flex-shrink: 0; background: #191816; border-top: 2px solid {{accent}}; display: flex;">
+            <div style="flex-grow: 1; border-top: 2px solid {{accent}}; margin-top: -2px;"></div>
+            <div style="flex-grow: 1;"></div>
+            <div style="flex-grow: 1;"></div>
+            <div style="flex-grow: 1;"></div>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 16px; font-weight: 600; color: #F4F1EB;">Dash</span>
+          <span class="mono" style="font-size: 11px; letter-spacing: 0.1em; color: #6B665E;">WIDGETS 2/6</span>
+        </div>
+      </div>
+
+      <div style="height: 286px; display: flex; align-items: center; flex-shrink: 0;">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#4A453E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"></path><path d="M14 6l6 6-6 6"></path></svg>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="width: 190px; height: 286px; border: 1px solid {{accent}}; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column;">
+          <div style="height: 18px; background: #2C2925; flex-shrink: 0;"></div>
+          <div style="height: 78px; flex-shrink: 0; background: rgba(255,122,26,0.15); border-bottom: 1px solid #3A3630; display: flex; align-items: center; justify-content: center;">
+            <span class="mono" style="font-size: 10px; letter-spacing: 0.14em; color: {{accent}};">STAGE 2/6</span>
+          </div>
+          <div style="flex-grow: 1; display: flex; padding: 4px 6px;">
+            <div style="flex-grow: 1; background: #2C2925; border: 1px solid #3A3630; border-radius: 3px; display: flex; align-items: center; justify-content: center;">
+              <span class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: #A5A096;">EXPANDED 4/6</span>
+            </div>
+          </div>
+          <div style="height: 35px; flex-shrink: 0; background: #191816; border-top: 2px solid {{accent}}; display: flex;">
+            <div style="flex-grow: 1; border-top: 2px solid {{accent}}; margin-top: -2px;"></div>
+            <div style="flex-grow: 1;"></div>
+            <div style="flex-grow: 1;"></div>
+            <div style="flex-grow: 1;"></div>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 16px; font-weight: 600; color: #F4F1EB;">Widget tapped</span>
+          <span class="mono" style="font-size: 11px; letter-spacing: 0.1em; color: {{accent}};">STAGE YIELDS BANDS</span>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="width: 190px; height: 286px; border: 1px solid #3A3630; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column;">
+          <div style="height: 18px; background: #2C2925; flex-shrink: 0;"></div>
+          <div style="height: 116px; flex-shrink: 0; background: rgba(255,122,26,0.15); border-bottom: 1px solid #3A3630; display: flex; align-items: center; justify-content: center;">
+            <span class="mono" style="font-size: 10px; letter-spacing: 0.14em; color: {{accent}};">STAGE 3/6</span>
+          </div>
+          <div style="flex-grow: 1; display: flex; padding: 4px 6px;">
+            <div style="flex-grow: 1; background: #211F1C; border: 1px dashed #3A3630; border-radius: 3px; display: flex; align-items: center; justify-content: center;">
+              <span class="mono" style="font-size: 10px; letter-spacing: 0.12em; color: #6B665E;">CARD 3/6</span>
+            </div>
+          </div>
+          <div style="height: 35px; flex-shrink: 0; background: #191816; border-top: 2px solid #3A3630; display: flex;">
+            <div style="flex-grow: 1;"></div>
+            <div style="flex-grow: 1; border-top: 2px solid {{accent}}; margin-top: -2px; background: rgba(255,122,26,0.10);"></div>
+            <div style="flex-grow: 1;"></div>
+            <div style="flex-grow: 1;"></div>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px;">
+          <span style="font-size: 16px; font-weight: 600; color: #F4F1EB;">Another card</span>
+          <span class="mono" style="font-size: 11px; letter-spacing: 0.1em; color: #6B665E;">NAV CHANGES ONLY BELOW</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 18px;">
+
+      <div style="background: #191816; border: 1px solid #2C2925; border-radius: 16px; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px;">
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.18em; color: #6B665E;">THE RULES</span>
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <span style="font-size: 16px; line-height: 1.5; color: #A5A096; text-wrap: pretty;"><strong style="color: #F4F1EB; font-weight: 600;">Nav switches the region below the stage.</strong> Maps does not stop because you opened a card. The stage is a running layer with its own lifecycle.</span>
+          <span style="font-size: 16px; line-height: 1.5; color: #A5A096; padding-top: 14px; border-top: 1px solid #2C2925; text-wrap: pretty;"><strong style="color: #F4F1EB; font-weight: 600;">Tap a widget and it expands in place.</strong> History and detail open below the stage, not over it. The stage yields bands instead of being replaced.</span>
+          <span style="font-size: 16px; line-height: 1.5; color: #A5A096; padding-top: 14px; border-top: 1px solid #2C2925; text-wrap: pretty;"><strong style="color: #F4F1EB; font-weight: 600;">Six bands are a shared budget.</strong> Whatever is below asks for what it needs; the stage takes the remainder, down to a floor of one band.</span>
+          <span style="font-size: 16px; line-height: 1.5; color: #A5A096; padding-top: 14px; border-top: 1px solid #2C2925; text-wrap: pretty;"><strong style="color: #F4F1EB; font-weight: 600;">Settings is the exception.</strong> It takes all six and hides the stage, because it is used parked.</span>
+        </div>
+      </div>
+
+      <div style="background: #191816; border: 1px solid #2C2925; border-radius: 16px; padding: 22px 24px; display: flex; flex-direction: column; gap: 16px; flex-grow: 1;">
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.18em; color: #6B665E;">THE ARITHMETIC</span>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 20px;">
+            <span style="font-size: 16px; color: #A5A096;">Status strip</span>
+            <span class="mono num" style="font-size: 15px; color: #F4F1EB;">90</span>
+          </div>
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding-top: 12px; border-top: 1px solid #2C2925;">
+            <span style="font-size: 16px; color: #A5A096;">Six bands &mdash; 6 &times; 195</span>
+            <span class="mono num" style="font-size: 15px; color: #F4F1EB;">1170</span>
+          </div>
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding-top: 12px; border-top: 1px solid #2C2925;">
+            <span style="font-size: 16px; color: #A5A096;">Navigation</span>
+            <span class="mono num" style="font-size: 15px; color: #F4F1EB;">180</span>
+          </div>
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding-top: 12px; border-top: 1px solid #3A3630;">
+            <span style="font-size: 16px; font-weight: 600; color: #F4F1EB;">Screen height</span>
+            <span class="mono num" style="font-size: 17px; font-weight: 600; color: {{accent}};">1440</span>
+          </div>
+        </div>
+        <span style="font-size: 15px; line-height: 1.5; color: #6B665E; text-wrap: pretty; padding-top: 4px;">One band is 175 of widget plus a 20 gutter, so a widget row and a band are the same thing. Widget sizes: 1&times;1 is 285 &times; 175, 2&times;1 is 590, 3&times;1 is 896.</span>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1240,"height":980},"accent":{"editor":"color","default":"#FF7A1A","options":["#FF7A1A","#E0B23C","#5BC77E","#8DA6FF"],"section":"Theme"}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#FF7A1A' };
+  }
+}
+</script>
+</body>
+</html>

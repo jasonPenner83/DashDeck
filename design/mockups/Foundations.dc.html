@@ -1,0 +1,211 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+  <style>
+    body { margin: 0; background: #0D0C0B; font-family: Archivo, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #FF7A1A; } a:hover { color: #FFA35C; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+    .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
+  </style>
+</helmet>
+
+<div style="width: 1240px; height: 1320px; background: #0D0C0B; color: #F4F1EB; padding: 48px; box-sizing: border-box; display: flex; flex-direction: column; gap: 40px;">
+
+  <div style="display: flex; align-items: flex-end; justify-content: space-between; padding-bottom: 28px; border-bottom: 1px solid #2C2925;">
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <span style="font-size: 34px; font-weight: 600; letter-spacing: -0.02em; color: #F4F1EB;">DashDeck shell foundations</span>
+      <span style="font-size: 18px; color: #A5A096;">Dark-only. Portrait 960 &times; 1440 DIP. Every value carries its quality.</span>
+    </div>
+    <span class="mono" style="font-size: 13px; letter-spacing: 0.14em; color: #4A453E;">P0.5 &middot; WPF SHELL</span>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 14px;">
+    <span class="mono" style="font-size: 13px; letter-spacing: 0.18em; color: #6B665E;">SURFACES AND TEXT</span>
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="height: 76px; border-radius: 12px; background: #0D0C0B; border: 1px solid #2C2925;"></div>
+        <span style="font-size: 15px; font-weight: 500; color: #F4F1EB;">Canvas</span>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; color: #6B665E;">#0D0C0B</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="height: 76px; border-radius: 12px; background: #191816; border: 1px solid #2C2925;"></div>
+        <span style="font-size: 15px; font-weight: 500; color: #F4F1EB;">Tile</span>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; color: #6B665E;">#191816</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="height: 76px; border-radius: 12px; background: #211F1C; border: 1px solid #2C2925;"></div>
+        <span style="font-size: 15px; font-weight: 500; color: #F4F1EB;">Raised</span>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; color: #6B665E;">#211F1C</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="height: 76px; border-radius: 12px; background: #2C2925;"></div>
+        <span style="font-size: 15px; font-weight: 500; color: #F4F1EB;">Hairline</span>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; color: #6B665E;">#2C2925</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="height: 76px; border-radius: 12px; background: {{accent}};"></div>
+        <span style="font-size: 15px; font-weight: 500; color: #F4F1EB;">Accent</span>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; color: #6B665E;">ember</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="height: 76px; border-radius: 12px; background: #3A3630;"></div>
+        <span style="font-size: 15px; font-weight: 500; color: #F4F1EB;">Disabled</span>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; color: #6B665E;">#3A3630</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="height: 76px; border-radius: 12px; background: #6B665E;"></div>
+        <span style="font-size: 15px; font-weight: 500; color: #F4F1EB;">Text low</span>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; color: #6B665E;">#6B665E</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="height: 76px; border-radius: 12px; background: #A5A096;"></div>
+        <span style="font-size: 15px; font-weight: 500; color: #F4F1EB;">Text mid</span>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; color: #6B665E;">#A5A096</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="height: 76px; border-radius: 12px; background: #F4F1EB;"></div>
+        <span style="font-size: 15px; font-weight: 500; color: #F4F1EB;">Text high</span>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; color: #6B665E;">#F4F1EB</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="height: 76px; border-radius: 12px; background: #E5544B;"></div>
+        <span style="font-size: 15px; font-weight: 500; color: #F4F1EB;">Fault</span>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.08em; color: #6B665E;">#E5544B</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 14px;">
+    <span class="mono" style="font-size: 13px; letter-spacing: 0.18em; color: #6B665E;">SIGNAL QUALITY &mdash; RENDERED, NEVER HIDDEN</span>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;">
+      <div style="background: #191816; border: 1px solid #2C2925; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(91,199,126,0.10); border: 1px solid rgba(91,199,126,0.30); align-self: flex-start;">
+          <div style="width: 8px; height: 8px; border-radius: 999px; background: #5BC77E;"></div>
+          <span class="mono" style="font-size: 12px; letter-spacing: 0.14em; color: #5BC77E;">LIVE</span>
+        </div>
+        <span style="font-size: 16px; line-height: 1.5; color: #A5A096; text-wrap: pretty;">Fresh inside the signal&rsquo;s declared rate. Full-contrast value.</span>
+      </div>
+      <div style="background: #191816; border: 1px solid #2C2925; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(224,178,60,0.10); border: 1px solid rgba(224,178,60,0.32); align-self: flex-start;">
+          <div style="width: 8px; height: 8px; border-radius: 999px; background: #E0B23C;"></div>
+          <span class="mono" style="font-size: 12px; letter-spacing: 0.14em; color: #E0B23C;">STALE 8s</span>
+        </div>
+        <span style="font-size: 16px; line-height: 1.5; color: #A5A096; text-wrap: pretty;">Last known value, dimmed to text-low, with its age shown.</span>
+      </div>
+      <div style="background: #191816; border: 1px solid #2C2925; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: #211F1C; border: 1px solid #3A3630; align-self: flex-start;">
+          <div style="width: 8px; height: 2px; background: #6B665E;"></div>
+          <span class="mono" style="font-size: 12px; letter-spacing: 0.14em; color: #6B665E;">UNAVAILABLE</span>
+        </div>
+        <span style="font-size: 16px; line-height: 1.5; color: #A5A096; text-wrap: pretty;">No value at all. Em-dashes, never a zero and never a guess.</span>
+      </div>
+      <div style="background: #191816; border: 1px solid #2C2925; border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(141,166,255,0.10); border: 1px solid rgba(141,166,255,0.30); align-self: flex-start;">
+          <div style="width: 8px; height: 8px; background: #8DA6FF; transform: rotate(45deg);"></div>
+          <span class="mono" style="font-size: 12px; letter-spacing: 0.14em; color: #8DA6FF;">SIMULATED</span>
+        </div>
+        <span style="font-size: 16px; line-height: 1.5; color: #A5A096; text-wrap: pretty;">Synthetic truck. Also sits in the status strip so it is never mistaken for real.</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 40px;">
+
+    <div style="flex-grow: 1; flex-basis: 0; display: flex; flex-direction: column; gap: 14px;">
+      <span class="mono" style="font-size: 13px; letter-spacing: 0.18em; color: #6B665E;">TYPE &mdash; ARCHIVO / IBM PLEX MONO</span>
+      <div style="background: #191816; border: 1px solid #2C2925; border-radius: 16px; padding: 26px; display: flex; flex-direction: column; gap: 22px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 20px;">
+          <span class="num" style="font-size: 60px; font-weight: 700; letter-spacing: -0.045em; line-height: 0.9; color: #F4F1EB;">12.4</span>
+          <span class="mono" style="font-size: 12px; letter-spacing: 0.1em; color: #6B665E;">HERO 112/700</span>
+        </div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding-top: 18px; border-top: 1px solid #2C2925;">
+          <span class="num" style="font-size: 42px; font-weight: 700; letter-spacing: -0.04em; color: #F4F1EB;">62</span>
+          <span class="mono" style="font-size: 12px; letter-spacing: 0.1em; color: #6B665E;">TILE VALUE 82/700</span>
+        </div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding-top: 18px; border-top: 1px solid #2C2925;">
+          <span style="font-size: 30px; font-weight: 600; letter-spacing: -0.015em; color: #F4F1EB;">Trip Computer</span>
+          <span class="mono" style="font-size: 12px; letter-spacing: 0.1em; color: #6B665E;">TITLE 30/600</span>
+        </div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding-top: 18px; border-top: 1px solid #2C2925;">
+          <span style="font-size: 20px; font-weight: 500; color: #F4F1EB;">Replay a recording</span>
+          <span class="mono" style="font-size: 12px; letter-spacing: 0.1em; color: #6B665E;">BODY 20/500</span>
+        </div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding-top: 18px; border-top: 1px solid #2C2925;">
+          <span class="mono" style="font-size: 13px; letter-spacing: 0.18em; color: #A5A096;">VEHICLE LINK</span>
+          <span class="mono" style="font-size: 12px; letter-spacing: 0.1em; color: #6B665E;">LABEL 13/0.18em</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex-grow: 1; flex-basis: 0; display: flex; flex-direction: column; gap: 14px;">
+      <span class="mono" style="font-size: 13px; letter-spacing: 0.18em; color: #6B665E;">PORTRAIT ZONES &mdash; 960 &times; 1440</span>
+      <div style="background: #191816; border: 1px solid #2C2925; border-radius: 16px; padding: 26px; display: flex; gap: 28px; flex-grow: 1;">
+        <div style="width: 186px; height: 300px; flex-shrink: 0; display: flex; flex-direction: column; border: 1px solid #3A3630; border-radius: 8px; overflow: hidden;">
+          <div style="height: 19px; flex-shrink: 0; background: #2C2925; display: flex; align-items: center; justify-content: center;">
+            <span class="mono" style="font-size: 9px; letter-spacing: 0.12em; color: #A5A096;">STATUS 90</span>
+          </div>
+          <div style="height: 244px; flex-shrink: 0; display: flex; flex-direction: column;">
+            <div style="flex-grow: 1; flex-basis: 0; border-bottom: 1px dashed #332F2B; display: flex; align-items: center; justify-content: center;">
+              <span class="mono" style="font-size: 9px; letter-spacing: 0.12em; color: #4A453E;">BAND 1</span>
+            </div>
+            <div style="flex-grow: 1; flex-basis: 0; border-bottom: 1px dashed #332F2B; display: flex; align-items: center; justify-content: center;">
+              <span class="mono" style="font-size: 9px; letter-spacing: 0.12em; color: #4A453E;">BAND 2</span>
+            </div>
+            <div style="flex-grow: 1; flex-basis: 0; border-bottom: 1px dashed #332F2B; display: flex; align-items: center; justify-content: center;">
+              <span class="mono" style="font-size: 9px; letter-spacing: 0.12em; color: #4A453E;">BAND 3</span>
+            </div>
+            <div style="flex-grow: 1; flex-basis: 0; border-bottom: 1px dashed #332F2B; display: flex; align-items: center; justify-content: center;">
+              <span class="mono" style="font-size: 9px; letter-spacing: 0.12em; color: #4A453E;">BAND 4</span>
+            </div>
+            <div style="flex-grow: 1; flex-basis: 0; border-bottom: 1px dashed #332F2B; display: flex; align-items: center; justify-content: center;">
+              <span class="mono" style="font-size: 9px; letter-spacing: 0.12em; color: #4A453E;">BAND 5</span>
+            </div>
+            <div style="flex-grow: 1; flex-basis: 0; display: flex; align-items: center; justify-content: center;">
+              <span class="mono" style="font-size: 9px; letter-spacing: 0.12em; color: #4A453E;">BAND 6</span>
+            </div>
+          </div>
+          <div style="height: 37px; flex-shrink: 0; background: #211F1C; border-top: 3px solid {{accent}}; display: flex; align-items: center; justify-content: center;">
+            <span class="mono" style="font-size: 9px; letter-spacing: 0.12em; color: {{accent}};">NAV 180</span>
+          </div>
+        </div>
+        <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 20px; justify-content: center;">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <span class="mono" style="font-size: 12px; letter-spacing: 0.14em; color: #6B665E;">ONE BAND</span>
+            <span style="font-size: 17px; color: #F4F1EB;">195 &mdash; a 175 widget row plus a 20 gutter</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 18px; border-top: 1px solid #2C2925;">
+            <span class="mono" style="font-size: 12px; letter-spacing: 0.14em; color: #6B665E;">THE STAGE</span>
+            <span style="font-size: 17px; color: #F4F1EB;">Claims the top <em>n</em> bands. 4/6 for maps, 3/6 fits 16:9.</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 18px; border-top: 1px solid #2C2925;">
+            <span class="mono" style="font-size: 12px; letter-spacing: 0.14em; color: #6B665E;">WIDGET GRID</span>
+            <span style="font-size: 17px; color: #F4F1EB;">3 columns, 20 gutter, 32 margin. 1&times;1 is 285 &times; 175.</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 18px; border-top: 1px solid #2C2925;">
+            <span class="mono" style="font-size: 12px; letter-spacing: 0.14em; color: #6B665E;">TARGETS AND RADII</span>
+            <span style="font-size: 17px; color: #F4F1EB;">64 smallest target &middot; 18 widget &middot; 16 card &middot; 999 chip</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":1240,"height":1320},"accent":{"editor":"color","default":"#FF7A1A","options":["#FF7A1A","#E0B23C","#5BC77E","#8DA6FF"],"section":"Theme"}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#FF7A1A' };
+  }
+}
+</script>
+</body>
+</html>

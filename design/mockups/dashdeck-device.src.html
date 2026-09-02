@@ -1,0 +1,239 @@
+<title>DashDeck on Glass</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground: #000000;
+    --text-hi: #F4F1EB;
+    --text-mid: #A5A096;
+    --text-lo: #6B665E;
+    --accent: #FF7A1A;
+    --sans: Archivo, "Helvetica Neue", Arial, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--ground);
+    color: var(--text-hi);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mono { font-family: var(--mono); }
+  .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+  #deck {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .holder { position: relative; overflow: hidden; flex-shrink: 0; }
+
+  .stage {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: top left;
+    text-align: left;
+    font-family: var(--sans);
+    font-size: 16px;
+    font-weight: 400;
+    line-height: normal;
+    letter-spacing: normal;
+    color: var(--text-hi);
+  }
+
+  .stage[hidden] { display: none !important; }
+
+  .zone {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 26%;
+    z-index: 20;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .zone.prev { left: 0; }
+  .zone.next { right: 0; }
+  .zone:focus-visible { outline: 2px solid var(--accent); outline-offset: -6px; }
+
+  #hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 20px;
+    background: rgba(0, 0, 0, 0.82);
+    border-bottom: 1px solid #24221F;
+    transition: opacity 220ms ease, transform 220ms ease;
+  }
+
+  #hud.hide {
+    opacity: 0;
+    transform: translateY(-100%);
+    pointer-events: none;
+  }
+
+  #hud .name {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  #hud .meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--text-lo);
+  }
+
+  #hud .meta b { color: var(--accent); font-weight: 500; }
+
+  .dots { display: flex; gap: 7px; }
+
+  .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #3A3630;
+  }
+
+  .dot.on { background: var(--accent); }
+
+  #tap-hint {
+    position: fixed;
+    left: 50%;
+    bottom: 26px;
+    transform: translateX(-50%);
+    z-index: 30;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--text-lo);
+    background: rgba(0, 0, 0, 0.75);
+    padding: 9px 16px;
+    border-radius: 999px;
+    transition: opacity 400ms ease;
+  }
+
+  #tap-hint.gone { opacity: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+
+<div id="hud">
+  <span class="name" id="hud-name">Dash</span>
+  <div class="dots" id="dots"></div>
+  <span class="meta" id="hud-meta">&mdash;</span>
+</div>
+
+<div id="deck">
+  <div class="holder" id="holder">
+    <div class="stage" data-name="Dash" data-w="960" data-h="1440"><!--SCREEN:Main--></div>
+    <div class="stage" data-name="Widget tapped" data-w="960" data-h="1440" hidden><!--SCREEN:Expanded--></div>
+    <div class="stage" data-name="Video stage" data-w="960" data-h="1440" hidden><!--SCREEN:Video--></div>
+    <div class="stage" data-name="Adapter lost" data-w="960" data-h="1440" hidden><!--SCREEN:Degraded--></div>
+    <div class="stage" data-name="Settings" data-w="960" data-h="1440" hidden><!--SCREEN:Settings--></div>
+  </div>
+</div>
+
+<button class="zone prev" id="prev" aria-label="Previous screen"></button>
+<button class="zone next" id="next" aria-label="Next screen"></button>
+
+<div id="tap-hint">TAP EDGES TO CHANGE SCREEN &middot; TAP MIDDLE FOR INFO</div>
+
+<script>
+  (function () {
+    var stages = Array.prototype.slice.call(document.querySelectorAll(".stage"));
+    var holder = document.getElementById("holder");
+    var hud = document.getElementById("hud");
+    var hudName = document.getElementById("hud-name");
+    var hudMeta = document.getElementById("hud-meta");
+    var dotsEl = document.getElementById("dots");
+    var hint = document.getElementById("tap-hint");
+    var i = 0;
+
+    stages.forEach(function () {
+      var d = document.createElement("div");
+      d.className = "dot";
+      dotsEl.appendChild(d);
+    });
+    var dots = Array.prototype.slice.call(dotsEl.children);
+
+    function fit() {
+      var s = stages[i];
+      var w = parseFloat(s.dataset.w);
+      var h = parseFloat(s.dataset.h);
+      var vw = window.innerWidth;
+      var vh = window.innerHeight;
+      var scale = Math.min(vw / w, vh / h);
+
+      holder.style.width = Math.round(w * scale) + "px";
+      holder.style.height = Math.round(h * scale) + "px";
+      stages.forEach(function (el) {
+        el.style.width = w + "px";
+        el.style.height = h + "px";
+        el.style.transform = "scale(" + scale + ")";
+      });
+
+      var pct = Math.round(scale * 1000) / 10;
+      var exact = Math.abs(scale - 1) < 0.005;
+      hudMeta.innerHTML = "VIEWPORT " + vw + " × " + vh +
+        " · DESIGN " + w + " × " + h +
+        " · <b>" + (exact ? "1:1" : pct + "%") + "</b>";
+    }
+
+    function show(n) {
+      stages[i].hidden = true;
+      dots[i].classList.remove("on");
+      i = (n + stages.length) % stages.length;
+      stages[i].hidden = false;
+      dots[i].classList.add("on");
+      hudName.textContent = stages[i].dataset.name;
+      fit();
+    }
+
+    document.getElementById("prev").addEventListener("click", function () { show(i - 1); });
+    document.getElementById("next").addEventListener("click", function () { show(i + 1); });
+
+    document.getElementById("deck").addEventListener("click", function () {
+      hud.classList.toggle("hide");
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowLeft") { show(i - 1); }
+      if (e.key === "ArrowRight") { show(i + 1); }
+      if (e.key === "h") { hud.classList.toggle("hide"); }
+    });
+
+    window.addEventListener("resize", fit);
+    if (screen.orientation && screen.orientation.addEventListener) {
+      screen.orientation.addEventListener("change", function () { setTimeout(fit, 120); });
+    }
+
+    show(0);
+    if (document.fonts && document.fonts.ready) { document.fonts.ready.then(fit); }
+    setTimeout(function () { hint.classList.add("gone"); }, 4200);
+  })();
+</script>

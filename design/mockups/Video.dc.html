@@ -1,0 +1,224 @@
+﻿<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+  <style>
+    body { margin: 0; background: #0D0C0B; font-family: Archivo, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #FF7A1A; } a:hover { color: #FFA35C; }
+    .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+    .mono { font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace; }
+  </style>
+</helmet>
+
+<div style="width: 960px; height: 1440px; background: #0D0C0B; color: #F4F1EB; display: flex; flex-direction: column; overflow: hidden;">
+
+  <div style="height: 90px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; border-bottom: 1px solid #2C2925;">
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8DA6FF" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"></rect><rect x="9" y="9" width="6" height="6"></rect><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"></path></svg>
+      <span class="mono" style="font-size: 15px; letter-spacing: 0.14em; color: #A5A096;">SYNTHETIC F-150</span>
+      <div style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(141,166,255,0.10); border: 1px solid rgba(141,166,255,0.30);">
+        <div style="width: 8px; height: 8px; background: #8DA6FF; transform: rotate(45deg);"></div>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.14em; color: #8DA6FF;">SIMULATED</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 28px;">
+      <span class="mono num" style="font-size: 15px; letter-spacing: 0.08em; color: #6B665E;">14.6 req/s</span>
+      <span class="mono num" style="font-size: 15px; letter-spacing: 0.08em; color: #A5A096;">-4 &deg;C</span>
+      <span class="num" style="font-size: 22px; font-weight: 600; letter-spacing: -0.01em; color: #F4F1EB;">19:04</span>
+    </div>
+  </div>
+
+  <div style="height: 585px; flex-shrink: 0; position: relative; overflow: hidden; background: #000000; border-bottom: 1px solid #2C2925; display: flex; align-items: center;">
+
+    <svg width="960" height="540" viewBox="0 0 960 540" fill="none" style="display: block;">
+      <defs>
+        <linearGradient id="dd-sky" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#141D28"></stop>
+          <stop offset="0.5" stop-color="#33251A"></stop>
+          <stop offset="1" stop-color="#4C2F17"></stop>
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="960" height="540" fill="url(#dd-sky)"></rect>
+      <circle cx="676" cy="330" r="48" fill="#C97B38" opacity="0.8"></circle>
+      <path d="M0 352 L150 316 L268 350 L430 298 L566 342 L724 304 L862 338 L960 314 L960 540 L0 540 Z" fill="#151B22"></path>
+      <path d="M0 418 L208 392 L386 424 L604 390 L802 420 L960 402 L960 540 L0 540 Z" fill="#0D1116"></path>
+      <path d="M430 540 L500 430 L560 430 L680 540 Z" fill="#080A0D"></path>
+    </svg>
+
+    <div style="position: absolute; top: 44px; left: 32px; display: flex; align-items: center; gap: 14px;">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-radius: 999px; background: rgba(13,12,11,0.86); border: 1px solid #2C2925;">
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.16em; color: #6B665E;">STAGE</span>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.16em; color: #F4F1EB;">VIDEO</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: rgba(91,199,126,0.12); border: 1px solid rgba(91,199,126,0.32);">
+        <div style="width: 8px; height: 8px; border-radius: 999px; background: #5BC77E;"></div>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.14em; color: #5BC77E;">PARKED</span>
+      </div>
+    </div>
+
+    <div style="position: absolute; bottom: 22px; left: 0; width: 960px; box-sizing: border-box; padding: 0 32px 20px 32px; display: flex; flex-direction: column; gap: 16px;">
+      <span style="font-size: 20px; font-weight: 500; color: #F4F1EB;">Trans-Canada, Kenora to Winnipeg</span>
+      <div style="display: flex; align-items: center; gap: 20px;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="#F4F1EB" stroke="none" style="flex-shrink: 0;"><path d="M18 5v14L8 12z"></path><rect x="5" y="5" width="2.5" height="14" rx="1"></rect></svg>
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="#F4F1EB" stroke="none" style="flex-shrink: 0;"><rect x="6" y="4" width="4" height="16" rx="1.5"></rect><rect x="14" y="4" width="4" height="16" rx="1.5"></rect></svg>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="#F4F1EB" stroke="none" style="flex-shrink: 0;"><path d="M6 5v14l10-7z"></path><rect x="16.5" y="5" width="2.5" height="14" rx="1"></rect></svg>
+        <span class="mono num" style="font-size: 13px; letter-spacing: 0.08em; color: #A5A096; flex-shrink: 0;">18:42</span>
+        <div style="flex-grow: 1; height: 5px; border-radius: 999px; background: rgba(244,241,235,0.22); display: flex; align-items: center;">
+          <div style="width: 46%; height: 5px; border-radius: 999px; background: {{accent}};"></div>
+          <div style="width: 15px; height: 15px; border-radius: 999px; background: {{accent}}; margin-left: -7px;"></div>
+        </div>
+        <span class="mono num" style="font-size: 13px; letter-spacing: 0.08em; color: #A5A096; flex-shrink: 0;">40:15</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="height: 585px; flex-shrink: 0; padding: 20px 32px 0 32px; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box;">
+
+    <div style="height: 175px; display: flex; gap: 20px;">
+      <div style="flex-grow: 1; flex-basis: 0; background: #191816; border: 1px solid #2C2925; border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span class="mono" style="font-size: 12px; letter-spacing: 0.16em; color: #6B665E;">FUEL ECON</span>
+          <div style="display: flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; background: rgba(224,178,60,0.10); border: 1px solid rgba(224,178,60,0.32);">
+            <div style="width: 7px; height: 7px; border-radius: 999px; background: #E0B23C;"></div>
+            <span class="mono" style="font-size: 11px; letter-spacing: 0.12em; color: #E0B23C;">IDLE</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span class="num" style="font-size: 50px; font-weight: 700; letter-spacing: -0.04em; line-height: 0.9; color: #F4F1EB;">13.1</span>
+        </div>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.1em; color: #6B665E;">L/100km &middot; TRIP AVG</span>
+      </div>
+
+      <div style="flex-grow: 1; flex-basis: 0; background: #191816; border: 1px solid #2C2925; border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span class="mono" style="font-size: 12px; letter-spacing: 0.16em; color: #6B665E;">FUEL</span>
+          <div style="display: flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; background: rgba(91,199,126,0.10); border: 1px solid rgba(91,199,126,0.30);">
+            <div style="width: 7px; height: 7px; border-radius: 999px; background: #5BC77E;"></div>
+            <span class="mono" style="font-size: 11px; letter-spacing: 0.12em; color: #5BC77E;">LIVE</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span class="num" style="font-size: 50px; font-weight: 700; letter-spacing: -0.04em; line-height: 0.9; color: #F4F1EB;">54</span>
+          <span class="mono" style="font-size: 17px; color: #A5A096;">%</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 9px;">
+          <div style="height: 7px; border-radius: 999px; background: #2C2925; overflow: hidden; display: flex;">
+            <div style="width: 54%; background: {{accent}};"></div>
+          </div>
+          <span class="mono" style="font-size: 12px; letter-spacing: 0.1em; color: #6B665E;">362 km RANGE</span>
+        </div>
+      </div>
+
+      <div style="flex-grow: 1; flex-basis: 0; background: #191816; border: 1px solid #2C2925; border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span class="mono" style="font-size: 12px; letter-spacing: 0.16em; color: #6B665E;">RUN TIME</span>
+          <div style="display: flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; background: rgba(91,199,126,0.10); border: 1px solid rgba(91,199,126,0.30);">
+            <div style="width: 7px; height: 7px; border-radius: 999px; background: #5BC77E;"></div>
+            <span class="mono" style="font-size: 11px; letter-spacing: 0.12em; color: #5BC77E;">LIVE</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span class="num" style="font-size: 50px; font-weight: 700; letter-spacing: -0.04em; line-height: 0.9; color: #F4F1EB;">1:12</span>
+        </div>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.1em; color: #6B665E;">SINCE ENGINE START</span>
+      </div>
+    </div>
+
+    <div style="height: 175px; display: flex; gap: 20px;">
+      <div style="flex-grow: 2; flex-basis: 0; background: #191816; border: 1px solid #2C2925; border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="mono" style="font-size: 12px; letter-spacing: 0.16em; color: #6B665E;">TRIP</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A453E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; background: rgba(91,199,126,0.10); border: 1px solid rgba(91,199,126,0.30);">
+            <div style="width: 7px; height: 7px; border-radius: 999px; background: #5BC77E;"></div>
+            <span class="mono" style="font-size: 11px; letter-spacing: 0.12em; color: #5BC77E;">LIVE</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: flex-end; gap: 44px;">
+          <div style="display: flex; flex-direction: column; gap: 5px;">
+            <span class="num" style="font-size: 44px; font-weight: 700; letter-spacing: -0.035em; line-height: 0.9; color: #F4F1EB;">86.4</span>
+            <span class="mono" style="font-size: 12px; letter-spacing: 0.1em; color: #6B665E;">km</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 5px;">
+            <span class="num" style="font-size: 44px; font-weight: 700; letter-spacing: -0.035em; line-height: 0.9; color: #F4F1EB;">72</span>
+            <span class="mono" style="font-size: 12px; letter-spacing: 0.1em; color: #6B665E;">min</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 5px;">
+            <span class="num" style="font-size: 44px; font-weight: 700; letter-spacing: -0.035em; line-height: 0.9; color: #F4F1EB;">11.3</span>
+            <span class="mono" style="font-size: 12px; letter-spacing: 0.1em; color: #6B665E;">L used</span>
+          </div>
+        </div>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.1em; color: #6B665E;">IDLING 14 min &middot; TRIP STILL OPEN</span>
+      </div>
+
+      <div style="flex-grow: 1; flex-basis: 0; background: #191816; border: 1px solid #2C2925; border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span class="mono" style="font-size: 12px; letter-spacing: 0.16em; color: #6B665E;">ENGINE</span>
+          <div style="display: flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; background: rgba(91,199,126,0.10); border: 1px solid rgba(91,199,126,0.30);">
+            <div style="width: 7px; height: 7px; border-radius: 999px; background: #5BC77E;"></div>
+            <span class="mono" style="font-size: 11px; letter-spacing: 0.12em; color: #5BC77E;">LIVE</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 8px;">
+          <span class="num" style="font-size: 50px; font-weight: 700; letter-spacing: -0.04em; line-height: 0.9; color: #F4F1EB;">92</span>
+          <span class="mono" style="font-size: 17px; color: #A5A096;">&deg;C</span>
+        </div>
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.1em; color: #6B665E;">COOLANT &middot; 720 RPM</span>
+      </div>
+    </div>
+
+    <div style="height: 175px; background: #191816; border: 1px solid #2C2925; border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span class="mono" style="font-size: 12px; letter-spacing: 0.16em; color: #6B665E;">ECONOMY &middot; LAST 40 MIN</span>
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <span class="mono" style="font-size: 11px; letter-spacing: 0.14em; color: #6B665E;">LIFETIME</span>
+          <span class="num" style="font-size: 18px; font-weight: 600; color: #F4F1EB;">13.9</span>
+        </div>
+      </div>
+      <svg width="856" height="82" viewBox="0 0 856 82" fill="none" style="display: block;">
+        <polyline points="4,58 40,52 76,64 112,44 148,50 184,32 220,40 256,26 292,36 328,22 364,30 400,18 436,28 472,20 508,34 544,24 580,38 616,30 652,44 688,36 724,50 760,42 796,56 828,60" stroke="{{accent}}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>
+        <line x1="0" y1="76" x2="856" y2="76" stroke="#2C2925" stroke-width="1"></line>
+      </svg>
+      <div style="display: flex; justify-content: space-between;">
+        <span class="mono" style="font-size: 11px; letter-spacing: 0.14em; color: #4A453E;">40 MIN AGO</span>
+        <span class="mono" style="font-size: 11px; letter-spacing: 0.14em; color: #4A453E;">NOW</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="height: 180px; flex-shrink: 0; display: flex; border-top: 1px solid #2C2925;">
+    <div style="flex-grow: 1; flex-basis: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; border-top: 4px solid {{accent}}; background: rgba(255,122,26,0.07);">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="{{accent}}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="10" rx="2"></rect><rect x="3" y="16" width="8" height="5" rx="1.5"></rect><rect x="13" y="16" width="8" height="5" rx="1.5"></rect></svg>
+      <span class="mono" style="font-size: 14px; letter-spacing: 0.16em; color: {{accent}};">DASH</span>
+    </div>    <div style="flex-grow: 1; flex-basis: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; border-top: 4px solid transparent;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#A5A096" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"></circle><circle cx="12" cy="12" r="2.5"></circle></svg>
+      <span class="mono" style="font-size: 14px; letter-spacing: 0.16em; color: #A5A096;">STEREO</span>
+    </div>    <div style="flex-grow: 1; flex-basis: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; border-top: 4px solid transparent;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#A5A096" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8c2-2 4-2 6 0s4 2 6 0 4-2 6 0"></path><path d="M3 13c2-2 4-2 6 0s4 2 6 0 4-2 6 0"></path><path d="M3 18c2-2 4-2 6 0s4 2 6 0 4-2 6 0"></path></svg>
+      <span class="mono" style="font-size: 14px; letter-spacing: 0.16em; color: #A5A096;">CLIMATE</span>
+    </div>    <div style="flex-grow: 1; flex-basis: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; border-top: 4px solid transparent;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#A5A096" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 17h16"></path><circle cx="9" cy="7" r="2.5"></circle><circle cx="16" cy="17" r="2.5"></circle></svg>
+      <span class="mono" style="font-size: 14px; letter-spacing: 0.16em; color: #A5A096;">SETTINGS</span>
+    </div>  </div>
+
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":960,"height":1440},"accent":{"editor":"color","default":"#FF7A1A","options":["#FF7A1A","#E0B23C","#5BC77E","#8DA6FF"],"section":"Theme"}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#FF7A1A' };
+  }
+}
+</script>
+</body>
+</html>
