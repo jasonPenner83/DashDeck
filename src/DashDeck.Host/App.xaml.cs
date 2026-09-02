@@ -64,7 +64,12 @@ public partial class App : Application
             }
         }
 
-        _shell = new ShellViewModel(_vehicle, SystemClock.Instance, stagedVideo);
+        // --stage <NAME> opens on a named occupant: VIDEO, NUVIO, MAPS or NOTHING.
+        _shell = new ShellViewModel(
+            _vehicle,
+            SystemClock.Instance,
+            stagedVideo,
+            ArgValue(e.Args, "--stage"));
 
         // Development affordance: --picker opens the stage picker at launch, so a state
         // that normally needs a finger can be reviewed like any other.

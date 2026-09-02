@@ -32,4 +32,15 @@ public interface IStageOccupant : IDisposable
 
     /// <summary>Build the view. Called on the UI thread, once.</summary>
     FrameworkElement CreateView();
+
+    /// <summary>
+    /// What this occupant is actually doing, in one line.
+    /// </summary>
+    /// <remarks>
+    /// Every occupant so far renders into a child window — LibVLC's video surface and
+    /// WebView2 both — which means <c>RenderTargetBitmap</c> sees a black rectangle whether
+    /// they are working or not. A screenshot cannot tell playing from broken, so an occupant
+    /// has to be able to say. Overriding it is optional; the default at least names itself.
+    /// </remarks>
+    string Describe() => Name;
 }

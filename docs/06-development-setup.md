@@ -50,7 +50,12 @@ unused VLC plugins, at the risk of discovering the missing one on a back road.
 DashDeck.Host.exe                          # cold-start-city, empty stage
 DashDeck.Host.exe highway-cruise           # a different scripted drive
 DashDeck.Host.exe --video "D:\clip.mkv"    # video on the stage
+DashDeck.Host.exe --stage MAPS             # open on a named occupant
+DashDeck.Host.exe --picker                 # open on the stage picker
 ```
+
+The stage is chosen at runtime from the **stage chip**, top right of the stage — tap it for
+a grid of app buttons. `--stage` and `--video` just skip the tap at launch.
 
 Two development flags, both useful for looking at the thing without a camera:
 

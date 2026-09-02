@@ -2,6 +2,8 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using Microsoft.Win32;
 
 namespace DashDeck.Host;
 
@@ -26,6 +28,11 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         FillWorkArea();
+
+        // The tablet gets rotated — that is the entire point of a portrait dash carried in
+        // and out of a truck. Rotating changes the work area but not the window, so without
+        // this the shell keeps the old landscape rectangle and stops filling the screen.
+        SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
     }
 
     /// <summary>
@@ -45,6 +52,25 @@ public partial class MainWindow : Window
         Top = area.Top;
         Width = area.Width;
         Height = area.Height;
+    }
+
+    /// <summary>
+    /// Re-fit after a rotation or a resolution change.
+    /// </summary>
+    /// <remarks>
+    /// Raised on a system thread, and Windows reports the new metrics slightly after the
+    /// event, so this hops to the dispatcher at a low priority rather than measuring
+    /// immediately and getting the old rectangle.
+    /// </remarks>
+    private void OnDisplaySettingsChanged(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, FillWorkArea);
+
+    protected override void OnClosed(EventArgs e)
+    {
+        // SystemEvents is static: not detaching here keeps the window alive for the life of
+        // the process.
+        SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+        base.OnClosed(e);
     }
 
     /// <summary>

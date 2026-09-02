@@ -4,8 +4,10 @@
         xmlns:conv="clr-namespace:DashDeck.Host.Converters"
         Title="DashDeck"
         WindowStyle="None"
+        ResizeMode="NoResize"
         WindowStartupLocation="Manual"
         Background="{StaticResource CanvasBrush}"
+        BorderThickness="0"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Ideal">
 

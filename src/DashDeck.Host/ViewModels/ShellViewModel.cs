@@ -40,18 +40,28 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isStagePickerOpen;
 
-    public ShellViewModel(VehicleStack vehicle, IClock clock, string? videoPath = null)
+    public ShellViewModel(
+        VehicleStack vehicle,
+        IClock clock,
+        string? videoPath = null,
+        string? startOn = null)
     {
         _vehicle = vehicle;
         _clock = clock;
 
         StageOptions = StageOption.All(videoPath);
 
-        // Start on whatever was asked for at launch. With no --video that is an empty
-        // stage, which is a real state rather than a failure to load something.
-        if (videoPath is not null)
+        // Start on whatever was asked for at launch. With nothing asked for that is an
+        // empty stage, which is a real state rather than a failure to load something.
+        var opening = startOn is not null
+            ? StageOptions.FirstOrDefault(o => string.Equals(o.Name, startOn, StringComparison.OrdinalIgnoreCase))
+            : videoPath is not null
+                ? StageOptions.First(o => o.Name == "VIDEO")
+                : null;
+
+        if (opening is not null)
         {
-            SetStage(StageOptions.First(o => o.Name == "VIDEO"));
+            SetStage(opening);
         }
 
         // Six widgets across two bands. Rates are declared honestly: the whole app shares
@@ -115,7 +125,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <remarks>
     /// For <c>--shot</c>, which cannot photograph a video surface drawn into a child window.
     /// </remarks>
-    public string? DescribeStage() => (_stage as VideoStageOccupant)?.Describe();
+    public string? DescribeStage() => _stage?.Describe();
 
     /// <summary>
     /// Open or close the picker.

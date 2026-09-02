@@ -42,11 +42,23 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
             videoPath is null ? "Pick a file" : System.IO.Path.GetFileName(videoPath),
             () => CreateVideo(videoPath)),
 
-        // Listed deliberately. NuvioWeb 1.0.3 exists, so this becomes a WebView2 occupant
-        // rather than anything exotic — the same mechanism a map would use (Q18).
-        new StageOption("NUVIO", "Not built yet", null),
-        new StageOption("MAPS", "Not built yet", null),
+        // NuvioWeb, hosted rather than reparented. GPLv3 stays at arm's length that way
+        // (Q18). Its origin answered 526 — Cloudflare's "bad origin certificate" — when
+        // this was wired, so if it comes up blank that is their end, not ours.
+        new StageOption("NUVIO", "app.nuvio.tv", () => new WebStageOccupant("NUVIO", NuvioUrl)),
+
+        // OpenStreetMap rather than Google. Google's Maps JavaScript API terms forbid
+        // in-vehicle turn-by-turn and there is no desktop SDK, so a Google map here could
+        // only ever be a picture (Q18). This is a picture too — but an unencumbered one,
+        // and the routing question stays open rather than being quietly violated.
+        new StageOption("MAPS", "openstreetmap.org", () => new WebStageOccupant("MAPS", MapsUrl)),
     ];
+
+    /// <summary>Nuvio's web build. Changed here, not hunted through the code.</summary>
+    public const string NuvioUrl = "https://app.nuvio.tv";
+
+    /// <summary>Display-only map. Turn-by-turn is a separate, unanswered question (Q18).</summary>
+    public const string MapsUrl = "https://www.openstreetmap.org";
 
     private static IStageOccupant? CreateVideo(string? videoPath)
     {
