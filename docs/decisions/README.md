@@ -18,3 +18,4 @@ including the reasoning that later turns out to be wrong.
 | [0010](ADR-0010-abstractions-has-no-ui-dependency.md) | `DashDeck.Abstractions` carries no UI dependency | Accepted |
 | [0011](ADR-0011-view-contract-and-mvvm.md) | Component = widget + optional full-screen; MVVM in the shell only | Accepted |
 | [0012](ADR-0012-widgets-and-applets.md) | Declarative widgets and sandboxed web applets for third parties (supersedes 0002 in part) | Accepted |
+| [0013](ADR-0013-theming.md) | Bounded theming: day/night, one curated accent, quality colours fixed | Accepted |

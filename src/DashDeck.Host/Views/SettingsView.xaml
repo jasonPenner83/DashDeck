@@ -1,0 +1,95 @@
+﻿<UserControl x:Class="DashDeck.Host.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <!-- Scrolls, because settings only ever grow. Six bands is plenty today. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="31,24,31,24">
+
+        <TextBlock Style="{StaticResource CaptionText}" Text="APPEARANCE" />
+
+        <!-- Day / Night / Auto -->
+        <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding Modes}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button Style="{StaticResource StageLauncherButton}"
+                            Height="72" MinWidth="170"
+                            Command="{Binding DataContext.SetModeCommand,
+                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                            CommandParameter="{Binding}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Label}"
+                                       FontFamily="{StaticResource MonoFont}"
+                                       FontSize="14"
+                                       HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding Detail}"
+                                       Margin="0,5,0,0"
+                                       HorizontalAlignment="Center"
+                                       Style="{StaticResource MicroText}" />
+                        </StackPanel>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- An automatic setting that will not say why it did something is infuriating. -->
+        <StackPanel Margin="2,14,0,0" Visibility="{Binding IsAuto, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="{Binding AutoSource}" Style="{StaticResource CaptionText}" />
+            <TextBlock Margin="0,6,0,0"
+                       Style="{StaticResource MicroText}"
+                       Text="Headlights would be the better signal — not available over standard OBD-II." />
+        </StackPanel>
+
+        <!-- Accent -->
+        <TextBlock Margin="0,34,0,0" Style="{StaticResource CaptionText}" Text="ACCENT" />
+
+        <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding Accents}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button Style="{StaticResource StageLauncherButton}"
+                            Height="72" MinWidth="150"
+                            Command="{Binding DataContext.SetAccentCommand,
+                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                            CommandParameter="{Binding}">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="22" Height="22" Fill="{Binding Swatch}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Label}"
+                                       Margin="12,0,0,0"
+                                       VerticalAlignment="Center"
+                                       FontFamily="{StaticResource MonoFont}"
+                                       FontSize="13" />
+                        </StackPanel>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Saying what is *not* adjustable is part of the setting. -->
+        <TextBlock Margin="2,26,0,0"
+                   MaxWidth="700"
+                   HorizontalAlignment="Left"
+                   TextWrapping="Wrap"
+                   Style="{StaticResource MicroText}"
+                   Text="The four signal-quality colours are fixed. Live, stale, unavailable and simulated have to mean the same thing on every dash, whatever else is adjusted." />
+
+        <TextBlock Margin="2,20,0,0"
+                   Style="{StaticResource CaptionText}"
+                   Text="{Binding ResolvedTheme, StringFormat=CURRENTLY {0}}" />
+
+    </StackPanel>
+    </ScrollViewer>
+</UserControl>

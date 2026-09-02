@@ -1,3 +1,4 @@
+﻿using System.Globalization;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
@@ -11,7 +12,14 @@ public sealed record WeatherNow(double TemperatureC, double FeelsLikeC, int Code
 public sealed record WeatherDay(DateOnly Date, double MaxC, double MinC, int Code);
 
 /// <summary>Everything the clock face shows about the weather.</summary>
-public sealed record WeatherReport(WeatherNow Now, IReadOnlyList<WeatherDay> Forecast);
+/// <remarks>
+/// <see cref="Daylight"/> is not for the clock face — it is what the theme's Auto mode
+/// decides day from night with, until a headlight signal exists to do it properly.
+/// </remarks>
+public sealed record WeatherReport(
+    WeatherNow Now,
+    IReadOnlyList<WeatherDay> Forecast,
+    (DateTimeOffset Sunrise, DateTimeOffset Sunset)? Daylight);
 
 /// <summary>
 /// Weather from Open-Meteo.
@@ -56,7 +64,7 @@ public static class Weather
         var url =
             $"https://api.open-meteo.com/v1/forecast?latitude={latitude:0.####}&longitude={longitude:0.####}" +
             "&current=temperature_2m,apparent_temperature,weather_code" +
-            "&daily=weather_code,temperature_2m_max,temperature_2m_min" +
+            "&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset" +
             "&timezone=auto&forecast_days=4";
 
         try
@@ -73,10 +81,21 @@ public static class Weather
             for (var i = 0; i < response.Daily.Time.Count; i++)
             {
                 days.Add(new WeatherDay(
-                    DateOnly.Parse(response.Daily.Time[i], System.Globalization.CultureInfo.InvariantCulture),
+                    DateOnly.Parse(response.Daily.Time[i], CultureInfo.InvariantCulture),
                     response.Daily.Max[i],
                     response.Daily.Min[i],
                     response.Daily.Code[i]));
+            }
+
+            // Today's sunrise and sunset, local — Open-Meteo returns them in the location's
+            // own timezone because the query asks for timezone=auto.
+            (DateTimeOffset, DateTimeOffset)? daylight = null;
+
+            if (response.Daily.Sunrise?.Count > 0 && response.Daily.Sunset?.Count > 0)
+            {
+                daylight = (
+                    new DateTimeOffset(DateTime.Parse(response.Daily.Sunrise[0], CultureInfo.InvariantCulture)),
+                    new DateTimeOffset(DateTime.Parse(response.Daily.Sunset[0], CultureInfo.InvariantCulture)));
             }
 
             return new WeatherReport(
@@ -84,7 +103,8 @@ public static class Weather
                     response.Current.Temperature,
                     response.Current.ApparentTemperature,
                     response.Current.Code),
-                days);
+                days,
+                daylight);
         }
         catch (Exception ex)
         {
@@ -140,5 +160,7 @@ public static class Weather
         [property: JsonPropertyName("time")] IReadOnlyList<string> Time,
         [property: JsonPropertyName("weather_code")] IReadOnlyList<int> Code,
         [property: JsonPropertyName("temperature_2m_max")] IReadOnlyList<double> Max,
-        [property: JsonPropertyName("temperature_2m_min")] IReadOnlyList<double> Min);
+        [property: JsonPropertyName("temperature_2m_min")] IReadOnlyList<double> Min,
+        [property: JsonPropertyName("sunrise")] IReadOnlyList<string>? Sunrise,
+        [property: JsonPropertyName("sunset")] IReadOnlyList<string>? Sunset);
 }

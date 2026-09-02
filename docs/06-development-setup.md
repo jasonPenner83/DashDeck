@@ -52,6 +52,9 @@ DashDeck.Host.exe highway-cruise           # a different scripted drive
 DashDeck.Host.exe --video "D:\clip.mkv"    # video on the stage
 DashDeck.Host.exe --stage MAPS             # open on a named occupant
 DashDeck.Host.exe --picker                 # open on the stage picker
+DashDeck.Host.exe --nav SETTINGS           # open on a destination below the stage
+DashDeck.Host.exe --theme NIGHT            # force a palette without waiting for sunset
+DashDeck.Host.exe --accent CYAN            # force an accent
 ```
 
 The stage is chosen at runtime from the **stage chip**, top right of the stage — tap it for

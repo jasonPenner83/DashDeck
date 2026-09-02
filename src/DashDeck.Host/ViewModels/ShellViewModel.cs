@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashDeck.Abstractions;
 using DashDeck.Host.Stage;
+using DashDeck.Host.Theme;
 
 namespace DashDeck.Host.ViewModels;
 
@@ -22,6 +23,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly VehicleStack _vehicle;
     private IStageOccupant? _stage;
     private readonly IClock _clock;
+    private readonly ThemeService _theme;
     private readonly DispatcherTimer _timer;
 
     [ObservableProperty]
@@ -31,6 +33,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private string _requestRateText = "—— req/s";
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDashActive))]
+    [NotifyPropertyChangedFor(nameof(IsStereoActive))]
+    [NotifyPropertyChangedFor(nameof(IsClimateActive))]
+    [NotifyPropertyChangedFor(nameof(IsSettingsActive))]
+    [NotifyPropertyChangedFor(nameof(IsDestinationUnbuilt))]
+    [NotifyPropertyChangedFor(nameof(StageBands))]
+    [NotifyPropertyChangedFor(nameof(WidgetBands))]
+    [NotifyPropertyChangedFor(nameof(IsOccupantVisible))]
     private string _activeDestination = "DASH";
 
     [ObservableProperty]
@@ -46,11 +56,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public ShellViewModel(
         VehicleStack vehicle,
         IClock clock,
+        ThemeService theme,
         string? videoPath = null,
         string? startOn = null)
     {
         _vehicle = vehicle;
         _clock = clock;
+        _theme = theme;
+
+        Settings = new SettingsViewModel(theme);
 
         StageOptions = [.. StageOption.All(videoPath, clock).Select(o => new StageOptionViewModel(o))];
 
@@ -94,6 +108,44 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>The widgets filling the bands below the stage.</summary>
     public IReadOnlyList<SignalWidgetViewModel> Widgets { get; }
+
+    /// <summary>Appearance and, in time, the rest.</summary>
+    public SettingsViewModel Settings { get; }
+
+    public bool IsDashActive => ActiveDestination == "DASH";
+
+    public bool IsStereoActive => ActiveDestination == "STEREO";
+
+    public bool IsClimateActive => ActiveDestination == "CLIMATE";
+
+    public bool IsSettingsActive => ActiveDestination == "SETTINGS";
+
+    /// <summary>
+    /// True for destinations that exist in the nav but have nothing behind them yet.
+    /// </summary>
+    /// <remarks>
+    /// Stereo and Climate are drawn because the nav is the destination list (B3) and an
+    /// empty strip would say less. Both are parked — Climate in particular cannot simply be
+    /// built, since C3 forbids taking over the factory HVAC (Q14).
+    /// </remarks>
+    public bool IsDestinationUnbuilt => IsStereoActive || IsClimateActive;
+
+    /// <summary>
+    /// Switch what sits below the stage.
+    /// </summary>
+    /// <remarks>
+    /// Only the lower region changes. The stage keeps running underneath — that is the whole
+    /// point of it being a layer rather than a screen (B2), and it is why choosing Settings
+    /// does not stop the music.
+    /// </remarks>
+    [RelayCommand]
+    private void Navigate(string? destination)
+    {
+        if (!string.IsNullOrWhiteSpace(destination))
+        {
+            ActiveDestination = destination;
+        }
+    }
 
     /// <summary>What the link is. Says "synthetic" plainly, because it is (ADR-0005).</summary>
     public string SourceLabel => "SYNTHETIC F-150";
@@ -154,7 +206,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// Video keeps playing underneath, so audio continues while you choose.
     /// </para>
     /// </remarks>
-    public bool IsOccupantVisible => StageContent is not null && !IsStagePickerOpen;
+    public bool IsOccupantVisible =>
+        StageContent is not null && !IsStagePickerOpen && !IsSettingsActive;
 
     /// <summary>
     /// True when nothing occupies the stage. Rendered as an explicit empty state rather
@@ -169,7 +222,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// How many of the six bands the stage takes. An occupant asks for what it needs;
     /// with none, the stage keeps four and the widgets get two.
     /// </summary>
-    public int StageBands => _stage?.PreferredBands ?? 4;
+    /// <remarks>
+    /// Settings is the exception, and Q17 settled why: it takes all six and the stage goes
+    /// to nothing. The occupant keeps running underneath — the phone model — so the music
+    /// does not stop while you change the accent colour, and the nav strip is still there to
+    /// get back out.
+    /// </remarks>
+    public int StageBands => IsSettingsActive ? 0 : _stage?.PreferredBands ?? 4;
 
     /// <summary>Whatever the stage did not take. Widget rows line up either way.</summary>
     public int WidgetBands => BandGrid.BandCount - StageBands;
@@ -250,6 +309,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // IClock, never DateTimeOffset.Now — the convention holds in the UI too, so a
         // replayed drive shows the time the drive happened rather than the time you watched it.
         ClockText = _clock.UtcNow.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture);
+
+        // Auto re-checks itself on the same beat as the clock: sunset does not need a
+        // dedicated timer.
+        _theme.Reevaluate();
 
         var measured = _vehicle.MeasuredRequestsPerSecond;
         RequestRateText = measured > 0

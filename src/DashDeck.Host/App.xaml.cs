@@ -16,6 +16,7 @@ public partial class App : Application
 {
     private VehicleStack? _vehicle;
     private ShellViewModel? _shell;
+    private Theme.ThemeService? _theme;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -64,12 +65,40 @@ public partial class App : Application
             }
         }
 
-        // --stage <NAME> opens on a named occupant: VIDEO, NUVIO, MAPS or NOTHING.
+        // Built before the shell: it writes the palette into Application.Resources, so the
+        // window comes up already wearing the right one rather than repainting into it.
+        _theme = new Theme.ThemeService(SystemClock.Instance);
+
+        // --theme <DAY|NIGHT|AUTO> forces a palette, for looking at one without waiting for
+        // sunset.
+        if (ArgValue(e.Args, "--theme") is { } themeName &&
+            Enum.TryParse<Theme.ThemeMode>(themeName, ignoreCase: true, out var mode))
+        {
+            _theme.Mode = mode;
+        }
+
+        // --accent <NAME> forces an accent, for looking at one without tapping through.
+        if (ArgValue(e.Args, "--accent") is { } accentName &&
+            Theme.AccentOption.All.FirstOrDefault(a =>
+                string.Equals(a.Name, accentName, StringComparison.OrdinalIgnoreCase)) is { } chosen)
+        {
+            _theme.Accent = chosen;
+        }
+
+        // --stage <NAME> opens on a named occupant: CLOCK, VIDEO, NUVIO, MAPS or STREMIO.
         _shell = new ShellViewModel(
             _vehicle,
             SystemClock.Instance,
+            _theme,
             stagedVideo,
             ArgValue(e.Args, "--stage"));
+
+        // --nav <DEST> opens on a destination below the stage, so Settings can be reviewed
+        // without a finger.
+        if (ArgValue(e.Args, "--nav") is { } destination)
+        {
+            _shell.ActiveDestination = destination.ToUpperInvariant();
+        }
 
         // Development affordance: --picker opens the stage picker at launch, so a state
         // that normally needs a finger can be reviewed like any other.
