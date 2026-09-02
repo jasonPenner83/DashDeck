@@ -9,6 +9,18 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      The signal catalog is data, not code (ADR-0004), so it is not embedded — new signals
+      are JSON, never a recompile. It does have to travel with the binary though: running
+      from the repo, VehicleStack.FindCatalog walks up and finds it, but a published folder
+      has nothing above it to walk to.
+    -->
+    <Content Include="..\..\catalog\**\*.json"
+             Link="catalog\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- MVVM in the shell only (ADR-0011). This must never reach DashDeck.Abstractions,
          which ADR-0002 keeps dependency-free because it is shared across load contexts. -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />

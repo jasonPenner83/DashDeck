@@ -24,6 +24,54 @@ dotnet run --project src/DashDeck.DebugConsole -- cold-start-city --seconds 60
 
 If the tests pass and the console prints live signals, the whole engine works.
 
+## Putting it on the tablet
+
+```powershell
+pwsh -File publish.ps1 -Shortcut
+```
+
+Produces `dist\DashDeck\` — a **self-contained folder deploy**. No .NET runtime to install,
+no VLC to install, no registry, no services, no kiosk mode. That is constraint C1 taken
+literally: uninstalling DashDeck is deleting the folder, and the tablet goes back to being
+an ordinary personal machine.
+
+Copy the folder anywhere and launch `DashDeck.Host.exe`. **Escape closes it.** Pin the
+shortcut to the taskbar or Start if you want it a tap away — that is as close to "installed"
+as this gets, deliberately.
+
+Expect **around 420 MB across ~1700 files**. Most of that is not us: a self-contained WPF
+runtime plus VLC's full plugin set, which is the price of playing whatever you actually own
+rather than whatever Windows Media Player recognises. It can be trimmed later by pruning
+unused VLC plugins, at the risk of discovering the missing one on a back road.
+
+### Running it
+
+```powershell
+DashDeck.Host.exe                          # cold-start-city, empty stage
+DashDeck.Host.exe highway-cruise           # a different scripted drive
+DashDeck.Host.exe --video "D:\clip.mkv"    # video on the stage
+```
+
+Two development flags, both useful for looking at the thing without a camera:
+
+```powershell
+DashDeck.Host.exe --unplug 20              # pull the adapter after 20s, watch it go stale
+DashDeck.Host.exe --shot out.png --shot-after 30
+```
+
+`--shot` renders the layout to a PNG at its true 912 × 1368 and exits, which is easier than
+screen-grabbing a 200%-scaled display. It cannot capture video — `VideoView` draws into a
+child window — so it writes the player's actual state to `out.png.txt` alongside.
+
+### Orientation
+
+The shell is authored at 912 × 1368, the tablet's **portrait** size, and a `Viewbox` fits
+that to whatever window it gets. Rotate the Surface into portrait and it is 1:1. In
+landscape it still runs, letterboxed into a strip down the middle — fine for development,
+not the intended shape.
+
+Crashes are written to `%LOCALAPPDATA%\DashDeck\crash.log` rather than vanishing.
+
 ## The debug console
 
 The P0 harness. Not a stand-in for the shell — it exists so the entire stack below the UI
