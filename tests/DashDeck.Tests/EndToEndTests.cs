@@ -29,6 +29,44 @@ public class EndToEndTests
     }
 
     [Fact]
+    public async Task A_dropped_response_does_not_retire_a_signal_that_has_already_answered()
+    {
+        // NO DATA means two different things coming back from an ELM adapter: "this vehicle
+        // has no such PID" and "that one didn't come back". Treating the second as the first
+        // retires a perfectly good signal for the rest of the session — and because the odds
+        // scale with request count, the *higher* a signal's rate the sooner it dies. At 4 Hz
+        // a 2% drop rate kills a signal within seconds, which is why the shell came up with
+        // speed and RPM blank while the 0.2 Hz fuel level survived.
+        var faults = new SyntheticFaults(LatencyMs: 0, DropProbability: 0.35, SupportsMsCan: true);
+        var (service, transport) = await StartAsync(faults);
+        await using var _service = service;
+
+        using var demand = service.Bus.Require("engine.rpm", SignalPriority.High, 10);
+
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(4);
+        var everAnswered = false;
+
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            await Task.Delay(50, TestCancellation.Token);
+
+            if (service.Bus.Current("engine.rpm").IsUsable)
+            {
+                everAnswered = true;
+            }
+        }
+
+        Assert.True(everAnswered, "engine.rpm never produced a reading at all.");
+        Assert.True(transport.DroppedCount > 0, "the fault injector never dropped anything.");
+
+        // The signal answered, and drops happened. It must still be alive.
+        Assert.True(
+            service.Bus.Current("engine.rpm").IsUsable,
+            $"engine.rpm was retired after {transport.DroppedCount} dropped responses, " +
+            "even though it had already answered successfully.");
+    }
+
+    [Fact]
     public async Task Adapter_selects_the_high_speed_bus_after_probing_for_ms_can()
     {
         // Regression: probing for MS-CAN physically switches the adapter to it. If the

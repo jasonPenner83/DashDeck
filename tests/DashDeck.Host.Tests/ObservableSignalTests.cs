@@ -85,6 +85,26 @@ public sealed class ObservableSignalTests
     }
 
     [Fact]
+    public void NoticesTheBusMarkingAValueStaleEvenThoughNothingIsPushed()
+    {
+        var signals = new FakeSignals("vehicle.speed", "km/h");
+        using var signal = new ObservableSignal(signals, "vehicle.speed", format: "0");
+
+        signals.Push(78, SignalQuality.Live);
+        Assert.Equal("78", signal.Text);
+
+        // VehicleStateBus computes staleness inside Current(); it never publishes the
+        // Live -> Stale transition. A signal that only listens to Subscribe therefore sits
+        // showing a confident number long after the adapter stopped answering, which is
+        // exactly the failure the quality system exists to prevent.
+        signals.AgeOut();
+        signal.Refresh();
+
+        Assert.Equal(SignalQuality.Stale, signal.Quality);
+        Assert.Equal(ObservableSignal.Placeholder, signal.Text);
+    }
+
+    [Fact]
     public void DisposingWithdrawsTheDemandSoTheArbiterReclaimsTheBudget()
     {
         var signals = new FakeSignals("vehicle.speed", "km/h");
@@ -118,6 +138,7 @@ public sealed class ObservableSignalTests
     private sealed class FakeSignals(string signalId, string unit) : IVehicleSignals
     {
         private readonly List<Action<SignalValue>> _observers = [];
+        private SignalValue _current = SignalValue.Missing(signalId, unit);
 
         public int LiveDemands { get; private set; }
 
@@ -125,7 +146,13 @@ public sealed class ObservableSignalTests
 
         public IReadOnlyCollection<string> KnownSignals => [signalId];
 
-        public SignalValue Current(string id) => SignalValue.Missing(id, unit);
+        public SignalValue Current(string id) => _current;
+
+        /// <summary>
+        /// Age the current reading out without notifying anyone — how the real bus behaves,
+        /// since it decides staleness when asked rather than announcing it.
+        /// </summary>
+        public void AgeOut() => _current = _current.AsStale();
 
         public IDisposable Subscribe(string id, Action<SignalValue> onValue)
         {
@@ -141,11 +168,11 @@ public sealed class ObservableSignalTests
 
         public void Push(double value, SignalQuality quality)
         {
-            var reading = new SignalValue(signalId, value, unit, DateTimeOffset.UnixEpoch, quality);
+            _current = new SignalValue(signalId, value, unit, DateTimeOffset.UnixEpoch, quality);
 
             foreach (var observer in _observers.ToArray())
             {
-                observer(reading);
+                observer(_current);
             }
         }
 

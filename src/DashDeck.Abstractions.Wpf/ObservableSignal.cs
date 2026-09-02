@@ -37,9 +37,21 @@ public sealed class ObservableSignal : INotifyPropertyChanged, IDisposable
     /// <summary>What is rendered when there is no trustworthy value. Never a zero.</summary>
     public const string Placeholder = "——";
 
+    /// <summary>
+    /// How often the bus is re-consulted for a quality change nothing pushed.
+    /// </summary>
+    /// <remarks>
+    /// Fast enough that a value cannot sit visibly wrong, slow enough to be free. This is
+    /// a dictionary lookup, not vehicle traffic — it costs nothing on the request budget.
+    /// </remarks>
+    private static readonly TimeSpan DefaultPollInterval = TimeSpan.FromMilliseconds(400);
+
     private readonly Dispatcher _dispatcher;
+    private readonly IVehicleSignals _signals;
+    private readonly string _signalId;
     private readonly ISignalSubscription _demand;
     private readonly IDisposable _observer;
+    private readonly DispatcherTimer _poll;
     private readonly string _format;
 
     private SignalValue _value;
@@ -68,6 +80,8 @@ public sealed class ObservableSignal : INotifyPropertyChanged, IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(signalId);
 
         _dispatcher = Dispatcher.CurrentDispatcher;
+        _signals = signals;
+        _signalId = signalId;
         _format = format;
 
         _value = signals.Current(signalId);
@@ -76,6 +90,19 @@ public sealed class ObservableSignal : INotifyPropertyChanged, IDisposable
 
         _demand.EffectiveRateChanged += OnEffectiveRateChanged;
         _observer = signals.Subscribe(signalId, OnValue);
+
+        // Subscribing is not enough on its own. The bus decides staleness when it is asked,
+        // inside Current() — it never publishes the Live-to-Stale transition, because there
+        // is no event to publish it on: nothing happened, that is the whole point. A signal
+        // that only listened to Subscribe would keep rendering a confident number long
+        // after the adapter went quiet.
+        _poll = new DispatcherTimer(DispatcherPriority.Background, _dispatcher)
+        {
+            Interval = DefaultPollInterval,
+        };
+
+        _poll.Tick += (_, _) => Refresh();
+        _poll.Start();
     }
 
     /// <inheritdoc />
@@ -113,6 +140,23 @@ public sealed class ObservableSignal : INotifyPropertyChanged, IDisposable
     /// </summary>
     public double EffectiveRateHz => _effectiveRateHz;
 
+    /// <summary>
+    /// Re-read the bus and adopt whatever it reports now, including a quality change that
+    /// arrived by nothing happening.
+    /// </summary>
+    /// <remarks>
+    /// Called on a timer; exposed because it makes the staleness path testable without one.
+    /// </remarks>
+    public void Refresh()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        Apply(_signals.Current(_signalId));
+    }
+
     /// <inheritdoc />
     public void Dispose()
     {
@@ -122,13 +166,24 @@ public sealed class ObservableSignal : INotifyPropertyChanged, IDisposable
         }
 
         _disposed = true;
+        _poll.Stop();
         _demand.EffectiveRateChanged -= OnEffectiveRateChanged;
         _observer.Dispose();
         _demand.Dispose();
     }
 
-    private void OnValue(SignalValue value) => OnUiThread(() =>
+    private void OnValue(SignalValue value) => OnUiThread(() => Apply(value));
+
+    /// <summary>
+    /// Adopt a reading, raising only if something a binding can see actually changed.
+    /// </summary>
+    private void Apply(SignalValue value)
     {
+        if (value.Equals(_value))
+        {
+            return;
+        }
+
         _value = value;
         Raise(nameof(Current));
         Raise(nameof(Value));
@@ -136,7 +191,7 @@ public sealed class ObservableSignal : INotifyPropertyChanged, IDisposable
         Raise(nameof(Quality));
         Raise(nameof(IsUsable));
         Raise(nameof(Text));
-    });
+    }
 
     private void OnEffectiveRateChanged(double rateHz) => OnUiThread(() =>
     {

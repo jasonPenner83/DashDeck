@@ -47,8 +47,16 @@ public sealed class VehicleService : IAsyncDisposable
     /// <summary>Signals the vehicle explicitly refused, so the plan can stop asking.</summary>
     private readonly HashSet<string> _unsupported = new(StringComparer.Ordinal);
 
-    /// <summary>Consecutive NO DATA replies per signal.</summary>
+    /// <summary>
+    /// Consecutive <c>NO DATA</c> answers per signal, cleared by any successful decode.
+    /// Only touched from the polling worker, like <see cref="_unsupported"/>.
+    /// </summary>
     private readonly Dictionary<string, int> _consecutiveNoData = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// How many consecutive refusals retire a signal that has never once answered.
+    /// </summary>
+    private const int NoDataRefusalsBeforeRetiring = 4;
 
     /// <summary>
     /// How many consecutive NO DATA replies before a signal is written off as unsupported.
@@ -242,11 +250,7 @@ public sealed class VehicleService : IAsyncDisposable
         {
             if (response.Failure == PidFailure.NoData)
             {
-                // The vehicle does not support this PID. Stop asking: on a budget this
-                // tight, repeatedly polling a signal that will never answer is spending
-                // real capacity on nothing.
-                _unsupported.Add(definition.Id);
-                Bus.Publish(SignalValue.Missing(definition.Id, definition.Decode.Unit));
+                RecordNoData(definition);
             }
 
             return;
@@ -261,6 +265,7 @@ public sealed class VehicleService : IAsyncDisposable
         }
 
         _supported.Add(definition.Id);
+        _consecutiveNoData.Remove(definition.Id);
 
         Bus.Publish(new SignalValue(
             definition.Id,
@@ -268,6 +273,44 @@ public sealed class VehicleService : IAsyncDisposable
             definition.Decode.Unit,
             response.TimestampUtc,
             Quality));
+    }
+
+    /// <summary>
+    /// Decide whether a <c>NO DATA</c> answer means the vehicle has no such PID, or simply
+    /// that this one did not come back.
+    /// </summary>
+    /// <remarks>
+    /// The adapter says <c>NO DATA</c> for both, and getting the distinction wrong is
+    /// expensive in one direction: retiring a working signal blanks it for the rest of the
+    /// session. Worse, the odds scale with request count, so the *higher* a signal's rate
+    /// the sooner it dies — speed and RPM at 4 Hz would go dark within seconds while a
+    /// 0.2 Hz fuel level survived, which is exactly how this was found.
+    /// <para>
+    /// Two rules. A signal that has ever decoded a reading is supported, full stop; any
+    /// later <c>NO DATA</c> is a dropped response. One that has never answered is retired
+    /// only after several *consecutive* refusals, so a drop during the first few polls does
+    /// not condemn it.
+    /// </para>
+    /// </remarks>
+    private void RecordNoData(SignalDefinition definition)
+    {
+        if (_supported.Contains(definition.Id))
+        {
+            return;
+        }
+
+        var refusals = _consecutiveNoData.GetValueOrDefault(definition.Id) + 1;
+        _consecutiveNoData[definition.Id] = refusals;
+
+        if (refusals < NoDataRefusalsBeforeRetiring)
+        {
+            return;
+        }
+
+        // Never answered, and asked repeatedly. On a budget this tight, polling a signal
+        // that will never reply is spending real capacity on nothing.
+        _unsupported.Add(definition.Id);
+        Bus.Publish(SignalValue.Missing(definition.Id, definition.Decode.Unit));
     }
 
     /// <summary>
