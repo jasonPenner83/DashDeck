@@ -28,7 +28,76 @@ settle architecture move to an ADR in [`decisions/`](decisions/).
 | Q13 | What actually fills the stage's top bands? | The six-band layout reserves the top 3–4 bands for a large surface. **Android Auto cannot fill it** — it is a phone-projection protocol with no standalone mode and no Windows client; the standalone product (Android Automotive OS) is a head-unit OS, not an app, and installing it collides with C1. So the stage needs real occupants: video, a map component, a media component, the future camera feed. Which of those is first is undecided. |
 | Q14 | Do the Climate and Stereo cards conflict with C3? | **Partly, and it matters.** C3 and ADR-0006 both say plainly: *"No takeover of audio, factory camera, or climate."* A **Stereo card is fine** if it drives DashDeck's own playback on the tablet — that is additive. A **Climate card that controls the factory HVAC is not**: it needs an ADR superseding ADR-0006, plus writes to an undocumented Ford network, and it fails several of the five gates as written. Both cards are **parked** as of 2026-09-01; nav slots exist in the mockups, the cards do not. |
 | ~~Q15~~ | ~~Is the shell MVVM, and is that imposed on components?~~ | **Resolved 2026-09-01 → [ADR-0011](decisions/ADR-0011-view-contract-and-mvvm.md).** MVVM in the shell with `CommunityToolkit.Mvvm`; components are advised, never required, since they hand back a `FrameworkElement`. `ObservableSignal` in `Abstractions.Wpf` solves dispatcher marshalling and quality rendering once. The same ADR settles the component as **widget + optional full-screen view**. |
-| Q17 | When a widget's full-screen view opens, what happens to the stage? | Raised by ADR-0011. Two readings, both coherent. **(a)** The full-screen view fills the region *below* the stage, which shrinks to its floor — the map stays visible, nothing is ever hidden. **(b)** It covers the stage entirely and the stage keeps *running* underneath, returning when the view closes — the phone model. (b) is likely what "full-screen" ought to mean, but it needs saying out loud, because it decides whether the nav strip stays visible over a full-screen view and how you get back. |
+| ~~Q17~~ | ~~When a widget's full-screen view opens, what happens to the stage?~~ | **Resolved 2026-09-01. The phone model.** A full-screen view covers the stage entirely and the stage keeps *running* underneath, returning when the view closes. The status strip and nav stay visible over it, so there is always a way back. A pleasant consequence: Settings stops being a special case — every full-screen view takes the same six bands, and "Settings hides the stage" is just what full-screen means. |
+| Q18 | Can Google Maps actually fill the stage, and does it need a connection? | See the analysis below — the short version is that Google's Maps JavaScript API terms forbid in-vehicle turn-by-turn, there is no desktop SDK, and the Pro 7 is Wi-Fi only, so any online map needs a phone hotspot. Decide between a display-only map, a differently-licensed map, or an offline one. |
+
+## Stage occupants — what already exists
+
+Q13 asks what fills the stage. The instinct not to reinvent anything is right, so this
+records what is actually available before anything gets built.
+
+### Google Maps
+
+| Route | Verdict |
+|---|---|
+| Maps **JavaScript API** in a WebView2 | Renders fine, but the Google Maps Platform terms prohibit real-time navigation and turn-by-turn guidance. The map in the P0.5 mockups is drawn as exactly the thing the licence forbids. |
+| Maps **Embed API** (iframe) | Permitted, free, genuinely easy — and display-only. It can show a route; it cannot guide you along one. |
+| **Navigation SDK** | The product that *is* licensed for turn-by-turn. Android and iOS only, and needs a commercial agreement. Not available to a Windows app at any price. |
+| Embedding the maps.google.com **website** | Against the terms, and fragile. Not an option. |
+
+There is **no Google Maps SDK for Windows or WPF**. That is the whole answer to "can we
+just use Google Maps": for a map picture, yes, via the Embed API; for navigation, no.
+
+### If the stage needs real navigation
+
+- **MapLibre GL JS + OpenStreetMap** in a WebView2 — no licence obstacle, but tiles and
+  routing are yours to supply (MapTiler or Stadia for tiles; Valhalla, OSRM or GraphHopper
+  for routes). Most work, fewest constraints, and can run offline.
+- **HERE** — genuinely licensed for in-vehicle navigation and sells to automotive. Costs money.
+- **Mapbox** — permissive for display; their navigation product is mobile-first.
+
+### The constraint that decides it
+
+**The Surface Pro 7 is Wi-Fi only** — no cellular. In the truck that means no connection
+unless a phone is tethered. An online map is therefore a hotspot-dependent feature, which
+is a poor fit for the one screen you would most want working on a back road. Offline
+capability is worth more here than map fidelity.
+
+### How an existing program could be hosted at all
+
+Three mechanisms, in order of how well they behave:
+
+1. **WebView2** — hosts any web app in-process. The Evergreen Runtime ships with
+   Windows 11, so it costs nothing against constraint C1. This is the clean path for maps,
+   video and anything else web-shaped.
+2. **`HwndHost` reparenting** — Win32 `SetParent` can pull another running application's
+   window into the stage. It works, and it is brittle: DPI changes, focus and input
+   handling all get awkward, packaged (UWP) apps refuse outright, and the hosted app's own
+   licence may not permit it.
+3. **Launch and yield** — hand the whole screen to another app and take it back on exit.
+   Crude, but zero risk and sometimes the honest answer.
+
+### Two places the wheel genuinely exists
+
+- **Video: LibVLCSharp.** VLC's engine with a supported WPF integration, LGPL, deploys as
+  a folder of DLLs with nothing to install. Plays essentially anything.
+- **Media: Windows already knows what is playing.** `GlobalSystemMediaTransportControls`
+  exposes the current session — title, artist, artwork, transport control — for Spotify, a
+  browser, anything. A Stereo card needs no player of its own, which also keeps it on the
+  right side of C3: it reflects the tablet's own audio rather than taking over SYNC 3.
+
+## P0.5 follow-ups
+
+Raised while building the shell. None are blocking; all are real.
+
+| # | Item | Notes |
+|---|------|-------|
+| F1 | **The status strip does not observe `TransportState`.** | Pull the adapter and it still reads `SYNTHETIC F-150 / SIMULATED`. The mockups have an `ADAPTER LOST — RECONNECTING` banner and the shell should show it; the widgets already go Stale correctly. |
+| F2 | **Recovery is unproven.** | `SyntheticTransport.Replug` exists and nothing exercises it. C5 claims disconnect and resume are non-events that recover on their own — that claim is still untested end to end, and it is exactly the sort of thing that quietly is not true. |
+| F3 | **The shell builds its own widgets.** | They should arrive from `plugins/` through the component host. Until then `IDashComponentView` is a contract nothing implements, which is the least-tested kind. |
+| F4 | **WPF has no letter-spacing.** | The small uppercase captions read tighter than the design system specifies. Needs a custom text run, or the spec relaxing. First place the design and the framework disagree. |
+| F5 | **Two rendering idioms will coexist.** | Binding covers data-driven surfaces; the animated gauges ADR-0001 wants custom-drawn with `DrawingVisual` bypass binding entirely. Accepted in ADR-0011, but nothing has been built the second way yet. |
+| F6 | **A test passed while its bug was present.** | The throughput assertion used `SyntheticFaults.Perfect`, whose zero latency made the measured rate absurd before the cable was even pulled. Worth a sweep for other tests that assert against the perfect fault profile where a realistic one is the point. |
 
 ## Decided, not yet built
 
