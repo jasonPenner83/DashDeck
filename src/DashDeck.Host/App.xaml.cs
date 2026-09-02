@@ -47,7 +47,24 @@ public partial class App : Application
             return;
         }
 
-        _shell = new ShellViewModel(_vehicle, SystemClock.Instance);
+        // --video <path> puts video on the stage. The first real stage occupant, and the
+        // one that needed the least inventing: VLC's engine already plays everything.
+        Stage.IStageOccupant? stage = null;
+
+        if (ArgValue(e.Args, "--video") is { } videoPath)
+        {
+            if (System.IO.File.Exists(videoPath))
+            {
+                stage = new Stage.VideoStageOccupant(System.IO.Path.GetFullPath(videoPath));
+            }
+            else
+            {
+                // Say so rather than starting with an inexplicably empty stage.
+                Fail("Video file not found", new System.IO.FileNotFoundException(videoPath));
+            }
+        }
+
+        _shell = new ShellViewModel(_vehicle, SystemClock.Instance, stage);
 
         var window = new MainWindow { DataContext = _shell };
         MainWindow = window;

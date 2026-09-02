@@ -13,6 +13,8 @@
         <conv:QualityToBrushConverter x:Key="QualityBrush" />
         <conv:QualityToLabelConverter x:Key="QualityLabel" />
         <conv:QualityToValueBrushConverter x:Key="ValueBrush" />
+        <conv:BandsToGridLengthConverter x:Key="Bands" />
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
         <!-- One widget. 270 x 165 on the Pro 7 — one column wide, one band tall. -->
         <DataTemplate x:Key="WidgetCardTemplate">
@@ -122,16 +124,23 @@
             <!-- The six bands -->
             <Grid Grid.Row="1">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="740" />
-                    <RowDefinition Height="370" />
+                    <!-- The stage takes what its occupant asked for; the widgets take the
+                         rest. Six bands, negotiated at runtime rather than hard-coded. -->
+                    <RowDefinition Height="{Binding StageBands, Converter={StaticResource Bands}}" />
+                    <RowDefinition Height="{Binding WidgetBands, Converter={StaticResource Bands}}" />
                 </Grid.RowDefinitions>
 
-                <!-- Stage, four bands. Nothing occupies it yet (Q13), and the shell says so
-                     rather than filling the space with something invented. -->
+                <!-- The stage. Its occupant's view when there is one, an honest empty state
+                     when there is not (Q13). -->
                 <Border Grid.Row="0"
                         BorderBrush="{StaticResource HairlineBrush}"
                         BorderThickness="0,0,0,1">
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <Grid>
+                        <ContentControl Content="{Binding StageContent}"
+                                        Visibility="{Binding StageHasOccupant, Converter={StaticResource BoolToVis}}" />
+
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                    Visibility="{Binding StageIsEmpty, Converter={StaticResource BoolToVis}}">
                         <TextBlock Style="{StaticResource CaptionText}"
                                    HorizontalAlignment="Center"
                                    Foreground="{StaticResource TextFaintBrush}"
@@ -148,7 +157,8 @@
                                    HorizontalAlignment="Center"
                                    Foreground="{StaticResource TextFaintBrush}"
                                    Text="maps, video and media are still to be built" />
-                    </StackPanel>
+                        </StackPanel>
+                    </Grid>
                 </Border>
 
                 <!-- Two bands of widgets: 31 margin, 20 gutter, three 270-wide columns. -->

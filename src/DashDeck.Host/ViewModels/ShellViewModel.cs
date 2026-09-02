@@ -1,7 +1,9 @@
-using System.Globalization;
+﻿using System.Globalization;
+using System.Windows;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using DashDeck.Abstractions;
+using DashDeck.Host.Stage;
 
 namespace DashDeck.Host.ViewModels;
 
@@ -16,6 +18,7 @@ namespace DashDeck.Host.ViewModels;
 public sealed partial class ShellViewModel : ObservableObject, IDisposable
 {
     private readonly VehicleStack _vehicle;
+    private readonly IStageOccupant? _stage;
     private readonly IClock _clock;
     private readonly DispatcherTimer _timer;
 
@@ -28,10 +31,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _activeDestination = "DASH";
 
-    public ShellViewModel(VehicleStack vehicle, IClock clock)
+    public ShellViewModel(VehicleStack vehicle, IClock clock, IStageOccupant? stage = null)
     {
         _vehicle = vehicle;
         _clock = clock;
+        _stage = stage;
+
+        if (stage is not null)
+        {
+            StageContent = stage.CreateView();
+        }
 
         // Six widgets across two bands. Rates are declared honestly: the whole app shares
         // one serialised link, and asking for more than you need degrades everyone (ADR-0004).
@@ -64,11 +73,29 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <summary>The scripted drive currently running.</summary>
     public string DriveLabel => _vehicle.DriveName.ToUpperInvariant();
 
+    /// <summary>The occupant's view, or <see langword="null"/> when the stage is empty.</summary>
+    public FrameworkElement? StageContent { get; }
+
+    /// <summary>True when something is actually on the stage.</summary>
+    public bool StageHasOccupant => StageContent is not null;
+
     /// <summary>
-    /// Nothing occupies the stage yet — no map, video or media component exists (Q13). The
-    /// shell renders that as an explicit empty state rather than pretending otherwise.
+    /// True when nothing occupies the stage. Rendered as an explicit empty state rather
+    /// than filling the space with something invented (Q13).
     /// </summary>
-    public bool StageHasOccupant => false;
+    public bool StageIsEmpty => StageContent is null;
+
+    /// <summary>What is on the stage, for the chip. Empty stages still say their size.</summary>
+    public string StageName => _stage?.Name ?? "EMPTY";
+
+    /// <summary>
+    /// How many of the six bands the stage takes. An occupant asks for what it needs;
+    /// with none, the stage keeps four and the widgets get two.
+    /// </summary>
+    public int StageBands => _stage?.PreferredBands ?? 4;
+
+    /// <summary>Whatever the stage did not take. Widget rows line up either way.</summary>
+    public int WidgetBands => BandGrid.BandCount - StageBands;
 
     /// <inheritdoc />
     public void Dispose()
@@ -79,6 +106,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         {
             widget.Dispose();
         }
+
+        // The stage is a layer with its own lifecycle (B2) — it outlives navigation, but
+        // not the shell.
+        _stage?.Dispose();
     }
 
     private void Refresh()

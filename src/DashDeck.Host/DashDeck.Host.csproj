@@ -12,6 +12,8 @@
     <!-- MVVM in the shell only (ADR-0011). This must never reach DashDeck.Abstractions,
          which ADR-0002 keeps dependency-free because it is shared across load contexts. -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="LibVLCSharp.WPF" Version="3.10.1" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23.1" />
   </ItemGroup>
 
   <PropertyGroup>

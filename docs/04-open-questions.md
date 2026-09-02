@@ -56,12 +56,35 @@ just use Google Maps": for a map picture, yes, via the Embed API; for navigation
 - **HERE** — genuinely licensed for in-vehicle navigation and sells to automotive. Costs money.
 - **Mapbox** — permissive for display; their navigation product is mobile-first.
 
-### The constraint that decides it
+### Connectivity — resolved
 
-**The Surface Pro 7 is Wi-Fi only** — no cellular. In the truck that means no connection
-unless a phone is tethered. An online map is therefore a hotspot-dependent feature, which
-is a poor fit for the one screen you would most want working on a back road. Offline
-capability is worth more here than map fidelity.
+**There is Wi-Fi in the truck** (confirmed 2026-09-01). The Pro 7 has no cellular of its
+own, but it does not need it. Online stage occupants are viable, which removes the argument
+that offline capability outranks everything else. It is still worth knowing what degrades
+gracefully when the connection drops, since a dash that hangs is worse than one that says
+it is offline.
+
+### Nuvio — yes, and there is a clean way
+
+Checked at nuvio.tv, 2026-09-01. Free and open source under **GNU GPLv3**, four repos on
+GitHub. Plays via ExoPlayer on mobile and **mpv** on desktop. It supplies no media itself —
+catalogues and sources come from addons the user installs.
+
+Three shipping targets matter here:
+
+| Build | Version | Relevance |
+|---|---|---|
+| **NuvioWeb** | 1.0.3 | **The clean path.** A web app hosts in a WebView2 in-process: resizes properly, obeys the band grid, no window reparenting. |
+| Nuvio Desktop | 0.1.22-**alpha** | Its own words: "in alpha and intended for testing, not daily use". Would need `HwndHost` reparenting, and mpv renders to its own GPU surface, which is the fragile case. |
+| Nuvio TV | 0.8.12-beta | Built for a TV's remote-control input model, not touch. |
+
+**Licensing is fine, with one line not to cross.** GPLv3 is copyleft, so *linking* Nuvio's
+code into DashDeck would put DashDeck under GPLv3 too. Hosting NuvioWeb in a WebView2, or
+launching the desktop app as a separate process, does neither — DashDeck is not a
+derivative work of a page it displays. Keep it at arm's length and there is no obligation.
+
+So Nuvio on the stage is a **`WebStageOccupant` hosting NuvioWeb**, which is the same
+mechanism a maps occupant would use. Not a special case; the second instance of a pattern.
 
 ### How an existing program could be hosted at all
 
