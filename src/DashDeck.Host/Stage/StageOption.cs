@@ -1,4 +1,5 @@
 using DashDeck.Abstractions;
+using DashDeck.Host.Sensors;
 using Microsoft.Win32;
 
 namespace DashDeck.Host.Stage;
@@ -35,15 +36,23 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
     /// Named-signal access, for occupants that want vehicle data. The compass is the first;
     /// it asks the truck for a heading before it asks the tablet.
     /// </param>
-    public static IReadOnlyList<StageOption> All(string? videoPath, IClock clock, IVehicleSignals signals) =>
+    /// <param name="sensors">
+    /// The tablet's sensors, resolved truck-first. Passed in rather than built here because it
+    /// outlives any one occupant: it holds the mount reference and the vehicle declarations.
+    /// </param>
+    public static IReadOnlyList<StageOption> All(
+        string? videoPath,
+        IClock clock,
+        IVehicleSignals signals,
+        SensorService sensors) =>
     [
         // The idle stage, and the default. There is no "nothing" option any more: an empty
         // stage announcing its own emptiness was honest but useless, and a clock is the
         // thing most often glanced at anyway.
         new StageOption("CLOCK", "Time and weather", () => new ClockWeatherStageOccupant(clock)),
 
-        // Truck first, tablet second, and it says which — see PreferredHeadingSource.
-        new StageOption("COMPASS", "Heading, speed, outside", () => new CompassStageOccupant(signals)),
+        // Truck first, tablet second, and it says which — see SensorService.
+        new StageOption("COMPASS", "Heading, attitude, G", () => new CompassStageOccupant(signals, sensors)),
 
         new StageOption(
             "VIDEO",

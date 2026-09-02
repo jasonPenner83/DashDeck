@@ -57,6 +57,7 @@ DashDeck.Host.exe --theme NIGHT            # force a palette without waiting for
 DashDeck.Host.exe --accent CYAN            # force an accent — a preset name...
 DashDeck.Host.exe --accent "#26C6DA"       # ...or any colour that passes validation
 DashDeck.Host.exe --edit                   # open with the dash in edit mode
+DashDeck.Host.exe --level                  # capture the mount reference at launch
 DashDeck.Host.exe --page 1                 # open on a later page of cards
 DashDeck.Host.exe --edit-card 2            # open the card editor on the third card
 ```
@@ -65,13 +66,13 @@ DashDeck.Host.exe --edit-card 2            # open the card editor on the third c
 is written to `%LOCALAPPDATA%\DashDeck\settings.json` the moment it changes, and a development
 flag that went through the same path would make looking at night mode permanent.
 
-Note that the drive name is positional and everything else takes a value *except* `--picker`
-and `--edit`, which are switches. `--nav SETTINGS` once put the shell on the floor with
+Note that the drive name is positional and everything else takes a value *except* `--picker`,
+`--edit` and `--level`, which are switches. `--nav SETTINGS` once put the shell on the floor with
 *Unknown drive 'SETTINGS'*, because "the first argument without a dash" is a flag's value as
 often as it is the drive. `App.Switches` is the list that keeps that honest — a new
 valueless flag has to be added to it.
 
-The last three flags are for reviewing states that otherwise need a finger: edit mode is a
+These flags are for reviewing states that otherwise need a finger: edit mode is a
 600 ms hold on a card, and the card editor is three gestures deep. Both are worth putting in
 a `--shot`.
 
@@ -110,23 +111,50 @@ possible way to tell them. RESET in the edit toolbar puts the shipped six back.
 The stage is chosen at runtime from the **stage chip**, top right of the stage — tap it for
 a grid of app buttons. `--stage` and `--video` just skip the tap at launch.
 
-### The compass, and where a heading comes from
+### The compass, and where its numbers come from
 
-`--stage COMPASS` opens it. The bearing, the compass point, and beside them the two numbers
-that belong next to a heading: road speed and outside air temperature, both real catalog
-signals declared through the arbiter like any card.
+`--stage COMPASS` opens it: a bearing, a G meter, and vehicle pitch and roll, with road speed
+and outside air temperature beside them from the signal catalog.
 
-**It asks the truck first** (ADR-0016). `vehicle.heading` is the signal id, and it is
-deliberately **not in the catalog** — the F-150 has a compass but it lives on a Ford module,
-so reaching it depends on PID discovery against the real vehicle (R2) and on what the Gateway
-Module passes (R4, Q5). Guessing a PID would decode into a confidently wrong bearing, and
-because any heading is between 0 and 360 the catalog's `min`/`max` guard could not catch it.
+**Level it first.** Everything measured against the mount — pitch, roll and both axes of G —
+refuses to render a number until you have. Park somewhere flat, put the tablet in its cradle,
+and tap **LEVEL**. The reason is not fussiness: a Surface on a kickstand reads 69° of pitch
+and 0.91 g on one axis while sitting perfectly still, so raw device attitude would put a third
+of a g of cornering force on screen in a stationary truck. `--level` does the same thing at
+launch, for screenshots.
 
-So today it falls back to the Surface's magnetometer, and the stage says which:
+Levelling records what "flat and pointing forward" means for this tablet in this mount, in
+`%LOCALAPPDATA%\DashDeck\mount.json`. Gravity is then removed as a vector and what remains is
+resolved into axes built from the mount rather than from the tablet — which is what lets a
+cradle at any angle still tell braking from cornering. **Re-level if the mount moves**; nothing
+notices on its own yet (F18). The ball moves the way you are pushed, so braking throws it
+towards the top of the screen.
+
+**Every one of them asks the truck first** (ADR-0016, ADR-0017), and none of the truck signals
+exist yet. They are named in `catalog/sensors.device.json`, in each sensor's `prefer` field:
+
+| Sensor | Prefers | Needs levelling |
+|---|---|---|
+| `attitude.heading` | `vehicle.heading` | no — measured against the earth's field |
+| `attitude.pitch` | `vehicle.pitch` | yes |
+| `attitude.roll` | `vehicle.roll` | yes |
+| `motion.lateralG` | `vehicle.lateralAccel` | yes |
+| `motion.longitudinalG` | `vehicle.longitudinalAccel` | yes |
+
+Those signals are deliberately **not in the signal catalog**. The F-150 knows all of them —
+stability control cannot work without lateral acceleration — but they are Ford messages behind
+PID discovery (R2) and the Gateway Module (R4, Q5). Guessing a PID would decode into a
+confidently wrong number that sits inside its own plausible range, where the catalog's
+`min`/`max` guard cannot catch it. **Add one to the signal catalog and the value switches to
+the truck with no code change** — that is what `prefer` is for.
+
+So today they fall back to the tablet, and the stage says which:
 
 | It says | Meaning |
 |---|---|
 | `TRUCK` | The vehicle supplied it. Does not happen yet. |
+| `TABLET` | The tablet's accelerometer or inclinometer, relative to the levelled mount. |
+| `NOT LEVELLED` | Waiting for LEVEL. Shown rather than a raw device axis. |
 | `TABLET · TRUE` | The tablet's magnetometer, corrected to true north by Windows using a location fix. |
 | `TABLET · MAGNETIC` | The same sensor with no fix, so magnetic north — worth about ten degrees on the prairies. |
 | `NO SENSOR` | No magnetometer on this machine. |
@@ -218,6 +246,35 @@ Edit `catalog/signals.obd2-standard.json`. No rebuild, no code:
 wildly out-of-range number, and out-of-range readings are dropped rather than displayed.
 Ford-specific PIDs go in a separate file once discovered on the truck, so trial and error
 never churns the known-good standard set.
+
+## Adding a sensor
+
+`catalog/sensors.device.json` is the second catalog: values the *tablet* can measure about the
+vehicle it is riding in (ADR-0017). No rebuild, no code:
+
+```jsonc
+{
+  "id": "motion.lateralG",
+  "name": "Lateral G",
+  "unit": "g",
+  "source": "Accelerometer",         // Compass | Accelerometer | Inclinometer
+  "channel": "Lateral",              // Heading | Pitch | Roll | Lateral | Longitudinal
+  "prefer": "vehicle.lateralAccel",  // the vehicle signal that supersedes this one
+  "defaultRateHz": 20,
+  "needsMountReference": true,
+  "min": -2, "max": 2
+}
+```
+
+`prefer` is the field that matters, and it is why there are two catalogs rather than one: it
+names the signal that takes over the moment the signal catalog defines it. `min`/`max` are the
+same correctness guard the signals get — three g of lateral force in a pickup means the sensor
+is confused, not the truck. A channel the source cannot produce fails validation at load,
+because that is the mistake most likely to be made by hand.
+
+**Device sensors never enter the arbiter's plan.** Reading a magnetometer is not traffic on the
+OBD-II link, so it costs nothing against a budget the whole dash shares. Only the truck-supplied
+half of a sensor is declared.
 
 ## Conventions worth knowing before you write code
 

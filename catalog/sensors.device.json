@@ -1,0 +1,75 @@
+// The sensor catalog: values the tablet can measure about the vehicle it is riding in.
+//
+// Data, not code, for the same reason the signal catalog is (ADR-0004) — and it carries one
+// extra field that the signal catalog has no need for. "prefer" names the vehicle signal that
+// SUPERSEDES this sensor: the moment that id appears in the signal catalog, the value comes
+// from the truck and the tablet stands down, with no code change on either side. That is
+// ADR-0016's rule written as data rather than as an if-statement.
+//
+// None of those signals exist yet. Every one of them is plausibly on the F-150's buses — the
+// stability control system cannot work without lateral and longitudinal acceleration, and
+// rollover mitigation implies attitude — but they are Ford messages behind PID discovery (R2)
+// and the Gateway Module (R4, Q5). Guessing a PID would decode into a confidently wrong
+// number that sits inside its own plausible range, which is the one failure this project
+// refuses.
+[
+  {
+    "id": "attitude.heading",
+    "name": "Heading",
+    "unit": "°",
+    "source": "Compass",
+    "channel": "Heading",
+    "prefer": "vehicle.heading",
+    "defaultRateHz": 8,
+    "min": 0,
+    "max": 360
+  },
+  {
+    "id": "attitude.pitch",
+    "name": "Pitch",
+    "unit": "°",
+    "source": "Inclinometer",
+    "channel": "Pitch",
+    "prefer": "vehicle.pitch",
+    "defaultRateHz": 8,
+    "needsMountReference": true,
+    "min": -45,
+    "max": 45
+  },
+  {
+    "id": "attitude.roll",
+    "name": "Roll",
+    "unit": "°",
+    "source": "Inclinometer",
+    "channel": "Roll",
+    "prefer": "vehicle.roll",
+    "defaultRateHz": 8,
+    "needsMountReference": true,
+    "min": -45,
+    "max": 45
+  },
+  {
+    "id": "motion.lateralG",
+    "name": "Lateral G",
+    "unit": "g",
+    "source": "Accelerometer",
+    "channel": "Lateral",
+    "prefer": "vehicle.lateralAccel",
+    "defaultRateHz": 20,
+    "needsMountReference": true,
+    "min": -2,
+    "max": 2
+  },
+  {
+    "id": "motion.longitudinalG",
+    "name": "Longitudinal G",
+    "unit": "g",
+    "source": "Accelerometer",
+    "channel": "Longitudinal",
+    "prefer": "vehicle.longitudinalAccel",
+    "defaultRateHz": 20,
+    "needsMountReference": true,
+    "min": -2,
+    "max": 2
+  }
+]

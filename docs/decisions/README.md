@@ -22,3 +22,4 @@ including the reasoning that later turns out to be wrong.
 | [0014](ADR-0014-custom-accents.md) | Custom accents, allowed by validation rather than curation (supersedes one clause of 0013); settings persist in `%LOCALAPPDATA%` | Accepted |
 | [0015](ADR-0015-arranged-dashboard.md) | The dash is a user-arranged list of cards, flowed into pages; only the visible page declares signals | Accepted |
 | [0016](ADR-0016-vehicle-first-heading.md) | Vehicle data first, device sensors as a declared and visible fallback | Accepted |
+| [0017](ADR-0017-sensor-catalog.md) | A second catalog for tablet sensors, with a required mount reference | Accepted |

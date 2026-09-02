@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **125 tests green** — 47 engine, 78 shell.
+(ADR-0010). **132 tests green** — 47 engine, 85 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -29,8 +29,11 @@ dotnet run --project src/DashDeck.DebugConsole -- cold-start-city --seconds 60
 ```
 
 The shell renders the six-band layout, the status strip and the nav. The **stage** takes
-occupants chosen from the launcher bar below it: a clock-and-weather face, a **compass**,
-local video (LibVLC), and web applets in WebView2. Below it, the **dash is a user-arranged list of cards**
+occupants chosen from the launcher bar below it: a clock-and-weather face, a **compass** with
+a G meter and vehicle pitch and roll, local video (LibVLC), and web applets in WebView2. The
+compass reads truck-first and falls back to the tablet's own sensors, saying which (ADR-0016,
+ADR-0017) — and anything measured against the mount refuses to render until it is levelled.
+Below it, the **dash is a user-arranged list of cards**
 (ADR-0015) loaded from `dashboard.json` — add, remove, reorder, resize, and pick each card's
 signal, style, unit, rate and format. Cards flow into rows and rows into pages that snap
 sideways; **only the visible page declares signals.** Settings and the card editor are
@@ -121,16 +124,18 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
   component host → shell. No layer reaches past its neighbour.
 - **`DashDeck.Abstractions` stays small, stable and dependency-free.** It is the only
   assembly components reference, and it is shared across every load context.
-- **The signal catalog is data.** New signals are JSON, never a recompile.
+- **The catalogs are data.** New signals are JSON, never a recompile — and so are the tablet
+  sensors, in a second catalog whose `prefer` field names the vehicle signal that supersedes
+  each one (ADR-0017).
 - Never block the UI thread. All vehicle I/O is serialised on its own worker.
 
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Sixteen exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Seventeen exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
-vehicle-first rule for anything the tablet could also guess at.
+vehicle-first rule and sensor catalog for anything the tablet could also guess at.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

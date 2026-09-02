@@ -103,23 +103,9 @@ public sealed class VehicleStack : IAsyncDisposable
     /// The catalog is data, not code (ADR-0004), so it is not embedded. A packaged build
     /// will ship it beside the executable, which this finds on the first iteration.
     /// </remarks>
-    private static string FindCatalog()
-    {
-        var dir = AppContext.BaseDirectory;
-
-        for (var i = 0; i < 8 && dir is not null; i++)
-        {
-            var candidate = IoPath.Combine(dir, "catalog", "signals.obd2-standard.json");
-            if (IoFile.Exists(candidate))
-            {
-                return candidate;
-            }
-
-            dir = IoPath.GetDirectoryName(dir.TrimEnd(IoPath.DirectorySeparatorChar));
-        }
-
-        throw new System.IO.FileNotFoundException(
+    private static string FindCatalog() =>
+        CatalogPath.Find("signals.obd2-standard.json")
+        ?? throw new System.IO.FileNotFoundException(
             "Could not find catalog/signals.obd2-standard.json by walking up from the binary. " +
             "Run from inside the repository.");
-    }
 }

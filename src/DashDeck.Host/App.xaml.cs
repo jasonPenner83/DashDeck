@@ -130,6 +130,13 @@ public partial class App : Application
             _shell.Dashboard.ToggleEditCommand.Execute(null);
         }
 
+        // --level captures the mount reference at startup, so the compass can be reviewed in
+        // a screenshot without a finger. Real levelling is a button on the stage, done parked.
+        if (e.Args.Contains("--level"))
+        {
+            _shell.Sensors.Level();
+        }
+
         // --page <n> opens on a later page of cards, so paging can be reviewed in a
         // screenshot rather than only by swiping.
         if (ArgValue(e.Args, "--page") is { } page && int.TryParse(page, out var pageIndex))
@@ -238,7 +245,7 @@ public partial class App : Application
     }
 
     /// <summary>The flags that take no value. Everything else consumes the argument after it.</summary>
-    private static readonly HashSet<string> Switches = ["--picker", "--edit"];
+    private static readonly HashSet<string> Switches = ["--picker", "--edit", "--level"];
 
     /// <summary>
     /// Record a fatal error where it can be read later.

@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashDeck.Abstractions;
 using DashDeck.Host.Dash;
+using DashDeck.Host.Sensors;
 using DashDeck.Host.Stage;
 using DashDeck.Host.Theme;
 
@@ -69,7 +70,18 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         Settings = new SettingsViewModel(theme);
 
-        StageOptions = [.. StageOption.All(videoPath, clock, vehicle.Signals).Select(o => new StageOptionViewModel(o))];
+        // One service for the whole session: it holds the mount reference and any vehicle
+        // declarations, so it must outlive whichever occupant happens to be on the stage.
+        Sensors = new SensorService(
+            SensorCatalog.FromFileOrEmpty(CatalogPath.Find("sensors.device.json")),
+            vehicle.Signals,
+            clock);
+
+        StageOptions =
+        [
+            .. StageOption.All(videoPath, clock, vehicle.Signals, Sensors)
+                .Select(o => new StageOptionViewModel(o)),
+        ];
 
         RefreshQuickOptions();
 
@@ -130,6 +142,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _timer.Start();
         Refresh();
     }
+
+    /// <summary>The tablet's sensors, resolved truck-first (ADR-0016). Outlives every occupant.</summary>
+    public SensorService Sensors { get; }
 
     /// <summary>The arranged cards filling the bands below the stage.</summary>
     public DashboardViewModel Dashboard { get; }
@@ -379,6 +394,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _timer.Stop();
 
         Dashboard.Dispose();
+        Sensors.Dispose();
 
         // The stage is a layer with its own lifecycle (B2) — it outlives navigation, but
         // not the shell.
