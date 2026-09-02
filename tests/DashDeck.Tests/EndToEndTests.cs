@@ -29,6 +29,53 @@ public class EndToEndTests
     }
 
     [Fact]
+    public async Task Pulling_the_adapter_ages_readings_out_without_inventing_throughput()
+    {
+        // Real per-request latency, or the measurement being tested is meaningless: with
+        // SyntheticFaults.Perfect every exchange returns instantly, so the measured ceiling
+        // is already absurd before the cable is pulled and the assertion below proves
+        // nothing. That is exactly how the first version of this test passed while the bug
+        // was still there.
+        var faults = new SyntheticFaults(LatencyMs: 60, DropProbability: 0, SupportsMsCan: true);
+        var (service, transport) = await StartAsync(faults);
+        await using var _service = service;
+
+        using var demand = service.Bus.Require("engine.rpm", SignalPriority.High, 10);
+
+        await WaitUntilAsync(() => service.Bus.Current("engine.rpm").IsUsable, TimeSpan.FromSeconds(5));
+        Assert.True(service.Bus.Current("engine.rpm").IsUsable, "engine.rpm never answered.");
+
+        var rateWhileConnected = service.MeasuredRequestsPerSecond;
+
+        transport.Unplug();
+
+        await WaitUntilAsync(
+            () => service.Bus.Current("engine.rpm").Quality == SignalQuality.Stale,
+            TimeSpan.FromSeconds(5));
+
+        // The reading ages out rather than freezing at its last number.
+        Assert.Equal(SignalQuality.Stale, service.Bus.Current("engine.rpm").Quality);
+
+        // And the measured ceiling does not run away. Requests against a pulled cable fail
+        // in microseconds; averaging them in would report thousands of requests per second
+        // at the exact moment none are getting through.
+        Assert.True(
+            service.MeasuredRequestsPerSecond <= Math.Max(rateWhileConnected, 1) * 2,
+            $"measured throughput rose to {service.MeasuredRequestsPerSecond:0.#} req/sec " +
+            $"after the adapter was pulled (it was {rateWhileConnected:0.#} while connected).");
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
+    {
+        var deadline = DateTimeOffset.UtcNow + timeout;
+
+        while (DateTimeOffset.UtcNow < deadline && !condition())
+        {
+            await Task.Delay(50, TestCancellation.Token);
+        }
+    }
+
+    [Fact]
     public async Task A_dropped_response_does_not_retire_a_signal_that_has_already_answered()
     {
         // NO DATA means two different things coming back from an ELM adapter: "this vehicle

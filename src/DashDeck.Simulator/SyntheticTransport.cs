@@ -39,6 +39,8 @@ public sealed class SyntheticTransport : IVehicleTransport
         _lastAdvance = _clock.UtcNow;
     }
 
+    private bool _unplugged;
+
     public TransportState State { get; private set; } = TransportState.Disconnected;
 
     public string Description => "Synthetic 2019 F-150 (simulated data)";
@@ -60,8 +62,41 @@ public sealed class SyntheticTransport : IVehicleTransport
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Pull the cable. Every subsequent exchange fails the way a yanked USB serial port
+    /// does, until <see cref="Replug"/>.
+    /// </summary>
+    /// <remarks>
+    /// Not a curiosity. Constraint C5 says connect, disconnect, sleep and resume must all be
+    /// non-events that recover on their own, and until there was a way to unplug the
+    /// synthetic truck there was no way to test that claim — or to see what the dash looks
+    /// like when readings stop, which is the state the quality flags exist for.
+    /// </remarks>
+    public void Unplug()
+    {
+        _unplugged = true;
+        State = TransportState.Disconnected;
+        StateChanged?.Invoke(State);
+    }
+
+    /// <summary>Plug it back in. Exchanges succeed again from the next request.</summary>
+    public void Replug()
+    {
+        _unplugged = false;
+        State = TransportState.Connected;
+        StateChanged?.Invoke(State);
+    }
+
     public async Task<string> ExchangeAsync(string command, CancellationToken ct)
     {
+        if (_unplugged)
+        {
+            // A real serial port throws once the device is gone. It does not politely
+            // answer NO DATA, and the difference matters: NO DATA is the vehicle declining
+            // to answer, this is the link being absent.
+            throw new IOException("The synthetic adapter is unplugged.");
+        }
+
         AdvanceModel();
 
         if (_faults.LatencyMs > 0)

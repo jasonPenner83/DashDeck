@@ -44,6 +44,16 @@ public sealed class VehicleStack : IAsyncDisposable
     public double MeasuredRequestsPerSecond => _service.MeasuredRequestsPerSecond;
 
     /// <summary>
+    /// Pull the adapter, as if the cable came out. Readings stop, and every value on screen
+    /// should age into <see cref="SignalQuality.Stale"/> rather than freezing at its last
+    /// number.
+    /// </summary>
+    public void Unplug() => Synthetic.Unplug();
+
+    /// <summary>Plug it back in. The dash must recover without a restart (constraint C5).</summary>
+    public void Replug() => Synthetic.Replug();
+
+    /// <summary>
     /// Start the synthetic vehicle. No adapter and no truck are involved (ADR-0005), and
     /// every value it produces is flagged <see cref="SignalQuality.Simulated"/> so it can
     /// never be mistaken on screen for a real reading.

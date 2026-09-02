@@ -53,6 +53,25 @@ public partial class App : Application
         MainWindow = window;
         window.Show();
 
+        // Development affordance: --unplug <seconds> pulls the adapter mid-run, so the
+        // degraded state can be watched happening rather than only reasoned about.
+        if (ArgValue(e.Args, "--unplug") is { } unplugAt)
+        {
+            var timer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(
+                    double.Parse(unplugAt, System.Globalization.CultureInfo.InvariantCulture)),
+            };
+
+            timer.Tick += (_, _) =>
+            {
+                timer.Stop();
+                _vehicle?.Unplug();
+            };
+
+            timer.Start();
+        }
+
         // Development affordance: --shot <path> renders the layout to a PNG once the drive
         // has produced some data, then exits. Lets the shell be reviewed without a screen
         // grab, which on a 200%-scaled tablet is more trouble than it sounds.

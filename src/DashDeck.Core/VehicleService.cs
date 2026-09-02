@@ -241,7 +241,14 @@ public sealed class VehicleService : IAsyncDisposable
         {
             return;
         }
-        finally
+
+        // Only exchanges the adapter actually answered describe its throughput. A pulled
+        // cable comes back as Timeout in microseconds — ElmAdapter turns the IOException
+        // into one, deliberately, because a dropped cable is routine — and averaging those
+        // in sends the measured ceiling to absurd heights at the exact moment nothing is
+        // getting through. Q12 reads its answer off this number, so it may only ever
+        // describe the adapter replying.
+        if (response.IsSuccess || response.Failure == PidFailure.NoData)
         {
             RecordServiceTime(Stopwatch.GetElapsedTime(started));
         }
