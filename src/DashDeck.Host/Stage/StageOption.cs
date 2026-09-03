@@ -55,6 +55,10 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
         // Truck first, tablet second, and it says which — see SensorService.
         new StageOption("COMPASS", "Heading, attitude, G", () => new CompassStageOccupant(signals, sensors)),
 
+        // Android Auto and CarPlay through a Carlinkit dongle (ADR-0019). The dongle is
+        // chosen and not bought, so this runs against a synthetic one and says so.
+        new StageOption("PHONE", "Android Auto · CarPlay", () => new PhoneLinkStageOccupant(clock)),
+
         new StageOption(
             "VIDEO",
             videoPath is null ? "Pick a file" : System.IO.Path.GetFileName(videoPath),

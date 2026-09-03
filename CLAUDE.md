@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **132 tests green** — 47 engine, 85 shell.
+(ADR-0010). **151 tests green** — 47 engine, 104 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -30,7 +30,8 @@ dotnet run --project src/DashDeck.DebugConsole -- cold-start-city --seconds 60
 
 The shell renders the six-band layout, the status strip and the nav. The **stage** takes
 occupants chosen from the launcher bar below it: a clock-and-weather face, a **compass** with
-a G meter and vehicle pitch and roll, local video (LibVLC), and web applets in WebView2. The
+a G meter and vehicle pitch and roll, **phone projection** (ADR-0019), local video (LibVLC),
+and web applets in WebView2. The
 compass reads truck-first and falls back to the tablet's own sensors, saying which (ADR-0016,
 ADR-0017) — and anything measured against the mount refuses to render until it is levelled.
 Below it, the **dash is a user-arranged list of cards**
@@ -86,7 +87,9 @@ the shell and start arriving from `plugins/`. ADR-0015 settled the instance form
 activation rule it will have to honour; what is missing is a *source* other than a catalog
 signal.
 
-Adapter chosen but not bought: **OBDLink EX**, wired USB (ADR-0007).
+Two pieces of hardware are chosen and not bought: the **OBDLink EX** adapter, wired USB
+(ADR-0007), and a **Carlinkit CPC200** for Android Auto and CarPlay (ADR-0019). Both are
+built against synthetic transports behind a seam, so neither is blocking.
 
 ## Things that are easy to get wrong here
 
@@ -94,8 +97,10 @@ Adapter chosen but not bought: **OBDLink EX**, wired USB (ADR-0007).
    ADR-0007) but not bought. Everything runs on the synthetic vehicle (ADR-0005). Do not
    write code that assumes a truck is attached, and do not defer work waiting for hardware.
 2. **The Surface is a personal device.** No kiosk mode, no shell replacement, no services,
-   no registry writes. Self-contained folder deploy, settings in `%LOCALAPPDATA%`. One
-   Microsoft-signed FTDI USB serial driver is the single accepted exception (ADR-0007).
+   no registry writes. Self-contained folder deploy, settings in `%LOCALAPPDATA%`.
+   **Two** driver exceptions, each named by an ADR: the Microsoft-signed FTDI USB serial
+   driver (ADR-0007) and a WinUSB binding for the Carlinkit dongle (ADR-0019). Two is not
+   "a few" — a third needs its own ADR, or the constraint erodes by accident.
    This rules out solutions that would otherwise be obvious.
 3. **Components never touch CAN.** They subscribe to named signals. If a component needs
    a PID, the signal catalog is missing a definition — fix it there, in config.
@@ -145,11 +150,11 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Eighteen exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Nineteen exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, and the
-fixed-height stage that came out of the first drive.
+fixed-height stage that came out of the first drive, and phone projection through a dongle.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

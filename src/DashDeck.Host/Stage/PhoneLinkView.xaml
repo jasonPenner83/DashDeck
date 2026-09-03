@@ -1,0 +1,41 @@
+<UserControl x:Class="DashDeck.Host.Stage.PhoneLinkView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid>
+        <!--
+            The projected picture will land here once the USB transport exists. Until then
+            this stays empty rather than showing an invented frame: a synthetic picture would
+            be the one thing on this dash that looks like it is working when nothing is
+            connected.
+        -->
+        <Border x:Name="Surface" Background="Black"
+                Visibility="{Binding IsProjecting, Converter={StaticResource BoolToVis}}" />
+
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="640">
+            <TextBlock HorizontalAlignment="Center"
+                       FontFamily="{StaticResource UiFont}"
+                       FontSize="34"
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource TextHighBrush}"
+                       Text="{Binding Headline}" />
+
+            <TextBlock HorizontalAlignment="Center"
+                       Margin="0,14,0,0"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       Style="{StaticResource StatusText}"
+                       Foreground="{DynamicResource TextMidBrush}"
+                       Text="{Binding Detail}" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,22,0,0">
+                <TextBlock Style="{StaticResource MicroText}" Text="{Binding TransportText}" />
+                <TextBlock Style="{StaticResource MicroText}" Margin="16,0,0,0" Text="{Binding FramesText}" />
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</UserControl>
