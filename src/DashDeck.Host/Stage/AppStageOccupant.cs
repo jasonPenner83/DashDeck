@@ -104,7 +104,10 @@ public sealed class AppStageOccupant : IStageOccupant
     /// <inheritdoc />
     public string Describe() =>
         $"app={_spec.Name} state={State} path={_spec.Resolve() ?? "(not found)"} " +
-        $"pid={_process?.Id.ToString() ?? "-"} job={_job.IsUsable}";
+        $"pid={_process?.Id.ToString() ?? "-"} job={_job.IsUsable} " +
+        $"clamped={_host?.IsClamped == true} " +
+        $"offered={_host?.Placed.Width:0}x{_host?.Placed.Height:0} " +
+        $"took={_host?.MinimumSize.Width:0}x{_host?.MinimumSize.Height:0}";
 
     /// <inheritdoc />
     public void Dispose()
@@ -289,6 +292,12 @@ public sealed class AppStageOccupant : IStageOccupant
 
             HostedAppState.Starting => $"Starting {_spec.Name}…",
 
+            // Hosted and cropped is still hosted — the application is there and working, with
+            // part of it off the edge. Saying so beats leaving a mysteriously clipped window.
+            HostedAppState.Hosted when _host is { IsClamped: true } c =>
+                $"{_spec.Name} will not go narrower than {c.MinimumSize.Width:0} x {c.MinimumSize.Height:0}.\n" +
+                "It is cropped to the stage so it cannot cover the dash. Some of it is off the edge.",
+
             HostedAppState.Hosted => string.Empty,
 
             HostedAppState.Outside =>
@@ -301,7 +310,9 @@ public sealed class AppStageOccupant : IStageOccupant
 
         // The message would otherwise sit on top of the adopted window, which on a child
         // window means invisibly — and on the day adoption half-works, confusingly.
-        _message.Visibility = state is HostedAppState.Hosted
+        // A cropped window still needs its explanation visible, and it sits in the part of the
+        // stage the application was not allowed to fill.
+        _message.Visibility = state is HostedAppState.Hosted && _host is not { IsClamped: true }
             ? Visibility.Collapsed
             : Visibility.Visible;
     }

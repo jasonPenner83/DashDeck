@@ -47,6 +47,9 @@ public sealed class OverlayHost : IDisposable
     private IntPtr _previousOwner;
     private long _originalStyle;
     private Rect _lastPlaced = Rect.Empty;
+
+    /// <summary>The rectangle last asked for, in physical pixels. What the app was offered.</summary>
+    public Rect Placed => _lastPlaced;
     private bool _lastVisible;
     private bool _disposed;
 
@@ -61,6 +64,19 @@ public sealed class OverlayHost : IDisposable
 
     /// <summary>True once the window is genuinely owned by the shell.</summary>
     public bool IsOwned { get; private set; }
+
+    /// <summary>
+    /// True when the application refused to be as small as the stage and had to be cropped.
+    /// </summary>
+    /// <remarks>
+    /// Worth surfacing rather than hiding: it means part of the application is not on screen,
+    /// and the reason is a minimum size the application enforces — nothing the shell can
+    /// negotiate away.
+    /// </remarks>
+    public bool IsClamped { get; private set; }
+
+    /// <summary>The size the window actually took, which is its minimum when clamped.</summary>
+    public Size MinimumSize { get; private set; }
 
     /// <summary>
     /// Take ownership and start following the anchor.
@@ -164,15 +180,57 @@ public sealed class OverlayHost : IDisposable
         _lastPlaced = rect;
         _lastVisible = true;
 
+        var width = (int)Math.Max(rect.Width, 1);
+        var height = (int)Math.Max(rect.Height, 1);
+
         NativeMethods.SetWindowPos(
             _window,
             IntPtr.Zero,
             (int)rect.X,
             (int)rect.Y,
-            (int)Math.Max(rect.Width, 1),
-            (int)Math.Max(rect.Height, 1),
+            width,
+            height,
             NativeMethods.SwpNoZOrder | NativeMethods.SwpNoActivate
                 | NativeMethods.SwpShowWindow | NativeMethods.SwpFrameChanged);
+
+        Confine(width, height);
+    }
+
+    /// <summary>
+    /// Check the window actually took the size it was given, and crop it if not.
+    /// </summary>
+    /// <remarks>
+    /// <b>Asking is not the same as getting.</b> An application may enforce a minimum size —
+    /// Stremio's is 1000 × 600, and it snaps back to that however small a rectangle it is
+    /// handed. Without this the surplus simply renders, spilling over the cards and the
+    /// navigation strip, and the shell has no idea.
+    /// <para>
+    /// Cropping hides content, which is a poor outcome and a better one than an occupant
+    /// covering the dash. The size it wanted is recorded so the occupant can say what
+    /// happened rather than leaving a mysteriously clipped application on screen.
+    /// </para>
+    /// </remarks>
+    private void Confine(int width, int height)
+    {
+        if (!NativeMethods.GetWindowRect(_window, out var actual))
+        {
+            return;
+        }
+
+        MinimumSize = new Size(actual.Width, actual.Height);
+        IsClamped = actual.Width > width || actual.Height > height;
+
+        // The region is in window coordinates, so it starts at zero whatever the window's
+        // position on screen. Cropping unconditionally keeps the one code path: a window that
+        // took the size asked for is cropped to exactly itself, which is a no-op.
+        var region = NativeMethods.CreateRectRgn(0, 0, width, height);
+
+        // SetWindowRgn takes ownership of the region on success, so it must not be deleted
+        // afterwards — a delete here would free a handle the window manager still holds.
+        if (NativeMethods.SetWindowRgn(_window, region, true) == 0)
+        {
+            NativeMethods.DeleteObject(region);
+        }
     }
 
     /// <inheritdoc />
@@ -199,6 +257,9 @@ public sealed class OverlayHost : IDisposable
         // be left owned by a window that no longer exists and stripped of its title bar.
         if (NativeMethods.IsWindow(_window))
         {
+            // The crop goes first: a window handed back still wearing a region would render
+            // as a fragment of itself in its own frame, which looks like we broke it.
+            NativeMethods.SetWindowRgn(_window, IntPtr.Zero, true);
             NativeMethods.SetWindowLongPtr(_window, NativeMethods.GwlStyle, (IntPtr)_originalStyle);
             NativeMethods.SetWindowLongPtr(_window, NativeMethods.GwlpHwndParent, _previousOwner);
         }

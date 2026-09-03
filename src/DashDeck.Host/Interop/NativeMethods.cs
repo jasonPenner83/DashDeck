@@ -72,6 +72,42 @@ internal static class NativeMethods
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GetWindowRect(IntPtr window, out Rect rect);
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Rect
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+
+        public readonly int Width => Right - Left;
+
+        public readonly int Height => Bottom - Top;
+    }
+
+    /// <summary>
+    /// Crop a window to a region, so one that refuses to be small enough cannot spill.
+    /// </summary>
+    /// <remarks>
+    /// Applied by the window manager rather than by the application, which is why it works on
+    /// a window belonging to somebody else's process — and why it is the only lever available
+    /// when an application enforces a minimum size. It hides content rather than shrinking it;
+    /// that is a poor outcome, and better than covering the dash.
+    /// </remarks>
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern int SetWindowRgn(IntPtr window, IntPtr region, [MarshalAs(UnmanagedType.Bool)] bool redraw);
+
+    [DllImport("gdi32.dll", SetLastError = true)]
+    public static extern IntPtr CreateRectRgn(int left, int top, int right, int bottom);
+
+    [DllImport("gdi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool DeleteObject(IntPtr handle);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool MoveWindow(IntPtr window, int x, int y, int width, int height, [MarshalAs(UnmanagedType.Bool)] bool repaint);
 
     [DllImport("user32.dll", SetLastError = true)]
