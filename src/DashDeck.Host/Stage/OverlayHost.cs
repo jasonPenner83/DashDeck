@@ -191,7 +191,8 @@ public sealed class OverlayHost : IDisposable
             width,
             height,
             NativeMethods.SwpNoZOrder | NativeMethods.SwpNoActivate
-                | NativeMethods.SwpShowWindow | NativeMethods.SwpFrameChanged);
+                | NativeMethods.SwpShowWindow | NativeMethods.SwpFrameChanged
+                | NativeMethods.SwpNoSendChanging);
 
         Confine(width, height);
     }
@@ -201,9 +202,14 @@ public sealed class OverlayHost : IDisposable
     /// </summary>
     /// <remarks>
     /// <b>Asking is not the same as getting.</b> An application may enforce a minimum size —
-    /// Stremio's is 1000 × 600, and it snaps back to that however small a rectangle it is
-    /// handed. Without this the surplus simply renders, spilling over the cards and the
-    /// navigation strip, and the shell has no idea.
+    /// Stremio's is 1000 × 600 — and unhelped it snaps back to that however small a rectangle
+    /// it is handed, spilling the surplus over the cards and the navigation strip.
+    /// <see cref="NativeMethods.SwpNoSendChanging"/> now stops almost all of that at source, by
+    /// skipping the message the minimum is enforced during.
+    /// <para>
+    /// This stays as the backstop, because that flag is not a guarantee: an application is free
+    /// to resize <em>itself</em> afterwards from its own message loop, and some do.
+    /// </para>
     /// <para>
     /// Cropping hides content, which is a poor outcome and a better one than an occupant
     /// covering the dash. The size it wanted is recorded so the occupant can say what

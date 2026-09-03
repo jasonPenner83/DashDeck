@@ -67,6 +67,24 @@ internal static class NativeMethods
     public const uint SwpShowWindow = 0x0040;
     public const uint SwpFrameChanged = 0x0020;
 
+    /// <summary>
+    /// Resize without asking the window's permission.
+    /// </summary>
+    /// <remarks>
+    /// <b>The one flag that makes hosting a minimum-size application work.</b> A window's
+    /// minimum is enforced while it handles <c>WM_WINDOWPOSCHANGING</c>: it is handed the
+    /// proposed rectangle and widens it back. Suppressing that message skips the negotiation
+    /// entirely, so the window becomes the size it was given and lays its content out to match.
+    /// Stremio insists on 1000 x 600 and accepts 900 x 500 with this set.
+    /// <para>
+    /// The cost is that an application which genuinely cannot lay out below some width will
+    /// render badly rather than being clipped. That is the better failure of the two: it is
+    /// visible, it is the application's own layout doing its best, and nothing is hidden off
+    /// the edge of the screen.
+    /// </para>
+    /// </remarks>
+    public const uint SwpNoSendChanging = 0x0400;
+
     public const int SwHide = 0;
     public const int SwShowNoActivate = 4;
 
