@@ -1,5 +1,6 @@
 using DashDeck.Abstractions;
 using DashDeck.Host.Sensors;
+using DashDeck.Host.Settings;
 using Microsoft.Win32;
 
 namespace DashDeck.Host.Stage;
@@ -45,7 +46,8 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
         IClock clock,
         IVehicleSignals signals,
         SensorService sensors,
-        WeatherService weather) =>
+        WeatherService weather,
+        DisplaySettings display) =>
     [
         // The idle stage, and the default. There is no "nothing" option any more: an empty
         // stage announcing its own emptiness was honest but useless, and a clock is the
@@ -67,22 +69,22 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
         // NuvioWeb, hosted rather than reparented. GPLv3 stays at arm's length that way
         // (Q18). Its origin answered 526 — Cloudflare's "bad origin certificate" — when
         // this was wired, so if it comes up blank that is their end, not ours.
-        new StageOption("NUVIO", "app.nuvio.tv", () => new WebStageOccupant("NUVIO", NuvioUrl)),
+        new StageOption("NUVIO", "app.nuvio.tv", () => new WebStageOccupant("NUVIO", NuvioUrl, display)),
 
         // OpenStreetMap rather than Google. Google's Maps JavaScript API terms forbid
         // in-vehicle turn-by-turn and there is no desktop SDK, so a Google map here could
         // only ever be a picture (Q18). This is a picture too — but an unencumbered one,
         // and the routing question stays open rather than being quietly violated.
-        new StageOption("MAPS", "openstreetmap.org", () => new WebStageOccupant("MAPS", MapsUrl)),
+        new StageOption("MAPS", "openstreetmap.org", () => new WebStageOccupant("MAPS", MapsUrl, display)),
 
-        new StageOption("STREMIO", "web.stremio.com", () => new WebStageOccupant("STREMIO", StremioUrl)),
+        new StageOption("STREMIO", "web.stremio.com", () => new WebStageOccupant("STREMIO", StremioUrl, display)),
 
         // Both are web players, and both gate playback behind Widevine — which WebView2 does
         // not ship. The occupant probes for it and says so rather than presenting a player
         // that looks fine and refuses to make a sound.
-        new StageOption("SPOTIFY", "open.spotify.com", () => new WebStageOccupant("SPOTIFY", SpotifyUrl)),
+        new StageOption("SPOTIFY", "open.spotify.com", () => new WebStageOccupant("SPOTIFY", SpotifyUrl, display)),
 
-        new StageOption("MUSIC", "music.apple.com", () => new WebStageOccupant("MUSIC", AppleMusicUrl)),
+        new StageOption("MUSIC", "music.apple.com", () => new WebStageOccupant("MUSIC", AppleMusicUrl, display)),
     ];
 
     /// <summary>Nuvio's web build. Changed here, not hunted through the code.</summary>

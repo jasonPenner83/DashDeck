@@ -146,6 +146,41 @@
                    Text="{Binding SettingsPath, StringFormat=Saved to {0} — kept across updates.}" />
 
         <!--
+            Web occupants are laid out for a phone held at arm's length; at 100% a 912-wide
+            stage spends most of its width on padding. This is the browser's own zoom, so the
+            page reflows and shows more rather than being drawn small.
+        -->
+        <TextBlock Margin="0,34,0,0" Style="{StaticResource CaptionText}" Text="WEB SCALE" />
+
+        <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding WebScales}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button Style="{StaticResource OptionChipButton}"
+                            MinWidth="104"
+                            Command="{Binding DataContext.SetWebScaleCommand,
+                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                            CommandParameter="{Binding}">
+                        <TextBlock Text="{Binding Label}"
+                                   FontFamily="{StaticResource MonoFont}"
+                                   FontSize="15" />
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Margin="2,4,0,0"
+                   MaxWidth="700"
+                   HorizontalAlignment="Left"
+                   TextWrapping="Wrap"
+                   Style="{StaticResource MicroText}"
+                   Text="Applies to Spotify, Apple Music, Maps, Nuvio and Stremio — live, including whatever is on the stage right now." />
+
+        <!--
             The diagnostics that used to sit in the status strip. They answer questions a
             developer asks and nobody asks while driving, so the strip became a quick-info bar
             and they came here — where there is room to say what they mean.

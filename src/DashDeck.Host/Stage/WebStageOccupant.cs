@@ -1,4 +1,5 @@
 using System.Windows;
+using DashDeck.Host.Settings;
 using Microsoft.Web.WebView2.Wpf;
 
 namespace DashDeck.Host.Stage;
@@ -20,15 +21,55 @@ namespace DashDeck.Host.Stage;
 public sealed class WebStageOccupant : IStageOccupant
 {
     private readonly Uri _uri;
+    private readonly DisplaySettings? _display;
     private WebView2? _view;
     private bool _disposed;
 
-    public WebStageOccupant(string name, string url)
+    public WebStageOccupant(string name, string url, DisplaySettings? display = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
         Name = name;
         _uri = new Uri(url);
+        _display = display;
+
+        if (_display is not null)
+        {
+            _display.PropertyChanged += OnDisplayChanged;
+        }
+    }
+
+    private void OnDisplayChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(DisplaySettings.WebScale))
+        {
+            ApplyScale();
+        }
+    }
+
+    /// <summary>
+    /// Zoom the page.
+    /// </summary>
+    /// <remarks>
+    /// The browser's own zoom rather than a WPF <c>ScaleTransform</c>, and the difference is
+    /// the whole point: zooming makes the page <em>reflow</em> into the space and show more,
+    /// where a transform would draw the same phone-shaped layout smaller and gain nothing.
+    /// </remarks>
+    private void ApplyScale()
+    {
+        if (_disposed || _view?.CoreWebView2 is null || _display is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _view.ZoomFactor = DisplaySettings.Clamp(_display.WebScale);
+        }
+        catch (Exception)
+        {
+            // WebView2 throws on a factor it dislikes rather than clamping. Not worth a dash.
+        }
     }
 
     /// <inheritdoc />
@@ -65,6 +106,8 @@ public sealed class WebStageOccupant : IStageOccupant
         {
             if (e.IsSuccess && _view?.CoreWebView2 is { } core)
             {
+                ApplyScale();
+
                 core.WebMessageReceived += (_, message) =>
                 {
                     if (message.TryGetWebMessageAsString() is { } text
@@ -154,7 +197,8 @@ public sealed class WebStageOccupant : IStageOccupant
 
         return core is null
             ? $"web=initialising url={_uri}"
-            : $"web=ready title=\"{core.DocumentTitle}\" url={core.Source} drm={DrmStatus}";
+            : $"web=ready title=\"{core.DocumentTitle}\" url={core.Source} " +
+              $"drm={DrmStatus} zoom={_view?.ZoomFactor:0.00}";
     }
 
     /// <inheritdoc />
@@ -166,6 +210,11 @@ public sealed class WebStageOccupant : IStageOccupant
         }
 
         _disposed = true;
+
+        if (_display is not null)
+        {
+            _display.PropertyChanged -= OnDisplayChanged;
+        }
 
         // Without this the browser process outlives the occupant and keeps playing whatever
         // was on screen — audible, invisible, and impossible to stop from the dash.

@@ -171,7 +171,10 @@ public sealed partial class ThemeService : ObservableObject
             return;
         }
 
-        SettingsStore.Save(new UserSettings
+        // Update, not Save. Building a whole UserSettings from these three fields was right
+        // while the theme was the only thing stored here, and would wipe every other setting
+        // the moment something else was — which it now is.
+        SettingsStore.Update(stored => stored with
         {
             ThemeMode = Mode.ToString(),
             AccentName = Accent.Name,

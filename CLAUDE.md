@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **151 tests green** — 47 engine, 104 shell.
+(ADR-0010). **161 tests green** — 47 engine, 114 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -166,3 +166,4 @@ code.
 - Open questions go in [`docs/04-open-questions.md`](docs/04-open-questions.md) rather
   than being silently resolved.
 - When a decision gets made, write the ADR in the same change that implements it.
+

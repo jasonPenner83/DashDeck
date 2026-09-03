@@ -23,6 +23,17 @@ public sealed record UserSettings
     /// <summary>The accent as <c>#RRGGBB</c>. Authoritative — the name is for display.</summary>
     [JsonPropertyName("accentColour")]
     public string AccentColour { get; init; } = "#FF7A1A";
+
+    /// <summary>
+    /// How large web occupants render, as a multiplier. Below 1 fits more on screen.
+    /// </summary>
+    /// <remarks>
+    /// The web players are built for phones held at arm's length, and on a 912-wide stage
+    /// they waste most of it on padding. This is the browser's own zoom rather than a WPF
+    /// transform, so the page reflows into the space instead of being drawn small.
+    /// </remarks>
+    [JsonPropertyName("webScale")]
+    public double WebScale { get; init; } = 1.0;
 }
 
 /// <summary>
@@ -60,5 +71,25 @@ public static class SettingsStore
     {
         JsonFile.Save(Path, settings, out var error);
         LastError = error;
+    }
+
+    /// <summary>
+    /// Change some settings without touching the rest.
+    /// </summary>
+    /// <remarks>
+    /// <b>The only safe way to write this file once more than one thing owns a setting in
+    /// it.</b> <c>ThemeService</c> used to build a whole <see cref="UserSettings"/> from its
+    /// own three fields and save that — correct while it was the sole writer, and silently
+    /// destructive the moment anything else stored a preference here: the next theme change
+    /// would reset that preference to its default with nothing to show for it.
+    /// <para>
+    /// Read, transform, write. Not atomic against another process, which does not matter —
+    /// one dash, one writer at a time.
+    /// </para>
+    /// </remarks>
+    public static void Update(Func<UserSettings, UserSettings> change)
+    {
+        ArgumentNullException.ThrowIfNull(change);
+        Save(change(Load()));
     }
 }

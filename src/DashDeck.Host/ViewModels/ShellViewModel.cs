@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Input;
 using DashDeck.Abstractions;
 using DashDeck.Host.Dash;
 using DashDeck.Host.Sensors;
+using DashDeck.Host.Settings;
 using DashDeck.Host.Stage;
 using DashDeck.Host.Theme;
 
@@ -88,7 +89,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _theme = theme;
         Weather = weather;
 
-        Settings = new SettingsViewModel(theme);
+        Display = new DisplaySettings();
+        Settings = new SettingsViewModel(theme, Display);
 
         // One service for the whole session: it holds the mount reference and any vehicle
         // declarations, so it must outlive whichever occupant happens to be on the stage.
@@ -99,7 +101,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         StageOptions =
         [
-            .. StageOption.All(videoPath, clock, vehicle.Signals, Sensors, weather)
+            .. StageOption.All(videoPath, clock, vehicle.Signals, Sensors, weather, Display)
                 .Select(o => new StageOptionViewModel(o)),
         ];
 
@@ -162,6 +164,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _timer.Start();
         Refresh();
     }
+
+    /// <summary>Display preferences the web occupants follow. Shared, so a change re-zooms live.</summary>
+    public DisplaySettings Display { get; }
 
     /// <summary>One weather fetch for the whole app. The status strip and the clock face share it.</summary>
     public WeatherService Weather { get; }

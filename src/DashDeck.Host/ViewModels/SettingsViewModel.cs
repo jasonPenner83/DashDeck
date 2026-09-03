@@ -47,9 +47,14 @@ public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly ThemeService _theme;
 
-    public SettingsViewModel(ThemeService theme)
+    public SettingsViewModel(ThemeService theme, DashDeck.Host.Settings.DisplaySettings display)
     {
         _theme = theme;
+        Display = display;
+
+        WebScales = [.. DashDeck.Host.Settings.DisplaySettings.Choices.Select(s => new WebScaleOption(s))];
+        display.PropertyChanged += (_, _) => SyncScales();
+        SyncScales();
 
         Modes =
         [
@@ -66,6 +71,34 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         theme.PropertyChanged += (_, _) => Sync();
         Sync();
+    }
+
+    /// <summary>How large web occupants render. Shared with them, so a change applies live.</summary>
+    public DashDeck.Host.Settings.DisplaySettings Display { get; }
+
+    /// <summary>The scales offered, as chips.</summary>
+    public IReadOnlyList<WebScaleOption> WebScales { get; } = [];
+
+    /// <summary>Pick a scale for the web occupants.</summary>
+    [RelayCommand]
+    private void SetWebScale(WebScaleOption? option)
+    {
+        if (option is not null)
+        {
+            Display.WebScale = option.Scale;
+        }
+    }
+
+    private void SyncScales()
+    {
+        foreach (var option in WebScales)
+        {
+            // Compared with a tolerance, because these round-trip through JSON as doubles
+            // and 0.7 does not always come back as 0.7.
+            option.IsSelected = Math.Abs(option.Scale - Display.WebScale) < 0.001;
+        }
+
+        OnPropertyChanged(nameof(Display));
     }
 
     /// <summary>Day, Night, Auto.</summary>
@@ -183,4 +216,23 @@ public sealed partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(ResolvedTheme));
         OnPropertyChanged(nameof(CustomMessageBrush));
     }
+}
+
+/// <summary>One web-scale chip.</summary>
+/// <remarks>
+/// Labelled as a percentage because that is how every browser has ever expressed zoom, and a
+/// dash is not the place to teach somebody a new unit.
+/// </remarks>
+public sealed partial class WebScaleOption : ObservableObject
+{
+    public WebScaleOption(double scale) => Scale = scale;
+
+    /// <summary>The multiplier handed to WebView2.</summary>
+    public double Scale { get; }
+
+    /// <summary>What the chip says.</summary>
+    public string Label => $"{Scale * 100:0}%";
+
+    [ObservableProperty]
+    private bool _isSelected;
 }
