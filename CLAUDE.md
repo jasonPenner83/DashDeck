@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **171 tests green** — 47 engine, 124 shell.
+(ADR-0010). **172 tests green** — 48 engine, 124 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -53,7 +53,10 @@ gets all 708 of it, minus the 72 launcher bar. **Occupants hand back verbs, not 
 shows them above MODIFY WIDGETS and SETTINGS. The action bar that used to carry them cost a
 quarter of the stage for two buttons. **Levelling lives in Settings** now — it is a
 calibration, not a driving control. The status strip is a quick-info bar (weather, SIM badge,
-clock); diagnostics moved to Settings.
+clock); diagnostics moved to Settings. It **watches the adapter link** and shows an
+`ADAPTER LOST — RECONNECTING` banner in the Stale amber when the transport is not connected —
+sampled on the clock beat, not a worker-thread event — so the strip stops claiming a live
+truck while the cards go Stale around it.
 
 Six traps already hit and worth not re-learning:
 

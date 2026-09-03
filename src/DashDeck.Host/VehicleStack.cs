@@ -39,6 +39,18 @@ public sealed class VehicleStack : IAsyncDisposable
     public SyntheticTransport Synthetic { get; }
 
     /// <summary>
+    /// Where the link to the adapter currently is, for the status strip to render.
+    /// </summary>
+    /// <remarks>
+    /// Read through the transport interface, not the synthetic type, so the strip watches
+    /// "the adapter" rather than "the simulator" -- the day a real OBDLink replaces the bottom
+    /// layer (ADR-0003) this keeps answering without change. Disconnection is a state, not an
+    /// error (see <see cref="DashDeck.Vehicle.TransportState"/>): the strip shows it, the
+    /// pipeline recovers on its own, and nothing above here needs a restart (constraint C5).
+    /// </remarks>
+    public DashDeck.Vehicle.TransportState LinkState => Synthetic.State;
+
+    /// <summary>
     /// The loaded catalog, so the card editor can offer what actually exists.
     /// </summary>
     /// <remarks>

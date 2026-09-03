@@ -10,6 +10,7 @@ using DashDeck.Host.Sensors;
 using DashDeck.Host.Settings;
 using DashDeck.Host.Stage;
 using DashDeck.Host.Theme;
+using DashDeck.Vehicle;
 
 namespace DashDeck.Host.ViewModels;
 
@@ -34,6 +35,35 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private string _requestRateText = "—— req/s";
+
+    /// <summary>
+    /// Where the adapter link is, sampled on the same beat as the clock.
+    /// </summary>
+    /// <remarks>
+    /// Polled in <see cref="Refresh"/> rather than driven by the transport's
+    /// <c>StateChanged</c> event, which fires on the vehicle worker thread. The whole shell
+    /// updates on a <see cref="DispatcherTimer"/> already, so reading the link there keeps
+    /// every UI mutation on the UI thread and needs no marshalling — and a second of latency
+    /// on a "lost" banner is nothing beside the seconds the readings themselves take to age
+    /// to Stale.
+    /// <para>
+    /// The strip used to say nothing when the cable came out: it read <c>SYNTHETIC F-150 /
+    /// SIMULATED</c> whether or not anything was answering, while the widgets correctly went
+    /// Stale around it (F1). Now the banner appears, in the same amber the widgets turn.
+    /// </para>
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsAdapterLost))]
+    [NotifyPropertyChangedFor(nameof(LinkStatusText))]
+    private TransportState _linkState = TransportState.Connected;
+
+    /// <summary>True whenever the adapter is anything but connected.</summary>
+    public bool IsAdapterLost => LinkState is not TransportState.Connected;
+
+    /// <summary>What the banner says. A fault is not the same as a pulled cable.</summary>
+    public string LinkStatusText => LinkState is TransportState.Faulted
+        ? "ADAPTER FAULT"
+        : "ADAPTER LOST — RECONNECTING";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsDashActive))]
@@ -538,6 +568,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         RequestRateText = measured > 0
             ? string.Create(CultureInfo.CurrentCulture, $"{measured:0.#} req/s")
             : "—— req/s";
+
+        // The banner the mockups have and the shell never showed. Sampled here, on the UI
+        // thread, so nothing has to marshal a worker-thread event onto it.
+        LinkState = _vehicle.LinkState;
     }
 }
 

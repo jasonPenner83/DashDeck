@@ -91,6 +91,31 @@
                                 Command="{Binding ToggleMenuCommand}"
                                 ToolTip="More" />
                     </StackPanel>
+
+                    <!--
+                        Adapter-lost banner. Overlays the quick-info content, because when the
+                        link is gone that IS the thing to glance at, and the weather can wait.
+                        The amber is the Stale colour (#E0B23C, QualityPalette.Stale) on
+                        purpose: the widgets go this colour when readings stop, and the banner
+                        naming the cause matches them rather than inventing a fifth signal
+                        colour. The kebab stays reachable to its right. Hidden entirely while
+                        connected, so it costs nothing in the ordinary case.
+                    -->
+                    <Border CornerRadius="6"
+                            Background="#22E0B23C"
+                            BorderBrush="#E0B23C"
+                            BorderThickness="1"
+                            Padding="12,4"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding IsAdapterLost, Converter={StaticResource BoolToVis}}">
+                        <TextBlock FontFamily="{StaticResource MonoFont}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="#E0B23C"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding LinkStatusText}" />
+                    </Border>
                 </Grid>
             </Border>
 

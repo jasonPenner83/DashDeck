@@ -1,6 +1,7 @@
 using DashDeck.Abstractions;
 using DashDeck.Core;
 using DashDeck.Simulator;
+using DashDeck.Vehicle;
 using DashDeck.Vehicle.Elm;
 using DashDeck.Vehicle.Recording;
 
@@ -73,6 +74,57 @@ public class EndToEndTests
         {
             await Task.Delay(50, TestCancellation.Token);
         }
+    }
+
+    [Fact]
+    public async Task Plugging_the_adapter_back_in_recovers_without_a_restart()
+    {
+        // Constraint C5: connect, disconnect, sleep and resume are non-events that recover on
+        // their own. The pipeline is built to survive a pulled cable — ElmAdapter turns the
+        // transport's IOException into a timeout rather than letting it kill the worker — but
+        // until now nothing plugged it back in and proved the reading comes alive again.
+        // Replug existed and no test exercised it (F2).
+        var faults = new SyntheticFaults(LatencyMs: 30, DropProbability: 0, SupportsMsCan: true);
+        var (service, transport) = await StartAsync(faults);
+        await using var _service = service;
+
+        // Watch the link's own account of itself, so the sequence is asserted, not assumed.
+        var states = new List<TransportState>();
+        transport.StateChanged += s => states.Add(s);
+
+        using var demand = service.Bus.Require("engine.rpm", SignalPriority.High, 10);
+
+        await WaitUntilAsync(() => service.Bus.Current("engine.rpm").IsUsable, TimeSpan.FromSeconds(5));
+        Assert.True(service.Bus.Current("engine.rpm").IsUsable, "engine.rpm never answered before the unplug.");
+
+        transport.Unplug();
+
+        await WaitUntilAsync(
+            () => service.Bus.Current("engine.rpm").Quality == SignalQuality.Stale,
+            TimeSpan.FromSeconds(5));
+        Assert.Equal(SignalQuality.Stale, service.Bus.Current("engine.rpm").Quality);
+        Assert.Equal(TransportState.Disconnected, transport.State);
+
+        // The reading recovers on its own — no re-Require, no restart, just the cable back in.
+        var staleAt = service.Bus.Current("engine.rpm").TimestampUtc;
+        transport.Replug();
+
+        await WaitUntilAsync(
+            () => service.Bus.Current("engine.rpm").Quality == SignalQuality.Simulated
+                  && service.Bus.Current("engine.rpm").TimestampUtc > staleAt,
+            TimeSpan.FromSeconds(5));
+
+        var recovered = service.Bus.Current("engine.rpm");
+        Assert.Equal(SignalQuality.Simulated, recovered.Quality);
+        Assert.True(recovered.IsUsable, "engine.rpm did not come back to life after the cable was replugged.");
+        Assert.True(recovered.TimestampUtc > staleAt, "engine.rpm recovered but with no fresh reading behind it.");
+
+        // The subscription is placed after StartAsync, which is where the first Connect
+        // fires, so the sequence it witnesses is the unplug and the recovery: Disconnected
+        // then Connected.
+        Assert.Equal(
+            [TransportState.Disconnected, TransportState.Connected],
+            states);
     }
 
     [Fact]
