@@ -84,7 +84,12 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
         // and the routing question stays open rather than being quietly violated.
         new StageOption("MAPS", "openstreetmap.org", () => new WebStageOccupant("MAPS", MapsUrl, display)),
 
-        new StageOption("STREMIO", "web.stremio.com", () => new WebStageOccupant("STREMIO", StremioUrl, display)),
+        // The desktop shell rather than web.stremio.com. Same reasoning as Nuvio: the real
+        // application is better than a browser tab of it, and the stage can host one now.
+        new StageOption(
+            AppLaunchSpec.Stremio.Name,
+            AppLaunchSpec.Stremio.IsInstalled ? "Stremio desktop" : "Stremio — not installed",
+            () => new AppStageOccupant(AppLaunchSpec.Stremio)),
 
         // Both are web players, and both gate playback behind Widevine â€” which WebView2 does
         // not ship. The occupant probes for it and says so rather than presenting a player
@@ -94,14 +99,8 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
         new StageOption("MUSIC", "music.apple.com", () => new WebStageOccupant("MUSIC", AppleMusicUrl, display)),
     ];
 
-    /// <summary>Nuvio's web build. Changed here, not hunted through the code.</summary>
-    public const string NuvioUrl = "https://app.nuvio.tv";
-
     /// <summary>Display-only map. Turn-by-turn is a separate, unanswered question (Q18).</summary>
     public const string MapsUrl = "https://www.openstreetmap.org";
-
-    /// <summary>Stremio's official web player. Answered 200 when wired, unlike Nuvio's.</summary>
-    public const string StremioUrl = "https://web.stremio.com/";
 
     /// <summary>Spotify's web player. Needs a login, which the WebView2 profile keeps.</summary>
     public const string SpotifyUrl = "https://open.spotify.com";

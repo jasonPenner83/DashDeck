@@ -129,6 +129,12 @@ public partial class App : Application
             _shell.IsStagePickerOpen = true;
         }
 
+        // The overflow menu, which is otherwise a tap on the status strip.
+        if (e.Args.Contains("--menu"))
+        {
+            _shell.ToggleMenuCommand.Execute(null);
+        }
+
         // Same again for edit mode, which is otherwise a 600 ms hold on a card.
         if (e.Args.Contains("--edit"))
         {
@@ -250,7 +256,7 @@ public partial class App : Application
     }
 
     /// <summary>The flags that take no value. Everything else consumes the argument after it.</summary>
-    private static readonly HashSet<string> Switches = ["--picker", "--edit", "--level"];
+    private static readonly HashSet<string> Switches = ["--picker", "--edit", "--level", "--menu"];
 
     /// <summary>
     /// Record a fatal error where it can be read later.

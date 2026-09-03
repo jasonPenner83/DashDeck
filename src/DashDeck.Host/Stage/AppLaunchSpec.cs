@@ -70,6 +70,29 @@ public sealed record AppLaunchSpec(
         ]);
 
     /// <summary>
+    /// Stremio's desktop shell.
+    /// </summary>
+    /// <remarks>
+    /// The Start Menu shortcut points at <c>stremio-shell-ng.exe</c>, not at anything named
+    /// plainly "stremio" — Stremio 5 ships its shell inside the Stremio Service folder, and
+    /// the only registered product is the service. A spec that had guessed at
+    /// <c>Stremio\stremio.exe</c> would have reported "not installed" to somebody who plainly
+    /// had it.
+    /// <para>
+    /// The version 4 path is kept as a fallback because it is where every older install lives.
+    /// </para>
+    /// </remarks>
+    public static AppLaunchSpec Stremio { get; } = new(
+        "STREMIO",
+        "Stremio desktop",
+        [
+            @"%LOCALAPPDATA%\Programs\StremioService\stremio-shell-ng.exe",
+            @"%LOCALAPPDATA%\Programs\LNV\Stremio-4\stremio.exe",
+            @"%ProgramFiles%\Stremio\stremio.exe",
+            @"%ProgramFiles(x86)%\Stremio\stremio.exe",
+        ]);
+
+    /// <summary>
     /// A known-simple Win32 app, for proving the mechanism.
     /// </summary>
     /// <remarks>
