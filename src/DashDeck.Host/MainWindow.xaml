@@ -221,10 +221,19 @@
                                            Margin="0,0,0,22"
                                            Text="ON THE STAGE" />
 
+
+                                <!--
+                                    Three columns, and it scrolls. Two columns clipped the
+                                    ninth option off the bottom of the stage the moment
+                                    Spotify and Apple Music were added — a picker that hides
+                                    the thing you are looking for is worse than no picker.
+                                    Three fits twelve without scrolling; the ScrollViewer is
+                                    for the thirteenth.
+                                -->
                                 <ItemsControl ItemsSource="{Binding StageOptions}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <UniformGrid Columns="2" />
+                                            <UniformGrid Columns="3" />
                                         </ItemsPanelTemplate>
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>

@@ -76,6 +76,13 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
         new StageOption("MAPS", "openstreetmap.org", () => new WebStageOccupant("MAPS", MapsUrl)),
 
         new StageOption("STREMIO", "web.stremio.com", () => new WebStageOccupant("STREMIO", StremioUrl)),
+
+        // Both are web players, and both gate playback behind Widevine — which WebView2 does
+        // not ship. The occupant probes for it and says so rather than presenting a player
+        // that looks fine and refuses to make a sound.
+        new StageOption("SPOTIFY", "open.spotify.com", () => new WebStageOccupant("SPOTIFY", SpotifyUrl)),
+
+        new StageOption("MUSIC", "music.apple.com", () => new WebStageOccupant("MUSIC", AppleMusicUrl)),
     ];
 
     /// <summary>Nuvio's web build. Changed here, not hunted through the code.</summary>
@@ -86,6 +93,12 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
 
     /// <summary>Stremio's official web player. Answered 200 when wired, unlike Nuvio's.</summary>
     public const string StremioUrl = "https://web.stremio.com/";
+
+    /// <summary>Spotify's web player. Needs a login, which the WebView2 profile keeps.</summary>
+    public const string SpotifyUrl = "https://open.spotify.com";
+
+    /// <summary>Apple Music on the web. Same login story, same DRM question.</summary>
+    public const string AppleMusicUrl = "https://music.apple.com";
 
     private static IStageOccupant? CreateVideo(string? videoPath)
     {

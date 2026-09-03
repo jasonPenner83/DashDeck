@@ -34,6 +34,18 @@ public sealed class WebStageOccupant : IStageOccupant
     /// <inheritdoc />
     public string Name { get; }
 
+    /// <summary>
+    /// Whether this page can play protected content, once it has been asked.
+    /// </summary>
+    /// <remarks>
+    /// <b>WebView2 does not ship Widevine</b>, and Spotify and Apple Music both gate playback
+    /// behind it. The failure is silent and cruel: the player loads, the artwork appears, the
+    /// controls respond, and pressing play does nothing. Asking the page directly turns that
+    /// into something the dash can say out loud, which is the same rule every vehicle signal
+    /// follows — a confidently broken screen is worse than one that admits it.
+    /// </remarks>
+    public string DrmStatus { get; private set; } = "unchecked";
+
     /// <inheritdoc />
     public FrameworkElement CreateView()
     {
@@ -49,7 +61,70 @@ public sealed class WebStageOccupant : IStageOccupant
             Source = _uri,
         };
 
+        _view.CoreWebView2InitializationCompleted += (_, e) =>
+        {
+            if (e.IsSuccess && _view?.CoreWebView2 is { } core)
+            {
+                core.WebMessageReceived += (_, message) =>
+                {
+                    if (message.TryGetWebMessageAsString() is { } text
+                        && text.StartsWith("drm:", StringComparison.Ordinal))
+                    {
+                        DrmStatus = text["drm:".Length..];
+                    }
+                };
+            }
+        };
+
+        _view.NavigationCompleted += async (_, _) => await ProbeDrmAsync().ConfigureAwait(true);
+
         return _view;
+    }
+
+    /// <summary>
+    /// Ask the page whether it can decrypt Widevine.
+    /// </summary>
+    /// <remarks>
+    /// <c>requestMediaKeySystemAccess</c> is the same call a streaming site makes before it
+    /// decides whether to offer playback, so this is the site's own question asked early. It
+    /// rejects rather than throwing when the CDM is absent, which is why the script resolves
+    /// to a word instead of relying on an exception crossing the bridge.
+    /// </remarks>
+    private async Task ProbeDrmAsync()
+    {
+        if (_disposed || _view?.CoreWebView2 is null)
+        {
+            return;
+        }
+
+        // The answer is posted back rather than returned. ExecuteScriptAsync does not await
+        // promises — it serialises whatever the expression evaluates to, so an async function
+        // comes back as the JSON of a pending Promise, which is "{}". That looked like a
+        // failed probe and was actually a working probe reported wrongly.
+        const string Script = """
+            (async () => {
+              const say = s => window.chrome.webview.postMessage('drm:' + s);
+              try {
+                await navigator.requestMediaKeySystemAccess('com.widevine.alpha', [{
+                  initDataTypes: ['cenc'],
+                  audioCapabilities: [{ contentType: 'audio/mp4; codecs="mp4a.40.2"' }]
+                }]);
+                say('widevine');
+              } catch (e) {
+                say('none');
+              }
+            })();
+            """;
+
+        try
+        {
+            await _view.ExecuteScriptAsync(Script).ConfigureAwait(true);
+        }
+        catch (Exception)
+        {
+            // A probe that fails tells us nothing and must not take the occupant with it.
+            DrmStatus = "unknown";
+        }
     }
 
     /// <summary>
@@ -79,7 +154,7 @@ public sealed class WebStageOccupant : IStageOccupant
 
         return core is null
             ? $"web=initialising url={_uri}"
-            : $"web=ready title=\"{core.DocumentTitle}\" url={core.Source}";
+            : $"web=ready title=\"{core.DocumentTitle}\" url={core.Source} drm={DrmStatus}";
     }
 
     /// <inheritdoc />
