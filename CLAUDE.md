@@ -90,6 +90,11 @@ Also worth knowing: `MeasuredRequestsPerSecond` — the `req/s` on the status st
 adapter's measured **capability**, not the achieved load. It is not a way to check whether
 something is consuming budget, and reading it as one is an easy mistake to make twice.
 
+One open question worth knowing before touching the stage: **audio started on an occupant
+has no defined lifetime** (F22). Leaving via the nav keeps it playing, going into Settings
+keeps it playing but hidden, and picking another occupant kills the process mid-song. Three
+lifecycles, three answers, none of them chosen.
+
 **Next: the component host** — discovery, manifest, lifecycle — so cards stop being built by
 the shell and start arriving from `plugins/`. ADR-0015 settled the instance format and the
 activation rule it will have to honour; what is missing is a *source* other than a catalog
