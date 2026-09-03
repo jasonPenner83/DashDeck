@@ -73,6 +73,61 @@ public sealed class ProcessJob : IDisposable
         return IsUsable && NativeMethods.AssignProcessToJobObject(_handle, process.Handle);
     }
 
+    /// <summary>
+    /// Every process currently in the job, the launched one and its children.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is how a window is found.</b> <c>Process.MainWindowHandle</c> looks only at the
+    /// process it was given, and a launcher that starts the real program in a child never gets
+    /// one — jpackage applications do exactly that, and NuvioDesktop is one. Watching the
+    /// launcher's handle stay zero for twenty-five seconds while a perfectly good window sat
+    /// on its child is what sent the occupant into its "running outside" fallback.
+    /// <para>
+    /// The job already had to exist for cleanup. Asking it which processes it holds costs
+    /// nothing and is exact, where walking a parent-process tree is neither.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<uint> ProcessIds()
+    {
+        if (_handle == IntPtr.Zero)
+        {
+            return [];
+        }
+
+        // Two counts and then the ids. Sized for far more processes than an application should
+        // ever have; a truncated answer is still a usable one, because any of the ids will do.
+        const int Capacity = 256;
+        var size = (sizeof(uint) * 2) + (IntPtr.Size * Capacity);
+        var buffer = Marshal.AllocHGlobal(size);
+
+        try
+        {
+            if (!NativeMethods.QueryInformationJobObject(
+                    _handle,
+                    NativeMethods.JobObjectBasicProcessIdList,
+                    buffer,
+                    (uint)size,
+                    IntPtr.Zero))
+            {
+                return [];
+            }
+
+            var returned = (int)(uint)Marshal.ReadInt32(buffer, sizeof(uint));
+            var ids = new List<uint>(returned);
+
+            for (var i = 0; i < Math.Min(returned, Capacity); i++)
+            {
+                ids.Add((uint)Marshal.ReadIntPtr(buffer, (sizeof(uint) * 2) + (i * IntPtr.Size)));
+            }
+
+            return ids;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
+    }
+
     /// <inheritdoc />
     public void Dispose()
     {

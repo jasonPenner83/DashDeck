@@ -45,10 +45,11 @@ public sealed class AppStageOccupant : IStageOccupant
 {
     /// <summary>How long to wait for a window before giving up on adoption.</summary>
     /// <remarks>
-    /// A JVM application can take several seconds to show anything. Ten is generous enough not
-    /// to fail a slow cold start and short enough that a genuinely broken launch says so.
+    /// A JVM application can take several seconds to show anything — NuvioDesktop showed its
+    /// first window at about six on a warm start, and a cold one is slower. Twenty is generous
+    /// enough not to fail that and short enough that a genuinely broken launch says so.
     /// </remarks>
-    private static readonly TimeSpan WindowTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan WindowTimeout = TimeSpan.FromSeconds(20);
 
     private readonly AppLaunchSpec _spec;
     private readonly ProcessJob _job = new();
@@ -218,15 +219,21 @@ public sealed class AppStageOccupant : IStageOccupant
             return;
         }
 
-        if (_process.HasExited)
+        // A launcher exiting is not a failure if it left children behind — that is precisely
+        // what a jpackage stub does. The job is the authority on whether anything is still
+        // running, because the launcher's own handle stops being informative the moment it
+        // hands off.
+        if (_process.HasExited && _job.ProcessIds().Count == 0)
         {
             _watch.Stop();
             Move(HostedAppState.Failed);
             return;
         }
 
-        _process.Refresh();
-        var window = _process.MainWindowHandle;
+        // Across every process in the job, not just the one we started. A launcher that starts
+        // the real program in a child never reports a main window of its own, and jpackage
+        // applications — NuvioDesktop among them — are built exactly that way.
+        var window = WindowFinder.Find(_job.ProcessIds());
 
         if (window == IntPtr.Zero)
         {

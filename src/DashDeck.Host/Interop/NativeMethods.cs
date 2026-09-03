@@ -95,7 +95,48 @@ internal static class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool CloseHandle(IntPtr handle);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool QueryInformationJobObject(
+        IntPtr job,
+        int infoClass,
+        IntPtr info,
+        uint length,
+        IntPtr returnLength);
+
     public const int JobObjectExtendedLimitInformation = 9;
+
+    /// <summary>
+    /// Every process currently in the job.
+    /// </summary>
+    /// <remarks>
+    /// The job was created to guarantee cleanup, and it turns out to answer a second question
+    /// for free: <em>which processes are this application</em>. A launcher that starts the
+    /// real program in a child — which is what jpackage does, and what defeated
+    /// <c>Process.MainWindowHandle</c> — still has both under the same job.
+    /// </remarks>
+    public const int JobObjectBasicProcessIdList = 3;
+
+    // ---- Enumerating windows, to find one the job owns ----
+
+    public delegate bool EnumWindowsProc(IntPtr window, IntPtr parameter);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool EnumWindows(EnumWindowsProc callback, IntPtr parameter);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool IsWindowVisible(IntPtr window);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr GetParent(IntPtr window);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowTextLengthW", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern int GetWindowTextLength(IntPtr window);
 
     /// <summary>Kill every process in the job when the last handle to it closes.</summary>
     public const uint JobObjectLimitKillOnJobClose = 0x2000;
