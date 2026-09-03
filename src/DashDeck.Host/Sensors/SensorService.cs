@@ -1,4 +1,4 @@
-using DashDeck.Abstractions;
+﻿using DashDeck.Abstractions;
 
 namespace DashDeck.Host.Sensors;
 
@@ -30,8 +30,8 @@ public interface IDeviceSensors : IDisposable
 /// </para>
 /// <para>
 /// A truck-supplied value is declared through the arbiter like any other signal and costs
-/// budget accordingly. A tablet-supplied one costs nothing — reading a magnetometer is not
-/// traffic on the OBD-II link — which is precisely why device sensors are a separate catalog
+/// budget accordingly. A tablet-supplied one costs nothing â€” reading a magnetometer is not
+/// traffic on the OBD-II link â€” which is precisely why device sensors are a separate catalog
 /// rather than more rows in the signal one.
 /// </para>
 /// </remarks>
@@ -62,7 +62,7 @@ public sealed class SensorService : IDisposable
         {
             // Checked against the catalog, not attempted. The arbiter throws on an unknown
             // signal id by design, so an unguarded Require would take the dash down the
-            // moment a sensor was read — and none of these signals exist yet.
+            // moment a sensor was read â€” and none of these signals exist yet.
             if (definition.Prefer is { } prefer && signals.KnownSignals.Contains(prefer))
             {
                 _demands[definition.Id] =
@@ -70,6 +70,9 @@ public sealed class SensorService : IDisposable
             }
         }
     }
+
+    /// <summary>The loaded sensor catalog, so a card editor can offer what exists.</summary>
+    public SensorCatalog Catalog => _catalog;
 
     /// <summary>What "level, pointing forward" currently means for this mount.</summary>
     public MountReference Reference { get; private set; }
@@ -86,7 +89,7 @@ public sealed class SensorService : IDisposable
     /// <remarks>
     /// The truck wins whenever it has a usable answer. Its value is measured by the vehicle,
     /// about the vehicle, and unaffected by whether the tablet is in its cradle or on the
-    /// passenger seat — which is the entire argument, and the reason the fallback is labelled
+    /// passenger seat â€” which is the entire argument, and the reason the fallback is labelled
     /// rather than silent.
     /// </remarks>
     public SensorReading Read(string sensorId)
@@ -143,3 +146,4 @@ public sealed class SensorService : IDisposable
         _device.Dispose();
     }
 }
+

@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **161 tests green** — 47 engine, 114 shell.
+(ADR-0010). **166 tests green** — 47 engine, 119 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -36,7 +36,10 @@ compass reads truck-first and falls back to the tablet's own sensors, saying whi
 ADR-0017) — and anything measured against the mount refuses to render until it is levelled.
 Below it, the **dash is a user-arranged list of cards**
 (ADR-0015) loaded from `dashboard.json` — add, remove, reorder, resize, and pick each card's
-signal, style, unit, rate and format. Cards flow into rows and rows into pages that snap
+value, style, unit, rate and format. A card names a **`source`** (B4): a vehicle `Signal`
+from the catalog, or a tablet `Sensor` — heading, pitch, roll, G. Sensor cards cost no request
+budget, and their footer says where they answered from rather than an allocated rate.
+Cards flow into rows and rows into pages that snap
 sideways; **only the visible page declares signals.** Settings and the card editor are
 full-screen views that take all six bands and hide the stage, which keeps running (Q17).
 
@@ -166,4 +169,5 @@ code.
 - Open questions go in [`docs/04-open-questions.md`](docs/04-open-questions.md) rather
   than being silently resolved.
 - When a decision gets made, write the ADR in the same change that implements it.
+
 

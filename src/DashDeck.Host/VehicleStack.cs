@@ -1,4 +1,4 @@
-using DashDeck.Abstractions;
+﻿using DashDeck.Abstractions;
 using DashDeck.Core;
 using DashDeck.Core.Catalog;
 using DashDeck.Simulator;
@@ -15,8 +15,8 @@ namespace DashDeck.Host;
 /// Builds and owns the vehicle pipeline the shell renders.
 /// </summary>
 /// <remarks>
-/// Deliberately the same pipeline the debug console drives — synthetic transport, ELM
-/// adapter, catalog, arbiter, state bus — with nothing shell-specific in it. The shell is
+/// Deliberately the same pipeline the debug console drives â€” synthetic transport, ELM
+/// adapter, catalog, arbiter, state bus â€” with nothing shell-specific in it. The shell is
 /// just another consumer of the state bus, which is the property that lets a real adapter
 /// replace the bottom layer later without anything above it changing (ADR-0003).
 /// </remarks>
@@ -43,13 +43,13 @@ public sealed class VehicleStack : IAsyncDisposable
     /// </summary>
     /// <remarks>
     /// Exposed for one purpose: a picker cannot offer signals it cannot enumerate, and
-    /// <see cref="IVehicleSignals.KnownSignals"/> gives ids alone — no name, no unit, no
+    /// <see cref="IVehicleSignals.KnownSignals"/> gives ids alone â€” no name, no unit, no
     /// sensible default rate, which makes for a list of <c>engine.mafRate</c> rather than
     /// one a person can read.
     /// <para>
     /// The UI still never sees a <c>SignalDefinition</c>. It is projected into
-    /// <see cref="Dash.SignalChoice"/> at the boundary, which deliberately drops mode, PID,
-    /// bus and the decode spec — components subscribe to named signals and know nothing
+    /// <see cref="Dash.ValueChoice"/> at the boundary, which deliberately drops mode, PID,
+    /// bus and the decode spec â€” components subscribe to named signals and know nothing
     /// about PIDs, and an editor that picks signals is held to the same line.
     /// </para>
     /// </remarks>
@@ -58,7 +58,7 @@ public sealed class VehicleStack : IAsyncDisposable
     /// <summary>Which scripted drive is running.</summary>
     public string DriveName { get; }
 
-    /// <summary>Measured, not claimed — the number Q12 exists to replace with a real one.</summary>
+    /// <summary>Measured, not claimed â€” the number Q12 exists to replace with a real one.</summary>
     public double MeasuredRequestsPerSecond => _service.MeasuredRequestsPerSecond;
 
     /// <summary>
@@ -109,3 +109,4 @@ public sealed class VehicleStack : IAsyncDisposable
             "Could not find catalog/signals.obd2-standard.json by walking up from the binary. " +
             "Run from inside the repository.");
 }
+

@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashDeck.Abstractions;
@@ -12,7 +12,7 @@ namespace DashDeck.Host.ViewModels;
 /// <remarks>
 /// Replaces the six widgets the shell used to construct in its own constructor (F3, in part).
 /// The cards now come from a file and go back to it, which is most of what the component host
-/// will need to do later — it will add <em>where a card comes from</em>, and nothing here
+/// will need to do later â€” it will add <em>where a card comes from</em>, and nothing here
 /// assumes the answer is always "a built-in signal card".
 /// <para>
 /// <b>Only the visible page holds signal declarations.</b> That is the rule that makes "a
@@ -23,8 +23,8 @@ namespace DashDeck.Host.ViewModels;
 /// </remarks>
 public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 {
-    private readonly IVehicleSignals _signals;
-    private readonly IReadOnlyList<SignalChoice> _choices;
+    private readonly CardValueFactory _values;
+    private readonly IReadOnlyList<ValueChoice> _choices;
     private readonly IDashboardStore _store;
     private readonly List<WidgetCardViewModel> _cards = [];
     private readonly AddCardSlot _addSlot = new();
@@ -46,11 +46,11 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     private CardEditorViewModel? _editor;
 
     public DashboardViewModel(
-        IVehicleSignals signals,
-        IReadOnlyList<SignalChoice> choices,
+        CardValueFactory values,
+        IReadOnlyList<ValueChoice> choices,
         IDashboardStore? store = null)
     {
-        _signals = signals;
+        _values = values;
         _choices = choices;
         _store = store ?? new FileDashboardStore();
 
@@ -60,7 +60,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
         foreach (var spec in layout.Cards)
         {
-            _cards.Add(new WidgetCardViewModel(signals, spec, Find(spec.SignalId)));
+            _cards.Add(new WidgetCardViewModel(values, spec, Find(spec)));
         }
 
         _loaded = true;
@@ -68,7 +68,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Every signal the loaded catalog defines, for the editor.</summary>
-    public IReadOnlyList<SignalChoice> Choices => _choices;
+    public IReadOnlyList<ValueChoice> Choices => _choices;
 
     /// <summary>The pages, as rendered. Rebuilt whenever anything about the layout changes.</summary>
     public ObservableCollection<CardPage> Pages { get; } = [];
@@ -93,7 +93,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     /// </summary>
     /// <remarks>
     /// Setting it re-packs: a three-band stage leaves three widget rows rather than two, so
-    /// the same cards page differently. This is also what finally answers F9 — the sixth band
+    /// the same cards page differently. This is also what finally answers F9 â€” the sixth band
     /// stopped being spare because rows are no longer fixed at two.
     /// </remarks>
     public int WidgetBands
@@ -124,7 +124,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     /// <summary>Add a card and open its editor straight away.</summary>
     /// <remarks>
     /// A card added blank would be a card bound to nothing, so it starts on the first signal
-    /// not already on the dash — which is usually the one being reached for, and is never
+    /// not already on the dash â€” which is usually the one being reached for, and is never
     /// wrong enough to matter since the editor opens on top of it.
     /// </remarks>
     [RelayCommand]
@@ -139,10 +139,11 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         }
 
         var card = new WidgetCardViewModel(
-            _signals,
+            _values,
             new CardSpec
             {
                 SignalId = choice.Id,
+                Source = choice.Source.ToString(),
                 RateHz = choice.DefaultRateHz,
                 Format = SuggestFormat(choice),
             },
@@ -193,7 +194,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
         foreach (var spec in DashboardLayout.Default().Cards)
         {
-            _cards.Add(new WidgetCardViewModel(_signals, spec, Find(spec.SignalId)));
+            _cards.Add(new WidgetCardViewModel(_values, spec, Find(spec)));
         }
 
         CloseEditor();
@@ -270,7 +271,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     /// </remarks>
     public void CardEdited(WidgetCardViewModel card, CardSpec spec)
     {
-        card.Apply(spec, Find(spec.SignalId));
+        card.Apply(spec, Find(spec));
         Save();
 
         // A width change re-flows everything after it, so this is not merely cosmetic.
@@ -291,11 +292,20 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         _cards.Clear();
     }
 
-    private SignalChoice? Find(string signalId) =>
-        _choices.FirstOrDefault(c => string.Equals(c.Id, signalId, StringComparison.Ordinal));
+    /// <summary>
+    /// Find what a card is bound to, matching the source as well as the id.
+    /// </summary>
+    /// <remarks>
+    /// Both, not just the id. The sensor catalog already names <c>vehicle.heading</c> as the
+    /// signal it would prefer, so the day that PID is found the same id means two different
+    /// things in two catalogs — matching on the id alone would silently hand a card the wrong
+    /// one, and it would look like the value had simply started reading oddly.
+    /// </remarks>
+    private ValueChoice? Find(CardSpec spec) => _choices.FirstOrDefault(c =>
+        c.Source == spec.ParsedSource && string.Equals(c.Id, spec.SignalId, StringComparison.Ordinal));
 
     /// <summary>A starting format that suits the signal, so a new card is not born ugly.</summary>
-    private static string SuggestFormat(SignalChoice choice) =>
+    private static string SuggestFormat(ValueChoice choice) =>
         choice.Unit is "L/h" or "g/s" ? "0.0" : "0";
 
     private void Move(WidgetCardViewModel? card, int delta)
@@ -325,7 +335,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     /// Rebuild the pages from the ordered cards.
     /// </summary>
     /// <remarks>
-    /// Everything that can change the shape of the dash funnels through here — adding,
+    /// Everything that can change the shape of the dash funnels through here â€” adding,
     /// removing, reordering, resizing a card, entering edit mode, and the stage claiming a
     /// different number of bands. One path means the activation rule below is applied exactly
     /// once per change and cannot be forgotten at a call site.
@@ -412,3 +422,6 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     private void Save() =>
         _store.Save(new DashboardLayout { Cards = [.. _cards.Select(c => c.Spec)] });
 }
+
+
+

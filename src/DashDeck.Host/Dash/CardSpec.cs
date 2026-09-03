@@ -2,6 +2,21 @@ using System.Text.Json.Serialization;
 
 namespace DashDeck.Host.Dash;
 
+/// <summary>Which catalog a card's id belongs to.</summary>
+/// <remarks>
+/// Two catalogs, deliberately kept apart (ADR-0017): vehicle signals cost request budget and
+/// are scheduled by the arbiter; tablet sensors cost nothing and are polled. A card has to say
+/// which it means, because the same id can legitimately appear in both.
+/// </remarks>
+public enum CardSource
+{
+    /// <summary>A named vehicle signal, declared through the arbiter.</summary>
+    Signal,
+
+    /// <summary>A tablet sensor, resolved truck-first and costing no budget.</summary>
+    Sensor,
+}
+
 /// <summary>How a card draws its value.</summary>
 public enum CardStyle
 {
@@ -36,9 +51,31 @@ public sealed record CardSpec
     [JsonPropertyName("id")]
     public string Id { get; init; } = Guid.NewGuid().ToString("N")[..8];
 
-    /// <summary>Catalog signal id, e.g. <c>vehicle.speed</c>.</summary>
+    /// <summary>Catalog id, e.g. <c>vehicle.speed</c> or <c>attitude.pitch</c>.</summary>
     [JsonPropertyName("signal")]
     public string SignalId { get; init; } = "";
+
+    /// <summary>
+    /// Which catalog <see cref="SignalId"/> belongs to: <c>Signal</c> or <c>Sensor</c>.
+    /// </summary>
+    /// <remarks>
+    /// Explicit rather than inferred from the id, and that is not fussiness. The sensor
+    /// catalog already names <c>vehicle.heading</c> as the signal it would prefer, so the day
+    /// a Ford PID is found the same id exists in both catalogs meaning two different things —
+    /// one a device reading, one a vehicle one. A card that guessed from the prefix would
+    /// quietly change source underneath somebody.
+    /// <para>
+    /// Defaults to <c>Signal</c>, so every dashboard written before sensors could be carded
+    /// still loads and still means what it meant.
+    /// </para>
+    /// </remarks>
+    [JsonPropertyName("source")]
+    public string Source { get; init; } = "Signal";
+
+    /// <summary>The source, parsed. Unrecognised falls to Signal.</summary>
+    [JsonIgnore]
+    public CardSource ParsedSource =>
+        Enum.TryParse<CardSource>(Source, ignoreCase: true, out var source) ? source : CardSource.Signal;
 
     /// <summary>The caption. Empty means "use the catalog's name", which is usually right.</summary>
     [JsonPropertyName("label")]

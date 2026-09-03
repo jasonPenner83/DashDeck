@@ -116,7 +116,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // a null reference on startup: choosing the opening stage re-syncs the widget bands
         // and so needs this to exist, and StageBands reads IsCardEditorOpen, which reads this.
         // It starts on its own default and SyncWidgetBands settles it below.
-        Dashboard = new DashboardViewModel(vehicle.Signals, SignalChoice.From(vehicle.Catalog));
+        Dashboard = new DashboardViewModel(
+            new CardValueFactory(vehicle.Signals, Sensors),
+            ValueChoice.All(vehicle.Catalog, Sensors.Catalog));
 
         // Start on whatever was asked for at launch, and otherwise on the clock. The stage
         // is never empty now: an idle dash showing the time is more use than one announcing
@@ -507,3 +509,5 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             : "—— req/s";
     }
 }
+
+

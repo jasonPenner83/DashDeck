@@ -479,7 +479,7 @@
                            Style="{StaticResource MicroText}"
                            TextTrimming="CharacterEllipsis"
                            Visibility="{Binding IsBar, Converter={StaticResource NotBoolToVisToken}}"
-                           Text="{Binding RateText}" />
+                           Text="{Binding FooterText}" />
             </Grid>
         </Border>
     </DataTemplate>

@@ -1,5 +1,6 @@
-using DashDeck.Abstractions;
+﻿using DashDeck.Abstractions;
 using DashDeck.Host.Dash;
+using DashDeck.Host.Sensors;
 using DashDeck.Host.ViewModels;
 
 namespace DashDeck.Host.Tests;
@@ -14,7 +15,7 @@ namespace DashDeck.Host.Tests;
 /// twenty cards spread over four pages would degrade the six in front of you to pay for
 /// fourteen nobody can see.
 /// <para>
-/// The status strip cannot be used to check this by eye, incidentally — its req/s figure is
+/// The status strip cannot be used to check this by eye, incidentally â€” its req/s figure is
 /// the adapter's measured <em>capability</em>, not the load, so it barely moves either way.
 /// That is exactly why this is a test.
 /// </para>
@@ -28,17 +29,28 @@ public sealed class DashboardViewModelTests
         "engine.throttlePosition", "engine.mafRate", "engine.intakeAirTemp",
     ];
 
-    private static IReadOnlyList<SignalChoice> Choices() =>
-        [.. Ids.Select(id => new SignalChoice(id, id, "%", 1, 0, 100))];
+    private static IReadOnlyList<ValueChoice> Choices() =>
+        [.. Ids.Select(id => new ValueChoice(id, id, "%", 1, 0, 100, CardSource.Signal))];
 
     private static DashboardLayout LayoutOf(int cards) => new()
     {
         Cards = [.. Ids.Take(cards).Select(id => new CardSpec { Id = id, SignalId = id })],
     };
 
+    /// <summary>
+    /// A factory over the fake bus and an empty sensor catalog.
+    /// </summary>
+    /// <remarks>
+    /// Empty rather than absent: these tests are about signal cards and the budget they spend,
+    /// and a sensor catalog with nothing in it keeps that the only variable.
+    /// </remarks>
+    private static CardValueFactory Factory(FakeBus bus) => new(
+        bus,
+        new SensorService(SensorCatalog.Empty, bus, SystemClock.Instance, new NoDevice(), new NoMount()));
+
     private static DashboardViewModel Build(FakeBus bus, MemoryStore store, int bands = 2)
     {
-        var dashboard = new DashboardViewModel(bus, Choices(), store);
+        var dashboard = new DashboardViewModel(Factory(bus), Choices(), store);
         dashboard.WidgetBands = bands;
         return dashboard;
     }
@@ -62,7 +74,7 @@ public sealed class DashboardViewModelTests
 
         dashboard.GoToPageCommand.Execute(1);
 
-        // Three cards on the second page, and — the point of the test — the six from the
+        // Three cards on the second page, and â€” the point of the test â€” the six from the
         // first page have gone rather than lingering.
         Assert.Equal(3, bus.LiveDemands);
         Assert.DoesNotContain("vehicle.speed", bus.Declared);
@@ -156,7 +168,7 @@ public sealed class DashboardViewModelTests
     /// <summary>
     /// Found by using it: a shipped card labelled RPM was pointed at coolant and kept saying
     /// RPM above a temperature. A label naming the wrong quantity is worse than one that has
-    /// to be retyped, and an empty label is never nameless — it falls back to the signal.
+    /// to be retyped, and an empty label is never nameless â€” it falls back to the signal.
     /// </summary>
     [Fact]
     public void Changing_a_card_signal_drops_a_label_that_named_the_old_one()
@@ -172,7 +184,7 @@ public sealed class DashboardViewModelTests
 
         var editor = new CardEditorViewModel(dashboard, card, Choices());
         editor.ChooseCommand.Execute(
-            editor.Signals.Single(c => (string)c.Value == "engine.coolantTemp"));
+            editor.Signals.Single(c => ((ValueChoice)c.Value).Id == "engine.coolantTemp"));
 
         Assert.Equal("engine.coolantTemp", card.Spec.SignalId);
         Assert.Empty(card.Spec.Label);
@@ -252,3 +264,29 @@ public sealed class DashboardViewModelTests
         }
     }
 }
+
+
+/// <summary>Stand-ins so a dashboard test never touches real hardware or the real mount file.</summary>
+file sealed class NoDevice : IDeviceSensors
+{
+    public bool Has(SensorDefinition definition) => false;
+
+    public SensorReading Read(SensorDefinition definition, MountReference reference) =>
+        SensorReading.None("NO SENSOR");
+
+    public MountReference? CaptureReference(DateTimeOffset nowUtc) => null;
+
+    public void Dispose()
+    {
+    }
+}
+
+file sealed class NoMount : IMountReferenceStore
+{
+    public MountReference Load() => new();
+
+    public void Save(MountReference reference)
+    {
+    }
+}
+

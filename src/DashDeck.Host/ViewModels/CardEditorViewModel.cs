@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -42,7 +42,7 @@ public sealed partial class OptionChip : ObservableObject
     /// <summary>The value this chip selects.</summary>
     public object Value { get; }
 
-    /// <summary>False for an option this signal cannot offer — a bar with no range to fill.</summary>
+    /// <summary>False for an option this signal cannot offer â€” a bar with no range to fill.</summary>
     public bool IsEnabled { get; }
 
     [ObservableProperty]
@@ -54,7 +54,7 @@ public sealed partial class OptionChip : ObservableObject
 /// </summary>
 /// <remarks>
 /// <b>There is no Cancel, and every change applies at once.</b> The rest of the app already
-/// works this way — a theme or an accent is written the moment it changes, because a dash is
+/// works this way â€” a theme or an accent is written the moment it changes, because a dash is
 /// closed by having its power pulled and a setting that survives only a graceful shutdown is
 /// not a setting (ADR-0014). A card editor that hoarded changes behind an OK button would be
 /// the one place that lost work to an ignition cut.
@@ -66,13 +66,13 @@ public sealed partial class OptionChip : ObservableObject
 public sealed partial class CardEditorViewModel : ObservableObject
 {
     private readonly DashboardViewModel _dashboard;
-    private readonly IReadOnlyList<SignalChoice> _choices;
+    private readonly IReadOnlyList<ValueChoice> _choices;
     private bool _suspendApply;
 
     public CardEditorViewModel(
         DashboardViewModel dashboard,
         WidgetCardViewModel card,
-        IReadOnlyList<SignalChoice> choices)
+        IReadOnlyList<ValueChoice> choices)
     {
         _dashboard = dashboard;
         _choices = choices;
@@ -126,7 +126,7 @@ public sealed partial class CardEditorViewModel : ObservableObject
     /// </summary>
     /// <remarks>
     /// The one number in this editor with a consequence beyond the card itself. Everything on
-    /// the dash shares one serialised link, so a rate is a claim on everyone else — showing
+    /// the dash shares one serialised link, so a rate is a claim on everyone else â€” showing
     /// what was asked for beside what the arbiter actually allocated is the same honesty the
     /// debug console prints its plan for.
     /// </remarks>
@@ -140,7 +140,7 @@ public sealed partial class CardEditorViewModel : ObservableObject
 
             return string.Create(
                 CultureInfo.CurrentCulture,
-                $"Asking for {requested:0.##} Hz on a link every card shares. {Card.RateText}.");
+                $"Asking for {requested:0.##} Hz on a link every card shares. {Card.FooterText}.");
         }
     }
 
@@ -157,7 +157,7 @@ public sealed partial class CardEditorViewModel : ObservableObject
 
         spec = chip.Group switch
         {
-            "signal" => RespecForSignal(spec, (string)chip.Value),
+            "signal" => RespecForValue(spec, (ValueChoice)chip.Value),
             "width" => spec with { Width = (int)chip.Value },
             "style" => spec with { Style = ((CardStyle)chip.Value).ToString() },
             "unit" => spec with { Unit = ((DisplayUnit)chip.Value).ToString() },
@@ -195,30 +195,24 @@ public sealed partial class CardEditorViewModel : ObservableObject
     /// The rate, the unit and possibly the style all belonged to the old signal, so they are
     /// re-derived rather than carried over. Keeping a 4 Hz request when the card is switched
     /// from speed to ambient air temperature would silently spend the budget on a value that
-    /// changes once a minute; keeping °F on a value now measured in km/h would just be wrong.
+    /// changes once a minute; keeping Â°F on a value now measured in km/h would just be wrong.
     /// <para>
     /// <b>The label goes too</b>, and that is worth the annoyance of retyping a good one. It
-    /// was kept at first, on the reasoning that a hand-typed caption is worth preserving —
+    /// was kept at first, on the reasoning that a hand-typed caption is worth preserving â€”
     /// which produced a card reading <c>RPM</c> above a coolant temperature within minutes of
     /// the feature being used. A label that names the wrong quantity is the exact failure this
     /// project refuses everywhere else, and the card is never left nameless: an empty label
     /// falls back to the new signal's own name.
     /// </para>
     /// </remarks>
-    private CardSpec RespecForSignal(CardSpec spec, string signalId)
+    private CardSpec RespecForValue(CardSpec spec, ValueChoice choice)
     {
-        var choice = _choices.FirstOrDefault(c => string.Equals(c.Id, signalId, StringComparison.Ordinal));
-
-        if (choice is null)
-        {
-            return spec with { SignalId = signalId };
-        }
-
         var keepStyle = spec.ParsedStyle is CardStyle.Bar && choice.HasRange;
 
         return spec with
         {
-            SignalId = signalId,
+            SignalId = choice.Id,
+            Source = choice.Source.ToString(),
             Label = string.Empty,
             RateHz = choice.DefaultRateHz,
             Unit = DisplayUnit.Auto.ToString(),
@@ -240,8 +234,12 @@ public sealed partial class CardEditorViewModel : ObservableObject
         var choice = Card.Choice;
         var hasRange = choice?.HasRange is true;
 
+        // The chip carries the choice, not its id. Ids are no longer unique across the two
+        // catalogs -- the sensor catalog names vehicle.heading as the signal it prefers, so
+        // one day both will define it -- and a picker keyed on the id alone would offer two
+        // indistinguishable chips and select the wrong one.
         Fill(Signals, [.. _choices.Select(c =>
-            new OptionChip("signal", c.Caption, c.Id, c.Detail))], spec.SignalId);
+            new OptionChip("signal", c.Caption, c, c.Detail))], Card.Choice);
 
         Fill(Widths,
             [
@@ -289,7 +287,7 @@ public sealed partial class CardEditorViewModel : ObservableObject
             ],
             spec.ParsedPriority);
 
-        // The label follows the spec when the spec was changed for it — switching signals
+        // The label follows the spec when the spec was changed for it â€” switching signals
         // must not leave the box showing a name that is no longer on the card.
         _suspendApply = true;
         Label = spec.Label;
@@ -300,7 +298,7 @@ public sealed partial class CardEditorViewModel : ObservableObject
         OnPropertyChanged(nameof(CostNote));
     }
 
-    private static void Fill(ObservableCollection<OptionChip> target, IReadOnlyList<OptionChip> chips, object selected)
+    private static void Fill(ObservableCollection<OptionChip> target, IReadOnlyList<OptionChip> chips, object? selected)
     {
         target.Clear();
 
@@ -311,3 +309,6 @@ public sealed partial class CardEditorViewModel : ObservableObject
         }
     }
 }
+
+
+
