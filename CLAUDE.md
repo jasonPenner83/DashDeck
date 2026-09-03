@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **166 tests green** — 47 engine, 119 shell.
+(ADR-0010). **171 tests green** — 47 engine, 124 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -31,7 +31,8 @@ dotnet run --project src/DashDeck.DebugConsole -- cold-start-city --seconds 60
 The shell renders the six-band layout, the status strip and the nav. The **stage** takes
 occupants chosen from the launcher bar below it: a clock-and-weather face, a **compass** with
 a G meter and vehicle pitch and roll, **phone projection** (ADR-0019), local video (LibVLC),
-and web applets in WebView2. The
+web applets in WebView2, and **native Windows apps** re-parented into the stage (ADR-0020) —
+which report `Hosted` or `Outside` rather than pretending adoption always works. The
 compass reads truck-first and falls back to the tablet's own sensors, saying which (ADR-0016,
 ADR-0017) — and anything measured against the mount refuses to render until it is levelled.
 Below it, the **dash is a user-arranged list of cards**
@@ -153,11 +154,11 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Nineteen exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Twenty exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, and the
-fixed-height stage that came out of the first drive, and phone projection through a dongle.
+fixed-height stage that came out of the first drive, phone projection through a dongle, and native apps adopted into the stage.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.
@@ -169,5 +170,6 @@ code.
 - Open questions go in [`docs/04-open-questions.md`](docs/04-open-questions.md) rather
   than being silently resolved.
 - When a decision gets made, write the ADR in the same change that implements it.
+
 
 

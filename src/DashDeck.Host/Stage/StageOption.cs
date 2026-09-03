@@ -1,4 +1,4 @@
-using DashDeck.Abstractions;
+﻿using DashDeck.Abstractions;
 using DashDeck.Host.Sensors;
 using DashDeck.Host.Settings;
 using Microsoft.Win32;
@@ -9,20 +9,20 @@ namespace DashDeck.Host.Stage;
 /// One thing that can be put on the stage, as offered by the picker.
 /// </summary>
 /// <remarks>
-/// An option is not an occupant — it is the <em>offer</em> of one. Nothing is constructed
+/// An option is not an occupant â€” it is the <em>offer</em> of one. Nothing is constructed
 /// until it is chosen, which matters because constructing the video occupant loads VLC.
 /// Unavailable options are still listed, greyed, because "Nuvio, not built yet" tells you
 /// more about where this is going than an empty row does.
 /// </remarks>
 /// <param name="Name">Short uppercase name, matching the stage chip.</param>
-/// <param name="Detail">One line under it — what it is, or why it is unavailable.</param>
+/// <param name="Detail">One line under it â€” what it is, or why it is unavailable.</param>
 /// <param name="Create">
 /// Builds the occupant, or returns <see langword="null"/> for an empty stage. A
 /// <see langword="null"/> factory means the option cannot be chosen at all.
 /// </param>
 public sealed record StageOption(string Name, string Detail, Func<IStageOccupant?>? Create)
 {
-    /// <summary>False for the placeholders — listed, but not choosable.</summary>
+    /// <summary>False for the placeholders â€” listed, but not choosable.</summary>
     public bool IsAvailable => Create is not null;
 
     /// <summary>
@@ -30,7 +30,7 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
     /// </summary>
     /// <param name="videoPath">
     /// A file from <c>--video</c>, if one was given. Without it the video option still
-    /// works — it just asks which file when chosen.
+    /// works â€” it just asks which file when chosen.
     /// </param>
     /// <param name="clock">Injected, because nothing here reads the wall clock directly.</param>
     /// <param name="signals">
@@ -54,32 +54,39 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
         // thing most often glanced at anyway.
         new StageOption("CLOCK", "Time and weather", () => new ClockWeatherStageOccupant(clock, weather)),
 
-        // Truck first, tablet second, and it says which — see SensorService.
+        // Truck first, tablet second, and it says which â€” see SensorService.
         new StageOption("COMPASS", "Heading, attitude, G", () => new CompassStageOccupant(signals, sensors)),
 
         // Android Auto and CarPlay through a Carlinkit dongle (ADR-0019). The dongle is
         // chosen and not bought, so this runs against a synthetic one and says so.
-        new StageOption("PHONE", "Android Auto · CarPlay", () => new PhoneLinkStageOccupant(clock)),
+        new StageOption("PHONE", "Android Auto Â· CarPlay", () => new PhoneLinkStageOccupant(clock)),
 
         new StageOption(
             "VIDEO",
             videoPath is null ? "Pick a file" : System.IO.Path.GetFileName(videoPath),
             () => CreateVideo(videoPath)),
 
-        // NuvioWeb, hosted rather than reparented. GPLv3 stays at arm's length that way
-        // (Q18). Its origin answered 526 — Cloudflare's "bad origin certificate" — when
-        // this was wired, so if it comes up blank that is their end, not ours.
-        new StageOption("NUVIO", "app.nuvio.tv", () => new WebStageOccupant("NUVIO", NuvioUrl, display)),
+        // The real Nuvio, not the third-party web client. app.nuvio.tv answered 526 when it
+        // was wired and is not maintained by NuvioMedia; NuvioDesktop is. Listed even when it
+        // is not installed, because "not installed" says more than a missing row.
+        new StageOption(
+            AppLaunchSpec.Nuvio.Name,
+            AppLaunchSpec.Nuvio.IsInstalled ? "NuvioDesktop" : "NuvioDesktop — not installed",
+            () => new AppStageOccupant(AppLaunchSpec.Nuvio)),
+
+        // Development affordance: a plain Win32 window, to tell "our plumbing is wrong" from
+        // "that application will not be embedded".
+        new StageOption("PROBE", "Proves window adoption", () => new AppStageOccupant(AppLaunchSpec.Probe)),
 
         // OpenStreetMap rather than Google. Google's Maps JavaScript API terms forbid
         // in-vehicle turn-by-turn and there is no desktop SDK, so a Google map here could
-        // only ever be a picture (Q18). This is a picture too — but an unencumbered one,
+        // only ever be a picture (Q18). This is a picture too â€” but an unencumbered one,
         // and the routing question stays open rather than being quietly violated.
         new StageOption("MAPS", "openstreetmap.org", () => new WebStageOccupant("MAPS", MapsUrl, display)),
 
         new StageOption("STREMIO", "web.stremio.com", () => new WebStageOccupant("STREMIO", StremioUrl, display)),
 
-        // Both are web players, and both gate playback behind Widevine — which WebView2 does
+        // Both are web players, and both gate playback behind Widevine â€” which WebView2 does
         // not ship. The occupant probes for it and says so rather than presenting a player
         // that looks fine and refuses to make a sound.
         new StageOption("SPOTIFY", "open.spotify.com", () => new WebStageOccupant("SPOTIFY", SpotifyUrl, display)),
@@ -125,3 +132,4 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
         return new VideoStageOccupant(path);
     }
 }
+

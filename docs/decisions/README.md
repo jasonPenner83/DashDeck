@@ -25,3 +25,5 @@ including the reasoning that later turns out to be wrong.
 | [0017](ADR-0017-sensor-catalog.md) | A second catalog for tablet sensors, with a required mount reference | Accepted |
 | [0018](ADR-0018-fixed-stage-and-overflow-menu.md) | Stage fixed at four bands with an optional action bar; overflow menu replaces a hold gesture (supersedes 0015 in part) | Accepted |
 | [0019](ADR-0019-phone-projection.md) | Android Auto and CarPlay through a Carlinkit dongle, not a head-unit implementation (amends 0007 with a second driver exception) | Accepted |
+| [0020](ADR-0020-native-app-occupants.md) | Native applications on the stage, adopted into it where that works, launched alongside where it does not | Accepted |
+
