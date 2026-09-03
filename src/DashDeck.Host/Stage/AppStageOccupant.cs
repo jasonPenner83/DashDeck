@@ -58,7 +58,7 @@ public sealed class AppStageOccupant : IStageOccupant
     private readonly DispatcherTimer _watch;
 
     private Process? _process;
-    private HostedWindow? _host;
+    private OverlayHost? _host;
     private DateTimeOffset _startedAt;
     private bool _disposed;
 
@@ -253,17 +253,26 @@ public sealed class AppStageOccupant : IStageOccupant
         AdoptInto(window);
     }
 
+    /// <summary>
+    /// Place the application over the stage rather than inside it.
+    /// </summary>
+    /// <remarks>
+    /// The window is left as a real top-level window and merely <em>owned</em> by the shell,
+    /// so it keeps its own message loop, focus and DPI handling and gains none of the clipping
+    /// that made re-parenting feel like a workaround. See <see cref="OverlayHost"/>.
+    /// </remarks>
     private void AdoptInto(IntPtr window)
     {
         try
         {
-            _host = new HostedWindow(window);
-            _root.Children.Insert(0, _host);
+            _host = new OverlayHost(window, _root);
 
-            // Checked rather than assumed. An app that refuses adoption — or destroys and
-            // recreates its window on being re-parented — leaves a handle that is no longer a
-            // window, and reporting "hosted" for that would be the black-rectangle failure.
-            Move(NativeMethods.IsWindow(window) ? HostedAppState.Hosted : HostedAppState.Outside);
+            // Read back rather than assumed. Ownership can be refused, and an application that
+            // destroys and recreates its window leaves a handle that is no longer one — either
+            // way the honest answer is that it is running outside the stage.
+            Move(_host.Attach() && NativeMethods.IsWindow(window)
+                ? HostedAppState.Hosted
+                : HostedAppState.Outside);
         }
         catch (Exception)
         {

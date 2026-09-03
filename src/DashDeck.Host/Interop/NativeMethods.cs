@@ -33,6 +33,43 @@ internal static class NativeMethods
     [DllImport("user32.dll", SetLastError = true)]
     public static extern IntPtr SetParent(IntPtr child, IntPtr newParent);
 
+    /// <summary>
+    /// Sets a window's <b>owner</b> — which is not its parent.
+    /// </summary>
+    /// <remarks>
+    /// The distinction is the whole design. A <em>child</em> is clipped to its parent,
+    /// inherits its DPI transform and shares its input plumbing, which is where every bit of
+    /// awkwardness in the re-parenting approach came from. An <em>owned</em> window stays
+    /// above its owner, minimises and closes with it, and is destroyed with it — while
+    /// remaining a real top-level window with its own message loop, focus and DPI.
+    /// </remarks>
+    public const int GwlpHwndParent = -8;
+
+    /// <summary>Read the owner back. The authoritative check; the setter's return is the previous value.</summary>
+    public const uint GwOwner = 4;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr GetWindow(IntPtr window, uint command);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool SetWindowPos(
+        IntPtr window,
+        IntPtr insertAfter,
+        int x,
+        int y,
+        int width,
+        int height,
+        uint flags);
+
+    public const uint SwpNoZOrder = 0x0004;
+    public const uint SwpNoActivate = 0x0010;
+    public const uint SwpShowWindow = 0x0040;
+    public const uint SwpFrameChanged = 0x0020;
+
+    public const int SwHide = 0;
+    public const int SwShowNoActivate = 4;
+
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static extern bool MoveWindow(IntPtr window, int x, int y, int width, int height, [MarshalAs(UnmanagedType.Bool)] bool repaint);
