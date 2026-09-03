@@ -28,9 +28,8 @@ public sealed class PhoneLinkStageOccupant(IClock clock) : IStageOccupant
     public FrameworkElement CreateView() => new PhoneLinkView { DataContext = _viewModel };
 
     /// <inheritdoc />
-    public FrameworkElement? CreateActionBar() => ActionBar.Row(
-        ActionBar.Button("RECONNECT", () => _viewModel.ReconnectCommand.Execute(null), 200),
-        ActionBar.Caption("Android Auto and CarPlay arrive through a Carlinkit CPC200 — not yet bought"));
+    public IReadOnlyList<StageAction> Actions =>
+        [new StageAction("RECONNECT", () => _viewModel.ReconnectCommand.Execute(null))];
 
     /// <inheritdoc />
     public string Describe() => _viewModel.Describe();

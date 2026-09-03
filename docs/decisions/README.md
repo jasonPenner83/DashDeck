@@ -27,5 +27,7 @@ including the reasoning that later turns out to be wrong.
 | [0019](ADR-0019-phone-projection.md) | Android Auto and CarPlay through a Carlinkit dongle, not a head-unit implementation (amends 0007 with a second driver exception) | Accepted |
 | [0020](ADR-0020-native-app-occupants.md) | Native applications on the stage, adopted into it where that works, launched alongside where it does not | Accepted |
 | [0021](ADR-0021-owned-not-reparented.md) | Native app windows are **owned and placed**, not re-parented (supersedes 0020's mechanism) | Accepted |
+| [0022](ADR-0022-actions-not-a-bar.md) | Occupant controls are verbs in the overflow menu, not a band of the stage (supersedes 0018's action bar) | Accepted |
+
 
 

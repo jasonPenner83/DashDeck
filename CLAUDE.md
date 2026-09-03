@@ -48,10 +48,12 @@ full-screen views that take all six bands and hide the stage, which keeps runnin
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
-takes a one-band **action bar** instead: video transport, web back/reload/home, compass
-levelling. A three-dot menu in the status strip carries MODIFY WIDGETS and SETTINGS; the status
-strip itself is a quick-info bar (weather, SIM badge, clock) and the diagnostics moved into
-Settings.
+gets all 708 of it, minus the 72 launcher bar. **Occupants hand back verbs, not chrome**
+(ADR-0022): `IStageOccupant.Actions` returns captions and callbacks, and the three-dot menu
+shows them above MODIFY WIDGETS and SETTINGS. The action bar that used to carry them cost a
+quarter of the stage for two buttons. **Levelling lives in Settings** now — it is a
+calibration, not a driving control. The status strip is a quick-info bar (weather, SIM badge,
+clock); diagnostics moved to Settings.
 
 Six traps already hit and worth not re-learning:
 
@@ -156,7 +158,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Twenty-one exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Twenty-two exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, and the
@@ -172,6 +174,7 @@ code.
 - Open questions go in [`docs/04-open-questions.md`](docs/04-open-questions.md) rather
   than being silently resolved.
 - When a decision gets made, write the ADR in the same change that implements it.
+
 
 
 

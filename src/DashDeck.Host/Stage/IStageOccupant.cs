@@ -2,6 +2,11 @@ using System.Windows;
 
 namespace DashDeck.Host.Stage;
 
+/// <summary>One thing an occupant can be told to do.</summary>
+/// <param name="Caption">Short, uppercase, and a verb.</param>
+/// <param name="Invoke">What it does.</param>
+public sealed record StageAction(string Caption, Action Invoke);
+
 /// <summary>
 /// Something that fills the top bands of the home screen.
 /// </summary>
@@ -24,21 +29,20 @@ public interface IStageOccupant : IDisposable
     FrameworkElement CreateView();
 
     /// <summary>
-    /// Build the occupant's action bar, or return <see langword="null"/> for none.
+    /// Controls this occupant offers, shown in the overflow menu.
     /// </summary>
     /// <remarks>
-    /// One band tall, between the occupant and the launcher. This is the answer to F8: every
-    /// occupant so far renders into a child window — LibVLC's video surface, WebView2's
-    /// browser — and a child window draws over <em>all</em> WPF content whatever the z-order
-    /// says, so controls floating on top of an occupant are invisible and untappable the
-    /// moment anything loads. A real row beside it is the only arrangement that survives.
+    /// Actions rather than a view. A dedicated one-band row cost the occupant a quarter of
+    /// the stage to carry two buttons, which on the road bought a control you use once and
+    /// lost picture you look at constantly.
     /// <para>
-    /// An occupant with a bar gets 513 of content, which is exactly what a three-band stage
-    /// used to give it — so video keeps its picture size and gains its transport controls
-    /// rather than trading one for the other.
+    /// Handing back verbs rather than a <c>FrameworkElement</c> also means the shell decides
+    /// where they live, so moving them again costs nothing here. The airspace argument that
+    /// forced a real row still holds for anything drawn <em>over</em> an occupant — the menu
+    /// is a separate full-screen layer, so it is unaffected.
     /// </para>
     /// </remarks>
-    FrameworkElement? CreateActionBar() => null;
+    IReadOnlyList<StageAction> Actions => [];
 
     /// <summary>
     /// What this occupant is actually doing, in one line.

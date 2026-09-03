@@ -178,17 +178,18 @@ public sealed class WebStageOccupant : IStageOccupant
     /// has not finished initialising, and the bar is on screen and tappable from the moment
     /// the occupant loads.
     /// </remarks>
-    public FrameworkElement? CreateActionBar() => ActionBar.Row(
-        ActionBar.Button("‹ BACK", () => Guarded(v =>
+    public IReadOnlyList<StageAction> Actions =>
+    [
+        new StageAction("BACK", () => Guarded(v =>
         {
             if (v.CanGoBack)
             {
                 v.GoBack();
             }
         })),
-        ActionBar.Button("RELOAD", () => Guarded(v => v.Reload())),
-        ActionBar.Button("HOME", () => Guarded(v => v.Source = _uri)),
-        ActionBar.Caption(_uri.Host));
+        new StageAction("RELOAD", () => Guarded(v => v.Reload())),
+        new StageAction("HOME", () => Guarded(v => v.Source = _uri)),
+    ];
 
     /// <inheritdoc />
     public string Describe()

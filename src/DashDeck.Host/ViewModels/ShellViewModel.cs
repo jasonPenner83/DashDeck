@@ -58,10 +58,17 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsOccupantVisible))]
     private bool _isStagePickerOpen;
 
-    /// <summary>The current occupant's action bar, or null when it has none.</summary>
+    /// <summary>
+    /// What the current occupant can be told to do, shown in the overflow menu.
+    /// </summary>
+    /// <remarks>
+    /// These lived on a dedicated one-band row, which cost the occupant a quarter of the stage
+    /// to carry two buttons — picture you look at constantly, traded for a control you use
+    /// once (ADR-0022).
+    /// </remarks>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasStageActionBar))]
-    private FrameworkElement? _stageActionBar;
+    [NotifyPropertyChangedFor(nameof(HasStageActions))]
+    private IReadOnlyList<StageAction> _stageActions = [];
 
     /// <summary>
     /// The overflow menu, opened from the status strip.
@@ -90,7 +97,6 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Weather = weather;
 
         Display = new DisplaySettings();
-        Settings = new SettingsViewModel(theme, Display);
 
         // One service for the whole session: it holds the mount reference and any vehicle
         // declarations, so it must outlive whichever occupant happens to be on the stage.
@@ -98,6 +104,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             SensorCatalog.FromFileOrEmpty(CatalogPath.Find("sensors.device.json")),
             vehicle.Signals,
             clock);
+
+        // Settings owns levelling now, so it needs the sensors (ADR-0022).
+        Settings = new SettingsViewModel(theme, Display, Sensors);
 
         StageOptions =
         [
@@ -386,12 +395,35 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void ToggleStagePicker() => IsStagePickerOpen = !IsStagePickerOpen;
 
-    /// <summary>True when the occupant contributed an action bar to sit above the launcher.</summary>
-    public bool HasStageActionBar => StageActionBar is not null;
+    /// <summary>True when the occupant offers anything to do.</summary>
+    public bool HasStageActions => StageActions.Count > 0;
+
+    /// <summary>Run one of the occupant's actions and close the menu.</summary>
+    [RelayCommand]
+    private void RunStageAction(StageAction? action)
+    {
+        if (action is null)
+        {
+            return;
+        }
+
+        IsMenuOpen = false;
+        action.Invoke();
+    }
 
     /// <summary>Open or close the overflow menu.</summary>
     [RelayCommand]
-    private void ToggleMenu() => IsMenuOpen = !IsMenuOpen;
+    private void ToggleMenu()
+    {
+        // Re-read on the way in, because a caption can depend on state: the video occupant's
+        // first item says PLAY or PAUSE, and a stale one is worse than no label.
+        if (!IsMenuOpen)
+        {
+            StageActions = _stage?.Actions ?? [];
+        }
+
+        IsMenuOpen = !IsMenuOpen;
+    }
 
     /// <summary>
     /// Go to Settings from the menu.
@@ -444,10 +476,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _stage = option.Option.Create?.Invoke();
         StageContent = _stage?.CreateView();
 
-        // Built once, with the view. An occupant that wants controls gets a real row beside
-        // its content rather than an overlay on top of it (F8) — a child window draws over
-        // all WPF content whatever the z-order says, so an overlay would be untappable.
-        StageActionBar = _stage?.CreateActionBar();
+        // Read every time the menu opens rather than cached, because a caption can depend on
+        // state — the video occupant''s first item says PLAY or PAUSE.
+        StageActions = _stage?.Actions ?? [];
 
         foreach (var candidate in StageOptions)
         {
@@ -509,5 +540,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             : "—— req/s";
     }
 }
+
+
 
 

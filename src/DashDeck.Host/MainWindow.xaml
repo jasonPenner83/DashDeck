@@ -121,23 +121,12 @@
                                 the only arrangement that survives.
                             -->
                             <RowDefinition Height="*" />
-                            <!-- One band when the occupant contributes controls, nothing when
-                                 it does not. An occupant with a bar gets 513 of content —
-                                 exactly what a three-band stage used to give it. -->
-                            <RowDefinition Height="{Binding HasStageActionBar, Converter={StaticResource BandLength}}" />
                             <RowDefinition Height="72" />
                         </Grid.RowDefinitions>
 
-                        <!-- The occupant's own controls. A real row rather than an overlay,
-                             for the airspace reason the launcher taught us: a child window
-                             draws over all WPF content whatever the z-order says (F8). -->
-                        <ContentControl Grid.Row="1"
-                                        Content="{Binding StageActionBar}"
-                                        Visibility="{Binding IsOccupantVisible, Converter={StaticResource BoolToVis}}" />
-
                         <!-- The launcher. A row of app buttons plus a grid button for the
                              rest, sized to be hit from the driver's seat. -->
-						<Border Grid.Row="2" Background="{DynamicResource CanvasBrush}"
+						<Border Grid.Row="1" Background="{DynamicResource CanvasBrush}"
                             BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,0">
                             <DockPanel Margin="14,0,14,0" LastChildFill="False">
 
@@ -496,6 +485,32 @@
                         BorderBrush="{DynamicResource HairlineStrongBrush}"
                         BorderThickness="1">
                     <StackPanel>
+                        <!--
+                            What the current occupant can be told to do. First, because it is
+                            the contextual half of the menu and the reason the stage got its
+                            band back (ADR-0022).
+                        -->
+                        <ItemsControl ItemsSource="{Binding StageActions}"
+                                      Visibility="{Binding HasStageActions, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource MenuItemButton}"
+                                            Command="{Binding DataContext.RunStageActionCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}">
+                                        <TextBlock FontFamily="{StaticResource MonoFont}"
+                                                   FontSize="16"
+                                                   Text="{Binding Caption}" />
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Border Height="1"
+                                Margin="0,4,0,14"
+                                Background="{DynamicResource HairlineStrongBrush}"
+                                Visibility="{Binding HasStageActions, Converter={StaticResource BoolToVis}}" />
+
                         <Button Style="{StaticResource MenuItemButton}"
                                 Command="{Binding EditDashCommand}">
                             <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="16" Text="MODIFY WIDGETS" />

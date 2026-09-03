@@ -1,4 +1,4 @@
-using System.Windows.Media;
+﻿using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashDeck.Host.Converters;
@@ -34,23 +34,28 @@ public sealed partial class AccentSwatch(AccentOption option) : ObservableObject
 }
 
 /// <summary>
-/// Settings. Appearance for now — the part that had a reason to exist first.
+/// Settings. Appearance for now â€” the part that had a reason to exist first.
 /// </summary>
 /// <remarks>
 /// What is adjustable here is deliberately narrow (B1). The palette is a token set, but
 /// exposing every token as a colour picker would let someone quietly break the one rule the
 /// dash is strictest about: that a value's quality is always legible. So the choices are a
-/// day/night mode and an accent — presets, or any colour that passes
-/// <see cref="AccentValidation"/> — and the four quality colours are not on offer at all.
+/// day/night mode and an accent â€” presets, or any colour that passes
+/// <see cref="AccentValidation"/> â€” and the four quality colours are not on offer at all.
 /// </remarks>
 public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly ThemeService _theme;
+    private readonly DashDeck.Host.Sensors.SensorService _sensors;
 
-    public SettingsViewModel(ThemeService theme, DashDeck.Host.Settings.DisplaySettings display)
+    public SettingsViewModel(
+        ThemeService theme,
+        DashDeck.Host.Settings.DisplaySettings display,
+        DashDeck.Host.Sensors.SensorService sensors)
     {
         _theme = theme;
         Display = display;
+        _sensors = sensors;
 
         WebScales = [.. DashDeck.Host.Settings.DisplaySettings.Choices.Select(s => new WebScaleOption(s))];
         display.PropertyChanged += (_, _) => SyncScales();
@@ -71,6 +76,34 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         theme.PropertyChanged += (_, _) => Sync();
         Sync();
+    }
+
+    /// <summary>True once the tablet''s mount has been levelled.</summary>
+    public bool IsLevelled => _sensors.IsLevelled;
+
+    /// <summary>What the level control says, and what it means.</summary>
+    public string LevelCaption => IsLevelled ? "RE-LEVEL THE MOUNT" : "LEVEL THE MOUNT";
+
+    /// <summary>When the current reference was taken, or why there is none.</summary>
+    public string LevelDetail => _sensors.Reference.CapturedUtc is { } at
+        ? $"Levelled {at.ToLocalTime():d MMM, HH:mm}. Re-level if the mount has moved."
+        : "Not levelled. Pitch, roll and G will not render until it is.";
+
+    /// <summary>
+    /// Capture the tablet''s orientation as level and forward.
+    /// </summary>
+    /// <remarks>
+    /// Lives here rather than on the compass because it is a calibration done once, parked, on
+    /// flat ground — not something reached for while driving. It was on the stage''s action bar
+    /// until that row cost more picture than it was worth (ADR-0022).
+    /// </remarks>
+    [RelayCommand]
+    private void Level()
+    {
+        _sensors.Level();
+        OnPropertyChanged(nameof(IsLevelled));
+        OnPropertyChanged(nameof(LevelCaption));
+        OnPropertyChanged(nameof(LevelDetail));
     }
 
     /// <summary>How large web occupants render. Shared with them, so a change applies live.</summary>
@@ -104,7 +137,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Day, Night, Auto.</summary>
     public IReadOnlyList<ThemeModeOption> Modes { get; }
 
-    /// <summary>The presets. Not the only option — see <see cref="CustomAccentHex"/>.</summary>
+    /// <summary>The presets. Not the only option â€” see <see cref="CustomAccentHex"/>.</summary>
     public IReadOnlyList<AccentSwatch> Accents { get; }
 
     /// <summary>
@@ -122,7 +155,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(ApplyCustomAccentCommand))]
     private string _customAccentHex;
 
-    /// <summary>What the typed colour looks like — the point of checking as you type.</summary>
+    /// <summary>What the typed colour looks like â€” the point of checking as you type.</summary>
     public Brush CustomPreview => AccentValidation.TryParse(CustomAccentHex, out var colour)
         ? new SolidColorBrush(colour)
         : Brushes.Transparent;
@@ -236,3 +269,4 @@ public sealed partial class WebScaleOption : ObservableObject
     [ObservableProperty]
     private bool _isSelected;
 }
+

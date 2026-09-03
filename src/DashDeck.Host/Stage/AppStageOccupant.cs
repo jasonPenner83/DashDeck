@@ -99,9 +99,7 @@ public sealed class AppStageOccupant : IStageOccupant
     }
 
     /// <inheritdoc />
-    public FrameworkElement? CreateActionBar() => ActionBar.Row(
-        ActionBar.Button("RESTART", Restart, 180),
-        ActionBar.Caption(_spec.Detail));
+    public IReadOnlyList<StageAction> Actions => [new StageAction("RESTART APP", Restart)];
 
     /// <inheritdoc />
     public string Describe() =>

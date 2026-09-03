@@ -28,11 +28,16 @@ public sealed class CompassStageOccupant(IVehicleSignals signals, SensorService 
     /// <inheritdoc />
     public FrameworkElement CreateView() => new CompassView { DataContext = _viewModel };
 
-    /// <inheritdoc />
-    public FrameworkElement? CreateActionBar() => ActionBar.Row(
-        ActionBar.Button("LEVEL THE MOUNT", () => _viewModel.LevelCommand.Execute(null), 240),
-        ActionBar.Button("RESET PEAK", () => _viewModel.ResetPeakCommand.Execute(null), 180),
-        ActionBar.Caption("Level parked, on flat ground, with the tablet in its cradle"));
+    /// <summary>
+    /// Only the peak reset. Levelling moved to Settings.
+    /// </summary>
+    /// <remarks>
+    /// It is a calibration done once, parked, on flat ground — not something reached for while
+    /// driving — so it belongs with the other things you set and leave rather than on the one
+    /// screen you look at most.
+    /// </remarks>
+    public IReadOnlyList<StageAction> Actions =>
+        [new StageAction("RESET PEAK G", () => _viewModel.ResetPeakCommand.Execute(null))];
 
     /// <inheritdoc />
     public string Describe() => _viewModel.Describe();

@@ -1,7 +1,5 @@
 ﻿using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Media;
-using System.Windows.Threading;
 using LibVLCSharp.Shared;
 using LibVLCSharp.WPF;
 
@@ -34,12 +32,6 @@ public sealed class VideoStageOccupant : IStageOccupant
     private VideoView? _view;
     private bool _disposed;
 
-    // The action bar's controls, kept so the ticker can walk them along with the player.
-    private Button? _playPause;
-    private Slider? _position;
-    private TextBlock? _elapsed;
-    private DispatcherTimer? _ticker;
-    private bool _syncingSlider;
 
     public VideoStageOccupant(string mediaPath)
     {
@@ -98,52 +90,40 @@ public sealed class VideoStageOccupant : IStageOccupant
     }
 
     /// <summary>
-    /// Transport controls, on the stage's action bar.
+    /// Transport, as verbs.
     /// </summary>
     /// <remarks>
-    /// The reason this could not exist before. The picture lives in a child window that draws
-    /// over all WPF content whatever the z-order says, so controls overlaid on the video were
-    /// invisible and untappable — which is F8, and why the stage grew a real row for them
-    /// rather than a floating panel.
+    /// <b>The seek bar is gone with the action bar it lived on.</b> A slider is not a verb and
+    /// there is nowhere honest to put one now — it needs to be visible while you drag it,
+    /// which a menu is not. Skipping in fixed steps is the closest thing that survives, and it
+    /// is arguably the better control in a moving vehicle anyway: a thirty-second jump can be
+    /// hit without looking, and a slider cannot.
     /// <para>
-    /// The bar drives the player and the player drives the bar: a timer walks the slider
-    /// while it plays, and moving the slider seeks. The flag is what stops those two fighting
-    /// each other every tick.
+    /// Play and pause is one item rather than two, and its caption follows the player — a
+    /// button that says PAUSE while paused is worse than no label at all.
     /// </para>
     /// </remarks>
-    public FrameworkElement? CreateActionBar()
+    public IReadOnlyList<StageAction> Actions =>
+    [
+        new StageAction(_player.IsPlaying ? "PAUSE" : "PLAY", TogglePlay),
+        new StageAction("BACK 30s", () => Skip(-30_000)),
+        new StageAction("FORWARD 30s", () => Skip(30_000)),
+        new StageAction("RESTART", () => _player.Time = 0),
+    ];
+
+    /// <summary>Jump by a number of milliseconds, clamped to the media.</summary>
+    /// <remarks>
+    /// Clamped rather than allowed to run past the end: VLC treats a seek beyond the length as
+    /// a stop, so an over-shoot near the end would look like the file had ended early.
+    /// </remarks>
+    private void Skip(long milliseconds)
     {
-        _playPause = ActionBar.Button("PAUSE", TogglePlay, 140);
-
-        _position = new Slider
+        if (_player.Length <= 0)
         {
-            Width = 430,
-            Margin = new Thickness(16, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-            Minimum = 0,
-            Maximum = 1,
-            IsMoveToPointEnabled = true,
-        };
+            return;
+        }
 
-        _position.ValueChanged += (_, e) =>
-        {
-            if (!_syncingSlider && Math.Abs(e.NewValue - _player.Position) > 0.001)
-            {
-                _player.Position = (float)e.NewValue;
-            }
-        };
-
-        _elapsed = ActionBar.Caption("--:-- / --:--");
-
-        _ticker = new DispatcherTimer(DispatcherPriority.Background)
-        {
-            Interval = TimeSpan.FromMilliseconds(500),
-        };
-
-        _ticker.Tick += (_, _) => SyncBar();
-        _ticker.Start();
-
-        return ActionBar.Row(_playPause, _position, _elapsed);
+        _player.Time = Math.Clamp(_player.Time + milliseconds, 0, _player.Length - 1);
     }
 
     /// <inheritdoc />
@@ -155,7 +135,6 @@ public sealed class VideoStageOccupant : IStageOccupant
         }
 
         _disposed = true;
-        _ticker?.Stop();
 
         if (_view is not null)
         {
@@ -183,49 +162,7 @@ public sealed class VideoStageOccupant : IStageOccupant
         {
             _player.Play();
         }
-
-        SyncBar();
     }
 
-    /// <summary>Walk the bar to wherever the player actually is.</summary>
-    private void SyncBar()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        if (_playPause?.Content is TextBlock caption)
-        {
-            caption.Text = _player.IsPlaying ? "PAUSE" : "PLAY";
-        }
-
-        if (_position is not null)
-        {
-            // The flag is load-bearing: writing Value raises ValueChanged, which would seek
-            // the player to where it already is, twice a second, forever.
-            _syncingSlider = true;
-            _position.Value = double.IsNaN(_player.Position) ? 0 : Math.Clamp(_player.Position, 0, 1);
-            _syncingSlider = false;
-        }
-
-        if (_elapsed is not null)
-        {
-            var length = _player.Length;
-
-            _elapsed.Text = length > 0
-                ? $"{Clock(_player.Time)} / {Clock(length)}"
-                : "--:-- / --:--";
-        }
-    }
-
-    /// <summary>Milliseconds as <c>m:ss</c>, or <c>h:mm:ss</c> once it earns the hours.</summary>
-    private static string Clock(long milliseconds)
-    {
-        var span = TimeSpan.FromMilliseconds(Math.Max(milliseconds, 0));
-
-        return span.TotalHours >= 1
-            ? $"{(int)span.TotalHours}:{span.Minutes:00}:{span.Seconds:00}"
-            : $"{span.Minutes}:{span.Seconds:00}";
-    }
 }
+
