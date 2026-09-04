@@ -178,9 +178,16 @@ public sealed class Component : IDashComponent, IDashComponentView
     /// <inheritdoc />
     public FrameworkElement CreateFullScreen()
     {
+        // A real overhead photo if one was dropped beside the component (truck.png); the
+        // stylised vector truck otherwise, so the component works out of the box and looks
+        // better with a photo. The layout — corner readouts, low corner ringed — is the same
+        // either way, but the photo is wider, so it gets a wider canvas.
+        var truck = LoadTruckImage();
+        var photoMode = truck is not null;
+
         // A design-sized canvas in a Viewbox, so the truck scales to whatever space the detail
         // has without any pixel arithmetic here.
-        const double W = 700, H = 1040;
+        double W = photoMode ? 900 : 700, H = 1040;
         var canvas = new Canvas { Width = W, Height = H };
 
         var white = new SolidColorBrush(Color.FromRgb(0xEC, 0xEC, 0xE8));      // the truck is white
@@ -194,15 +201,11 @@ public sealed class Component : IDashComponent, IDashComponentView
         var amber = new SolidColorBrush(Color.FromRgb(0xE0, 0xB2, 0x3C));
         var wheelDark = new SolidColorBrush(Color.FromRgb(0x2C, 0x2B, 0x28));
 
-        // Wheel/ring anchor points, front and rear, left and right.
-        double[,] wheelAt = { { 181, 250 }, { 485, 250 }, { 181, 700 }, { 485, 700 } };
+        // Wheel/ring anchor points — over the photo's axles, or the vector truck's.
+        double[,] wheelAt = photoMode
+            ? new double[,] { { 292, 375 }, { 608, 375 }, { 340, 790 }, { 560, 790 } }
+            : new double[,] { { 181, 250 }, { 485, 250 }, { 181, 700 }, { 485, 700 } };
 
-        // A real overhead photo if one was dropped beside the component (truck.png); the
-        // stylised vector truck otherwise, so the component works out of the box and looks
-        // better with a photo. The layout — corner readouts, low corner highlighted — is the
-        // same either way.
-        var truck = LoadTruckImage();
-        var photoMode = truck is not null;
         var wheels = new Rectangle?[4];
         var rings = new Ellipse[4];
 
@@ -212,10 +215,10 @@ public sealed class Component : IDashComponent, IDashComponentView
             {
                 Source = truck,
                 Stretch = Stretch.Uniform,
-                Width = 400,
+                Width = 525,
                 Height = 940,
             };
-            Canvas.SetLeft(image, (W - 400) / 2);
+            Canvas.SetLeft(image, (W - 525) / 2);
             Canvas.SetTop(image, 50);
             canvas.Children.Add(image);
 
@@ -230,8 +233,8 @@ public sealed class Component : IDashComponent, IDashComponentView
                     StrokeThickness = 4,
                     Visibility = Visibility.Collapsed,
                 };
-                Canvas.SetLeft(rings[i], wheelAt[i, 0] - 14);
-                Canvas.SetTop(rings[i], wheelAt[i, 1] + 17);
+                Canvas.SetLeft(rings[i], wheelAt[i, 0] - 31);   // centre the 62px ring on the wheel
+                Canvas.SetTop(rings[i], wheelAt[i, 1] - 31);
                 canvas.Children.Add(rings[i]);
             }
         }
@@ -256,7 +259,9 @@ public sealed class Component : IDashComponent, IDashComponentView
 
         // Four readouts at the outer corners, each aligned toward its wheel.
         var values = new TextBlock[4];
-        double[,] readoutAt = { { 20, 250 }, { 530, 250 }, { 20, 700 }, { 530, 700 } };
+        double[,] readoutAt = photoMode
+            ? new double[,] { { 25, 341 }, { 725, 341 }, { 25, 761 }, { 725, 761 } }
+            : new double[,] { { 20, 250 }, { 530, 250 }, { 20, 700 }, { 530, 700 } };
         for (var i = 0; i < 4; i++)
         {
             var alignRight = i is 0 or 2;   // left-of-screen corners point right, toward the truck
