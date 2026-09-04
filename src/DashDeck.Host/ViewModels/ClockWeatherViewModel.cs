@@ -7,7 +7,7 @@ using DashDeck.Host.Stage;
 namespace DashDeck.Host.ViewModels;
 
 /// <summary>One day in the forecast strip.</summary>
-public sealed record ForecastDay(string Day, string High, string Low, string Condition);
+public sealed record ForecastDay(string Day, string High, string Low, string Condition, int Code);
 
 /// <summary>
 /// The idle stage: what time it is, and what it is doing outside.
@@ -37,6 +37,10 @@ public sealed partial class ClockWeatherViewModel : ObservableObject, IDisposabl
 
     [ObservableProperty]
     private string _conditionText = "Weather unavailable";
+
+    /// <summary>The current WMO weather code, for the icon. -1 when there is no weather.</summary>
+    [ObservableProperty]
+    private int _conditionCode = -1;
 
     [ObservableProperty]
     private string _feelsLikeText = string.Empty;
@@ -113,6 +117,7 @@ public sealed partial class ClockWeatherViewModel : ObservableObject, IDisposabl
             HasWeather = false;
             TemperatureText = "——";
             ConditionText = "Weather unavailable";
+            ConditionCode = -1;
             FeelsLikeText = string.Empty;
             Forecast = [];
             return;
@@ -121,6 +126,7 @@ public sealed partial class ClockWeatherViewModel : ObservableObject, IDisposabl
         HasWeather = true;
         TemperatureText = report.Now.TemperatureC.ToString("0", CultureInfo.CurrentCulture);
         ConditionText = Weather.Describe(report.Now.Code);
+        ConditionCode = report.Now.Code;
         FeelsLikeText = string.Create(
             CultureInfo.CurrentCulture,
             $"feels {report.Now.FeelsLikeC:0}°");
@@ -131,7 +137,8 @@ public sealed partial class ClockWeatherViewModel : ObservableObject, IDisposabl
                 d.Date.ToDateTime(TimeOnly.MinValue).ToString("ddd", CultureInfo.CurrentCulture).ToUpperInvariant(),
                 d.MaxC.ToString("0", CultureInfo.CurrentCulture),
                 d.MinC.ToString("0", CultureInfo.CurrentCulture),
-                Weather.Describe(d.Code))),
+                Weather.Describe(d.Code),
+                d.Code)),
         ];
     }
 }
