@@ -119,7 +119,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         ThemeService theme,
         WeatherService weather,
         string? videoPath = null,
-        string? startOn = null)
+        string? startOn = null,
+        Components.ComponentHost? components = null)
     {
         _vehicle = vehicle;
         _clock = clock;
@@ -157,7 +158,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // It starts on its own default and SyncWidgetBands settles it below.
         Dashboard = new DashboardViewModel(
             new CardValueFactory(vehicle.Signals, Sensors),
-            ValueChoice.All(vehicle.Catalog, Sensors.Catalog));
+            ValueChoice.All(vehicle.Catalog, Sensors.Catalog),
+            components);
 
         // Start on whatever was asked for at launch, and otherwise on the clock. The stage
         // is never empty now: an idle dash showing the time is more use than one announcing

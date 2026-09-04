@@ -50,7 +50,7 @@ public sealed class DashboardViewModelTests
 
     private static DashboardViewModel Build(FakeBus bus, MemoryStore store, int bands = 2)
     {
-        var dashboard = new DashboardViewModel(Factory(bus), Choices(), store);
+        var dashboard = new DashboardViewModel(Factory(bus), Choices(), store: store);
         dashboard.WidgetBands = bands;
         return dashboard;
     }

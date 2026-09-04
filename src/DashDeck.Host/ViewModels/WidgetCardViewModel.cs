@@ -24,7 +24,7 @@ namespace DashDeck.Host.ViewModels;
 /// own source will arrive in later (F3).
 /// </para>
 /// </remarks>
-public sealed partial class WidgetCardViewModel : ObservableObject, IDashSlot, IDisposable
+public sealed partial class WidgetCardViewModel : ObservableObject, IDashCard
 {
     private readonly CardValueFactory _values;
     private ICardValue? _value;

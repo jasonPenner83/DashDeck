@@ -2,12 +2,14 @@
 
   <!--
     A first-party component (ADR-0002), built through the public SDK on purpose: the
-    contract has to be exercised before it ossifies (ADR-0008). Headless for now — it
-    targets plain net10.0 and references only DashDeck.Abstractions, which is what an
-    off-Windows, UI-free component looks like (ADR-0010). The widget arrives in a later step.
+    contract has to be exercised before it ossifies (ADR-0008). It now draws a widget, so it
+    references DashDeck.Abstractions.Wpf and targets net10.0-windows to match — the UI half of
+    the split contract (ADR-0010). A genuinely headless component would reference only
+    DashDeck.Abstractions and build anywhere; this one has a face.
   -->
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>TripComputer</AssemblyName>
@@ -18,11 +20,14 @@
 
   <ItemGroup>
     <!--
-      The one shared assembly (ADR-0002). Private=false so it is NOT copied into the plugin
-      folder: the host owns the single copy every component's context unifies against, and a
-      second copy beside the DLL is exactly what ComponentLoadContext exists to ignore.
+      The shared contract (ADR-0002). Private=false so neither assembly is copied into the
+      plugin folder: the host owns the single copy every component's types unify against, and
+      a second copy beside the DLL is exactly what ComponentLoadContext exists to ignore.
     -->
     <ProjectReference Include="..\..\src\DashDeck.Abstractions\DashDeck.Abstractions.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\DashDeck.Abstractions.Wpf\DashDeck.Abstractions.Wpf.csproj">
       <Private>false</Private>
     </ProjectReference>
   </ItemGroup>

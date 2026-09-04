@@ -15,6 +15,12 @@ public enum CardSource
 
     /// <summary>A tablet sensor, resolved truck-first and costing no budget.</summary>
     Sensor,
+
+    /// <summary>
+    /// A component's widget, from <c>plugins/</c> (ADR-0023). The id names the component, not
+    /// a catalog entry, and the card draws whatever the component draws.
+    /// </summary>
+    Component,
 }
 
 /// <summary>How a card draws its value.</summary>

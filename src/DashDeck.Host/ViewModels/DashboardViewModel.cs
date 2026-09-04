@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashDeck.Abstractions;
+using DashDeck.Host.Components;
 using DashDeck.Host.Dash;
 
 namespace DashDeck.Host.ViewModels;
@@ -25,8 +26,9 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 {
     private readonly CardValueFactory _values;
     private readonly IReadOnlyList<ValueChoice> _choices;
+    private readonly ComponentHost? _components;
     private readonly IDashboardStore _store;
-    private readonly List<WidgetCardViewModel> _cards = [];
+    private readonly List<IDashCard> _cards = [];
     private readonly AddCardSlot _addSlot = new();
 
     private int _widgetBands = 2;
@@ -48,10 +50,12 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     public DashboardViewModel(
         CardValueFactory values,
         IReadOnlyList<ValueChoice> choices,
+        ComponentHost? components = null,
         IDashboardStore? store = null)
     {
         _values = values;
         _choices = choices;
+        _components = components;
         _store = store ?? new FileDashboardStore();
 
         // Null means never configured and gets the shipped six; an empty list means the user
@@ -60,12 +64,25 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
         foreach (var spec in layout.Cards)
         {
-            _cards.Add(new WidgetCardViewModel(values, spec, Find(spec)));
+            _cards.Add(BuildCard(spec));
         }
 
         _loaded = true;
         Repack();
     }
+
+    /// <summary>
+    /// Turn a stored spec into the right kind of card.
+    /// </summary>
+    /// <remarks>
+    /// The one place the source is dispatched on: a <c>Component</c> spec becomes a
+    /// <see cref="ComponentCardViewModel"/> resolved against the host, everything else a
+    /// <see cref="WidgetCardViewModel"/>. A component named by a card that is not installed
+    /// resolves to null and the card renders itself as unavailable rather than vanishing.
+    /// </remarks>
+    private IDashCard BuildCard(CardSpec spec) => spec.ParsedSource == CardSource.Component
+        ? new ComponentCardViewModel(spec, _components?.ById(spec.SignalId))
+        : new WidgetCardViewModel(_values, spec, Find(spec));
 
     /// <summary>Every signal the loaded catalog defines, for the editor.</summary>
     public IReadOnlyList<ValueChoice> Choices => _choices;
@@ -194,7 +211,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
         foreach (var spec in DashboardLayout.Default().Cards)
         {
-            _cards.Add(new WidgetCardViewModel(_values, spec, Find(spec)));
+            _cards.Add(BuildCard(spec));
         }
 
         CloseEditor();
@@ -257,7 +274,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     {
         if (index >= 0 && index < _cards.Count)
         {
-            OpenEditor(_cards[index]);
+            OpenEditor(_cards[index] as WidgetCardViewModel);
         }
     }
 
@@ -390,7 +407,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     private void ApplyActivation()
     {
         var visible = PageIndex >= 0 && PageIndex < Pages.Count
-            ? Pages[PageIndex].Slots.OfType<WidgetCardViewModel>().ToHashSet()
+            ? Pages[PageIndex].Slots.OfType<IDashCard>().ToHashSet()
             : [];
 
         foreach (var card in _cards)
@@ -406,7 +423,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         }
     }
 
-    private int IndexOfPageContaining(WidgetCardViewModel card)
+    private int IndexOfPageContaining(IDashCard card)
     {
         for (var i = 0; i < Pages.Count; i++)
         {

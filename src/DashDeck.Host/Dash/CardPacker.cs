@@ -17,6 +17,29 @@ public interface IDashSlot
     double Width { get; }
 }
 
+/// <summary>
+/// A slot that is a real card in the arrangement — as opposed to the add tile.
+/// </summary>
+/// <remarks>
+/// The abstraction that lets a signal card and a component's widget live in the same ordered
+/// list (ADR-0015). Both carry a <see cref="Spec"/> so the arrangement serialises uniformly,
+/// and both <see cref="Activate"/>/<see cref="Deactivate"/> so the page rule — only what you
+/// can see asks for anything (ADR-0004, ADR-0015) — applies to a component exactly as it does
+/// to a signal card. The add tile is an <see cref="IDashSlot"/> but not one of these: it holds
+/// no spec and declares nothing.
+/// </remarks>
+public interface IDashCard : IDashSlot, IDisposable
+{
+    /// <summary>How this card is stored — its place in the one ordered arrangement.</summary>
+    CardSpec Spec { get; }
+
+    /// <summary>Came onto the visible page. Declare what it needs.</summary>
+    void Activate();
+
+    /// <summary>Left the visible page. Withdraw what it declared.</summary>
+    void Deactivate();
+}
+
 /// <summary>The tile that adds a card. Only present in edit mode.</summary>
 public sealed class AddCardSlot : IDashSlot
 {

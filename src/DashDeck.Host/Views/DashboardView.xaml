@@ -68,6 +68,17 @@
             </Grid>
         </DataTemplate>
 
+        <!--
+            A component's widget (ADR-0023). One band tall like any card, one or two columns
+            wide as its manifest asked; the host sizes the slot and the component draws its own
+            insides, which is why this is a bare host for Element rather than a face of its own.
+            No edit overlay yet — reordering and removing a component card is a later step; for
+            now it is placed, shown, and activated by the page like every other card.
+        -->
+        <DataTemplate DataType="{x:Type vm:ComponentCardViewModel}">
+            <ContentControl Width="{Binding Width}" Height="165" Content="{Binding Element}" />
+        </DataTemplate>
+
         <!-- The add tile. Flows through the packer, so it sits exactly where the next card will. -->
         <DataTemplate DataType="{x:Type dash:AddCardSlot}">
             <Button Width="{Binding Width}" Height="165"

@@ -1,5 +1,10 @@
 using System.Globalization;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Threading;
 using DashDeck.Abstractions;
+using DashDeck.Abstractions.Wpf;
 
 namespace TripComputer;
 
@@ -21,7 +26,7 @@ namespace TripComputer;
 /// the number it will show is already being kept, correctly, here.
 /// </para>
 /// </remarks>
-public sealed class Component : IDashComponent
+public sealed class Component : IDashComponent, IDashComponentView
 {
     private const string StorageKey = "trip.km";
 
@@ -34,6 +39,76 @@ public sealed class Component : IDashComponent
 
     /// <inheritdoc />
     public string Id => "com.jpenner.tripcomputer";
+
+    /// <summary>The trip distance so far, in kilometres. Read by the widget.</summary>
+    public double TripKm => _tripKm;
+
+    /// <summary>
+    /// Build the widget: a caption and the running distance, styled to sit among the dash cards.
+    /// </summary>
+    /// <remarks>
+    /// It reads <see cref="TripKm"/> on a <see cref="DispatcherTimer"/> rather than being
+    /// pushed to, which keeps every UI touch on the UI thread — the signal callback that moves
+    /// the number arrives on the vehicle worker, and marshalling that by hand is exactly the
+    /// sort of thing a component gets wrong. Four times a second: a dash number that updates
+    /// slower reads as frozen.
+    /// </remarks>
+    public FrameworkElement CreateWidget()
+    {
+        var caption = new TextBlock
+        {
+            Text = "TRIP",
+            FontSize = 13,
+            Foreground = new SolidColorBrush(Color.FromRgb(0x8A, 0x86, 0x7E)),
+            Margin = new Thickness(0, 0, 0, 6),
+        };
+
+        var value = new TextBlock
+        {
+            FontSize = 40,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(0xF2, 0xEF, 0xE9)),
+        };
+
+        var unit = new TextBlock
+        {
+            Text = "km",
+            FontSize = 15,
+            Foreground = new SolidColorBrush(Color.FromRgb(0x8A, 0x86, 0x7E)),
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(6, 0, 0, 6),
+        };
+
+        var number = new StackPanel { Orientation = Orientation.Horizontal };
+        number.Children.Add(value);
+        number.Children.Add(unit);
+
+        var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        stack.Children.Add(caption);
+        stack.Children.Add(number);
+
+        var card = new Border
+        {
+            CornerRadius = new CornerRadius(18),
+            Background = new SolidColorBrush(Color.FromRgb(0x17, 0x16, 0x14)),
+            Padding = new Thickness(20, 0, 20, 0),
+            Child = stack,
+        };
+
+        var timer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(250),
+        };
+        timer.Tick += (_, _) => value.Text = _tripKm.ToString("0.0", CultureInfo.CurrentCulture);
+        timer.Start();
+
+        // Stop the timer when the widget leaves the tree, so a card removed from the dash does
+        // not leave a tick running against a control nobody can see.
+        card.Unloaded += (_, _) => timer.Stop();
+        value.Text = _tripKm.ToString("0.0", CultureInfo.CurrentCulture);
+
+        return card;
+    }
 
     /// <inheritdoc />
     public async Task InitializeAsync(IComponentContext context, CancellationToken ct)

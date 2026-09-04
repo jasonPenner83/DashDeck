@@ -146,6 +146,13 @@ public partial class App : Application
             _theme.Preview(previewMode, previewAccent);
         }
 
+        // The component host, loaded once at startup. A component's widget can now sit on the
+        // dash (ADR-0023); a headless one runs from here too. Loading never throws for bad
+        // component content, so a broken plugin cannot stop the shell coming up.
+        var componentHost = new Components.ComponentHost(
+            _vehicle.Signals, SystemClock.Instance, Components.PluginPath.FindRoot() ?? "plugins");
+        await componentHost.LoadAllAsync(CancellationToken.None);
+
         // --stage <NAME> opens on a named occupant: CLOCK, VIDEO, NUVIO, MAPS or STREMIO.
         _shell = new ShellViewModel(
             _vehicle,
@@ -153,7 +160,8 @@ public partial class App : Application
             _theme,
             _weather,
             stagedVideo,
-            ArgValue(e.Args, "--stage"));
+            ArgValue(e.Args, "--stage"),
+            componentHost);
 
         // --nav <DEST> opens on a destination below the stage, so Settings can be reviewed
         // without a finger.

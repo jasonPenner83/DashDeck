@@ -7,7 +7,8 @@
 
   "entry": { "assembly": "TripComputer.dll", "type": "TripComputer.Component" },
 
-  "surfaces": ["backgroundWorker"],
+  "surfaces": ["widget"],
+  "widget": { "preferredSize": "1x1", "minSize": "1x1" },
 
   "signals": [
     { "id": "vehicle.speed", "priority": "normal", "rateHz": 2 }

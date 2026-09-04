@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **187 tests green** — 48 engine, 139 shell.
+(ADR-0010). **190 tests green** — 48 engine, 142 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -98,17 +98,20 @@ has no defined lifetime** (F22). Leaving via the nav keeps it playing, going int
 keeps it playing but hidden, and picking another occupant kills the process mid-song. Three
 lifecycles, three answers, none of them chosen.
 
-**The component host is half-built** (ADR-0023). The in-process loader exists: it discovers
+**The component host works, widget and all** (ADR-0023). The in-process loader discovers
 `plugins/`, validates the manifest and `apiVersion` before mapping any code, loads each
 component into its own collectible `AssemblyLoadContext` sharing only `DashDeck.Abstractions`,
-runs a guarded time-boxed lifecycle, and contains a faulting component. The first component —
-a headless trip odometer in `components/TripComputer/`, built through the public SDK — loads,
-integrates `vehicle.speed`, persists the distance and resumes across launches. Verify it with
-`--components <outfile>` (add `--components-dwell <seconds>` to watch it run). **Next: dash
-placement** — hosting a component's `IDashComponentView` widget as an `IDashSlot` in the paged
-grid, activated by the visible page; `CardSpec.Source` gains `Component` then. Deferred: the
-settings editor, `statusItem`, hot-reload, permission enforcement, and shipping `plugins/` in
-`publish.ps1`.
+runs a guarded time-boxed lifecycle, and contains a faulting component. A component's
+`IDashComponentView` **widget is hosted on the dash** as a `ComponentCardViewModel` — a third
+`CardSpec.Source` (`Component`) beside Signal and Sensor, placed in the one ordered arrangement
+and **activated by the visible page** (the ADR-0015 rule reaches a component through the new
+`IDashCard` seam, so a component off-page spends no request budget). The first component — a
+Trip Computer in `components/TripComputer/`, built through the public SDK — ships in the default
+layout and draws its own live-distance widget; it integrates `vehicle.speed`, persists the km
+and resumes across launches. Verify the loader alone with `--components <outfile>`
+(`--components-dwell <seconds>` to let it run). **Next (small):** reorder/remove/settings-edit of
+a component card via the editor UI, `statusItem`, hot-reload, permission enforcement, and
+shipping `plugins/` in `publish.ps1`.
 
 One more trap, from building the loader: **the shared contract must not load twice.** A type is
 identified by its assembly *and* its load context, so a component that carried its own copy of

@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.IO;
+using System.Windows;
 using DashDeck.Abstractions;
+using DashDeck.Abstractions.Wpf;
 
 namespace DashDeck.Host.Components;
 
@@ -56,6 +58,7 @@ public sealed class LoadedComponent
 {
     private readonly GuardedComponent? _guard;
     private readonly ComponentLoadContext? _context;
+    private readonly IDashComponentView? _view;
     private readonly ComponentState _loadState;
 
     internal LoadedComponent(
@@ -63,6 +66,7 @@ public sealed class LoadedComponent
         ComponentManifest? manifest,
         GuardedComponent? guard,
         ComponentLoadContext? context,
+        IDashComponentView? view,
         ComponentState loadState,
         string? reason)
     {
@@ -70,6 +74,7 @@ public sealed class LoadedComponent
         Manifest = manifest;
         _guard = guard;
         _context = context;
+        _view = view;
         _loadState = loadState;
         Reason = reason;
     }
@@ -92,7 +97,43 @@ public sealed class LoadedComponent
     /// <summary>True when there is a live, non-disabled component behind this.</summary>
     public bool IsLive => _guard is not null && State is not (ComponentState.Disabled or ComponentState.Rejected or ComponentState.Incompatible);
 
+    /// <summary>True when it offers a widget the dash can host.</summary>
+    public bool HasWidget => _view is not null && Manifest?.HasWidget == true;
+
     internal GuardedComponent? Guard => _guard;
+
+    /// <summary>Became visible on a page. Start it, behind the guard.</summary>
+    internal Task ActivateAsync(CancellationToken ct) =>
+        _guard?.ActivateAsync(ct) ?? Task.FromResult(false);
+
+    /// <summary>Left the visible page. Stop it, behind the guard.</summary>
+    internal Task DeactivateAsync(CancellationToken ct) =>
+        _guard?.DeactivateAsync(ct) ?? Task.FromResult(false);
+
+    /// <summary>
+    /// Build the component's widget, or null if it has none or throws building it.
+    /// </summary>
+    /// <remarks>
+    /// A build that throws is contained like any other call into component code (ADR-0002):
+    /// the caller renders a "component stopped" placeholder rather than letting the exception
+    /// reach the dash. Called on the UI thread, once, when the card is first shown.
+    /// </remarks>
+    internal FrameworkElement? CreateWidget()
+    {
+        if (_view is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return _view.CreateWidget();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
 
     /// <summary>Drop the component and unload its context, so it can be collected.</summary>
     internal void Unload() => _context?.Unload();
@@ -125,6 +166,10 @@ public sealed class ComponentHost(IVehicleSignals signals, IClock clock, string 
 
     /// <summary>The recent component log, tagged by id — for diagnostics.</summary>
     public IReadOnlyList<string> Log => _log;
+
+    /// <summary>The loaded component with this id, or null if none was found or it was rejected.</summary>
+    public LoadedComponent? ById(string id) =>
+        _components.FirstOrDefault(c => string.Equals(c.Id, id, StringComparison.Ordinal));
 
     /// <summary>
     /// Scan <c>plugins/</c>, load every component that will load, and initialise each behind
@@ -167,7 +212,7 @@ public sealed class ComponentHost(IVehicleSignals signals, IClock clock, string 
         if (!ApiRange.Serves(manifest.ApiVersion))
         {
             return new LoadedComponent(
-                manifest.Id, manifest, null, null, ComponentState.Incompatible,
+                manifest.Id, manifest, null, null, null, ComponentState.Incompatible,
                 $"apiVersion {manifest.ApiVersion} is not served (host serves 1.0–{ComponentApi.Version}).");
         }
 
@@ -223,6 +268,10 @@ public sealed class ComponentHost(IVehicleSignals signals, IClock clock, string 
 
             await guard.InitializeAsync(componentContext, ct).ConfigureAwait(false);
 
+            // The view half is optional (ADR-0010): only a component that draws something
+            // implements it. Captured here so the dash can build a widget for it later.
+            var view = instance as IDashComponentView;
+
             // A component with a widget is started and stopped by the page it sits on (the
             // ADR-0015 rule). One with no widget has no page to gate it, so it runs whenever
             // the vehicle is present — start it now, behind the same guard.
@@ -231,7 +280,7 @@ public sealed class ComponentHost(IVehicleSignals signals, IClock clock, string 
                 await guard.ActivateAsync(ct).ConfigureAwait(false);
             }
 
-            return new LoadedComponent(manifest.Id, manifest, guard, context, guard.State, null);
+            return new LoadedComponent(manifest.Id, manifest, guard, context, view, guard.State, null);
         }
         catch (Exception ex)
         {
@@ -252,7 +301,7 @@ public sealed class ComponentHost(IVehicleSignals signals, IClock clock, string 
     private LoadedComponent Reject(string id, ComponentManifest? manifest, string reason)
     {
         Record($"[host] rejected {id}: {reason}");
-        return new LoadedComponent(id, manifest, null, null, ComponentState.Rejected, reason);
+        return new LoadedComponent(id, manifest, null, null, null, ComponentState.Rejected, reason);
     }
 
     private void Record(string line)

@@ -32,6 +32,9 @@ public sealed record DashboardLayout
         [
             new CardSpec { Id = "speed", SignalId = "vehicle.speed", Label = "SPEED", Priority = "High", RateHz = 4, Format = "0" },
             new CardSpec { Id = "rpm", SignalId = "engine.rpm", Label = "RPM", Priority = "High", RateHz = 4, Format = "0" },
+            // The first component to arrive on the dash from plugins/ (ADR-0023). Its id names
+            // the component, not a catalog signal, and it draws its own widget.
+            new CardSpec { Id = "trip", SignalId = "com.jpenner.tripcomputer", Source = "Component" },
             new CardSpec { Id = "coolant", SignalId = "engine.coolantTemp", Label = "COOLANT", Priority = "Normal", RateHz = 0.5, Format = "0" },
             new CardSpec { Id = "fuel", SignalId = "fuel.levelPercent", Label = "FUEL", Priority = "Low", RateHz = 0.2, Format = "0", Style = "Bar" },
             new CardSpec { Id = "load", SignalId = "engine.load", Label = "ENGINE LOAD", Priority = "Normal", RateHz = 2, Format = "0", Style = "Bar" },
