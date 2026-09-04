@@ -32,9 +32,11 @@ public sealed record DashboardLayout
         [
             new CardSpec { Id = "speed", SignalId = "vehicle.speed", Label = "SPEED", Priority = "High", RateHz = 4, Format = "0" },
             new CardSpec { Id = "rpm", SignalId = "engine.rpm", Label = "RPM", Priority = "High", RateHz = 4, Format = "0" },
-            // The first component to arrive on the dash from plugins/ (ADR-0023). Its id names
-            // the component, not a catalog signal, and it draws its own widget.
+            // The first components to arrive on the dash from plugins/ (ADR-0023). Their ids name
+            // components, not catalog signals, and they draw their own widgets. Fuel economy is
+            // the one a card could not be: a value derived from two signals at once.
             new CardSpec { Id = "trip", SignalId = "com.jpenner.tripcomputer", Source = "Component" },
+            new CardSpec { Id = "econ", SignalId = "com.jpenner.fueleconomy", Source = "Component" },
             new CardSpec { Id = "coolant", SignalId = "engine.coolantTemp", Label = "COOLANT", Priority = "Normal", RateHz = 0.5, Format = "0" },
             new CardSpec { Id = "fuel", SignalId = "fuel.levelPercent", Label = "FUEL", Priority = "Low", RateHz = 0.2, Format = "0", Style = "Bar" },
             new CardSpec { Id = "load", SignalId = "engine.load", Label = "ENGINE LOAD", Priority = "Normal", RateHz = 2, Format = "0", Style = "Bar" },

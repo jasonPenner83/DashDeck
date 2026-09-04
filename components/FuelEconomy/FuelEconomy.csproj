@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The second first-party component, built from docs/writing-a-component.md to exercise the
+    guide as much as the contract. It draws a widget, so it targets net10.0-windows and
+    references DashDeck.Abstractions.Wpf (ADR-0010); both references are Private=false so no
+    copy of the shared contract lands beside the DLL.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>FuelEconomy</AssemblyName>
+    <RootNamespace>FuelEconomy</RootNamespace>
+    <PluginDir>$(MSBuildProjectDirectory)\..\..\plugins\com.jpenner.fueleconomy</PluginDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DashDeck.Abstractions\DashDeck.Abstractions.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\DashDeck.Abstractions.Wpf\DashDeck.Abstractions.Wpf.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
+  <Target Name="DeployToPlugin" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDir)" SkipUnchangedFiles="false" />
+    <Copy SourceFiles="component.json" DestinationFolder="$(PluginDir)" SkipUnchangedFiles="false" />
+  </Target>
+
+</Project>

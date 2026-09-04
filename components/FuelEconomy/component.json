@@ -1,0 +1,19 @@
+{
+  "id": "com.jpenner.fueleconomy",
+  "name": "Fuel Economy",
+  "version": "0.1.0",
+  "author": "Jason Penner",
+  "apiVersion": "1.0",
+
+  "entry": { "assembly": "FuelEconomy.dll", "type": "FuelEconomy.Component" },
+
+  "surfaces": ["widget"],
+  "widget": { "preferredSize": "1x1", "minSize": "1x1" },
+
+  "signals": [
+    { "id": "vehicle.speed",   "priority": "normal", "rateHz": 2 },
+    { "id": "engine.fuelRate", "priority": "normal", "rateHz": 2 }
+  ],
+
+  "permissions": ["signals.read"]
+}
