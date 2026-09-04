@@ -81,22 +81,30 @@ public static class BandGrid
     /// <summary>The gap between columns, between rows, and above and below them.</summary>
     public const double Gutter = 20;
 
-    /// <summary>One widget column. Three fit across the design width.</summary>
-    public const double ColumnWidth = 270;
+    /// <summary>One widget column. Five fit across the design width.</summary>
+    /// <remarks>
+    /// 154, down from 270 when three columns fit: <c>31 + 5 × 154 + 4 × 20 + 31 = 912</c>,
+    /// still dividing the design width exactly with the margins and gutter unchanged. The
+    /// denser grid was a deliberate call to see more cards at once (a driver who has built a
+    /// 5 × 3 dash wants the readings in front of them, not a page-flip away), traded against a
+    /// narrower card — which is why the card face shrank its value text to match.
+    /// </remarks>
+    public const double ColumnWidth = 154;
 
     /// <summary>How many columns fit across. A card is one or two of them.</summary>
-    public const int ColumnsPerRow = 3;
+    public const int ColumnsPerRow = 5;
 
     /// <summary>
     /// One widget row.
     /// </summary>
     /// <remarks>
-    /// 165 rather than 155 now that a band is 195: two rows and three gutters come to
-    /// 2 × 165 + 3 × 20 = 390, which is two bands exactly. The old 155 was derived the same
-    /// way against a 185 band, and keeping it would have left 40 pixels of dead gutter on
-    /// every dash rather than 10 more pixels of card.
+    /// 103, down from 165, so <b>three</b> rows fit the two bands the dash gets behind the
+    /// fixed four-band stage (ADR-0018): <c>3 × 103 + 4 × 20 = 389</c> of the 390, the spare
+    /// pixel falling into the bottom gutter. The stage stays its full four bands by choice —
+    /// the third row was bought from the cards' own height, not from the picture — so the card
+    /// is shorter than it was and the face is drawn tighter to suit.
     /// </remarks>
-    public const double WidgetRowHeight = 165;
+    public const double WidgetRowHeight = 103;
 
     /// <summary>The width of one page of cards: the design width less both margins.</summary>
     public const double PageWidth = DesignWidth - (2 * SideMargin);

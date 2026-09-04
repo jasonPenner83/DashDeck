@@ -47,16 +47,20 @@
         <Setter Property="Foreground" Value="{DynamicResource TextFaintBrush}" />
     </Style>
 
+    <!-- 30, down from 50, to suit the shorter, narrower 5×3 card: a 103px row leaves ~79px of
+         height for a caption, the value and a footer, and a 154px column leaves ~122px of width
+         for the value beside its unit. At 30 the worst realistic pair — "25.6" and "L/100km" —
+         fits without the unit clipping. -->
     <Style x:Key="ValueText" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
-        <Setter Property="FontSize" Value="50" />
+        <Setter Property="FontSize" Value="30" />
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Foreground" Value="{DynamicResource TextHighBrush}" />
     </Style>
 
     <Style x:Key="UnitText" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
-        <Setter Property="FontSize" Value="17" />
+        <Setter Property="FontSize" Value="12" />
         <Setter Property="Foreground" Value="{DynamicResource TextMidBrush}" />
     </Style>
 
@@ -148,13 +152,15 @@
         </Setter>
     </Style>
 
-    <!-- A widget: one band tall, one or two columns wide (270 or 560 on the Pro 7). -->
+    <!-- A widget: one row tall, one or two columns wide (154 or 328 on the Pro 7). Padding and
+         radius are tighter than the old three-across card — a 103px row cannot spare 16px top
+         and bottom, and 18px corners read as bubbly at this size. -->
     <Style x:Key="WidgetCard" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource HairlineBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="18" />
-        <Setter Property="Padding" Value="18,16,18,16" />
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="Padding" Value="14,10,14,10" />
     </Style>
 
     <!--
@@ -167,7 +173,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="18"
+                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="14"
                             BorderThickness="2" BorderBrush="Transparent" />
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -223,7 +229,7 @@
                             Background="Transparent"
                             BorderBrush="{DynamicResource HairlineStrongBrush}"
                             BorderThickness="2"
-                            CornerRadius="18">
+                            CornerRadius="14">
                         <Border.Style>
                             <Style TargetType="Border" />
                         </Border.Style>
@@ -441,12 +447,15 @@
                            TextTrimming="CharacterEllipsis"
                            Text="{Binding Label}" />
 
+                <!-- Value and unit. The fonts are sized so the realistic worst case on a narrow
+                     5×3 card — a value like "25.6" beside a long unit like "L/100km" — fits the
+                     ~122px inside a single column rather than clipping the unit. -->
                 <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Bottom">
                     <TextBlock Style="{StaticResource ValueText}"
                                Foreground="{Binding Quality, Converter={StaticResource ValueBrushToken}}"
                                Text="{Binding Text}" />
                     <TextBlock Style="{StaticResource UnitText}"
-                               Margin="8,0,0,9"
+                               Margin="5,0,0,5"
                                VerticalAlignment="Bottom"
                                Text="{Binding UnitText}" />
                 </StackPanel>

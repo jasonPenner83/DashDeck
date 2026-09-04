@@ -25,13 +25,13 @@ public sealed class CardPackerTests
         [.. Enumerable.Range(0, count).Select(_ => new Slot(1))];
 
     [Fact]
-    public void Three_single_cards_fill_one_row()
+    public void Five_single_cards_fill_one_row()
     {
-        var pages = CardPacker.Pack(Singles(3), rowsPerPage: 2);
+        var pages = CardPacker.Pack(Singles(5), rowsPerPage: 2);
 
         Assert.Single(pages);
         Assert.Single(pages[0].Rows);
-        Assert.Equal(3, pages[0].Rows[0].Slots.Count);
+        Assert.Equal(5, pages[0].Rows[0].Slots.Count);
     }
 
     [Fact]
@@ -46,11 +46,14 @@ public sealed class CardPackerTests
     }
 
     [Fact]
-    public void A_wide_card_takes_two_columns_and_leaves_room_for_one_more()
+    public void A_wide_card_takes_two_columns_so_three_singles_finish_the_row()
     {
-        var pages = CardPacker.Pack([new Slot(2), new Slot(1), new Slot(1)], rowsPerPage: 2);
+        // Five columns: a two-column card leaves three, so it plus three singles is a full row
+        // and a fourth single wraps.
+        var pages = CardPacker.Pack(
+            [new Slot(2), new Slot(1), new Slot(1), new Slot(1), new Slot(1)], rowsPerPage: 2);
 
-        Assert.Equal(2, pages[0].Rows[0].Slots.Count);
+        Assert.Equal(4, pages[0].Rows[0].Slots.Count);
         Assert.Single(pages[0].Rows[1].Slots);
     }
 
@@ -62,9 +65,13 @@ public sealed class CardPackerTests
     public void A_wide_card_that_does_not_fit_starts_a_new_row_rather_than_being_reordered()
     {
         var wide = new Slot(2);
-        var pages = CardPacker.Pack([new Slot(1), new Slot(1), wide, new Slot(1)], rowsPerPage: 4);
+        // Four singles fill four of the five columns; the wide card needs two and cannot take
+        // the one that is left, so it starts the next row rather than letting the later single
+        // jump ahead of it.
+        var pages = CardPacker.Pack(
+            [new Slot(1), new Slot(1), new Slot(1), new Slot(1), wide, new Slot(1)], rowsPerPage: 4);
 
-        Assert.Equal(2, pages[0].Rows[0].Slots.Count);
+        Assert.Equal(4, pages[0].Rows[0].Slots.Count);
         Assert.Same(wide, pages[0].Rows[1].Slots[0]);
     }
 
@@ -92,16 +99,16 @@ public sealed class CardPackerTests
     }
 
     /// <summary>
-    /// A three-band stage leaves three rows, not two and a spare band. This is the arithmetic
-    /// that resolves F9, and it is not the "n rows fill n bands exactly" identity the band
-    /// grid used to claim — that only ever held at two.
+    /// Rows grow with the bands available, and not by the old "n rows fill n bands" identity —
+    /// that only ever held while a row was 165 tall. At 103, the two bands the dash gets behind
+    /// the fixed four-band stage take three rows, which is the whole point of the 5×3 grid.
     /// </summary>
     [Theory]
     [InlineData(1, 1)]
-    [InlineData(2, 2)]
-    [InlineData(3, 3)]
-    [InlineData(4, 4)]
-    [InlineData(6, 6)]
+    [InlineData(2, 3)]
+    [InlineData(3, 4)]
+    [InlineData(4, 6)]
+    [InlineData(6, 9)]
     public void Rows_grow_with_the_bands_the_stage_leaves(int bands, int expectedRows) =>
         Assert.Equal(expectedRows, BandGrid.RowsIn(bands));
 

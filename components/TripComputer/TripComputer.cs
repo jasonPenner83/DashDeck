@@ -76,7 +76,7 @@ public sealed class Component : IDashComponent, IDashComponentView
         var value = new TextBlock
         {
             FontFamily = Font("UiFont"),
-            FontSize = 50,
+            FontSize = 30,
             FontWeight = FontWeights.Bold,
             Foreground = Brush("TextHighBrush", Color.FromRgb(0xF2, 0xEF, 0xE9)),
         };
@@ -85,10 +85,10 @@ public sealed class Component : IDashComponent, IDashComponentView
         {
             Text = "km",
             FontFamily = Font("MonoFont"),
-            FontSize = 17,
+            FontSize = 12,
             Foreground = Brush("TextMidBrush", Color.FromRgb(0xB8, 0xB3, 0xA8)),
             VerticalAlignment = VerticalAlignment.Bottom,
-            Margin = new Thickness(8, 0, 0, 9),
+            Margin = new Thickness(5, 0, 0, 5),
         };
 
         var number = new StackPanel

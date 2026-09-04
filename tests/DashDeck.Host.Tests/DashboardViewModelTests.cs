@@ -22,11 +22,17 @@ namespace DashDeck.Host.Tests;
 /// </remarks>
 public sealed class DashboardViewModelTests
 {
+    // Eighteen distinct ids, because one page now holds fifteen (5 × 3) and the paging tests
+    // need more than a page to have a second one to turn to. The strings are arbitrary — the
+    // bus and choices here are fakes — but read as real signals for legibility.
     private static readonly string[] Ids =
     [
         "vehicle.speed", "engine.rpm", "engine.coolantTemp",
         "fuel.levelPercent", "engine.load", "engine.fuelRate",
         "engine.throttlePosition", "engine.mafRate", "engine.intakeAirTemp",
+        "engine.oilTemp", "engine.intakeManifoldPressure", "engine.barometricPressure",
+        "vehicle.controlModuleVoltage", "engine.timingAdvance", "engine.commandedEquivRatio",
+        "engine.ambientAirTemp", "engine.runTime", "vehicle.distanceSinceCodesCleared",
     ];
 
     private static IReadOnlyList<ValueChoice> Choices() =>
@@ -59,37 +65,38 @@ public sealed class DashboardViewModelTests
     public void Only_the_visible_page_declares_signals()
     {
         var bus = new FakeBus();
-        using var dashboard = Build(bus, new MemoryStore(LayoutOf(9)));
+        using var dashboard = Build(bus, new MemoryStore(LayoutOf(18)));
 
-        // Nine cards is two pages behind a four-band stage: six visible, three not.
+        // Eighteen cards is two pages behind a four-band stage: fifteen visible (5 × 3), three not.
         Assert.Equal(2, dashboard.Pages.Count);
-        Assert.Equal(6, bus.LiveDemands);
+        Assert.Equal(15, bus.LiveDemands);
     }
 
     [Fact]
     public void Turning_the_page_moves_the_declarations_rather_than_adding_to_them()
     {
         var bus = new FakeBus();
-        using var dashboard = Build(bus, new MemoryStore(LayoutOf(9)));
+        using var dashboard = Build(bus, new MemoryStore(LayoutOf(18)));
 
         dashboard.GoToPageCommand.Execute(1);
 
-        // Three cards on the second page, and â€” the point of the test â€” the six from the
+        // Three cards on the second page, and — the point of the test — the fifteen from the
         // first page have gone rather than lingering.
         Assert.Equal(3, bus.LiveDemands);
         Assert.DoesNotContain("vehicle.speed", bus.Declared);
-        Assert.Contains("engine.throttlePosition", bus.Declared);
+        Assert.Contains("engine.runTime", bus.Declared);
     }
 
     [Fact]
     public void A_taller_widget_region_fits_more_cards_and_so_declares_more()
     {
         var bus = new FakeBus();
-        using var dashboard = Build(bus, new MemoryStore(LayoutOf(9)), bands: 3);
+        using var dashboard = Build(bus, new MemoryStore(LayoutOf(18)), bands: 3);
 
-        // A three-band stage leaves three rows, so all nine fit on one page (F9).
+        // A three-band stage leaves four rows — twenty slots at five across — so all eighteen
+        // fit one page and declare, where the two-band dash pages them (fifteen, then three).
         Assert.Single(dashboard.Pages);
-        Assert.Equal(9, bus.LiveDemands);
+        Assert.Equal(18, bus.LiveDemands);
     }
 
     [Fact]

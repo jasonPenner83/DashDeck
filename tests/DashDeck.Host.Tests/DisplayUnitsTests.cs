@@ -99,7 +99,7 @@ public sealed class DisplayUnitsTests
     [Fact]
     public void A_nonsense_width_is_clamped()
     {
-        Assert.Equal(3, new CardSpec { Width = 7 }.Columns);
+        Assert.Equal(BandGrid.ColumnsPerRow, new CardSpec { Width = 7 }.Columns);
         Assert.Equal(1, new CardSpec { Width = 0 }.Columns);
     }
 }

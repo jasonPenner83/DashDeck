@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="clr-namespace:DashDeck.Host.Converters"
              xmlns:dash="clr-namespace:DashDeck.Host.Dash"
+             xmlns:host="clr-namespace:DashDeck.Host"
              xmlns:vm="clr-namespace:DashDeck.Host.ViewModels"
              Width="912">
 
@@ -11,13 +12,13 @@
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
         <!--
-            A card. One band tall; one or two columns wide, which the packer decided and the
+            A card. One row tall; one or two columns wide, which the packer decided and the
             slot carries. Everything that changes in edit mode is an overlay on top of the
             same card rather than a second template: what you are rearranging has to look
             like what you will be reading.
         -->
         <DataTemplate DataType="{x:Type vm:WidgetCardViewModel}">
-            <Grid Width="{Binding Width}" Height="165">
+            <Grid Width="{Binding Width}" Height="{x:Static host:BandGrid.WidgetRowHeight}">
                 <ContentPresenter Content="{Binding}"
                                   ContentTemplate="{StaticResource WidgetCardFace}" />
 
@@ -33,7 +34,7 @@
                         to sit on the card because the gutters are 20 pixels wide, so the
                         card underneath them is dimmed instead of being fought with.
                     -->
-                    <Border Background="#B0000000" CornerRadius="18" IsHitTestVisible="False" />
+                    <Border Background="#B0000000" CornerRadius="14" IsHitTestVisible="False" />
 
                     <!-- The whole card opens its editor. -->
                     <Button Style="{StaticResource CardSurfaceButton}"
@@ -69,7 +70,7 @@
         </DataTemplate>
 
         <!--
-            A component's widget (ADR-0023). One band tall like any card, one or two columns
+            A component's widget (ADR-0023). One row tall like any card, one or two columns
             wide as its manifest asked.
             <b>The host owns the frame; the component owns the content.</b> Every component card
             wears the same WidgetCard chrome the signal cards do — surface, hairline border,
@@ -82,7 +83,7 @@
             now it is placed, shown, and activated by the page like every other card.
         -->
         <DataTemplate DataType="{x:Type vm:ComponentCardViewModel}">
-            <Grid Width="{Binding Width}" Height="165">
+            <Grid Width="{Binding Width}" Height="{x:Static host:BandGrid.WidgetRowHeight}">
                 <Border Style="{StaticResource WidgetCard}"
                         TextElement.Foreground="{DynamicResource TextHighBrush}"
                         TextElement.FontFamily="{StaticResource UiFont}">
@@ -121,7 +122,7 @@
                 <Grid Visibility="{Binding DataContext.IsEditing,
                                            RelativeSource={RelativeSource AncestorType=UserControl},
                                            Converter={StaticResource BoolToVis}}">
-                    <Border Background="#B0000000" CornerRadius="18" IsHitTestVisible="False" />
+                    <Border Background="#B0000000" CornerRadius="14" IsHitTestVisible="False" />
                     <Border Background="Transparent" />
 
                     <Button Style="{StaticResource CardBadgeButton}"
@@ -153,7 +154,7 @@
 
         <!-- The add tile. Flows through the packer, so it sits exactly where the next card will. -->
         <DataTemplate DataType="{x:Type dash:AddCardSlot}">
-            <Button Width="{Binding Width}" Height="165"
+            <Button Width="{Binding Width}" Height="{x:Static host:BandGrid.WidgetRowHeight}"
                     Style="{StaticResource AddCardButton}"
                     Command="{Binding DataContext.AddCardCommand,
                                       RelativeSource={RelativeSource AncestorType=UserControl}}" />
@@ -161,7 +162,7 @@
 
         <!-- One row of cards. -->
         <DataTemplate DataType="{x:Type dash:CardRow}">
-            <ItemsControl ItemsSource="{Binding Slots}" Height="165" Margin="0,0,0,20">
+            <ItemsControl ItemsSource="{Binding Slots}" Height="{x:Static host:BandGrid.WidgetRowHeight}" Margin="0,0,0,20">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <StackPanel Orientation="Horizontal" />
@@ -181,7 +182,7 @@
         -->
         <DataTemplate DataType="{x:Type dash:CardPage}">
             <Grid Width="912">
-                <!-- 31 + three 270 columns and their 20 gutters + the last card's trailing
+                <!-- 31 + five 154 columns and their 20 gutters + the last card's trailing
                      gutter + 11 = 912. The right margin is the odd one out because the
                      gutter after the final card is carried by the card itself. -->
                 <ItemsControl ItemsSource="{Binding Rows}" Margin="31,20,11,0"
@@ -231,8 +232,8 @@
         </StackPanel>
 
         <!--
-            Page dots, in the bottom gutter. Two rows of cards use 350 of 370 bands, so there
-            are exactly 20 pixels here and the dots are sized for them.
+            Page dots, in the bottom gutter. Three rows and their gutters use 389 of the two
+            390-pixel bands, so the dots live in the last row's own bottom gutter at the edge.
         -->
         <ItemsControl ItemsSource="{Binding Pages}"
                       HorizontalAlignment="Center"
