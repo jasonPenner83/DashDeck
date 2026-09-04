@@ -183,8 +183,83 @@ public partial class DashboardView : UserControl
         Slide.X = _dragFrom + e.CumulativeManipulation.Translation.X;
     }
 
-    private void OnManipulationCompleted(object? sender, ManipulationCompletedEventArgs e) =>
+    private void OnManipulationCompleted(object? sender, ManipulationCompletedEventArgs e)
+    {
+        // A press that barely moved is a tap, not a page turn — and this is the one place a tap
+        // has to be handled by hand. The strip has manipulation enabled for swiping, which
+        // consumes touch before WPF promotes it to a mouse click, so a Button on a card never
+        // fires from a finger (the same trap that killed the old hold gesture). Mouse clicks
+        // still reach the buttons directly; touch taps are routed here instead.
+        if (Math.Abs(e.TotalManipulation.Translation.X) < DragSlop)
+        {
+            HandleTap(e.ManipulationOrigin);
+        }
+
         SettleAfterDrag(e.TotalManipulation.Translation.X);
+    }
+
+    /// <summary>
+    /// Dev-only: run the tap path against the first component card that offers a detail, so the
+    /// touch routing can be exercised without a touch screen (the <c>--tap-detail</c> flag).
+    /// </summary>
+    public bool TapFirstDetailCard()
+    {
+        if (FindDetailButton(Root) is not { } button)
+        {
+            return false;
+        }
+
+        var centre = button.TransformToVisual(Root).Transform(new Point(button.ActualWidth / 2, button.ActualHeight / 2));
+        HandleTap(centre);
+        return true;
+    }
+
+    private static Button? FindDetailButton(DependencyObject node)
+    {
+        if (node is Button { IsVisible: true } b && b.DataContext is ComponentCardViewModel { HasFullScreen: true })
+        {
+            return b;
+        }
+
+        var count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(node);
+
+        for (var i = 0; i < count; i++)
+        {
+            if (FindDetailButton(System.Windows.Media.VisualTreeHelper.GetChild(node, i)) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Fire the command of whatever button a tap landed on — the click a touch never became.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately generic: it finds the topmost <see cref="Button"/> under the point and runs
+    /// its command, so it works for every tap target on a card — a component's open-detail
+    /// surface, and in edit mode the open-editor surface, the remove badge and the reorder
+    /// chevrons — without this code knowing which is which. That is exactly what a mouse click
+    /// does; this just makes touch do the same. <see cref="Panel.IsHitTestVisible"/> and
+    /// visibility are respected by the hit test, so a collapsed edit overlay is never hit and a
+    /// plain signal card, which carries no button when not editing, does nothing.
+    /// </remarks>
+    private void HandleTap(Point origin)
+    {
+        var hit = Root.InputHitTest(origin) as DependencyObject;
+
+        while (hit is not null and not Button)
+        {
+            hit = System.Windows.Media.VisualTreeHelper.GetParent(hit);
+        }
+
+        if (hit is Button { Command: { } command } button && command.CanExecute(button.CommandParameter))
+        {
+            command.Execute(button.CommandParameter);
+        }
+    }
 
     /// <summary>
     /// Mouse dragging, for development.

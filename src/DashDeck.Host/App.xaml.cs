@@ -220,6 +220,15 @@ public partial class App : Application
         MainWindow = window;
         window.Show();
 
+        // --tap-detail exercises the real touch-tap routing (hit-test -> button command), which a
+        // screenshot cannot otherwise reach because it drives the app with a mouse. Runs once the
+        // dash has laid out, so the card it taps actually has bounds.
+        if (e.Args.Contains("--tap-detail"))
+        {
+            _ = window.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Loaded, () =>
+                FindVisualChild<Views.DashboardView>(window)?.TapFirstDetailCard());
+        }
+
         // Development affordance: --unplug <seconds> pulls the adapter mid-run, so the
         // degraded state can be watched happening rather than only reasoned about.
         if (ArgValue(e.Args, "--unplug") is { } unplugAt)
@@ -270,6 +279,27 @@ public partial class App : Application
 
             timer.Start();
         }
+    }
+
+    /// <summary>First descendant of a given type in the visual tree. For the dev tap flag.</summary>
+    private static T? FindVisualChild<T>(DependencyObject node) where T : DependencyObject
+    {
+        if (node is T match)
+        {
+            return match;
+        }
+
+        var count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(node);
+
+        for (var i = 0; i < count; i++)
+        {
+            if (FindVisualChild<T>(System.Windows.Media.VisualTreeHelper.GetChild(node, i)) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     private static string? ArgValue(string[] args, string name)
