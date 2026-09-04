@@ -109,9 +109,10 @@ and **activated by the visible page** (the ADR-0015 rule reaches a component thr
 Trip Computer in `components/TripComputer/`, built through the public SDK — ships in the default
 layout and draws its own live-distance widget; it integrates `vehicle.speed`, persists the km
 and resumes across launches. Verify the loader alone with `--components <outfile>`
-(`--components-dwell <seconds>` to let it run). **Next (small):** reorder/remove/settings-edit of
-a component card via the editor UI, `statusItem`, hot-reload, permission enforcement, and
-shipping `plugins/` in `publish.ps1`.
+(`--components-dwell <seconds>` to let it run). `publish.ps1` builds each component and ships
+`plugins/` beside the executable, the same way it ships the catalog. **Next (small):**
+reorder/remove/settings-edit of a component card via the editor UI, `statusItem`, hot-reload,
+and permission enforcement.
 
 One more trap, from building the loader: **the shared contract must not load twice.** A type is
 identified by its assembly *and* its load context, so a component that carried its own copy of
