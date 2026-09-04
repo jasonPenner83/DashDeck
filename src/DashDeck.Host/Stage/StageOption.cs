@@ -49,9 +49,14 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
         WeatherService weather,
         DisplaySettings display) =>
     [
-        // The idle stage, and the default. There is no "nothing" option any more: an empty
-        // stage announcing its own emptiness was honest but useless, and a clock is the
-        // thing most often glanced at anyway.
+        // The idle default (F12/B6): an auxiliary gauge cluster in the F-150's style, showing
+        // what the factory cluster leaves out — boost, oil temp, voltage. A truck's home
+        // screen wanting gauges is a better idle than a clock, and it means there is no
+        // arbitrary "last occupant" to restore on ignition.
+        new StageOption("GAUGES", "Boost, oil, volts — what the cluster hides", () => new GaugesStageOccupant(signals)),
+
+        // Time and weather, the other idle. No "nothing" option: an empty stage announcing its
+        // own emptiness was honest but useless.
         new StageOption("CLOCK", "Time and weather", () => new ClockWeatherStageOccupant(clock, weather)),
 
         // Truck first, tablet second, and it says which â€” see SensorService.

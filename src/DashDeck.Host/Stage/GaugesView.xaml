@@ -1,0 +1,55 @@
+<UserControl x:Class="DashDeck.Host.Stage.GaugesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:g="clr-namespace:DashDeck.Host.Stage.Gauges"
+             Background="{DynamicResource CanvasBrush}">
+
+    <Grid Margin="40,8,40,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- The two big dials: the readings a driver watches — boost off the EcoBoost's turbos,
+             and oil temperature. Both absent from the factory cluster. -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+            <g:RoundGauge Diameter="300"
+                          Caption="BOOST" Unit="psi" ValueFormat="0.0"
+                          Minimum="-15" Maximum="25" MajorTick="5" MinorTick="2.5"
+                          RedlineFrom="18"
+                          Value="{Binding Boost}"
+                          Margin="0,0,44,0" />
+            <g:RoundGauge Diameter="300"
+                          Caption="OIL TEMP" Unit="°C" ValueFormat="0"
+                          Minimum="40" Maximum="150" MajorTick="20" MinorTick="10"
+                          RedlineFrom="135"
+                          Value="{Binding OilTemp}" />
+        </StackPanel>
+
+        <!-- The smaller supporting gauges, same style, scale but no digital readout — the needle
+             and the caption are enough at this size. -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal"
+                    HorizontalAlignment="Center" Margin="0,14,0,0">
+            <g:RoundGauge Diameter="164"
+                          Caption="VOLTS" Unit="V" ValueFormat="0.0"
+                          Minimum="8" Maximum="18" MajorTick="2" MinorTick="1"
+                          Value="{Binding Volts}"
+                          Margin="0,0,30,0" />
+            <g:RoundGauge Diameter="164"
+                          Caption="INTAKE" Unit="°C" ValueFormat="0"
+                          Minimum="-20" Maximum="60" MajorTick="20" MinorTick="10"
+                          Value="{Binding Iat}"
+                          Margin="0,0,30,0" />
+            <g:RoundGauge Diameter="164"
+                          Caption="THROTTLE" Unit="%" ValueFormat="0"
+                          Minimum="0" Maximum="100" MajorTick="25" MinorTick="5"
+                          Value="{Binding Throttle}"
+                          Margin="0,0,30,0" />
+            <g:RoundGauge Diameter="164"
+                          Caption="LOAD" Unit="%" ValueFormat="0"
+                          Minimum="0" Maximum="100" MajorTick="25" MinorTick="5"
+                          Value="{Binding Load}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

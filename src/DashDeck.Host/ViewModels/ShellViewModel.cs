@@ -161,14 +161,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             ValueChoice.All(vehicle.Catalog, Sensors.Catalog),
             components);
 
-        // Start on whatever was asked for at launch, and otherwise on the clock. The stage
-        // is never empty now: an idle dash showing the time is more use than one announcing
-        // that it has nothing to show.
+        // Start on whatever was asked for at launch, and otherwise on the gauges (F12/B6): a
+        // truck's idle stage wanting gauges beats a clock, and it settles the "what do we open
+        // on" question without restoring an arbitrary last occupant.
         var opening = startOn is not null
             ? StageOptions.FirstOrDefault(o => string.Equals(o.Name, startOn, StringComparison.OrdinalIgnoreCase))
             : videoPath is not null
                 ? StageOptions.First(o => o.Name == "VIDEO")
-                : StageOptions.First(o => o.Name == "CLOCK");
+                : StageOptions.First(o => o.Name == "GAUGES");
 
         if (opening is not null)
         {
