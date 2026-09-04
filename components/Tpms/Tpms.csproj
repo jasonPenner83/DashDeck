@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    TPMS — per-wheel tyre pressure, with an overhead view of the truck. Built from
+    docs/writing-a-component.md. Draws a widget and a full-screen, so it targets
+    net10.0-windows and references DashDeck.Abstractions.Wpf; both references Private=false.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Tpms</AssemblyName>
+    <RootNamespace>Tpms</RootNamespace>
+    <PluginDir>$(MSBuildProjectDirectory)\..\..\plugins\com.jpenner.tpms</PluginDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DashDeck.Abstractions\DashDeck.Abstractions.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\DashDeck.Abstractions.Wpf\DashDeck.Abstractions.Wpf.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
+  <Target Name="DeployToPlugin" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDir)" SkipUnchangedFiles="false" />
+    <Copy SourceFiles="component.json" DestinationFolder="$(PluginDir)" SkipUnchangedFiles="false" />
+  </Target>
+
+</Project>

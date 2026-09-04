@@ -40,6 +40,16 @@ public sealed class SimulatedF150
     private double _elapsed;
     private int _segmentIndex;
     private double _segmentElapsed;
+    private double _tireWarmthPsi;
+
+    // Cold tyre pressures, psi. A 2019 SuperCrew's placard is about 35 all round; the rear
+    // left is deliberately low, so the TPMS component has something worth warning about and
+    // the overhead view has a corner to light up. Real tyres gain a couple of psi as they
+    // warm with driving, which is what _tireWarmthPsi models.
+    private const double ColdFrontLeftPsi = 35.5;
+    private const double ColdFrontRightPsi = 35.0;
+    private const double ColdRearLeftPsi = 27.0;
+    private const double ColdRearRightPsi = 34.5;
 
     public SimulatedF150(ScriptedDrive drive, double ambientTempC = 4.0, int seed = 20190612)
     {
@@ -84,6 +94,18 @@ public sealed class SimulatedF150
     /// <summary>Fuel burned, in litres. The exact value a trip computer must reproduce.</summary>
     public double FuelUsedLitres { get; private set; }
 
+    /// <summary>Front-left tyre pressure, psi — warms a little with driving.</summary>
+    public double TirePsiFrontLeft => ColdFrontLeftPsi + _tireWarmthPsi;
+
+    /// <summary>Front-right tyre pressure, psi.</summary>
+    public double TirePsiFrontRight => ColdFrontRightPsi + _tireWarmthPsi;
+
+    /// <summary>Rear-left tyre pressure, psi — deliberately low.</summary>
+    public double TirePsiRearLeft => ColdRearLeftPsi + _tireWarmthPsi;
+
+    /// <summary>Rear-right tyre pressure, psi.</summary>
+    public double TirePsiRearRight => ColdRearRightPsi + _tireWarmthPsi;
+
     /// <summary>True once the scripted drive has run to completion.</summary>
     public bool IsFinished => _segmentIndex >= _drive.Segments.Count;
 
@@ -117,6 +139,22 @@ public sealed class SimulatedF150
         StepSpeed(segment, dt);
         StepEngine(segment, dt);
         StepThermal(dt);
+        StepTires(dt);
+    }
+
+    /// <summary>
+    /// Tyres warm and gain pressure as they roll, and cool when stopped.
+    /// </summary>
+    /// <remarks>
+    /// Not physics, just believable movement: enough that the numbers on the overhead view are
+    /// alive rather than frozen, and enough that a cold start reads lower than a highway cruise.
+    /// The rear left stays proportionally low throughout, so the warning is a property of the
+    /// tyre and not of the moment.
+    /// </remarks>
+    private void StepTires(double dt)
+    {
+        var heatTarget = Math.Min(2.5, SpeedKph / 40.0 * 2.5);
+        _tireWarmthPsi += (heatTarget - _tireWarmthPsi) * Math.Min(0.008 * dt, 1.0);
     }
 
     /// <summary>Move toward the segment's target speed at a plausible rate.</summary>

@@ -168,14 +168,10 @@ public sealed class SyntheticTransport : IVehicleTransport
             return "NO DATA\r\r>";
         }
 
-        // Everything modelled so far lives on HS-CAN. Asking on MS-CAN gets the honest
-        // answer rather than data that would not really be there.
-        if (_bus != CanBus.Hs)
-        {
-            return "NO DATA\r\r>";
-        }
-
-        var payload = EncodePid(pid);
+        // Bus decides what is reachable: the powertrain PIDs live on HS-CAN, the body-module
+        // TPMS placeholders on MS-CAN. Asking for one on the wrong bus gets NO DATA, which is
+        // exactly what a real adapter switched to the wrong bus would say.
+        var payload = _bus == CanBus.Ms ? EncodeMsPid(pid) : EncodePid(pid);
         return payload is null
             ? "NO DATA\r\r>"
             : Respond(mode, pid, payload);
@@ -198,9 +194,28 @@ public sealed class SyntheticTransport : IVehicleTransport
         _ => null,
     };
 
+    /// <summary>
+    /// MS-CAN body-module PIDs. Only the per-wheel TPMS placeholders, for now (see catalog).
+    /// </summary>
+    /// <remarks>
+    /// 0.25 psi per count, with a touch of jitter so the readout is never suspiciously still.
+    /// The rear left comes back low on purpose, so the overhead view has a corner to light.
+    /// </remarks>
+    private byte[]? EncodeMsPid(byte pid) => pid switch
+    {
+        0xC0 => [Psi(_truck.Jitter(_truck.TirePsiFrontLeft, 0.1))],
+        0xC1 => [Psi(_truck.Jitter(_truck.TirePsiFrontRight, 0.1))],
+        0xC2 => [Psi(_truck.Jitter(_truck.TirePsiRearLeft, 0.1))],
+        0xC3 => [Psi(_truck.Jitter(_truck.TirePsiRearRight, 0.1))],
+        _ => null,
+    };
+
     private static byte Temp(double celsius) => (byte)Math.Clamp(Math.Round(celsius + 40), 0, 255);
 
     private static byte Scale255(double percent) => (byte)Math.Clamp(Math.Round(percent * 255.0 / 100.0), 0, 255);
+
+    /// <summary>Encode psi at the catalog's 0.25 psi per count.</summary>
+    private static byte Psi(double psi) => (byte)Math.Clamp(Math.Round(psi * 4.0), 0, 255);
 
     private static byte[] TwoByte(ushort value) => [(byte)(value >> 8), (byte)(value & 0xFF)];
 

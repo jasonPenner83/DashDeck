@@ -63,6 +63,9 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     /// <summary>The name on the detail's back bar.</summary>
     public string ComponentDetailTitle { get; private set; } = string.Empty;
 
+    /// <summary>The card whose detail is open, kept active while it is.</summary>
+    private ComponentCardViewModel? _detailCard;
+
     public DashboardViewModel(
         CardValueFactory values,
         IReadOnlyList<ValueChoice> choices,
@@ -270,6 +273,12 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
             return;
         }
 
+        // The detail is fed by the component behind the card, so that card must stay active
+        // while the detail is up — even though opening it hides the dash and would otherwise
+        // deactivate it. Same exemption the edited card gets, one surface along.
+        _detailCard = card;
+        card.Activate();
+
         ComponentDetailTitle = card.Title;
         OnPropertyChanged(nameof(ComponentDetailTitle));
         ComponentDetail = detail;
@@ -277,7 +286,14 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
     /// <summary>Close the component detail and go back to the dash.</summary>
     [RelayCommand]
-    private void CloseComponentDetail() => ComponentDetail = null;
+    private void CloseComponentDetail()
+    {
+        _detailCard = null;
+        ComponentDetail = null;
+
+        // Back to being governed by the page — the card deactivates if it is off the visible one.
+        ApplyActivation();
+    }
 
     /// <summary>Show the next page, if there is one.</summary>
     [RelayCommand]
@@ -458,7 +474,9 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
         foreach (var card in _cards)
         {
-            if (visible.Contains(card) || ReferenceEquals(card, Editor?.Card))
+            // Exempt from deactivation: the card being edited (its editor previews it live) and
+            // the card whose full-screen detail is open (the detail is fed by it).
+            if (visible.Contains(card) || ReferenceEquals(card, Editor?.Card) || ReferenceEquals(card, _detailCard))
             {
                 card.Activate();
             }

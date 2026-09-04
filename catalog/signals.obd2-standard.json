@@ -108,5 +108,53 @@
     "defaultRateHz": 0.5,
     "min": 0,
     "max": 65535
+  },
+
+  // Per-wheel TPMS. These are NOT standard OBD-II: Ford reports tyre pressure over an
+  // MS-CAN body-module message whose real mode and PID are undocumented and awaiting
+  // discovery against the truck (R2). The mode/PID below (0x01, 0xC0-0xC3) are SIMULATION
+  // PLACEHOLDERS so the synthetic truck can drive the TPMS component — the values come back
+  // flagged Simulated and can never be mistaken for real. When the real message is found it
+  // is a config edit here and nothing above changes; on a real truck without it these read
+  // Unavailable and the component shows dashes, which is correct. Decode: 1 byte at 0.25 psi.
+  {
+    "id": "tire.frontLeft.pressure",
+    "name": "Tyre Pressure — Front Left",
+    "bus": "Ms",
+    "pid": 192,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.25, "offset": 0, "unit": "psi" },
+    "defaultRateHz": 0.2,
+    "min": 0,
+    "max": 60
+  },
+  {
+    "id": "tire.frontRight.pressure",
+    "name": "Tyre Pressure — Front Right",
+    "bus": "Ms",
+    "pid": 193,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.25, "offset": 0, "unit": "psi" },
+    "defaultRateHz": 0.2,
+    "min": 0,
+    "max": 60
+  },
+  {
+    "id": "tire.rearLeft.pressure",
+    "name": "Tyre Pressure — Rear Left",
+    "bus": "Ms",
+    "pid": 194,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.25, "offset": 0, "unit": "psi" },
+    "defaultRateHz": 0.2,
+    "min": 0,
+    "max": 60
+  },
+  {
+    "id": "tire.rearRight.pressure",
+    "name": "Tyre Pressure — Rear Right",
+    "bus": "Ms",
+    "pid": 195,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.25, "offset": 0, "unit": "psi" },
+    "defaultRateHz": 0.2,
+    "min": 0,
+    "max": 60
   }
 ]

@@ -1,0 +1,21 @@
+{
+  "id": "com.jpenner.tpms",
+  "name": "Tire Pressure",
+  "version": "0.1.0",
+  "author": "Jason Penner",
+  "apiVersion": "1.0",
+
+  "entry": { "assembly": "Tpms.dll", "type": "Tpms.Component" },
+
+  "surfaces": ["widget", "fullScreen"],
+  "widget": { "preferredSize": "1x1", "minSize": "1x1" },
+
+  "signals": [
+    { "id": "tire.frontLeft.pressure",  "priority": "low", "rateHz": 0.2 },
+    { "id": "tire.frontRight.pressure", "priority": "low", "rateHz": 0.2 },
+    { "id": "tire.rearLeft.pressure",   "priority": "low", "rateHz": 0.2 },
+    { "id": "tire.rearRight.pressure",  "priority": "low", "rateHz": 0.2 }
+  ],
+
+  "permissions": ["signals.read"]
+}

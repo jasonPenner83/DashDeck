@@ -39,6 +39,8 @@ public sealed record DashboardLayout
             new CardSpec { Id = "econ", SignalId = "com.jpenner.fueleconomy", Source = "Component" },
             // Tap this one — it offers a full-screen detail with the trip figures and a reset.
             new CardSpec { Id = "avgecon", SignalId = "com.jpenner.tripeconomy", Source = "Component" },
+            // Tap for the overhead truck with a pressure at each corner.
+            new CardSpec { Id = "tpms", SignalId = "com.jpenner.tpms", Source = "Component" },
             new CardSpec { Id = "coolant", SignalId = "engine.coolantTemp", Label = "COOLANT", Priority = "Normal", RateHz = 0.5, Format = "0" },
             new CardSpec { Id = "fuel", SignalId = "fuel.levelPercent", Label = "FUEL", Priority = "Low", RateHz = 0.2, Format = "0", Style = "Bar" },
             new CardSpec { Id = "load", SignalId = "engine.load", Label = "ENGINE LOAD", Priority = "Normal", RateHz = 2, Format = "0", Style = "Bar" },

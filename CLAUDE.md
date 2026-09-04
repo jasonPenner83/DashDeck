@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **190 tests green** — 48 engine, 142 shell.
+(ADR-0010). **191 tests green** — 49 engine, 142 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -108,10 +108,16 @@ and **activated by the visible page** (the ADR-0015 rule reaches a component thr
 `IDashCard` seam, so a component off-page spends no request budget). Tapping a component card
 opens its **`IDashComponentView.CreateFullScreen` detail** as a full-screen view with a back bar
 (Q17 — the stage keeps running underneath); the host draws that chrome, the component supplies
-the content. **Three components ship in `components/`**, all built through the public SDK:
-`TripComputer` (integrates and draws distance), `FuelEconomy` (instantaneous L/100km from two
-signals — the value a card can't derive), and `TripEconomy` (trip-average economy, persisted,
-with a full-screen detail and a reset). Verify the loader alone with `--components <outfile>`
+the content — and the card whose detail is open stays active so it keeps feeding it (the same
+exemption the edited card gets). **Four components ship in `components/`**, all built through the
+public SDK: `TripComputer` (integrates and draws distance), `FuelEconomy` (instantaneous L/100km
+from two signals — the value a card can't derive), `TripEconomy` (trip-average economy,
+persisted, with a full-screen detail and a reset), and `Tpms` (per-wheel tyre pressure with an
+overhead white F-150 that lights the low corner). **TPMS is the first MS-CAN signal set** — its
+four `tire.*.pressure` ids carry **placeholder mode/PID** (documented in the catalog) because
+Ford's real body-module message is undiscovered (R2); the synthetic answers them on MS-CAN
+flagged Simulated, and on a real truck without the PID they read Unavailable and every corner
+shows a dash. Verify the loader alone with `--components <outfile>`
 (`--components-dwell <seconds>` to let it run); `--detail <n>` opens a card's detail for a
 screenshot. `publish.ps1` builds each component and ships `plugins/` beside the executable, the
 same way it ships the catalog. **How to write one:** [`docs/writing-a-component.md`](docs/writing-a-component.md).

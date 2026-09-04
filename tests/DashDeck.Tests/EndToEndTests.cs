@@ -77,6 +77,29 @@ public class EndToEndTests
     }
 
     [Fact]
+    public async Task An_ms_can_tpms_signal_answers_on_the_ms_bus()
+    {
+        // TPMS are the first signals on MS-CAN, so this is also the first end-to-end exercise
+        // of the bus switch: the arbiter must select MS-CAN, the adapter send STP53, and the
+        // synthetic answer the body-module PID rather than NO DATA.
+        var (service, _) = await StartAsync();
+        await using var _service = service;
+
+        using var demand = service.Bus.Require("tire.rearLeft.pressure", SignalPriority.Low, 1);
+
+        await WaitUntilAsync(
+            () => service.Bus.Current("tire.rearLeft.pressure").IsUsable,
+            TimeSpan.FromSeconds(8));
+
+        var reading = service.Bus.Current("tire.rearLeft.pressure");
+        Assert.True(reading.IsUsable, "the rear-left tyre pressure never answered on MS-CAN.");
+        Assert.Equal("psi", reading.Unit);
+
+        // The rear left is the deliberately-low tyre; it should read low but not absurd.
+        Assert.InRange(reading.Value, 20.0, 33.0);
+    }
+
+    [Fact]
     public async Task Plugging_the_adapter_back_in_recovers_without_a_restart()
     {
         // Constraint C5: connect, disconnect, sleep and resume are non-events that recover on
