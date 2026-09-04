@@ -1,5 +1,11 @@
 # DashDeck — Component SDK
 
+> **Building one? Read [Writing a component](writing-a-component.md) instead** — the
+> practical, step-by-step guide, kept accurate to what actually ships. This document is the
+> contract and the reasoning behind it, and parts of it (the `dotnet new` template, some
+> context members) describe the intended shape rather than the current build; the guide and
+> [ADR-0023](decisions/ADR-0023-component-host.md) are authoritative on what exists today.
+
 The ecosystem contract. This is the document a component author reads, and the reason
 the rest of the architecture is shaped the way it is.
 

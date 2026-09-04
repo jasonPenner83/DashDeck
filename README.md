@@ -9,9 +9,12 @@ can add by dropping a folder into `plugins/`.
 It sits **alongside** the factory SYNC 3 unit, not in place of it. Close DashDeck and the
 truck is a completely normal F-150.
 
-> **Status: P0 engine complete, no UI yet.** The vehicle stack, signal catalog, request
-> arbiter, state bus and a synthetic 2019 F-150 are built and tested — with no adapter and
-> no truck. The WPF shell is next, and needs Windows.
+> **Status: P0 engine complete; the WPF shell is up and the component host is live.** The
+> vehicle stack, signal catalog, request arbiter, state bus and a synthetic 2019 F-150 are
+> built and tested — with no adapter and no truck. The shell renders the dash, the stage and
+> the nav; components load from `plugins/` into isolated, fault-contained contexts, and the
+> first one — a Trip Computer — draws its own widget on the dash. See
+> [Writing a component](docs/writing-a-component.md).
 
 ```bash
 dotnet test
@@ -25,7 +28,8 @@ dotnet run --project src/DashDeck.DebugConsole -- cold-start-city --seconds 60
 | [Project outline](docs/00-project-outline.md) | Goals, constraints, non-goals, phases, risks |
 | [Architecture](docs/01-architecture.md) | The layer stack and the contracts between layers |
 | [Hardware](docs/02-hardware.md) | 2019 F-150 CAN specifics, adapter recommendation |
-| [Component SDK](docs/03-component-sdk.md) | How to write a component |
+| [**Writing a component**](docs/writing-a-component.md) | The practical guide: build, deploy and verify one |
+| [Component SDK](docs/03-component-sdk.md) | The contract and the reasoning behind it |
 | [Open questions](docs/04-open-questions.md) | What is still undecided |
 | [Development setup](docs/06-development-setup.md) | What to install, how to run it, conventions |
 | [Releases & branching](docs/05-releases-and-branching.md) | `main`/`develop`, versioning, how a build reaches the truck |
@@ -48,8 +52,9 @@ simulator models realistic warm-up, dropped responses and the same throughput ce
 the real thing, so components hit the same walls in mock data that they will hit in the
 truck.
 
-First component: a **fuel economy and trip computer with history** — including tank
-calibration against real fill-ups, which is the thing the factory cluster can't do.
+First components: a **Trip Computer** (built — it integrates distance and draws it on the
+dash) and a **fuel economy** readout, with tank calibration against real fill-ups down the
+road — the thing the factory cluster can't do.
 
 ## Disclaimer
 
