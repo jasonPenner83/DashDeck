@@ -196,7 +196,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
     /// <summary>Remove a card.</summary>
     [RelayCommand]
-    private void RemoveCard(WidgetCardViewModel? card)
+    private void RemoveCard(IDashCard? card)
     {
         if (card is null || !_cards.Remove(card))
         {
@@ -211,11 +211,11 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
     /// <summary>Move a card one place earlier in the flow.</summary>
     [RelayCommand]
-    private void MoveEarlier(WidgetCardViewModel? card) => Move(card, -1);
+    private void MoveEarlier(IDashCard? card) => Move(card, -1);
 
     /// <summary>Move a card one place later in the flow.</summary>
     [RelayCommand]
-    private void MoveLater(WidgetCardViewModel? card) => Move(card, +1);
+    private void MoveLater(IDashCard? card) => Move(card, +1);
 
     /// <summary>Put the shipped six back.</summary>
     [RelayCommand]
@@ -387,7 +387,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     private static string SuggestFormat(ValueChoice choice) =>
         choice.Unit is "L/h" or "g/s" ? "0.0" : "0";
 
-    private void Move(WidgetCardViewModel? card, int delta)
+    private void Move(IDashCard? card, int delta)
     {
         if (card is null)
         {
