@@ -33,6 +33,7 @@ dotnet run --project src/DashDeck.DebugConsole -- cold-start-city --seconds 60
 | [Open questions](docs/04-open-questions.md) | What is still undecided |
 | [Development setup](docs/06-development-setup.md) | What to install, how to run it, conventions |
 | [Releases & branching](docs/05-releases-and-branching.md) | `main`/`develop`, versioning, how a build reaches the truck |
+| [Deploy notes](docs/deploy-notes.md) | What is in the tablet build now, and what to test in the truck |
 | [Decisions](docs/decisions/) | ADRs — why each call was made |
 
 ## The idea in one paragraph
