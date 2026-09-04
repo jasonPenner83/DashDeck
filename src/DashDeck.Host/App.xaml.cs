@@ -210,6 +210,12 @@ public partial class App : Application
             _shell.Dashboard.OpenCardAt(cardIndex);
         }
 
+        // --detail <n> opens the nth card's component detail, which is otherwise a tap.
+        if (ArgValue(e.Args, "--detail") is { } detail && int.TryParse(detail, out var detailIndex))
+        {
+            _shell.Dashboard.OpenComponentDetailAt(detailIndex);
+        }
+
         var window = new MainWindow { DataContext = _shell };
         MainWindow = window;
         window.Show();

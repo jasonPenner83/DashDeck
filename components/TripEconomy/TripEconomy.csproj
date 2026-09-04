@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Trip average economy: distance and fuel integrated over a whole trip, persisted and
+    resumed. Built from docs/writing-a-component.md. It draws a widget and a full-screen
+    detail with a reset, so it references DashDeck.Abstractions.Wpf and targets
+    net10.0-windows; both references are Private=false (ADR-0002).
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>TripEconomy</AssemblyName>
+    <RootNamespace>TripEconomy</RootNamespace>
+    <PluginDir>$(MSBuildProjectDirectory)\..\..\plugins\com.jpenner.tripeconomy</PluginDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DashDeck.Abstractions\DashDeck.Abstractions.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\DashDeck.Abstractions.Wpf\DashDeck.Abstractions.Wpf.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
+  <Target Name="DeployToPlugin" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDir)" SkipUnchangedFiles="false" />
+    <Copy SourceFiles="component.json" DestinationFolder="$(PluginDir)" SkipUnchangedFiles="false" />
+  </Target>
+
+</Project>

@@ -82,14 +82,24 @@
             now it is placed, shown, and activated by the page like every other card.
         -->
         <DataTemplate DataType="{x:Type vm:ComponentCardViewModel}">
-            <Border Width="{Binding Width}" Height="165"
-                    Style="{StaticResource WidgetCard}"
-                    TextElement.Foreground="{DynamicResource TextHighBrush}"
-                    TextElement.FontFamily="{StaticResource UiFont}">
-                <ContentControl Content="{Binding Element}"
-                                HorizontalContentAlignment="Stretch"
-                                VerticalContentAlignment="Stretch" />
-            </Border>
+            <Grid Width="{Binding Width}" Height="165">
+                <Border Style="{StaticResource WidgetCard}"
+                        TextElement.Foreground="{DynamicResource TextHighBrush}"
+                        TextElement.FontFamily="{StaticResource UiFont}">
+                    <ContentControl Content="{Binding Element}"
+                                    HorizontalContentAlignment="Stretch"
+                                    VerticalContentAlignment="Stretch" />
+                </Border>
+
+                <!-- Tapping a component that offers a detail opens it full-screen. A component
+                     with only a widget has no button, so its card is inert rather than looking
+                     tappable and doing nothing. -->
+                <Button Style="{StaticResource CardSurfaceButton}"
+                        Visibility="{Binding HasFullScreen, Converter={StaticResource BoolToVis}}"
+                        Command="{Binding DataContext.OpenComponentDetailCommand,
+                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        CommandParameter="{Binding}" />
+            </Grid>
         </DataTemplate>
 
         <!-- The add tile. Flows through the packer, so it sits exactly where the next card will. -->

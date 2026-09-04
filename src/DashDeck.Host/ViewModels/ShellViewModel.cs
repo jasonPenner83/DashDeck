@@ -184,12 +184,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             // The card editor is a full-screen view, so it claims the stage the way Settings
             // does (Q17). The stage keeps running underneath either way.
             if (e.PropertyName is nameof(DashboardViewModel.IsCardEditorOpen)
-                or nameof(DashboardViewModel.IsEditing))
+                or nameof(DashboardViewModel.IsEditing)
+                or nameof(DashboardViewModel.IsComponentDetailOpen))
             {
                 OnPropertyChanged(nameof(StageBands));
                 OnPropertyChanged(nameof(WidgetBands));
                 OnPropertyChanged(nameof(IsOccupantVisible));
                 OnPropertyChanged(nameof(IsCardEditorOpen));
+                OnPropertyChanged(nameof(IsComponentDetailOpen));
                 OnPropertyChanged(nameof(IsDashVisible));
                 OnPropertyChanged(nameof(IsFullScreenOpen));
                 OnPropertyChanged(nameof(IsDashEditing));
@@ -331,6 +333,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <summary>True when a card is open in the editor.</summary>
     public bool IsCardEditorOpen => Dashboard.IsCardEditorOpen;
 
+    /// <summary>True when a component's full-screen detail is covering the dash.</summary>
+    public bool IsComponentDetailOpen => Dashboard.IsComponentDetailOpen;
+
     /// <summary>True while the dash is being rearranged.</summary>
     public bool IsDashEditing => Dashboard.IsEditing;
 
@@ -343,7 +348,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// bands, the stage keeps running underneath, and the nav stays on top so there is always
     /// a way back out.
     /// </remarks>
-    public bool IsFullScreenOpen => IsSettingsActive || IsCardEditorOpen;
+    public bool IsFullScreenOpen => IsSettingsActive || IsCardEditorOpen || IsComponentDetailOpen;
 
     /// <summary>
     /// Whether the cards are showing.
@@ -354,7 +359,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// active, and the two then rendered into the same region with the cards on top. The
     /// editor was fully drawn and completely invisible underneath them.
     /// </remarks>
-    public bool IsDashVisible => IsDashActive && !IsCardEditorOpen;
+    public bool IsDashVisible => IsDashActive && !IsCardEditorOpen && !IsComponentDetailOpen;
 
     /// <summary>
     /// Whether the destination strip is showing.

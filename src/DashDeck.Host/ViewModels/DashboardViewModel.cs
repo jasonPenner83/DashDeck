@@ -47,6 +47,22 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsCardEditorOpen))]
     private CardEditorViewModel? _editor;
 
+    /// <summary>A component's full-screen detail, when one is open, or null.</summary>
+    /// <remarks>
+    /// The first use of the full-screen surface a component can offer (ADR-0023). Tapping a
+    /// component card outside edit mode opens its detail here; it covers the widget region like
+    /// Settings and the card editor do (Q17), the stage keeps running, and a back bar closes it.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsComponentDetailOpen))]
+    private System.Windows.FrameworkElement? _componentDetail;
+
+    /// <summary>True while a component detail covers the dash.</summary>
+    public bool IsComponentDetailOpen => ComponentDetail is not null;
+
+    /// <summary>The name on the detail's back bar.</summary>
+    public string ComponentDetailTitle { get; private set; } = string.Empty;
+
     public DashboardViewModel(
         CardValueFactory values,
         IReadOnlyList<ValueChoice> choices,
@@ -245,6 +261,24 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         ApplyActivation();
     }
 
+    /// <summary>Open a component's full-screen detail. Bound to a tap on a component card.</summary>
+    [RelayCommand]
+    private void OpenComponentDetail(ComponentCardViewModel? card)
+    {
+        if (card is null || !card.HasFullScreen || card.CreateDetail() is not { } detail)
+        {
+            return;
+        }
+
+        ComponentDetailTitle = card.Title;
+        OnPropertyChanged(nameof(ComponentDetailTitle));
+        ComponentDetail = detail;
+    }
+
+    /// <summary>Close the component detail and go back to the dash.</summary>
+    [RelayCommand]
+    private void CloseComponentDetail() => ComponentDetail = null;
+
     /// <summary>Show the next page, if there is one.</summary>
     [RelayCommand]
     private void NextPage() => PageIndex = Math.Min(PageIndex + 1, Pages.Count - 1);
@@ -275,6 +309,18 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         if (index >= 0 && index < _cards.Count)
         {
             OpenEditor(_cards[index] as WidgetCardViewModel);
+        }
+    }
+
+    /// <summary>
+    /// Open the component detail for the card at a position. For the <c>--detail</c> flag, since
+    /// the detail is otherwise a tap and a screenshot cannot tap.
+    /// </summary>
+    public void OpenComponentDetailAt(int index)
+    {
+        if (index >= 0 && index < _cards.Count && _cards[index] is ComponentCardViewModel card)
+        {
+            OpenComponentDetail(card);
         }
     }
 

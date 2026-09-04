@@ -105,14 +105,18 @@ runs a guarded time-boxed lifecycle, and contains a faulting component. A compon
 `IDashComponentView` **widget is hosted on the dash** as a `ComponentCardViewModel` — a third
 `CardSpec.Source` (`Component`) beside Signal and Sensor, placed in the one ordered arrangement
 and **activated by the visible page** (the ADR-0015 rule reaches a component through the new
-`IDashCard` seam, so a component off-page spends no request budget). The first component — a
-Trip Computer in `components/TripComputer/`, built through the public SDK — ships in the default
-layout and draws its own live-distance widget; it integrates `vehicle.speed`, persists the km
-and resumes across launches. Verify the loader alone with `--components <outfile>`
-(`--components-dwell <seconds>` to let it run). `publish.ps1` builds each component and ships
-`plugins/` beside the executable, the same way it ships the catalog. **Next (small):**
-reorder/remove/settings-edit of a component card via the editor UI, `statusItem`, hot-reload,
-and permission enforcement.
+`IDashCard` seam, so a component off-page spends no request budget). Tapping a component card
+opens its **`IDashComponentView.CreateFullScreen` detail** as a full-screen view with a back bar
+(Q17 — the stage keeps running underneath); the host draws that chrome, the component supplies
+the content. **Three components ship in `components/`**, all built through the public SDK:
+`TripComputer` (integrates and draws distance), `FuelEconomy` (instantaneous L/100km from two
+signals — the value a card can't derive), and `TripEconomy` (trip-average economy, persisted,
+with a full-screen detail and a reset). Verify the loader alone with `--components <outfile>`
+(`--components-dwell <seconds>` to let it run); `--detail <n>` opens a card's detail for a
+screenshot. `publish.ps1` builds each component and ships `plugins/` beside the executable, the
+same way it ships the catalog. **How to write one:** [`docs/writing-a-component.md`](docs/writing-a-component.md).
+**Next (small):** reorder/remove/settings-edit of a component card via the editor UI,
+`statusItem`, hot-reload, and permission enforcement.
 
 One more trap, from building the loader: **the shared contract must not load twice.** A type is
 identified by its assembly *and* its load context, so a component that carried its own copy of

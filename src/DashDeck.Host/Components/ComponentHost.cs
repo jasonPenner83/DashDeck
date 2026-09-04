@@ -100,6 +100,10 @@ public sealed class LoadedComponent
     /// <summary>True when it offers a widget the dash can host.</summary>
     public bool HasWidget => _view is not null && Manifest?.HasWidget == true;
 
+    /// <summary>True when tapping its widget should open a full-screen detail.</summary>
+    public bool HasFullScreen =>
+        _view is not null && Manifest?.ParsedSurfaces.Contains(ComponentSurface.FullScreen) == true;
+
     internal GuardedComponent? Guard => _guard;
 
     /// <summary>Became visible on a page. Start it, behind the guard.</summary>
@@ -128,6 +132,27 @@ public sealed class LoadedComponent
         try
         {
             return _view.CreateWidget();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Build the component's full-screen detail, or null if it has none or throws building it.
+    /// </summary>
+    /// <remarks>Contained like every other call into component code (ADR-0002).</remarks>
+    internal FrameworkElement? CreateFullScreen()
+    {
+        if (!HasFullScreen)
+        {
+            return null;
+        }
+
+        try
+        {
+            return _view!.CreateFullScreen();
         }
         catch (Exception)
         {

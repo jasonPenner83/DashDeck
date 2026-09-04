@@ -52,6 +52,15 @@ public sealed class ComponentCardViewModel : IDashCard
     /// <summary>What the dash renders for this card — the component's widget, or a placeholder.</summary>
     public FrameworkElement Element { get; }
 
+    /// <summary>True when tapping the card should open the component's full-screen detail.</summary>
+    public bool HasFullScreen => _component?.HasFullScreen == true;
+
+    /// <summary>The component's display name, for the detail's back bar.</summary>
+    public string Title => _component?.Manifest?.Name ?? Spec.SignalId;
+
+    /// <summary>Build the component's full-screen detail, or null if it has none.</summary>
+    public FrameworkElement? CreateDetail() => _component?.CreateFullScreen();
+
     /// <inheritdoc />
     public void Activate()
     {

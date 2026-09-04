@@ -312,6 +312,32 @@
                     <views:CardEditorView DataContext="{Binding Dashboard.Editor}" />
                 </ContentControl>
 
+                <!-- A component's full-screen detail (ADR-0023), opened by tapping a component
+                     card. Same rule as the others: it covers the widget region, the stage runs
+                     underneath, and the back bar is the way out. The host draws this chrome; the
+                     component supplies only what sits below the bar. -->
+                <Grid Grid.Row="1"
+                      Background="{DynamicResource CanvasBrush}"
+                      Visibility="{Binding IsComponentDetailOpen, Converter={StaticResource BoolToVis}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Margin="31,24,31,0">
+                        <Button DockPanel.Dock="Left"
+                                Style="{StaticResource OptionChipButton}"
+                                Content="‹ BACK"
+                                Command="{Binding Dashboard.CloseComponentDetailCommand}" />
+                        <TextBlock Margin="18,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Style="{StaticResource StatusText}"
+                                   Text="{Binding Dashboard.ComponentDetailTitle}" />
+                    </DockPanel>
+
+                    <ContentControl Grid.Row="1" Content="{Binding Dashboard.ComponentDetail}" />
+                </Grid>
+
                 <!-- Drawn in the nav because the nav is the destination list (B3), but
                      nothing is behind them yet. Saying so beats a blank region. -->
                 <StackPanel Grid.Row="1"
