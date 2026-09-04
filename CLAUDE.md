@@ -83,11 +83,16 @@ Six traps already hit and worth not re-learning:
   which never equals a boxed `bool`. Use `<Trigger.Value><sys:Boolean>True</sys:Boolean>`.
   Cost: the current page's dot silently never lit.
 
-- **Touch never reaches the mouse events on a manipulation-enabled element.** Edit mode was a
-  600 ms hold built on `PreviewMouseLeftButtonDown`, on the card strip, which sets
-  `IsManipulationEnabled` for swiping — so the hold could never fire from a finger and worked
-  only in mouse-driven screenshots. Found in the truck. If a gesture must work on glass, test
-  it on glass or drive it from `ManipulationStarted`/`TouchDown`.
+- **Touch never reaches the mouse events on a manipulation-enabled element.** The card strip
+  sets `IsManipulationEnabled` for swiping, which consumes a touch before WPF promotes it to a
+  mouse click — so a `Button` on a card, and the old 600 ms hold before it, fire from a mouse
+  and never from a finger. Both worked only in mouse-driven screenshots and were found on the
+  truck. **The remedy now lives in the code:** `DashboardView.HandleTap` treats a manipulation
+  that ends with almost no translation as a tap, hit-tests its origin, and runs the command of
+  whatever `Button` is under it — the click the touch never became. So a new tap target on a
+  card just needs to be a `Button` with a `Command`; do not add a `TouchDown` handler of its
+  own. The `--tap-detail` flag drives that path without a touch screen. Still: if a gesture
+  must work on glass, confirm it on glass — this trap was found there twice.
 
 Also worth knowing: `MeasuredRequestsPerSecond` — the `req/s` on the status strip — is the
 adapter's measured **capability**, not the achieved load. It is not a way to check whether
