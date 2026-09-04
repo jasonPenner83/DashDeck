@@ -55,4 +55,10 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- The component host's fault containment is internal, and testing it directly with a
+         fake component is far cheaper than staging a faulting assembly on disk. -->
+    <InternalsVisibleTo Include="DashDeck.Host.Tests" />
+  </ItemGroup>
+
 </Project>

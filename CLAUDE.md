@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **172 tests green** — 48 engine, 124 shell.
+(ADR-0010). **187 tests green** — 48 engine, 139 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -98,10 +98,24 @@ has no defined lifetime** (F22). Leaving via the nav keeps it playing, going int
 keeps it playing but hidden, and picking another occupant kills the process mid-song. Three
 lifecycles, three answers, none of them chosen.
 
-**Next: the component host** — discovery, manifest, lifecycle — so cards stop being built by
-the shell and start arriving from `plugins/`. ADR-0015 settled the instance format and the
-activation rule it will have to honour; what is missing is a *source* other than a catalog
-signal.
+**The component host is half-built** (ADR-0023). The in-process loader exists: it discovers
+`plugins/`, validates the manifest and `apiVersion` before mapping any code, loads each
+component into its own collectible `AssemblyLoadContext` sharing only `DashDeck.Abstractions`,
+runs a guarded time-boxed lifecycle, and contains a faulting component. The first component —
+a headless trip odometer in `components/TripComputer/`, built through the public SDK — loads,
+integrates `vehicle.speed`, persists the distance and resumes across launches. Verify it with
+`--components <outfile>` (add `--components-dwell <seconds>` to watch it run). **Next: dash
+placement** — hosting a component's `IDashComponentView` widget as an `IDashSlot` in the paged
+grid, activated by the visible page; `CardSpec.Source` gains `Component` then. Deferred: the
+settings editor, `statusItem`, hot-reload, permission enforcement, and shipping `plugins/` in
+`publish.ps1`.
+
+One more trap, from building the loader: **the shared contract must not load twice.** A type is
+identified by its assembly *and* its load context, so a component that carried its own copy of
+`DashDeck.Abstractions` would implement a *different* `IDashComponent` and the cast that adopts
+it would fail with an impossible "cannot convert IDashComponent to IDashComponent". The load
+context defers the contract assemblies to the host's default context; the component's
+`ProjectReference` sets `Private=false` so no copy is ever emitted beside its DLL.
 
 Two pieces of hardware are chosen and not bought: the **OBDLink EX** adapter, wired USB
 (ADR-0007), and a **Carlinkit CPC200** for Android Auto and CarPlay (ADR-0019). Both are
@@ -166,7 +180,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Twenty-two exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Twenty-three exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, and the

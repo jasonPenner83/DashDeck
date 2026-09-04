@@ -49,6 +49,46 @@ public partial class App : Application
             return;
         }
 
+        // Development affordance: --components <outfile> loads plugins/, writes a report of
+        // what loaded and why, and exits. The component host draws nothing yet (that is the
+        // next step), so this is how it is verified end to end before it has a face.
+        if (ArgValue(e.Args, "--components") is { } reportPath)
+        {
+            var root = Components.PluginPath.FindRoot();
+            var host = new Components.ComponentHost(_vehicle.Signals, SystemClock.Instance, root ?? "plugins");
+            await host.LoadAllAsync(CancellationToken.None);
+
+            // Let a background worker actually run, so the report shows it working rather than
+            // only loading. --components-dwell <seconds> holds before reporting.
+            if (ArgValue(e.Args, "--components-dwell") is { } dwell &&
+                double.TryParse(dwell, System.Globalization.CultureInfo.InvariantCulture, out var seconds))
+            {
+                await Task.Delay(TimeSpan.FromSeconds(seconds));
+            }
+
+            var report = new System.Text.StringBuilder();
+            report.AppendLine($"plugins root: {root ?? "(not found)"}");
+            report.AppendLine($"components: {host.Components.Count}");
+
+            foreach (var component in host.Components)
+            {
+                report.AppendLine(
+                    $"  {component.Id}  state={component.State}" +
+                    (component.LastError is { } error ? $"  ({error})" : string.Empty));
+            }
+
+            report.AppendLine("log:");
+
+            foreach (var line in host.Log)
+            {
+                report.AppendLine($"  {line}");
+            }
+
+            System.IO.File.WriteAllText(reportPath, report.ToString());
+            Shutdown(0);
+            return;
+        }
+
         // --video <path> starts with video already on the stage. Everything else is chosen
         // from the picker at runtime, so this is a convenience rather than the only way in.
         string? stagedVideo = null;

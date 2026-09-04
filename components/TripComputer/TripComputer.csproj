@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A first-party component (ADR-0002), built through the public SDK on purpose: the
+    contract has to be exercised before it ossifies (ADR-0008). Headless for now — it
+    targets plain net10.0 and references only DashDeck.Abstractions, which is what an
+    off-Windows, UI-free component looks like (ADR-0010). The widget arrives in a later step.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>TripComputer</AssemblyName>
+    <RootNamespace>TripComputer</RootNamespace>
+    <!-- The plugin folder is the deploy target; the bin output is incidental. -->
+    <PluginDir>$(MSBuildProjectDirectory)\..\..\plugins\com.jpenner.tripcomputer</PluginDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      The one shared assembly (ADR-0002). Private=false so it is NOT copied into the plugin
+      folder: the host owns the single copy every component's context unifies against, and a
+      second copy beside the DLL is exactly what ComponentLoadContext exists to ignore.
+    -->
+    <ProjectReference Include="..\..\src\DashDeck.Abstractions\DashDeck.Abstractions.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
+  <!--
+    Deploy the component into plugins/<id>/: its own DLL and its manifest. The manifest is
+    source and lives here, tracked; plugins/ is a build output and is gitignored. So the
+    component is reproducible from source alone — a fresh checkout has no plugins/<id>/ until
+    this runs — and plugins/ never holds anything hand-edited.
+  -->
+  <Target Name="DeployToPlugin" AfterTargets="Build">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDir)" SkipUnchangedFiles="false" />
+    <Copy SourceFiles="component.json" DestinationFolder="$(PluginDir)" SkipUnchangedFiles="false" />
+  </Target>
+
+</Project>

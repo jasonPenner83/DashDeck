@@ -1,0 +1,17 @@
+{
+  "id": "com.jpenner.tripcomputer",
+  "name": "Trip Computer",
+  "version": "0.1.0",
+  "author": "Jason Penner",
+  "apiVersion": "1.0",
+
+  "entry": { "assembly": "TripComputer.dll", "type": "TripComputer.Component" },
+
+  "surfaces": ["backgroundWorker"],
+
+  "signals": [
+    { "id": "vehicle.speed", "priority": "normal", "rateHz": 2 }
+  ],
+
+  "permissions": ["storage", "signals.read"]
+}
