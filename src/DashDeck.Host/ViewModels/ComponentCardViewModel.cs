@@ -93,6 +93,8 @@ public sealed class ComponentCardViewModel : IDashCard
 
     private FrameworkElement BuildElement()
     {
+        // Content only — the host frames every component card in the shared WidgetCard chrome
+        // (see the DataTemplate), so neither the widget nor this placeholder draws its own.
         if (_component is { HasWidget: true } && _component.CreateWidget() is { } widget)
         {
             return widget;
@@ -102,19 +104,16 @@ public sealed class ComponentCardViewModel : IDashCard
             ? $"COMPONENT\nUNAVAILABLE\n{Spec.SignalId}"
             : "COMPONENT\nSTOPPED";
 
-        return new Border
+        return new TextBlock
         {
-            CornerRadius = new CornerRadius(18),
-            Background = new SolidColorBrush(Color.FromRgb(0x17, 0x16, 0x14)),
-            Child = new TextBlock
-            {
-                Text = message,
-                TextAlignment = TextAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                FontSize = 13,
-                Foreground = new SolidColorBrush(Color.FromRgb(0x8A, 0x86, 0x7E)),
-            },
+            Text = message,
+            TextAlignment = TextAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            FontSize = 13,
+            // A placeholder is deliberately muted; the frame around it is the theme's.
+            Foreground = Application.Current?.TryFindResource("TextLowBrush") as Brush
+                ?? new SolidColorBrush(Color.FromRgb(0x8A, 0x86, 0x7E)),
         };
     }
 }

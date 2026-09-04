@@ -70,13 +70,26 @@
 
         <!--
             A component's widget (ADR-0023). One band tall like any card, one or two columns
-            wide as its manifest asked; the host sizes the slot and the component draws its own
-            insides, which is why this is a bare host for Element rather than a face of its own.
+            wide as its manifest asked.
+            <b>The host owns the frame; the component owns the content.</b> Every component card
+            wears the same WidgetCard chrome the signal cards do — surface, hairline border,
+            radius and padding — so it belongs on the dash rather than reading as a foreign
+            rectangle, and it themes with everything else because the chrome uses the theme's own
+            brushes. The component draws only what goes inside, and inherits the theme text colour
+            and UI font set here, so a widget that sets no colours still looks native. What it
+            never gets to do is disagree with the card frame.
             No edit overlay yet — reordering and removing a component card is a later step; for
             now it is placed, shown, and activated by the page like every other card.
         -->
         <DataTemplate DataType="{x:Type vm:ComponentCardViewModel}">
-            <ContentControl Width="{Binding Width}" Height="165" Content="{Binding Element}" />
+            <Border Width="{Binding Width}" Height="165"
+                    Style="{StaticResource WidgetCard}"
+                    TextElement.Foreground="{DynamicResource TextHighBrush}"
+                    TextElement.FontFamily="{StaticResource UiFont}">
+                <ContentControl Content="{Binding Element}"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch" />
+            </Border>
         </DataTemplate>
 
         <!-- The add tile. Flows through the packer, so it sits exactly where the next card will. -->

@@ -44,56 +44,69 @@ public sealed class Component : IDashComponent, IDashComponentView
     public double TripKm => _tripKm;
 
     /// <summary>
-    /// Build the widget: a caption and the running distance, styled to sit among the dash cards.
+    /// Build the widget's content: a caption and the running distance.
     /// </summary>
     /// <remarks>
-    /// It reads <see cref="TripKm"/> on a <see cref="DispatcherTimer"/> rather than being
-    /// pushed to, which keeps every UI touch on the UI thread — the signal callback that moves
-    /// the number arrives on the vehicle worker, and marshalling that by hand is exactly the
-    /// sort of thing a component gets wrong. Four times a second: a dash number that updates
-    /// slower reads as frozen.
+    /// <b>Content only — the host draws the card frame.</b> A component widget is placed inside
+    /// the same chrome every dash card wears (surface, border, radius, padding), so this returns
+    /// what goes <em>inside</em> and never its own background or rounded rectangle. Matching the
+    /// dash means matching its type: the caption is the host's <c>TextLowBrush</c> in the mono
+    /// font, the value its <c>TextHighBrush</c> in the UI font, the unit its <c>TextMidBrush</c>
+    /// — read from the host by key, with a fallback so the widget still renders if it is ever
+    /// hosted somewhere without them. This is what makes the card look native and follow
+    /// day/night rather than sitting on the dash as a foreign rectangle.
+    /// <para>
+    /// It reads <see cref="TripKm"/> on a <see cref="DispatcherTimer"/> rather than being pushed
+    /// to, which keeps every UI touch on the UI thread — the signal callback that moves the
+    /// number arrives on the vehicle worker, and marshalling that by hand is exactly the sort of
+    /// thing a component gets wrong. Four times a second: a dash number that updates slower reads
+    /// as frozen.
+    /// </para>
     /// </remarks>
     public FrameworkElement CreateWidget()
     {
         var caption = new TextBlock
         {
             Text = "TRIP",
-            FontSize = 13,
-            Foreground = new SolidColorBrush(Color.FromRgb(0x8A, 0x86, 0x7E)),
-            Margin = new Thickness(0, 0, 0, 6),
+            FontFamily = Font("MonoFont"),
+            FontSize = 12,
+            Foreground = Brush("TextLowBrush", Color.FromRgb(0x8A, 0x86, 0x7E)),
         };
 
         var value = new TextBlock
         {
-            FontSize = 40,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(Color.FromRgb(0xF2, 0xEF, 0xE9)),
+            FontFamily = Font("UiFont"),
+            FontSize = 50,
+            FontWeight = FontWeights.Bold,
+            Foreground = Brush("TextHighBrush", Color.FromRgb(0xF2, 0xEF, 0xE9)),
         };
 
         var unit = new TextBlock
         {
             Text = "km",
-            FontSize = 15,
-            Foreground = new SolidColorBrush(Color.FromRgb(0x8A, 0x86, 0x7E)),
+            FontFamily = Font("MonoFont"),
+            FontSize = 17,
+            Foreground = Brush("TextMidBrush", Color.FromRgb(0xB8, 0xB3, 0xA8)),
             VerticalAlignment = VerticalAlignment.Bottom,
-            Margin = new Thickness(6, 0, 0, 6),
+            Margin = new Thickness(8, 0, 0, 9),
         };
 
-        var number = new StackPanel { Orientation = Orientation.Horizontal };
+        var number = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Bottom,
+        };
         number.Children.Add(value);
         number.Children.Add(unit);
+        Grid.SetRow(number, 1);
 
-        var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        stack.Children.Add(caption);
-        stack.Children.Add(number);
-
-        var card = new Border
-        {
-            CornerRadius = new CornerRadius(18),
-            Background = new SolidColorBrush(Color.FromRgb(0x17, 0x16, 0x14)),
-            Padding = new Thickness(20, 0, 20, 0),
-            Child = stack,
-        };
+        // Caption at the top, the number sitting on the bottom — the same shape the signal cards
+        // hold, so a row of cards lines up whether or not one of them is a component.
+        var grid = new Grid();
+        grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        grid.Children.Add(caption);
+        grid.Children.Add(number);
 
         var timer = new DispatcherTimer(DispatcherPriority.Background)
         {
@@ -104,11 +117,19 @@ public sealed class Component : IDashComponent, IDashComponentView
 
         // Stop the timer when the widget leaves the tree, so a card removed from the dash does
         // not leave a tick running against a control nobody can see.
-        card.Unloaded += (_, _) => timer.Stop();
+        grid.Unloaded += (_, _) => timer.Stop();
         value.Text = _tripKm.ToString("0.0", CultureInfo.CurrentCulture);
 
-        return card;
+        return grid;
     }
+
+    /// <summary>A host theme brush by key, or a fallback if this host does not define it.</summary>
+    private static Brush Brush(string key, Color fallback) =>
+        Application.Current?.TryFindResource(key) as Brush ?? new SolidColorBrush(fallback);
+
+    /// <summary>A host font by key, or the system default if this host does not define it.</summary>
+    private static FontFamily Font(string key) =>
+        Application.Current?.TryFindResource(key) as FontFamily ?? new FontFamily("Segoe UI");
 
     /// <inheritdoc />
     public async Task InitializeAsync(IComponentContext context, CancellationToken ct)
