@@ -34,7 +34,6 @@ public partial class RoundGauge : UserControl
     private static readonly Color NeedleColor = (Color)ColorConverter.ConvertFromString("#B9F1F7");
     private static readonly Color GlowColor = (Color)ColorConverter.ConvertFromString("#2FD4E6");
     private static readonly Brush Face = Frozen("#08090A");
-    private static readonly Brush Bezel = Frozen("#1E2023");
     private static readonly Brush InnerRing = Frozen("#34383C");
     private static readonly Brush TickMajor = Frozen("#EDEFF2");
     private static readonly Brush TickMinor = Frozen("#7C848C");
@@ -45,6 +44,17 @@ public partial class RoundGauge : UserControl
     private static readonly Brush HubRing = Frozen("#4A4E52");
     private static readonly Brush HubDot = new SolidColorBrush(GlowColor);
     private static readonly Brush LabelBrush = Frozen("#AEB6BE");
+
+    // A polished-chrome bezel is a vertical metal gradient: bright where it faces the light at
+    // the top, dark across the middle where it turns away, and brightening again at the bottom
+    // as it catches the ground. The old flat ring read as plastic; the real F-150 bezels are
+    // bright rings. ChromeEdge is the crisp lit rim; Groove is the dark recess before the face.
+    private static readonly Brush ChromeBezel = ChromeVertical(
+        ("#EEF2F5", 0.00), ("#AEB6BD", 0.14), ("#5A6067", 0.34), ("#2C3034", 0.50),
+        ("#4C525A", 0.66), ("#9BA3AB", 0.85), ("#D7DCE0", 1.00));
+    private static readonly Brush ChromeEdge = ChromeVertical(
+        ("#FBFDFE", 0.00), ("#B9C0C6", 0.50), ("#6A7076", 1.00));
+    private static readonly Brush Groove = Frozen("#0C0E0F");
 
     private RotateTransform? _needleRotate;
     private TextBlock? _digital;
@@ -155,9 +165,14 @@ public partial class RoundGauge : UserControl
         Width = d;
         Height = d;
 
-        // Bezel and matte-black face.
-        Host.Children.Add(Disc(1, 1, d - 2, null, Bezel, 5));
-        Host.Children.Add(Disc(8, 8, d - 16, Face, InnerRing, 1.5));
+        // Polished chrome bezel: a filled metal ring lit from the top, a crisp bright rim at the
+        // outer edge, a dark groove, then the matte face seated inside it.
+        var bezelW = Big ? 15.0 : 9.0;
+        Host.Children.Add(Disc(0, 0, d, ChromeBezel, null, 0));
+        Host.Children.Add(Disc(0.8, 0.8, d - 1.6, null, ChromeEdge, 1.6));
+        var groove = bezelW * 0.62;
+        Host.Children.Add(Disc(groove, groove, d - (groove * 2), Groove, null, 0));
+        Host.Children.Add(Disc(bezelW, bezelW, d - (bezelW * 2), Face, InnerRing, 1.5));
 
         var rTick = c - 22;
         var rMajorIn = rTick - (Big ? 20 : 12);
@@ -366,5 +381,20 @@ public partial class RoundGauge : UserControl
         var b = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
         b.Freeze();
         return b;
+    }
+
+    /// <summary>A vertical (top-to-bottom) gradient, the shape a round metal bezel takes under
+    /// overhead light — used to fake polished chrome.</summary>
+    private static LinearGradientBrush ChromeVertical(params (string Hex, double Offset)[] stops)
+    {
+        var brush = new LinearGradientBrush { StartPoint = new Point(0.5, 0), EndPoint = new Point(0.5, 1) };
+
+        foreach (var (hex, offset) in stops)
+        {
+            brush.GradientStops.Add(new GradientStop((Color)ColorConverter.ConvertFromString(hex), offset));
+        }
+
+        brush.Freeze();
+        return brush;
     }
 }
