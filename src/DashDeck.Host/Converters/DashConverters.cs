@@ -68,6 +68,17 @@ public sealed class EmptyToVisibleConverter : IValueConverter
         throw new NotSupportedException();
 }
 
+/// <summary>Visible when the bound string has something in it — the inverse of the watermark
+/// case, for a line that should only appear once a value is set (e.g. the chosen app path).</summary>
+public sealed class NonEmptyToVisibleConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        string.IsNullOrEmpty(value as string) ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}
+
 /// <summary>
 /// True when both bound values are equal.
 /// </summary>

@@ -41,13 +41,19 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
     /// The tablet's sensors, resolved truck-first. Passed in rather than built here because it
     /// outlives any one occupant: it holds the mount reference and the vehicle declarations.
     /// </param>
+    /// <param name="userApps">
+    /// Native apps the user added through the settings UI (ADR-0024). They flow through the same
+    /// <see cref="AppStageOccupant"/> as the built-in launchers — the list is the only thing that
+    /// was ever hardcoded — and are appended after the built-ins, in the order they were added.
+    /// </param>
     public static IReadOnlyList<StageOption> All(
         string? videoPath,
         IClock clock,
         IVehicleSignals signals,
         SensorService sensors,
         WeatherService weather,
-        DisplaySettings display) =>
+        DisplaySettings display,
+        IReadOnlyList<UserAppEntry>? userApps = null) =>
     [
         // The idle default (F12/B6): an auxiliary gauge cluster in the F-150's style, showing
         // what the factory cluster leaves out — boost, oil temp, voltage. A truck's home
@@ -102,6 +108,15 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
         new StageOption("SPOTIFY", "open.spotify.com", () => new WebStageOccupant("SPOTIFY", SpotifyUrl, display)),
 
         new StageOption("MUSIC", "music.apple.com", () => new WebStageOccupant("MUSIC", AppleMusicUrl, display)),
+
+        // The user's own apps, added through Settings (ADR-0024). Everything above is shipped in
+        // code; everything here Jason pointed the tablet at himself. A launcher whose executable
+        // has since moved still lists — greyed by IsAvailable is not the story here, the occupant
+        // itself says "not installed" when chosen — but its detail line says so up front.
+        .. (userApps ?? []).Select(app => new StageOption(
+            app.Name.Trim().ToUpperInvariant(),
+            app.IsInstalled ? System.IO.Path.GetFileName(app.Path) : "not found — check the path",
+            () => new AppStageOccupant(AppLaunchSpec.FromUser(app)))),
     ];
 
     /// <summary>Display-only map. Turn-by-turn is a separate, unanswered question (Q18).</summary>

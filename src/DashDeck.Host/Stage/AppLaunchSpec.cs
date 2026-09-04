@@ -50,6 +50,27 @@ public sealed record AppLaunchSpec(
     public bool IsInstalled => Resolve() is not null;
 
     /// <summary>
+    /// A spec for an app the user added through the UI.
+    /// </summary>
+    /// <remarks>
+    /// The one difference from a built-in is the candidate list: a UI-added app was browsed to,
+    /// so it is a single concrete path rather than a set of likely install locations. Everything
+    /// downstream — <see cref="Resolve"/>, <see cref="IsInstalled"/>, adoption, the min-size
+    /// clamp — is identical, which is the whole point: a user app is not a new kind of occupant,
+    /// just another <see cref="AppLaunchSpec"/> handed to the same <c>AppStageOccupant</c>.
+    /// </remarks>
+    public static AppLaunchSpec FromUser(UserAppEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+
+        return new AppLaunchSpec(
+            entry.Name.Trim().ToUpperInvariant(),
+            string.IsNullOrEmpty(entry.Path) ? "User app" : System.IO.Path.GetFileName(entry.Path),
+            [entry.Path],
+            entry.Arguments);
+    }
+
+    /// <summary>
     /// NuvioDesktop, if it is installed.
     /// </summary>
     /// <remarks>

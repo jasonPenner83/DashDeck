@@ -170,6 +170,15 @@ public partial class App : Application
             _shell.ActiveDestination = destination.ToUpperInvariant();
         }
 
+        // Development affordance: --settings-section <NAME> opens Settings on a named section
+        // (APPEARANCE, MOUNT, DISPLAY, APPS, DIAGNOSTICS), which otherwise needs a tap on the rail.
+        if (ArgValue(e.Args, "--settings-section") is { } sectionName
+            && _shell.Settings.Sections.FirstOrDefault(
+                s => string.Equals(s.Name, sectionName, StringComparison.OrdinalIgnoreCase)) is { } section)
+        {
+            _shell.Settings.SelectSectionCommand.Execute(section);
+        }
+
         // Development affordance: --picker opens the stage picker at launch, so a state
         // that normally needs a finger can be reviewed like any other.
         if (e.Args.Contains("--picker"))

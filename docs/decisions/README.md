@@ -28,6 +28,8 @@ including the reasoning that later turns out to be wrong.
 | [0020](ADR-0020-native-app-occupants.md) | Native applications on the stage, adopted into it where that works, launched alongside where it does not | Accepted |
 | [0021](ADR-0021-owned-not-reparented.md) | Native app windows are **owned and placed**, not re-parented (supersedes 0020's mechanism) | Accepted |
 | [0022](ADR-0022-actions-not-a-bar.md) | Occupant controls are verbs in the overflow menu, not a band of the stage (supersedes 0018's action bar) | Accepted |
+| [0023](ADR-0023-component-host.md) | In-process component host: manifest + `apiVersion` validation, isolated load context, guarded lifecycle; a component's widget lives on the dash | Accepted |
+| [0024](ADR-0024-user-app-launchers.md) | User-added stage apps from the UI, persisted to `apps.json`; built-ins stay in code; still a launcher, not an extension mechanism | Accepted |
 
 
 

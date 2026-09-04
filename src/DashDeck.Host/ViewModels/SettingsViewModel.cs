@@ -60,6 +60,8 @@ public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly ThemeService _theme;
     private readonly DashDeck.Host.Sensors.SensorService _sensors;
+    private readonly DashDeck.Host.Stage.UserAppStore _userApps;
+    private readonly IReadOnlyList<string> _reservedNames;
 
     /// <summary>
     /// The settings tabs. One long scroll became a rail and a pane once the sections stopped
@@ -71,6 +73,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         new SettingsSection("APPEARANCE") { IsSelected = true },
         new SettingsSection("MOUNT"),
         new SettingsSection("DISPLAY"),
+        new SettingsSection("APPS"),
         new SettingsSection("DIAGNOSTICS"),
     ];
 
@@ -79,12 +82,14 @@ public sealed partial class SettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsAppearance))]
     [NotifyPropertyChangedFor(nameof(IsMount))]
     [NotifyPropertyChangedFor(nameof(IsDisplay))]
+    [NotifyPropertyChangedFor(nameof(IsApps))]
     [NotifyPropertyChangedFor(nameof(IsDiagnostics))]
     private string _section = "APPEARANCE";
 
     public bool IsAppearance => Section == "APPEARANCE";
     public bool IsMount => Section == "MOUNT";
     public bool IsDisplay => Section == "DISPLAY";
+    public bool IsApps => Section == "APPS";
     public bool IsDiagnostics => Section == "DIAGNOSTICS";
 
     /// <summary>Switch sections. Bound to the rail.</summary>
@@ -107,11 +112,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     public SettingsViewModel(
         ThemeService theme,
         DashDeck.Host.Settings.DisplaySettings display,
-        DashDeck.Host.Sensors.SensorService sensors)
+        DashDeck.Host.Sensors.SensorService sensors,
+        DashDeck.Host.Stage.UserAppStore userApps,
+        IReadOnlyList<string> reservedNames)
     {
         _theme = theme;
         Display = display;
         _sensors = sensors;
+        _userApps = userApps;
+        _reservedNames = reservedNames;
 
         WebScales = [.. DashDeck.Host.Settings.DisplaySettings.Choices.Select(s => new WebScaleOption(s))];
         display.PropertyChanged += (_, _) => SyncScales();
@@ -285,6 +294,134 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (AccentValidation.TryParse(CustomAccentHex, out var colour))
         {
             _theme.Accent = new AccentOption("CUSTOM", colour);
+        }
+    }
+
+    // ---- Stage apps (ADR-0024) ----
+
+    /// <summary>The apps the user has added, bound directly by the list.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<DashDeck.Host.Stage.UserAppEntry> Apps => _userApps.Apps;
+
+    /// <summary>Where the app list is written. Shown, so it can be found and backed up.</summary>
+    public string AppsPath => _userApps.Path;
+
+    /// <summary>The name for the app being added.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AppMessage))]
+    [NotifyPropertyChangedFor(nameof(AppMessageIsRejected))]
+    [NotifyPropertyChangedFor(nameof(AppMessageBrush))]
+    [NotifyCanExecuteChangedFor(nameof(AddAppCommand))]
+    private string _newAppName = "";
+
+    /// <summary>The executable chosen with Browse.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AppMessage))]
+    [NotifyPropertyChangedFor(nameof(AppMessageIsRejected))]
+    [NotifyPropertyChangedFor(nameof(AppMessageBrush))]
+    [NotifyCanExecuteChangedFor(nameof(AddAppCommand))]
+    private string _newAppPath = "";
+
+    /// <summary>Optional command-line arguments — how a browser is aimed at a page.</summary>
+    [ObservableProperty]
+    private string _newAppArguments = "";
+
+    /// <summary>Whether the typed name, upper-cased, already names a built-in or an added app.</summary>
+    private bool NameCollides
+    {
+        get
+        {
+            var name = NewAppName.Trim();
+            return _reservedNames.Any(r => string.Equals(r, name, StringComparison.OrdinalIgnoreCase))
+                || _userApps.Apps.Any(a => string.Equals(a.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    /// <summary>What is wrong with the pending app, or how to add one — checked as you type.</summary>
+    public string AppMessage
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(NewAppName))
+            {
+                return "Name it and choose its .exe.";
+            }
+
+            if (NameCollides)
+            {
+                return $"{NewAppName.Trim().ToUpperInvariant()} is already a stage name.";
+            }
+
+            if (string.IsNullOrWhiteSpace(NewAppPath))
+            {
+                return "Choose the .exe with Browse.";
+            }
+
+            return System.IO.File.Exists(NewAppPath)
+                ? "Ready to add."
+                : "That file is not there — it will read as not installed until it is.";
+        }
+    }
+
+    /// <summary>True when the message is a refusal, so it shows in the fault colour.</summary>
+    public bool AppMessageIsRejected =>
+        !string.IsNullOrWhiteSpace(NewAppName) && (NameCollides || string.IsNullOrWhiteSpace(NewAppPath));
+
+    /// <summary>Fault red while the pending app is refused, faint otherwise — the same red the
+    /// dash uses for a fault, read from <see cref="QualityPalette"/> rather than redeclared.</summary>
+    public Brush AppMessageBrush => AppMessageIsRejected
+        ? QualityPalette.Fault
+        : (Brush)System.Windows.Application.Current.Resources["TextFaintBrush"];
+
+    /// <summary>A missing file is a warning, not a refusal — a built-in can be "not installed" too.</summary>
+    private bool CanAddApp() =>
+        !string.IsNullOrWhiteSpace(NewAppName) && !NameCollides && !string.IsNullOrWhiteSpace(NewAppPath);
+
+    /// <summary>Pick the executable with a file dialog — the same API the video occupant uses.</summary>
+    [RelayCommand]
+    private void Browse()
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Choose an application",
+            Filter = "Programs|*.exe|Every file|*.*",
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            NewAppPath = dialog.FileName;
+
+            // A blank name gets a sensible default from the file, so the common case is
+            // Browse then Add.
+            if (string.IsNullOrWhiteSpace(NewAppName))
+            {
+                NewAppName = System.IO.Path.GetFileNameWithoutExtension(dialog.FileName).ToUpperInvariant();
+            }
+        }
+    }
+
+    /// <summary>Add the pending app to the store, which persists it and tells the shell to rebuild.</summary>
+    [RelayCommand(CanExecute = nameof(CanAddApp))]
+    private void AddApp()
+    {
+        _userApps.Add(new DashDeck.Host.Stage.UserAppEntry
+        {
+            Name = NewAppName.Trim().ToUpperInvariant(),
+            Path = NewAppPath.Trim(),
+            Arguments = NewAppArguments.Trim(),
+        });
+
+        NewAppName = string.Empty;
+        NewAppPath = string.Empty;
+        NewAppArguments = string.Empty;
+    }
+
+    /// <summary>Remove an app. Bound to the ✕ on each row.</summary>
+    [RelayCommand]
+    private void RemoveApp(DashDeck.Host.Stage.UserAppEntry? entry)
+    {
+        if (entry is not null)
+        {
+            _userApps.Remove(entry);
         }
     }
 

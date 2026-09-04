@@ -29,6 +29,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly IClock _clock;
     private readonly ThemeService _theme;
     private readonly DispatcherTimer _timer;
+    private readonly string? _videoPath;
+    private readonly Stage.UserAppStore _userApps;
 
     [ObservableProperty]
     private string _clockText = "--:--";
@@ -136,16 +138,25 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             vehicle.Signals,
             clock);
 
-        // Settings owns levelling now, so it needs the sensors (ADR-0022).
-        Settings = new SettingsViewModel(theme, Display, Sensors);
+        _videoPath = videoPath;
 
-        StageOptions =
-        [
-            .. StageOption.All(videoPath, clock, vehicle.Signals, Sensors, weather, Display)
-                .Select(o => new StageOptionViewModel(o)),
-        ];
+        // The user's own stage apps (ADR-0024), loaded once. Adding one raises Changed and the
+        // shell rebuilds its options from the store, so a new launcher lights up without a restart.
+        _userApps = new Stage.UserAppStore();
+        _userApps.Changed += (_, _) => RebuildStageOptions();
 
-        RefreshQuickOptions();
+        // The built-in stage names, so the settings editor can refuse a user app that would
+        // shadow one. Built from the same list with no user apps, so the two cannot drift.
+        var reservedNames = StageOption
+            .All(videoPath, clock, vehicle.Signals, Sensors, weather, Display)
+            .Select(o => o.Name)
+            .ToArray();
+
+        // Settings owns levelling now, so it needs the sensors (ADR-0022); it also edits the
+        // user app store, and refuses names that collide with a built-in.
+        Settings = new SettingsViewModel(theme, Display, Sensors, _userApps, reservedNames);
+
+        RebuildStageOptions();
 
         // The cards come from a file now, not from this constructor. Rates are still declared
         // honestly — the whole app shares one serialised link, and asking for more than you
@@ -275,7 +286,40 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public string DriveLabel => _vehicle.DriveName.ToUpperInvariant();
 
     /// <summary>Everything that can go on the stage, including what is not built.</summary>
-    public IReadOnlyList<StageOptionViewModel> StageOptions { get; }
+    /// <remarks>
+    /// Observable and rebuilt in place, because the user's own apps (ADR-0024) can be added and
+    /// removed while the dash is running — see <see cref="RebuildStageOptions"/>.
+    /// </remarks>
+    public ObservableCollection<StageOptionViewModel> StageOptions { get; } = [];
+
+    /// <summary>
+    /// Refill <see cref="StageOptions"/> from the built-ins plus the user's apps.
+    /// </summary>
+    /// <remarks>
+    /// The running occupant is left alone — adding or removing an app must not restart what is
+    /// on the stage — so this only rebuilds the list and re-marks which option is current by
+    /// name. If the app currently showing was the one removed, it keeps running (it still closes
+    /// with DashDeck); its launcher simply stops being highlighted.
+    /// </remarks>
+    private void RebuildStageOptions()
+    {
+        var currentName = _stage?.Name;
+
+        StageOptions.Clear();
+
+        foreach (var option in StageOption.All(
+            _videoPath, _clock, _vehicle.Signals, Sensors, Weather, Display, _userApps.Apps))
+        {
+            StageOptions.Add(new StageOptionViewModel(option));
+        }
+
+        foreach (var candidate in StageOptions)
+        {
+            candidate.IsCurrent = candidate.Name == currentName && _stage is not null;
+        }
+
+        RefreshQuickOptions();
+    }
 
     /// <summary>The ones shown directly in the launcher row. The rest are behind the grid.</summary>
     public ObservableCollection<StageOptionViewModel> QuickStageOptions { get; } = [];
