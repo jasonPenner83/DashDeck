@@ -6,6 +6,7 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <conv:EmptyToVisibleConverter x:Key="EmptyToVis" />
 
         <!--
             One chip. The command lives on the editor rather than on the chip, and the chip
@@ -120,17 +121,54 @@
             </StackPanel>
         </StackPanel>
 
-        <!-- What it shows. -->
+        <!-- What it shows. Searchable and grouped by function, because the catalog now offers
+             dozens of signals and a flat wrap of chips is a wall. -->
         <StackPanel Grid.Row="2" Margin="0,0,0,10">
-            <TextBlock Style="{StaticResource FieldLabel}" Text="SIGNAL" />
-            <ItemsControl ItemsSource="{Binding Signals}"
-                          ItemTemplate="{StaticResource SignalChipTemplate}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-            </ItemsControl>
+            <DockPanel Margin="0,0,0,8">
+                <TextBlock DockPanel.Dock="Left"
+                           Style="{StaticResource FieldLabel}"
+                           Margin="0"
+                           VerticalAlignment="Center"
+                           Text="SIGNAL" />
+                <Grid Width="340" HorizontalAlignment="Right">
+                    <TextBox Style="{StaticResource InputField}"
+                             Text="{Binding SignalSearch, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Style="{StaticResource MicroText}"
+                               Margin="16,0,0,0"
+                               VerticalAlignment="Center"
+                               IsHitTestVisible="False"
+                               Text="Search name or id…"
+                               Visibility="{Binding SignalSearch, Converter={StaticResource EmptyToVis}}" />
+                </Grid>
+            </DockPanel>
+
+            <Border BorderBrush="{DynamicResource HairlineBrush}"
+                    BorderThickness="1"
+                    CornerRadius="14">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                              MaxHeight="322"
+                              Padding="14,12,14,4">
+                    <ItemsControl ItemsSource="{Binding SignalGroups}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,0,0,10">
+                                    <TextBlock Style="{StaticResource MicroText}"
+                                               Margin="4,2,0,6"
+                                               Text="{Binding Name}" />
+                                    <ItemsControl ItemsSource="{Binding Chips}"
+                                                  ItemTemplate="{StaticResource SignalChipTemplate}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
         </StackPanel>
 
         <!-- How it shows it. -->

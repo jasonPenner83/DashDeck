@@ -191,6 +191,34 @@ public sealed class SyntheticTransport : IVehicleTransport
         0x2F => [Scale255(_truck.FuelLevelPercent)],
         0x46 => [Temp(_truck.AmbientTempC)],
         0x5E => TwoByte((ushort)Math.Clamp(_truck.FuelRateLitresPerHour * 20, 0, 65535)),
+
+        // The wider standard set, derived from the same model so the extra widget options are
+        // live on the synthetic truck rather than blank. Plausible, not claimed exact.
+        0x43 => TwoByte((ushort)Math.Clamp(_truck.EngineLoadPercent * 2.5 * 2.55, 0, 65535)),   // absolute load
+        0x0E => [(byte)Math.Clamp(Math.Round((10 + (_truck.EnginePowerKw * 0.3) + 64) * 2), 0, 255)], // timing advance
+        0x30 => [8],                                                                            // warm-ups
+        0x61 => [(byte)Math.Clamp(Math.Round(_truck.EngineLoadPercent + 125), 0, 255)],         // driver demand torque
+        0x62 => [(byte)Math.Clamp(Math.Round((_truck.EngineLoadPercent * 0.9) + 125), 0, 255)], // actual torque
+        0x63 => TwoByte(542),                                                                   // reference torque
+        0x45 => [Scale255(_truck.ThrottlePercent)],                                             // relative throttle
+        0x47 => [Scale255(_truck.ThrottlePercent)],                                             // throttle B
+        0x49 => [Scale255(_truck.ThrottlePercent)],                                             // accel pedal D
+        0x4A => [Scale255(_truck.ThrottlePercent)],                                             // accel pedal E
+        0x4C => [Scale255(_truck.ThrottlePercent)],                                             // commanded throttle
+        0x0B => [(byte)Math.Clamp(Math.Round(30 + (_truck.EnginePowerKw * 2.2)), 0, 255)],      // intake manifold pressure
+        0x33 => [101],                                                                          // barometric pressure
+        0x5C => [Temp(_truck.CoolantTempC - 3)],                                                // oil temperature
+        0x3C => TwoByte((ushort)Math.Clamp((250 + (_truck.EnginePowerKw * 3) + 40) * 10, 0, 65535)), // catalyst temp
+        0x0A => [127],                                                                          // fuel pressure ~381 kPa
+        0x23 => TwoByte(3800),                                                                  // fuel rail gauge ~38 MPa
+        0x06 => [(byte)Math.Clamp(Math.Round((_truck.Jitter(0, 3) + 100) / 0.78125), 0, 255)],  // short-term fuel trim
+        0x07 => [(byte)Math.Clamp(Math.Round((-2.5 + 100) / 0.78125), 0, 255)],                 // long-term fuel trim
+        0x52 => [Scale255(10)],                                                                 // ethanol %
+        0x31 => TwoByte((ushort)Math.Clamp(1240 + _truck.DistanceKm, 0, 65535)),                // distance since clear
+        0x2C => [Scale255(_truck.EnginePowerKw > 5 ? 8 : 0)],                                    // commanded EGR
+        0x2E => [Scale255(Math.Clamp(_truck.Jitter(6, 6), 0, 100))],                            // evap purge
+        0x42 => TwoByte((ushort)Math.Clamp((_truck.SpeedKph > 0 ? 14.2 : 12.6) * 1000, 0, 65535)), // control module voltage
+
         _ => null,
     };
 

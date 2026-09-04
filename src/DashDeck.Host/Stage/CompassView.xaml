@@ -55,6 +55,7 @@
                                FontSize="24"
                                Foreground="{DynamicResource AccentBrush}"
                                Text="{Binding CardinalText}" />
+                    
                 </StackPanel>
 
                 <!-- The fixed marker: which way the truck is pointing. -->

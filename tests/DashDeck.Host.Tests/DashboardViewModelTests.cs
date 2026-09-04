@@ -30,7 +30,7 @@ public sealed class DashboardViewModelTests
     ];
 
     private static IReadOnlyList<ValueChoice> Choices() =>
-        [.. Ids.Select(id => new ValueChoice(id, id, "%", 1, 0, 100, CardSource.Signal))];
+        [.. Ids.Select(id => new ValueChoice(id, id, "%", 1, 0, 100, CardSource.Signal, "Test"))];
 
     private static DashboardLayout LayoutOf(int cards) => new()
     {

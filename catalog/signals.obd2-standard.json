@@ -1,7 +1,9 @@
 [
+  // ── Engine ────────────────────────────────────────────────────────────────
   {
     "id": "engine.rpm",
     "name": "Engine Speed",
+    "category": "Engine",
     "bus": "Hs",
     "pid": 12,
     "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 0.25, "offset": 0, "unit": "rpm" },
@@ -10,28 +12,9 @@
     "max": 8000
   },
   {
-    "id": "vehicle.speed",
-    "name": "Vehicle Speed",
-    "bus": "Hs",
-    "pid": 13,
-    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "km/h" },
-    "defaultRateHz": 4,
-    "min": 0,
-    "max": 255
-  },
-  {
-    "id": "engine.coolantTemp",
-    "name": "Coolant Temperature",
-    "bus": "Hs",
-    "pid": 5,
-    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": -40, "unit": "°C" },
-    "defaultRateHz": 0.5,
-    "min": -40,
-    "max": 215
-  },
-  {
     "id": "engine.load",
     "name": "Calculated Engine Load",
+    "category": "Engine",
     "bus": "Hs",
     "pid": 4,
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
@@ -40,8 +23,90 @@
     "max": 100
   },
   {
+    "id": "engine.absoluteLoad",
+    "name": "Absolute Load",
+    "category": "Engine",
+    "bus": "Hs",
+    "pid": 67,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
+    "defaultRateHz": 2,
+    "min": 0,
+    "max": 25700
+  },
+  {
+    "id": "engine.timingAdvance",
+    "name": "Timing Advance",
+    "category": "Engine",
+    "bus": "Hs",
+    "pid": 14,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.5, "offset": -64, "unit": "°" },
+    "defaultRateHz": 1,
+    "min": -64,
+    "max": 63.5
+  },
+  {
+    "id": "engine.runTime",
+    "name": "Run Time Since Start",
+    "category": "Engine",
+    "bus": "Hs",
+    "pid": 31,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 1, "offset": 0, "unit": "s" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 65535
+  },
+  {
+    "id": "engine.warmupsSinceClear",
+    "name": "Warm-ups Since Codes Cleared",
+    "category": "Engine",
+    "bus": "Hs",
+    "pid": 48,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.1,
+    "min": 0,
+    "max": 255
+  },
+
+  // ── Torque ────────────────────────────────────────────────────────────────
+  {
+    "id": "engine.driverDemandTorque",
+    "name": "Driver's Demanded Torque",
+    "category": "Torque",
+    "bus": "Hs",
+    "pid": 97,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": -125, "unit": "%" },
+    "defaultRateHz": 2,
+    "min": -125,
+    "max": 130
+  },
+  {
+    "id": "engine.actualTorque",
+    "name": "Actual Engine Torque",
+    "category": "Torque",
+    "bus": "Hs",
+    "pid": 98,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": -125, "unit": "%" },
+    "defaultRateHz": 2,
+    "min": -125,
+    "max": 130
+  },
+  {
+    "id": "engine.referenceTorque",
+    "name": "Engine Reference Torque",
+    "category": "Torque",
+    "bus": "Hs",
+    "pid": 99,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 1, "offset": 0, "unit": "Nm" },
+    "defaultRateHz": 0.1,
+    "min": 0,
+    "max": 65535
+  },
+
+  // ── Throttle & Pedal ──────────────────────────────────────────────────────
+  {
     "id": "engine.throttlePosition",
     "name": "Throttle Position",
+    "category": "Throttle & Pedal",
     "bus": "Hs",
     "pid": 17,
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
@@ -50,8 +115,66 @@
     "max": 100
   },
   {
+    "id": "engine.relativeThrottle",
+    "name": "Relative Throttle Position",
+    "category": "Throttle & Pedal",
+    "bus": "Hs",
+    "pid": 69,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
+    "defaultRateHz": 2,
+    "min": 0,
+    "max": 100
+  },
+  {
+    "id": "engine.throttleB",
+    "name": "Absolute Throttle Position B",
+    "category": "Throttle & Pedal",
+    "bus": "Hs",
+    "pid": 71,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
+    "defaultRateHz": 2,
+    "min": 0,
+    "max": 100
+  },
+  {
+    "id": "engine.acceleratorPedalD",
+    "name": "Accelerator Pedal Position D",
+    "category": "Throttle & Pedal",
+    "bus": "Hs",
+    "pid": 73,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
+    "defaultRateHz": 2,
+    "min": 0,
+    "max": 100
+  },
+  {
+    "id": "engine.acceleratorPedalE",
+    "name": "Accelerator Pedal Position E",
+    "category": "Throttle & Pedal",
+    "bus": "Hs",
+    "pid": 74,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
+    "defaultRateHz": 2,
+    "min": 0,
+    "max": 100
+  },
+  {
+    "id": "engine.commandedThrottle",
+    "name": "Commanded Throttle Actuator",
+    "category": "Throttle & Pedal",
+    "bus": "Hs",
+    "pid": 76,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
+    "defaultRateHz": 2,
+    "min": 0,
+    "max": 100
+  },
+
+  // ── Air & Boost ───────────────────────────────────────────────────────────
+  {
     "id": "engine.mafRate",
     "name": "Mass Air Flow",
+    "category": "Air & Boost",
     "bus": "Hs",
     "pid": 16,
     "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 0.01, "offset": 0, "unit": "g/s" },
@@ -60,38 +183,66 @@
     "max": 655
   },
   {
-    "id": "engine.fuelRate",
-    "name": "Engine Fuel Rate",
+    "id": "engine.intakeManifoldPressure",
+    "name": "Intake Manifold Pressure",
+    "category": "Air & Boost",
     "bus": "Hs",
-    "pid": 94,
-    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 0.05, "offset": 0, "unit": "L/h" },
+    "pid": 11,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "kPa" },
     "defaultRateHz": 2,
     "min": 0,
-    "max": 3212
+    "max": 255
   },
   {
-    "id": "fuel.levelPercent",
-    "name": "Fuel Tank Level",
+    "id": "engine.barometricPressure",
+    "name": "Barometric Pressure",
+    "category": "Air & Boost",
     "bus": "Hs",
-    "pid": 47,
-    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
+    "pid": 51,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "kPa" },
     "defaultRateHz": 0.2,
     "min": 0,
-    "max": 100
+    "max": 255
   },
+
+  // ── Temperature ───────────────────────────────────────────────────────────
   {
-    "id": "engine.intakeAirTemp",
-    "name": "Intake Air Temperature",
+    "id": "engine.coolantTemp",
+    "name": "Coolant Temperature",
+    "category": "Temperature",
     "bus": "Hs",
-    "pid": 15,
+    "pid": 5,
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": -40, "unit": "°C" },
     "defaultRateHz": 0.5,
     "min": -40,
     "max": 215
   },
   {
+    "id": "engine.oilTemp",
+    "name": "Engine Oil Temperature",
+    "category": "Temperature",
+    "bus": "Hs",
+    "pid": 92,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": -40, "unit": "°C" },
+    "defaultRateHz": 0.5,
+    "min": -40,
+    "max": 210
+  },
+  {
+    "id": "engine.intakeAirTemp",
+    "name": "Intake Air Temperature",
+    "category": "Temperature",
+    "bus": "Hs",
+    "pid": 15,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": -40, "unit": "°C" },
+    "defaultRateHz": 0.2,
+    "min": -40,
+    "max": 215
+  },
+  {
     "id": "ambient.airTemp",
     "name": "Ambient Air Temperature",
+    "category": "Temperature",
     "bus": "Hs",
     "pid": 70,
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": -40, "unit": "°C" },
@@ -100,26 +251,168 @@
     "max": 215
   },
   {
-    "id": "engine.runTime",
-    "name": "Run Time Since Engine Start",
+    "id": "engine.catalystTempB1S1",
+    "name": "Catalyst Temp — Bank 1 Sensor 1",
+    "category": "Temperature",
     "bus": "Hs",
-    "pid": 31,
-    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 1, "offset": 0, "unit": "s" },
+    "pid": 60,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 0.1, "offset": -40, "unit": "°C" },
+    "defaultRateHz": 0.2,
+    "min": -40,
+    "max": 6513
+  },
+
+  // ── Fuel ──────────────────────────────────────────────────────────────────
+  {
+    "id": "fuel.levelPercent",
+    "name": "Fuel Level",
+    "category": "Fuel",
+    "bus": "Hs",
+    "pid": 47,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
+    "defaultRateHz": 0.2,
+    "min": 0,
+    "max": 100
+  },
+  {
+    "id": "engine.fuelRate",
+    "name": "Engine Fuel Rate",
+    "category": "Fuel",
+    "bus": "Hs",
+    "pid": 94,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 0.05, "offset": 0, "unit": "L/h" },
+    "defaultRateHz": 2,
+    "min": 0,
+    "max": 3276
+  },
+  {
+    "id": "fuel.pressure",
+    "name": "Fuel Pressure",
+    "category": "Fuel",
+    "bus": "Hs",
+    "pid": 10,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 3, "offset": 0, "unit": "kPa" },
     "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 765
+  },
+  {
+    "id": "fuel.railGaugePressure",
+    "name": "Fuel Rail Gauge Pressure",
+    "category": "Fuel",
+    "bus": "Hs",
+    "pid": 35,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 10, "offset": 0, "unit": "kPa" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 655350
+  },
+  {
+    "id": "fuel.shortTermTrimB1",
+    "name": "Short-Term Fuel Trim B1",
+    "category": "Fuel",
+    "bus": "Hs",
+    "pid": 6,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.78125, "offset": -100, "unit": "%" },
+    "defaultRateHz": 1,
+    "min": -100,
+    "max": 99.2
+  },
+  {
+    "id": "fuel.longTermTrimB1",
+    "name": "Long-Term Fuel Trim B1",
+    "category": "Fuel",
+    "bus": "Hs",
+    "pid": 7,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.78125, "offset": -100, "unit": "%" },
+    "defaultRateHz": 0.5,
+    "min": -100,
+    "max": 99.2
+  },
+  {
+    "id": "fuel.ethanolPercent",
+    "name": "Ethanol Fuel %",
+    "category": "Fuel",
+    "bus": "Hs",
+    "pid": 82,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
+    "defaultRateHz": 0.1,
+    "min": 0,
+    "max": 100
+  },
+
+  // ── Speed & Distance ──────────────────────────────────────────────────────
+  {
+    "id": "vehicle.speed",
+    "name": "Vehicle Speed",
+    "category": "Speed & Distance",
+    "bus": "Hs",
+    "pid": 13,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "km/h" },
+    "defaultRateHz": 4,
+    "min": 0,
+    "max": 255
+  },
+  {
+    "id": "vehicle.distanceSinceClear",
+    "name": "Distance Since Codes Cleared",
+    "category": "Speed & Distance",
+    "bus": "Hs",
+    "pid": 49,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 1, "offset": 0, "unit": "km" },
+    "defaultRateHz": 0.1,
     "min": 0,
     "max": 65535
   },
 
-  // Per-wheel TPMS. These are NOT standard OBD-II: Ford reports tyre pressure over an
-  // MS-CAN body-module message whose real mode and PID are undocumented and awaiting
-  // discovery against the truck (R2). The mode/PID below (0x01, 0xC0-0xC3) are SIMULATION
-  // PLACEHOLDERS so the synthetic truck can drive the TPMS component — the values come back
-  // flagged Simulated and can never be mistaken for real. When the real message is found it
-  // is a config edit here and nothing above changes; on a real truck without it these read
-  // Unavailable and the component shows dashes, which is correct. Decode: 1 byte at 0.25 psi.
+  // ── Emissions ─────────────────────────────────────────────────────────────
+  {
+    "id": "emissions.commandedEgr",
+    "name": "Commanded EGR",
+    "category": "Emissions",
+    "bus": "Hs",
+    "pid": 44,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 100
+  },
+  {
+    "id": "emissions.evapPurge",
+    "name": "Commanded Evap Purge",
+    "category": "Emissions",
+    "bus": "Hs",
+    "pid": 46,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.392156862745098, "offset": 0, "unit": "%" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 100
+  },
+
+  // ── Electrical ────────────────────────────────────────────────────────────
+  {
+    "id": "vehicle.controlModuleVoltage",
+    "name": "Control Module Voltage",
+    "category": "Electrical",
+    "bus": "Hs",
+    "pid": 66,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 0.001, "offset": 0, "unit": "V" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 65.535
+  },
+
+  // ── Tyres (MS-CAN) ────────────────────────────────────────────────────────
+  // NOT standard OBD-II. Ford reports tyre pressure over an MS-CAN body-module
+  // message whose real mode and PID are undocumented and awaiting discovery (R2).
+  // The mode/PID here (0x01, 0xC0-0xC3) are SIMULATION PLACEHOLDERS so the synthetic
+  // truck can drive the TPMS component — values come back flagged Simulated and can
+  // never be mistaken for real. When the real message is found it is a config edit
+  // here; on a real truck without it these read Unavailable. Decode: 1 byte at 0.25 psi.
   {
     "id": "tire.frontLeft.pressure",
     "name": "Tyre Pressure — Front Left",
+    "category": "Tyres",
     "bus": "Ms",
     "pid": 192,
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.25, "offset": 0, "unit": "psi" },
@@ -130,6 +423,7 @@
   {
     "id": "tire.frontRight.pressure",
     "name": "Tyre Pressure — Front Right",
+    "category": "Tyres",
     "bus": "Ms",
     "pid": 193,
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.25, "offset": 0, "unit": "psi" },
@@ -140,6 +434,7 @@
   {
     "id": "tire.rearLeft.pressure",
     "name": "Tyre Pressure — Rear Left",
+    "category": "Tyres",
     "bus": "Ms",
     "pid": 194,
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.25, "offset": 0, "unit": "psi" },
@@ -150,6 +445,7 @@
   {
     "id": "tire.rearRight.pressure",
     "name": "Tyre Pressure — Rear Right",
+    "category": "Tyres",
     "bus": "Ms",
     "pid": 195,
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.25, "offset": 0, "unit": "psi" },

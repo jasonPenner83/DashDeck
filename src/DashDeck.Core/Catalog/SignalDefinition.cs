@@ -66,6 +66,16 @@ public sealed record SignalDefinition
 
     public required string Name { get; init; }
 
+    /// <summary>
+    /// A function group for the picker to sort under — "Engine", "Fuel", "Temperature".
+    /// </summary>
+    /// <remarks>
+    /// Presentation metadata, not decode data: it exists only so a person choosing among many
+    /// signals can find one by what it is about rather than scrolling an alphabet. Defaults to
+    /// "Other" so an untagged signal still lands somewhere sensible.
+    /// </remarks>
+    public string Category { get; init; } = "Other";
+
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public CanBus Bus { get; init; } = CanBus.Hs;
 

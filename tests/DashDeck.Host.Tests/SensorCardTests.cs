@@ -138,8 +138,8 @@ public sealed class SensorCardTests
     {
         var choices = new List<ValueChoice>
         {
-            new("vehicle.pitch", "Pitch", "°", 4, -45, 45, CardSource.Signal),
-            new("vehicle.pitch", "Pitch", "°", 4, -45, 45, CardSource.Sensor),
+            new("vehicle.pitch", "Pitch", "°", 4, -45, 45, CardSource.Signal, "Test"),
+            new("vehicle.pitch", "Pitch", "°", 4, -45, 45, CardSource.Sensor, "Test"),
         };
 
         var asSensor = choices.Single(c =>

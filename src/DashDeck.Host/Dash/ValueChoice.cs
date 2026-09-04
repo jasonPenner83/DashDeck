@@ -32,7 +32,8 @@ public sealed record ValueChoice(
     double DefaultRateHz,
     double? Min,
     double? Max,
-    CardSource Source)
+    CardSource Source,
+    string Category)
 {
     /// <summary>The name as the dash draws it.</summary>
     public string Caption => Name.ToUpperInvariant();
@@ -58,12 +59,12 @@ public sealed record ValueChoice(
     /// <summary>Project the signal catalog into what the editor can show.</summary>
     public static IEnumerable<ValueChoice> From(SignalCatalog catalog) =>
         catalog.Definitions.Select(d => new ValueChoice(
-            d.Id, d.Name, d.Decode.Unit, d.DefaultRateHz, d.Min, d.Max, CardSource.Signal));
+            d.Id, d.Name, d.Decode.Unit, d.DefaultRateHz, d.Min, d.Max, CardSource.Signal, d.Category));
 
-    /// <summary>Project the sensor catalog the same way.</summary>
+    /// <summary>Project the sensor catalog the same way. Sensors are their own group.</summary>
     public static IEnumerable<ValueChoice> From(SensorCatalog catalog) =>
         catalog.Definitions.Select(d => new ValueChoice(
-            d.Id, d.Name, d.Unit, d.DefaultRateHz, d.Min, d.Max, CardSource.Sensor));
+            d.Id, d.Name, d.Unit, d.DefaultRateHz, d.Min, d.Max, CardSource.Sensor, "Tablet Sensors"));
 
     /// <summary>
     /// Everything a card can be pointed at, signals first.

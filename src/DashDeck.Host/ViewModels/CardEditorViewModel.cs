@@ -18,17 +18,21 @@ namespace DashDeck.Host.ViewModels;
 /// </remarks>
 public sealed partial class OptionChip : ObservableObject
 {
-    public OptionChip(string group, string caption, object value, string? detail = null, bool enabled = true)
+    public OptionChip(string group, string caption, object value, string? detail = null, bool enabled = true, string category = "")
     {
         Group = group;
         Caption = caption;
         Value = value;
         Detail = detail;
         IsEnabled = enabled;
+        Category = category;
     }
 
     /// <summary>Which setting this chip belongs to. Lets one command serve every row.</summary>
     public string Group { get; }
+
+    /// <summary>Function group, for the signal picker to sort chips under. Empty for others.</summary>
+    public string Category { get; }
 
     /// <summary>What the chip says.</summary>
     public string Caption { get; }
@@ -48,6 +52,9 @@ public sealed partial class OptionChip : ObservableObject
     [ObservableProperty]
     private bool _isSelected;
 }
+
+/// <summary>One category of signal chips in the picker: a header and the chips under it.</summary>
+public sealed record SignalGroup(string Name, IReadOnlyList<OptionChip> Chips);
 
 /// <summary>
 /// Editing one card: what it shows, how it shows it, and how often it asks.
@@ -81,6 +88,52 @@ public sealed partial class CardEditorViewModel : ObservableObject
         _label = card.Spec.Label;
         Rebuild();
     }
+
+    /// <summary>
+    /// The signal chips, grouped by category and narrowed by the search box.
+    /// </summary>
+    /// <remarks>
+    /// A dash that can be pointed at three dozen signals is a wall of chips without this: the
+    /// groups make it browsable by function, the search box findable by name. Grouped data
+    /// rather than a <c>GroupStyle</c> because the layout is a header over a wrap of chips, which
+    /// nested <see cref="System.Collections.ObjectModel.ObservableCollection{T}"/>s express
+    /// directly and a grouped <c>ItemsControl</c> fights.
+    /// </remarks>
+    public ObservableCollection<SignalGroup> SignalGroups { get; } = [];
+
+    /// <summary>The picker's search text. Narrows the signals to those whose name or id matches.</summary>
+    [ObservableProperty]
+    private string _signalSearch = string.Empty;
+
+    partial void OnSignalSearchChanged(string value) => RebuildSignalGroups();
+
+    private void RebuildSignalGroups()
+    {
+        var needle = SignalSearch?.Trim() ?? string.Empty;
+
+        var groups = Signals
+            .Where(c => Matches(c, needle))
+            .GroupBy(c => c.Category)
+            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new SignalGroup(
+                g.Key,
+                [.. g.OrderBy(c => c.Caption, StringComparer.OrdinalIgnoreCase)]));
+
+        SignalGroups.Clear();
+
+        foreach (var group in groups)
+        {
+            SignalGroups.Add(group);
+        }
+    }
+
+    private static bool Matches(OptionChip chip, string needle) =>
+        // The name, the category and the id (carried in the detail line), so "temp", "fuel" and
+        // "vehicle.speed" all find what a person would expect.
+        needle.Length == 0
+        || chip.Caption.Contains(needle, StringComparison.OrdinalIgnoreCase)
+        || chip.Category.Contains(needle, StringComparison.OrdinalIgnoreCase)
+        || (chip.Detail?.Contains(needle, StringComparison.OrdinalIgnoreCase) ?? false);
 
     /// <summary>The card being edited. Bound directly as the preview, because it is the card.</summary>
     public WidgetCardViewModel Card { get; }
@@ -239,7 +292,10 @@ public sealed partial class CardEditorViewModel : ObservableObject
         // one day both will define it -- and a picker keyed on the id alone would offer two
         // indistinguishable chips and select the wrong one.
         Fill(Signals, [.. _choices.Select(c =>
-            new OptionChip("signal", c.Caption, c, c.Detail))], Card.Choice);
+            new OptionChip("signal", c.Caption, c, c.Detail, category: c.Category))], Card.Choice);
+
+        // Re-group from the freshly built chips, keeping whatever the search box is filtering to.
+        RebuildSignalGroups();
 
         Fill(Widths,
             [

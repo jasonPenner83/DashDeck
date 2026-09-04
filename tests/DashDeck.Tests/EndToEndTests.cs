@@ -76,6 +76,30 @@ public class EndToEndTests
         }
     }
 
+    [Theory]
+    [InlineData("engine.oilTemp", -10, 130)]
+    [InlineData("vehicle.controlModuleVoltage", 11, 15)]
+    [InlineData("engine.intakeManifoldPressure", 20, 255)]
+    [InlineData("engine.barometricPressure", 90, 110)]
+    [InlineData("engine.timingAdvance", -10, 63.5)]
+    public async Task An_added_standard_signal_decodes_into_range(string id, double min, double max)
+    {
+        // The catalog grew a broad set of standard OBD-II parameters, and the synthetic answers
+        // them from the model. This pins the decode: a wrong scale or offset would land the
+        // value outside the plausible band, which is exactly the kind of mistake a formula edit
+        // makes.
+        var (service, _) = await StartAsync();
+        await using var _service = service;
+
+        using var demand = service.Bus.Require(id, SignalPriority.Normal, 2);
+
+        await WaitUntilAsync(() => service.Bus.Current(id).IsUsable, TimeSpan.FromSeconds(6));
+
+        var reading = service.Bus.Current(id);
+        Assert.True(reading.IsUsable, $"{id} never answered.");
+        Assert.InRange(reading.Value, min, max);
+    }
+
     [Fact]
     public async Task An_ms_can_tpms_signal_answers_on_the_ms_bus()
     {
