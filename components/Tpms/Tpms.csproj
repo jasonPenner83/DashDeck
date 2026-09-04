@@ -27,6 +27,9 @@
   <Target Name="DeployToPlugin" AfterTargets="Build">
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PluginDir)" SkipUnchangedFiles="false" />
     <Copy SourceFiles="component.json" DestinationFolder="$(PluginDir)" SkipUnchangedFiles="false" />
+    <!-- The overhead truck photo, once it exists beside the source. Optional: the component
+         falls back to the vector truck without it. -->
+    <Copy SourceFiles="truck.png" DestinationFolder="$(PluginDir)" Condition="Exists('truck.png')" SkipUnchangedFiles="false" />
   </Target>
 
 </Project>

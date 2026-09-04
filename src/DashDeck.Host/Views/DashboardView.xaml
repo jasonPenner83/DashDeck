@@ -91,6 +91,20 @@
                                     VerticalContentAlignment="Stretch" />
                 </Border>
 
+                <!-- The four-corner "expand" mark: a card with a detail wears it, top-right,
+                     so it reads as tappable rather than looking identical to a card that does
+                     nothing when touched. Not hit-testable, so the tap falls through to the
+                     button below it. -->
+                <Path Data="M0,5 L0,0 L5,0 M13,0 L18,0 L18,5 M0,13 L0,18 L5,18 M13,18 L18,18 L18,13"
+                      Width="18" Height="18"
+                      Stroke="{DynamicResource TextLowBrush}"
+                      StrokeThickness="1.6"
+                      HorizontalAlignment="Right"
+                      VerticalAlignment="Top"
+                      Margin="0,16,18,0"
+                      IsHitTestVisible="False"
+                      Visibility="{Binding HasFullScreen, Converter={StaticResource BoolToVis}}" />
+
                 <!-- Tapping a component that offers a detail opens it full-screen. A component
                      with only a widget has no button, so its card is inert rather than looking
                      tappable and doing nothing. -->

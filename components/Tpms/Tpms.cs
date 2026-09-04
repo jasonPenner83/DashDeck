@@ -1,7 +1,9 @@
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using DashDeck.Abstractions;
@@ -192,27 +194,64 @@ public sealed class Component : IDashComponent, IDashComponentView
         var amber = new SolidColorBrush(Color.FromRgb(0xE0, 0xB2, 0x3C));
         var wheelDark = new SolidColorBrush(Color.FromRgb(0x2C, 0x2B, 0x28));
 
-        // Body: one rounded rectangle, nose up. Clean rather than photoreal — it matches the
-        // rest of the design system, and a stylised truck reads faster than a detailed one.
-        canvas.Children.Add(Box(210, 90, 280, 860, 52, white, edge, 2));
-        // Hood seam and grille at the nose.
-        canvas.Children.Add(Box(250, 104, 200, 22, 6, glass, null, 0));
-        // Cab glass (windshield + roof), toward the front third.
-        canvas.Children.Add(Box(232, 300, 236, 150, 18, glass, null, 0));
-        // Bed, with a few ribs and a tailgate line.
-        canvas.Children.Add(Box(230, 520, 240, 380, 12, bed, edge, 1));
-        for (var r = 1; r <= 3; r++)
-        {
-            canvas.Children.Add(Rib(240, 520 + r * 95, 220, panel));
-        }
-
-        // Wheels straddle the body edges, front and rear.
-        var wheels = new Rectangle[4];
+        // Wheel/ring anchor points, front and rear, left and right.
         double[,] wheelAt = { { 181, 250 }, { 485, 250 }, { 181, 700 }, { 485, 700 } };
-        for (var i = 0; i < 4; i++)
+
+        // A real overhead photo if one was dropped beside the component (truck.png); the
+        // stylised vector truck otherwise, so the component works out of the box and looks
+        // better with a photo. The layout — corner readouts, low corner highlighted — is the
+        // same either way.
+        var truck = LoadTruckImage();
+        var photoMode = truck is not null;
+        var wheels = new Rectangle?[4];
+        var rings = new Ellipse[4];
+
+        if (photoMode)
         {
-            wheels[i] = (Rectangle)Box(wheelAt[i, 0], wheelAt[i, 1], 34, 96, 12, wheelDark, null, 0);
-            canvas.Children.Add(wheels[i]);
+            var image = new Image
+            {
+                Source = truck,
+                Stretch = Stretch.Uniform,
+                Width = 400,
+                Height = 940,
+            };
+            Canvas.SetLeft(image, (W - 400) / 2);
+            Canvas.SetTop(image, 50);
+            canvas.Children.Add(image);
+
+            // The photo has its own wheels; a low tyre is ringed in amber over it.
+            for (var i = 0; i < 4; i++)
+            {
+                rings[i] = new Ellipse
+                {
+                    Width = 62,
+                    Height = 62,
+                    Stroke = amber,
+                    StrokeThickness = 4,
+                    Visibility = Visibility.Collapsed,
+                };
+                Canvas.SetLeft(rings[i], wheelAt[i, 0] - 14);
+                Canvas.SetTop(rings[i], wheelAt[i, 1] + 17);
+                canvas.Children.Add(rings[i]);
+            }
+        }
+        else
+        {
+            // Body: one rounded rectangle, nose up. Clean rather than photoreal.
+            canvas.Children.Add(Box(210, 90, 280, 860, 52, white, edge, 2));
+            canvas.Children.Add(Box(250, 104, 200, 22, 6, glass, null, 0));   // grille
+            canvas.Children.Add(Box(232, 300, 236, 150, 18, glass, null, 0)); // cab glass
+            canvas.Children.Add(Box(230, 520, 240, 380, 12, bed, edge, 1));   // bed
+            for (var r = 1; r <= 3; r++)
+            {
+                canvas.Children.Add(Rib(240, 520 + r * 95, 220, panel));
+            }
+
+            for (var i = 0; i < 4; i++)
+            {
+                wheels[i] = (Rectangle)Box(wheelAt[i, 0], wheelAt[i, 1], 34, 96, 12, wheelDark, null, 0);
+                canvas.Children.Add(wheels[i]);
+            }
         }
 
         // Four readouts at the outer corners, each aligned toward its wheel.
@@ -239,6 +278,20 @@ public sealed class Component : IDashComponent, IDashComponentView
         Canvas.SetTop(status, 24);
         canvas.Children.Add(status);
 
+        // One highlight, drawn the way each mode can: a ring over the photo's wheel, or the
+        // vector wheel filled amber.
+        void Highlight(int i, bool on)
+        {
+            if (photoMode)
+            {
+                rings[i].Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+            }
+            else if (wheels[i] is { } wheel)
+            {
+                wheel.Fill = on ? amber : wheelDark;
+            }
+        }
+
         var timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(400) };
         timer.Tick += (_, _) =>
         {
@@ -253,14 +306,14 @@ public sealed class Component : IDashComponent, IDashComponentView
                 {
                     values[i].Text = "—";
                     values[i].Foreground = low;
-                    wheels[i].Fill = wheelDark;
+                    Highlight(i, false);
                     continue;
                 }
 
                 var isLow = t.Value < LowPsi;
                 values[i].Text = t.Value.ToString("0", CultureInfo.CurrentCulture);
                 values[i].Foreground = isLow ? amber : high;
-                wheels[i].Fill = isLow ? amber : wheelDark;
+                Highlight(i, isLow);
 
                 if (double.IsNaN(lowestValue) || t.Value < lowestValue)
                 {
@@ -294,6 +347,44 @@ public sealed class Component : IDashComponent, IDashComponentView
             Margin = new Thickness(0, 8, 0, 24),
             Child = canvas,
         };
+    }
+
+    /// <summary>
+    /// The overhead truck photo, if one was dropped beside the component as <c>truck.png</c>.
+    /// </summary>
+    /// <remarks>
+    /// Loaded from the component's own folder in <c>plugins/</c>, so it travels with the DLL and
+    /// the manifest. Null — and the vector truck — if it is absent or will not decode, so the
+    /// component never fails for want of an image.
+    /// </remarks>
+    private static ImageSource? LoadTruckImage()
+    {
+        try
+        {
+            if (System.IO.Path.GetDirectoryName(typeof(Component).Assembly.Location) is not { } dir)
+            {
+                return null;
+            }
+
+            var path = System.IO.Path.Combine(dir, "truck.png");
+
+            if (!File.Exists(path))
+            {
+                return null;
+            }
+
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.CacheOption = BitmapCacheOption.OnLoad;   // read it now, do not lock the file
+            image.UriSource = new Uri(path);
+            image.EndInit();
+            image.Freeze();
+            return image;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     /// <summary>A rounded rectangle placed on the canvas.</summary>

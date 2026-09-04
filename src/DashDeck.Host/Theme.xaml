@@ -418,7 +418,16 @@
         a second template that renders subtly differently from the thing being edited.
     -->
     <DataTemplate x:Key="WidgetCardFace">
-        <Border Style="{StaticResource WidgetCard}">
+        <!--
+            The card's border carries the signal quality — Live green, Stale amber, Unavailable
+            grey, Simulated blue — instead of a pill in the corner. The pill spent a chunk of the
+            card's top edge saying in a word what the frame can say in a colour, and the four
+            quality hues are fixed (never themeable) precisely so they can mean this everywhere.
+            The value still dims when stale, so the cue does not rest on hue alone.
+        -->
+        <Border Style="{StaticResource WidgetCard}"
+                BorderThickness="2"
+                BorderBrush="{Binding Quality, Converter={StaticResource QualityBrushToken}}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -426,29 +435,11 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <DockPanel Grid.Row="0">
-                    <Border DockPanel.Dock="Right"
-                            CornerRadius="999"
-                            Padding="9,4,9,4"
-                            BorderThickness="1"
-                            BorderBrush="{Binding Quality, Converter={StaticResource QualityBrushToken}}">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="7" Height="7" VerticalAlignment="Center"
-                                     Fill="{Binding Quality, Converter={StaticResource QualityBrushToken}}" />
-                            <TextBlock Margin="6,0,0,0"
-                                       FontFamily="{StaticResource MonoFont}"
-                                       FontSize="11"
-                                       VerticalAlignment="Center"
-                                       Foreground="{Binding Quality, Converter={StaticResource QualityBrushToken}}"
-                                       Text="{Binding Quality, Converter={StaticResource QualityLabelToken}}" />
-                        </StackPanel>
-                    </Border>
-
-                    <TextBlock Style="{StaticResource CaptionText}"
-                               VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis"
-                               Text="{Binding Label}" />
-                </DockPanel>
+                <TextBlock Grid.Row="0"
+                           Style="{StaticResource CaptionText}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis"
+                           Text="{Binding Label}" />
 
                 <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Bottom">
                     <TextBlock Style="{StaticResource ValueText}"
