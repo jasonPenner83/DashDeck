@@ -1,4 +1,4 @@
-﻿using System.Windows.Media;
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashDeck.Host.Converters;
@@ -33,20 +33,76 @@ public sealed partial class AccentSwatch(AccentOption option) : ObservableObject
     public Brush Swatch { get; } = new SolidColorBrush(option.Colour);
 }
 
+/// <summary>One tab in the settings rail.</summary>
+public sealed partial class SettingsSection(string name) : ObservableObject
+{
+    public string Name { get; } = name;
+
+    [ObservableProperty]
+    private bool _isSelected;
+}
+
 /// <summary>
-/// Settings. Appearance for now â€” the part that had a reason to exist first.
+/// Settings, in sections: appearance, mount, display and diagnostics.
 /// </summary>
 /// <remarks>
-/// What is adjustable here is deliberately narrow (B1). The palette is a token set, but
+/// One long scroll became a rail and a pane once there was more than one thing to adjust —
+/// the sections answer different questions and are reached for at different times.
+/// <para>
+/// What is adjustable is still deliberately narrow (B1). The palette is a token set, but
 /// exposing every token as a colour picker would let someone quietly break the one rule the
-/// dash is strictest about: that a value's quality is always legible. So the choices are a
-/// day/night mode and an accent â€” presets, or any colour that passes
-/// <see cref="AccentValidation"/> â€” and the four quality colours are not on offer at all.
+/// dash is strictest about: that a value's quality is always legible. So appearance offers a
+/// day/night mode and an accent — presets, or any colour that passes
+/// <see cref="AccentValidation"/> — and the four quality colours are not on offer at all.
+/// </para>
 /// </remarks>
 public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly ThemeService _theme;
     private readonly DashDeck.Host.Sensors.SensorService _sensors;
+
+    /// <summary>
+    /// The settings tabs. One long scroll became a rail and a pane once the sections stopped
+    /// fitting a glance � appearance, mount, display and diagnostics answer different questions
+    /// and are reached for at different times.
+    /// </summary>
+    public IReadOnlyList<SettingsSection> Sections { get; } =
+    [
+        new SettingsSection("APPEARANCE") { IsSelected = true },
+        new SettingsSection("MOUNT"),
+        new SettingsSection("DISPLAY"),
+        new SettingsSection("DIAGNOSTICS"),
+    ];
+
+    /// <summary>Which section is showing.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsAppearance))]
+    [NotifyPropertyChangedFor(nameof(IsMount))]
+    [NotifyPropertyChangedFor(nameof(IsDisplay))]
+    [NotifyPropertyChangedFor(nameof(IsDiagnostics))]
+    private string _section = "APPEARANCE";
+
+    public bool IsAppearance => Section == "APPEARANCE";
+    public bool IsMount => Section == "MOUNT";
+    public bool IsDisplay => Section == "DISPLAY";
+    public bool IsDiagnostics => Section == "DIAGNOSTICS";
+
+    /// <summary>Switch sections. Bound to the rail.</summary>
+    [RelayCommand]
+    private void SelectSection(SettingsSection? section)
+    {
+        if (section is null)
+        {
+            return;
+        }
+
+        Section = section.Name;
+
+        foreach (var candidate in Sections)
+        {
+            candidate.IsSelected = ReferenceEquals(candidate, section);
+        }
+    }
 
     public SettingsViewModel(
         ThemeService theme,
@@ -94,7 +150,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// </summary>
     /// <remarks>
     /// Lives here rather than on the compass because it is a calibration done once, parked, on
-    /// flat ground — not something reached for while driving. It was on the stage''s action bar
+    /// flat ground � not something reached for while driving. It was on the stage''s action bar
     /// until that row cost more picture than it was worth (ADR-0022).
     /// </remarks>
     [RelayCommand]
@@ -137,7 +193,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Day, Night, Auto.</summary>
     public IReadOnlyList<ThemeModeOption> Modes { get; }
 
-    /// <summary>The presets. Not the only option â€” see <see cref="CustomAccentHex"/>.</summary>
+    /// <summary>The presets. Not the only option — see <see cref="CustomAccentHex"/>.</summary>
     public IReadOnlyList<AccentSwatch> Accents { get; }
 
     /// <summary>
@@ -155,7 +211,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(ApplyCustomAccentCommand))]
     private string _customAccentHex;
 
-    /// <summary>What the typed colour looks like â€” the point of checking as you type.</summary>
+    /// <summary>What the typed colour looks like — the point of checking as you type.</summary>
     public Brush CustomPreview => AccentValidation.TryParse(CustomAccentHex, out var colour)
         ? new SolidColorBrush(colour)
         : Brushes.Transparent;

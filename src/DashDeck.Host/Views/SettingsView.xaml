@@ -1,240 +1,274 @@
-﻿<UserControl x:Class="DashDeck.Host.Views.SettingsView"
+<UserControl x:Class="DashDeck.Host.Views.SettingsView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <!-- A rail tab. Selected when its section is showing, from the section's own IsSelected. -->
+        <Style x:Key="SettingsTab" TargetType="Button">
+            <Setter Property="Height" Value="58" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="Foreground" Value="{DynamicResource TextMidBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome" Background="Transparent" CornerRadius="12" Padding="18,0,0,0">
+                            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Left" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource AccentWashBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                            </DataTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SurfaceBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
-    <!-- Scrolls, because settings only ever grow. Six bands is plenty today. -->
-    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Margin="31,24,31,24">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="248" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
 
-        <TextBlock Style="{StaticResource CaptionText}" Text="APPEARANCE" />
-
-        <!-- Day / Night / Auto -->
-        <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding Modes}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <StackPanel Orientation="Horizontal" />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Button Style="{StaticResource StageLauncherButton}"
-                            Height="72" MinWidth="170"
-                            Command="{Binding DataContext.SetModeCommand,
-                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                            CommandParameter="{Binding}">
-                        <StackPanel>
-                            <TextBlock Text="{Binding Label}"
+        <!-- The rail. One tab per section; the pane on the right follows. -->
+        <Border Grid.Column="0" BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,0,1,0">
+            <ItemsControl ItemsSource="{Binding Sections}" Margin="24,26,16,24">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Style="{StaticResource SettingsTab}"
+                                Command="{Binding DataContext.SelectSectionCommand,
+                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                CommandParameter="{Binding}">
+                            <TextBlock Text="{Binding Name}"
                                        FontFamily="{StaticResource MonoFont}"
-                                       FontSize="14"
-                                       HorizontalAlignment="Center" />
-                            <TextBlock Text="{Binding Detail}"
-                                       Margin="0,5,0,0"
-                                       HorizontalAlignment="Center"
-                                       Style="{StaticResource MicroText}" />
-                        </StackPanel>
-                    </Button>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+                                       FontSize="15" />
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
 
-        <!-- An automatic setting that will not say why it did something is infuriating. -->
-        <StackPanel Margin="2,14,0,0" Visibility="{Binding IsAuto, Converter={StaticResource BoolToVis}}">
-            <TextBlock Text="{Binding AutoSource}" Style="{StaticResource CaptionText}" />
-            <TextBlock Margin="0,6,0,0"
-                       Style="{StaticResource MicroText}"
-                       Text="Headlights would be the better signal — not available over standard OBD-II." />
-        </StackPanel>
+        <Grid Grid.Column="1">
 
-        <!-- Accent -->
-        <TextBlock Margin="0,34,0,0" Style="{StaticResource CaptionText}" Text="ACCENT" />
+            <!-- ── APPEARANCE ─────────────────────────────────────────────── -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding IsAppearance, Converter={StaticResource BoolToVis}}">
+                <StackPanel Margin="31,26,31,24">
 
-        <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding Accents}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <StackPanel Orientation="Horizontal" />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Button Style="{StaticResource StageLauncherButton}"
-                            Height="72" MinWidth="150"
-                            Command="{Binding DataContext.SetAccentCommand,
-                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                            CommandParameter="{Binding}">
-                        <StackPanel Orientation="Horizontal">
-                            <Ellipse Width="22" Height="22" Fill="{Binding Swatch}" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding Label}"
-                                       Margin="12,0,0,0"
-                                       VerticalAlignment="Center"
+                    <TextBlock Style="{StaticResource CaptionText}" Text="THEME" />
+
+                    <!-- Day / Night / Auto -->
+                    <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding Modes}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource StageLauncherButton}"
+                                        Height="72" MinWidth="170"
+                                        Command="{Binding DataContext.SetModeCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Label}"
+                                                   FontFamily="{StaticResource MonoFont}"
+                                                   FontSize="14"
+                                                   HorizontalAlignment="Center" />
+                                        <TextBlock Text="{Binding Detail}"
+                                                   Margin="0,5,0,0"
+                                                   HorizontalAlignment="Center"
+                                                   Style="{StaticResource MicroText}" />
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- An automatic setting that will not say why it did something is infuriating. -->
+                    <StackPanel Margin="2,14,0,0" Visibility="{Binding IsAuto, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{Binding AutoSource}" Style="{StaticResource CaptionText}" />
+                        <TextBlock Margin="0,6,0,0"
+                                   Style="{StaticResource MicroText}"
+                                   Text="Headlights would be the better signal — not available over standard OBD-II." />
+                    </StackPanel>
+
+                    <!-- Accent -->
+                    <TextBlock Margin="0,34,0,0" Style="{StaticResource CaptionText}" Text="ACCENT" />
+
+                    <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding Accents}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource StageLauncherButton}"
+                                        Height="72" MinWidth="150"
+                                        Command="{Binding DataContext.SetAccentCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="22" Height="22" Fill="{Binding Swatch}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Label}"
+                                                   Margin="12,0,0,0"
+                                                   VerticalAlignment="Center"
+                                                   FontFamily="{StaticResource MonoFont}"
+                                                   FontSize="13" />
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Any colour, checked as it is typed (ADR-0014). -->
+                    <TextBlock Margin="0,30,0,0" Style="{StaticResource CaptionText}" Text="CUSTOM" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <Border Width="56" Height="56"
+                                CornerRadius="14"
+                                Background="{Binding CustomPreview}"
+                                BorderBrush="{DynamicResource HairlineStrongBrush}"
+                                BorderThickness="1" />
+                        <TextBox Style="{StaticResource InputField}"
+                                 Width="190"
+                                 Margin="12,0,0,0"
+                                 MaxLength="7"
+                                 CharacterCasing="Upper"
+                                 Text="{Binding CustomAccentHex, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Style="{StaticResource StageLauncherButton}"
+                                Height="56" MinWidth="130"
+                                Margin="12,0,0,0"
+                                Command="{Binding ApplyCustomAccentCommand}">
+                            <TextBlock Text="USE IT" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                        </Button>
+                    </StackPanel>
+
+                    <TextBlock Margin="2,12,0,0"
+                               MaxWidth="620"
+                               HorizontalAlignment="Left"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Foreground="{Binding CustomMessageBrush}"
+                               Text="{Binding CustomMessage}" />
+
+                    <TextBlock Margin="2,26,0,0"
+                               MaxWidth="620"
+                               HorizontalAlignment="Left"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="The four signal-quality colours are fixed. Live, stale, unavailable and simulated have to mean the same thing on every dash, whatever else is adjusted." />
+
+                    <TextBlock Margin="2,20,0,0"
+                               Style="{StaticResource CaptionText}"
+                               Text="{Binding ResolvedTheme, StringFormat=CURRENTLY {0}}" />
+
+                    <TextBlock Margin="2,8,0,0"
+                               MaxWidth="620"
+                               HorizontalAlignment="Left"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="{Binding SettingsPath, StringFormat=Saved to {0} — kept across updates.}" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ── MOUNT ──────────────────────────────────────────────────── -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding IsMount, Converter={StaticResource BoolToVis}}">
+                <StackPanel Margin="31,26,31,24">
+                    <TextBlock Style="{StaticResource CaptionText}" Text="MOUNT LEVELLING" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <Button Style="{StaticResource StageLauncherButton}"
+                                Height="56" MinWidth="240"
+                                Command="{Binding LevelCommand}">
+                            <TextBlock Text="{Binding LevelCaption}"
                                        FontFamily="{StaticResource MonoFont}"
-                                       FontSize="13" />
-                        </StackPanel>
-                    </Button>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+                                       FontSize="14" />
+                        </Button>
+                    </StackPanel>
 
-        <!--
-            Any colour, checked as it is typed. ADR-0014: the presets stay because they are
-            the fast path, not because picking is forbidden.
-        -->
-        <TextBlock Margin="0,30,0,0" Style="{StaticResource CaptionText}" Text="CUSTOM" />
+                    <TextBlock Margin="2,12,0,0"
+                               MaxWidth="620"
+                               HorizontalAlignment="Left"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="{Binding LevelDetail}" />
 
-        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                    <TextBlock Margin="2,10,0,0"
+                               MaxWidth="620"
+                               HorizontalAlignment="Left"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="Park somewhere flat with the tablet in its cradle first. A Surface on a kickstand reads 69° of pitch sitting still, so the mount angle has to be measured before pitch, roll or G mean anything." />
+                </StackPanel>
+            </ScrollViewer>
 
-            <Border Width="56" Height="56"
-                    CornerRadius="14"
-                    Background="{Binding CustomPreview}"
-                    BorderBrush="{DynamicResource HairlineStrongBrush}"
-                    BorderThickness="1" />
+            <!-- ── DISPLAY ────────────────────────────────────────────────── -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding IsDisplay, Converter={StaticResource BoolToVis}}">
+                <StackPanel Margin="31,26,31,24">
+                    <TextBlock Style="{StaticResource CaptionText}" Text="WEB SCALE" />
 
-            <TextBox Style="{StaticResource InputField}"
-                     Width="190"
-                     Margin="12,0,0,0"
-                     MaxLength="7"
-                     CharacterCasing="Upper"
-                     Text="{Binding CustomAccentHex, UpdateSourceTrigger=PropertyChanged}" />
+                    <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding WebScales}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource OptionChipButton}"
+                                        MinWidth="104"
+                                        Command="{Binding DataContext.SetWebScaleCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}">
+                                    <TextBlock Text="{Binding Label}"
+                                               FontFamily="{StaticResource MonoFont}"
+                                               FontSize="15" />
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
-            <Button Style="{StaticResource StageLauncherButton}"
-                    Height="56" MinWidth="130"
-                    Margin="12,0,0,0"
-                    Command="{Binding ApplyCustomAccentCommand}">
-                <TextBlock Text="USE IT"
-                           FontFamily="{StaticResource MonoFont}"
-                           FontSize="13" />
-            </Button>
+                    <TextBlock Margin="2,6,0,0"
+                               MaxWidth="620"
+                               HorizontalAlignment="Left"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="Applies to Spotify, Apple Music, Maps, Nuvio and Stremio — live, including whatever is on the stage right now." />
+                </StackPanel>
+            </ScrollViewer>
 
-        </StackPanel>
+            <!-- ── DIAGNOSTICS ────────────────────────────────────────────── -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding IsDiagnostics, Converter={StaticResource BoolToVis}}">
+                <StackPanel Margin="31,26,31,24">
+                    <TextBlock Style="{StaticResource CaptionText}" Text="DIAGNOSTICS" />
 
-        <!--
-            The whole reason a picker is allowed at all: the refusal is visible and says why,
-            rather than the accent silently colliding with a quality colour.
-        -->
-        <TextBlock Margin="2,12,0,0"
-                   MaxWidth="700"
-                   HorizontalAlignment="Left"
-                   TextWrapping="Wrap"
-                   Style="{StaticResource MicroText}"
-                   Foreground="{Binding CustomMessageBrush}"
-                   Text="{Binding CustomMessage}" />
+                    <TextBlock Margin="2,14,0,0"
+                               Style="{StaticResource StatusText}"
+                               Foreground="{DynamicResource TextMidBrush}"
+                               Text="{Binding DataContext.SourceLabel, RelativeSource={RelativeSource AncestorType=Window}}" />
 
-        <!-- Saying what is *not* adjustable is part of the setting. -->
-        <TextBlock Margin="2,26,0,0"
-                   MaxWidth="700"
-                   HorizontalAlignment="Left"
-                   TextWrapping="Wrap"
-                   Style="{StaticResource MicroText}"
-                   Text="The four signal-quality colours are fixed. Live, stale, unavailable and simulated have to mean the same thing on every dash, whatever else is adjusted." />
+                    <TextBlock Margin="2,6,0,0"
+                               Style="{StaticResource MicroText}"
+                               Text="{Binding DataContext.DriveLabel, RelativeSource={RelativeSource AncestorType=Window},
+                                              StringFormat=Scripted drive: {0}}" />
 
-        <TextBlock Margin="2,20,0,0"
-                   Style="{StaticResource CaptionText}"
-                   Text="{Binding ResolvedTheme, StringFormat=CURRENTLY {0}}" />
-
-        <!--
-            Where, not just that. The app folder is deleted and rewritten by every publish,
-            so it matters that this path is outside it.
-        -->
-        <TextBlock Margin="2,8,0,0"
-                   MaxWidth="700"
-                   HorizontalAlignment="Left"
-                   TextWrapping="Wrap"
-                   Style="{StaticResource MicroText}"
-                   Text="{Binding SettingsPath, StringFormat=Saved to {0} — kept across updates.}" />
-
-        <!--
-            Levelling. Here rather than on the compass because it is a calibration done once,
-            parked, on flat ground — not something reached for while driving (ADR-0022).
-        -->
-        <TextBlock Margin="0,34,0,0" Style="{StaticResource CaptionText}" Text="MOUNT" />
-
-        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-            <Button Style="{StaticResource StageLauncherButton}"
-                    Height="56" MinWidth="240"
-                    Command="{Binding LevelCommand}">
-                <TextBlock Text="{Binding LevelCaption}"
-                           FontFamily="{StaticResource MonoFont}"
-                           FontSize="14" />
-            </Button>
-        </StackPanel>
-
-        <TextBlock Margin="2,12,0,0"
-                   MaxWidth="700"
-                   HorizontalAlignment="Left"
-                   TextWrapping="Wrap"
-                   Style="{StaticResource MicroText}"
-                   Text="{Binding LevelDetail}" />
-
-        <TextBlock Margin="2,6,0,0"
-                   MaxWidth="700"
-                   HorizontalAlignment="Left"
-                   TextWrapping="Wrap"
-                   Style="{StaticResource MicroText}"
-                   Text="Park somewhere flat with the tablet in its cradle first. A Surface on a kickstand reads 69° of pitch sitting still, so the mount angle has to be measured before pitch, roll or G mean anything." />
-
-        <!--
-            Web occupants are laid out for a phone held at arm's length; at 100% a 912-wide
-            stage spends most of its width on padding. This is the browser's own zoom, so the
-            page reflows and shows more rather than being drawn small.
-        -->
-        <TextBlock Margin="0,34,0,0" Style="{StaticResource CaptionText}" Text="WEB SCALE" />
-
-        <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding WebScales}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <WrapPanel Orientation="Horizontal" />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <Button Style="{StaticResource OptionChipButton}"
-                            MinWidth="104"
-                            Command="{Binding DataContext.SetWebScaleCommand,
-                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                            CommandParameter="{Binding}">
-                        <TextBlock Text="{Binding Label}"
-                                   FontFamily="{StaticResource MonoFont}"
-                                   FontSize="15" />
-                    </Button>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
-
-        <TextBlock Margin="2,4,0,0"
-                   MaxWidth="700"
-                   HorizontalAlignment="Left"
-                   TextWrapping="Wrap"
-                   Style="{StaticResource MicroText}"
-                   Text="Applies to Spotify, Apple Music, Maps, Nuvio and Stremio — live, including whatever is on the stage right now." />
-
-        <!--
-            The diagnostics that used to sit in the status strip. They answer questions a
-            developer asks and nobody asks while driving, so the strip became a quick-info bar
-            and they came here — where there is room to say what they mean.
-        -->
-        <TextBlock Margin="2,32,0,0" Style="{StaticResource CaptionText}" Text="DIAGNOSTICS" />
-
-        <TextBlock Margin="2,10,0,0"
-                   Style="{StaticResource StatusText}"
-                   Foreground="{DynamicResource TextMidBrush}"
-                   Text="{Binding DataContext.SourceLabel, RelativeSource={RelativeSource AncestorType=Window}}" />
-
-        <TextBlock Margin="2,4,0,0"
-                   Style="{StaticResource MicroText}"
-                   Text="{Binding DataContext.DriveLabel, RelativeSource={RelativeSource AncestorType=Window},
-                                  StringFormat=Scripted drive: {0}}" />
-
-        <TextBlock Margin="2,4,0,0"
-                   MaxWidth="700"
-                   HorizontalAlignment="Left"
-                   TextWrapping="Wrap"
-                   Style="{StaticResource MicroText}"
-                   Text="{Binding DataContext.RequestRateText, RelativeSource={RelativeSource AncestorType=Window},
-                                  StringFormat={}{0} — measured adapter capability rather than load.}" />
-
-    </StackPanel>
-    </ScrollViewer>
+                    <TextBlock Margin="2,6,0,0"
+                               MaxWidth="620"
+                               HorizontalAlignment="Left"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="{Binding DataContext.RequestRateText, RelativeSource={RelativeSource AncestorType=Window},
+                                              StringFormat={}{0} — measured adapter capability rather than load.}" />
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
 </UserControl>

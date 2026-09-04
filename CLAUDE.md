@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **191 tests green** — 49 engine, 142 shell.
+(ADR-0010). **196 tests green** — 54 engine, 142 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -41,10 +41,13 @@ Below it, the **dash is a user-arranged list of cards**
 (ADR-0015) loaded from `dashboard.json` — add, remove, reorder, resize, and pick each card's
 value, style, unit, rate and format. A card names a **`source`** (B4): a vehicle `Signal`
 from the catalog, or a tablet `Sensor` — heading, pitch, roll, G. Sensor cards cost no request
-budget, and their footer says where they answered from rather than an allocated rate.
-Cards flow into rows and rows into pages that snap
-sideways; **only the visible page declares signals.** Settings and the card editor are
-full-screen views that take all six bands and hide the stage, which keeps running (Q17).
+budget, and their footer says where they answered from rather than an allocated rate. The
+**signal catalog now defines the standard OBD-II Mode 01 set** (~35, each `category`-tagged),
+so the card editor's picker is **searchable and grouped by function**; the synthetic truck
+answers the new PIDs so the extra options are live. Cards flow into rows and rows into pages
+that snap sideways; **only the visible page declares signals.** Settings is **split into a rail
+of sections** (Appearance, Mount, Display, Diagnostics); it and the card editor are full-screen
+views that take all six bands and hide the stage, which keeps running (Q17).
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
