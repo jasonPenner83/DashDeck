@@ -27,4 +27,7 @@ public sealed partial class StageOptionViewModel(StageOption option) : Observabl
 
     /// <summary>False for placeholders: listed, but not choosable.</summary>
     public bool IsAvailable => Option.IsAvailable;
+
+    /// <summary>Which picker group this sits under — SCREENS, WEB or APPS.</summary>
+    public string GroupLabel => Option.GroupLabel;
 }

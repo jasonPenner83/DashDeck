@@ -20,10 +20,18 @@ namespace DashDeck.Host.Stage;
 /// Builds the occupant, or returns <see langword="null"/> for an empty stage. A
 /// <see langword="null"/> factory means the option cannot be chosen at all.
 /// </param>
-public sealed record StageOption(string Name, string Detail, Func<IStageOccupant?>? Create)
+public sealed record StageOption(string Name, string Detail, Func<IStageOccupant?>? Create, StageKind Kind = StageKind.Screen)
 {
     /// <summary>False for the placeholders â€” listed, but not choosable.</summary>
     public bool IsAvailable => Create is not null;
+
+    /// <summary>The picker heading this option groups under.</summary>
+    public string GroupLabel => Kind switch
+    {
+        StageKind.Web => "WEB",
+        StageKind.App => "APPS",
+        _ => "SCREENS",
+    };
 
     /// <summary>
     /// Build the list the launcher shows.
@@ -55,6 +63,8 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
         DisplaySettings display,
         IReadOnlyList<UserAppEntry>? userApps = null) =>
     [
+        // ── SCREENS: rendered inside DashDeck, never a separate process. ──────────────────
+
         // The idle default (F12/B6): an auxiliary gauge cluster in the F-150's style, showing
         // what the factory cluster leaves out — boost, oil temp, voltage. A truck's home
         // screen wanting gauges is a better idle than a clock, and it means there is no
@@ -77,37 +87,45 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
             videoPath is null ? "Pick a file" : System.IO.Path.GetFileName(videoPath),
             () => CreateVideo(videoPath)),
 
+        // ── WEB: pages in WebView2 — external services, but still inside DashDeck. ─────────
+
+        // OpenStreetMap rather than Google. Google's Maps JavaScript API terms forbid
+        // in-vehicle turn-by-turn and there is no desktop SDK, so a Google map here could
+        // only ever be a picture (Q18). This is a picture too â€” but an unencumbered one,
+        // and the routing question stays open rather than being quietly violated.
+        new StageOption("MAPS", "openstreetmap.org", () => new WebStageOccupant("MAPS", MapsUrl, display), StageKind.Web),
+
+        // Both are web players, and both gate playback behind Widevine â€” which WebView2 does
+        // not ship. The occupant probes for it and says so rather than presenting a player
+        // that looks fine and refuses to make a sound.
+        new StageOption("SPOTIFY", "open.spotify.com", () => new WebStageOccupant("SPOTIFY", SpotifyUrl, display), StageKind.Web),
+
+        new StageOption("MUSIC", "music.apple.com", () => new WebStageOccupant("MUSIC", AppleMusicUrl, display), StageKind.Web),
+
+        // ── APPS: separate Windows programs, owned and placed over the stage where that works
+        //    (ADR-0020/0021), otherwise left in their own window. The built-ins below ship with
+        //    DashDeck; the user's own are appended after them. ─────────────────────────────
+
         // The real Nuvio, not the third-party web client. app.nuvio.tv answered 526 when it
         // was wired and is not maintained by NuvioMedia; NuvioDesktop is. Listed even when it
         // is not installed, because "not installed" says more than a missing row.
         new StageOption(
             AppLaunchSpec.Nuvio.Name,
             AppLaunchSpec.Nuvio.IsInstalled ? "NuvioDesktop" : "NuvioDesktop — not installed",
-            () => new AppStageOccupant(AppLaunchSpec.Nuvio)),
-
-        // Development affordance: a plain Win32 window, to tell "our plumbing is wrong" from
-        // "that application will not be embedded".
-        new StageOption("PROBE", "Proves window adoption", () => new AppStageOccupant(AppLaunchSpec.Probe)),
-
-        // OpenStreetMap rather than Google. Google's Maps JavaScript API terms forbid
-        // in-vehicle turn-by-turn and there is no desktop SDK, so a Google map here could
-        // only ever be a picture (Q18). This is a picture too â€” but an unencumbered one,
-        // and the routing question stays open rather than being quietly violated.
-        new StageOption("MAPS", "openstreetmap.org", () => new WebStageOccupant("MAPS", MapsUrl, display)),
+            () => new AppStageOccupant(AppLaunchSpec.Nuvio),
+            StageKind.App),
 
         // The desktop shell rather than web.stremio.com. Same reasoning as Nuvio: the real
         // application is better than a browser tab of it, and the stage can host one now.
         new StageOption(
             AppLaunchSpec.Stremio.Name,
             AppLaunchSpec.Stremio.IsInstalled ? "Stremio desktop" : "Stremio — not installed",
-            () => new AppStageOccupant(AppLaunchSpec.Stremio)),
+            () => new AppStageOccupant(AppLaunchSpec.Stremio),
+            StageKind.App),
 
-        // Both are web players, and both gate playback behind Widevine â€” which WebView2 does
-        // not ship. The occupant probes for it and says so rather than presenting a player
-        // that looks fine and refuses to make a sound.
-        new StageOption("SPOTIFY", "open.spotify.com", () => new WebStageOccupant("SPOTIFY", SpotifyUrl, display)),
-
-        new StageOption("MUSIC", "music.apple.com", () => new WebStageOccupant("MUSIC", AppleMusicUrl, display)),
+        // Development affordance: a plain Win32 window, to tell "our plumbing is wrong" from
+        // "that application will not be embedded".
+        new StageOption("PROBE", "Proves window adoption", () => new AppStageOccupant(AppLaunchSpec.Probe), StageKind.App),
 
         // The user's own apps, added through Settings (ADR-0024). Everything above is shipped in
         // code; everything here Jason pointed the tablet at himself. A launcher whose executable
@@ -116,7 +134,8 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
         .. (userApps ?? []).Select(app => new StageOption(
             app.Name.Trim().ToUpperInvariant(),
             app.IsInstalled ? System.IO.Path.GetFileName(app.Path) : "not found — check the path",
-            () => new AppStageOccupant(AppLaunchSpec.FromUser(app)))),
+            () => new AppStageOccupant(AppLaunchSpec.FromUser(app)),
+            StageKind.App)),
     ];
 
     /// <summary>Display-only map. Turn-by-turn is a separate, unanswered question (Q18).</summary>

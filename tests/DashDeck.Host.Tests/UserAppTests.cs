@@ -121,4 +121,11 @@ public sealed class UserAppTests
         Assert.False(spec.IsInstalled);
         Assert.Null(spec.Resolve());
     }
+
+    [Theory]
+    [InlineData(StageKind.Screen, "SCREENS")]
+    [InlineData(StageKind.Web, "WEB")]
+    [InlineData(StageKind.App, "APPS")]
+    public void The_group_label_follows_the_kind(StageKind kind, string label) =>
+        Assert.Equal(label, new StageOption("X", "detail", null, kind).GroupLabel);
 }

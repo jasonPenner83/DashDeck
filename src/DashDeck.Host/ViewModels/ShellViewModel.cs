@@ -293,6 +293,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public ObservableCollection<StageOptionViewModel> StageOptions { get; } = [];
 
     /// <summary>
+    /// The same options, in headed sections — SCREENS, WEB, APPS — for the picker. Rebuilt from
+    /// <see cref="StageOptions"/> alongside it, so it follows a user app being added or removed.
+    /// Built explicitly rather than with a grouped <c>CollectionView</c>, whose <c>GroupStyle</c>
+    /// laid the sections out transposed.
+    /// </summary>
+    public ObservableCollection<StageGroup> StageGroups { get; } = [];
+
+    /// <summary>
     /// Refill <see cref="StageOptions"/> from the built-ins plus the user's apps.
     /// </summary>
     /// <remarks>
@@ -316,6 +324,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         foreach (var candidate in StageOptions)
         {
             candidate.IsCurrent = candidate.Name == currentName && _stage is not null;
+        }
+
+        // Re-form the headed sections in the order the options appear — StageOption.All lists
+        // screens, then web, then apps, so a plain grouping preserves SCREENS / WEB / APPS.
+        StageGroups.Clear();
+
+        foreach (var group in StageOptions.GroupBy(o => o.GroupLabel))
+        {
+            StageGroups.Add(new StageGroup(group.Key, [.. group]));
         }
 
         RefreshQuickOptions();

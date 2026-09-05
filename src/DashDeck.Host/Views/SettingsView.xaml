@@ -256,7 +256,27 @@
                                TextWrapping="Wrap" Style="{StaticResource MicroText}"
                                Text="Point the stage at a program already on this tablet — a browser, a player. It launches with your privileges and DashDeck does not sandbox it. This is a launcher, not an app store." />
 
-                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,20,0,0"
+                    <!-- The apps that ship with DashDeck: listed for reference, not editable —
+                         their curated install paths are why they stay in code (ADR-0024). -->
+                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,22,0,0" Text="BUILT-IN" />
+
+                    <ItemsControl Margin="0,10,0,0" ItemsSource="{Binding BuiltInApps}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                                    <TextBlock Text="{Binding Name}" Width="120"
+                                               FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                               Foreground="{DynamicResource TextMidBrush}" />
+                                    <TextBlock Text="{Binding Detail}" Style="{StaticResource MicroText}"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,22,0,0" Text="YOURS" />
+
+                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,14,0,0"
                                Text="NAME · EXECUTABLE · ARGUMENTS (OPTIONAL)" />
 
                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0">

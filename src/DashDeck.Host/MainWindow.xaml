@@ -244,52 +244,68 @@
                                     Three fits twelve without scrolling; the ScrollViewer is
                                     for the thirteenth.
                                 -->
-                                <ItemsControl ItemsSource="{Binding StageOptions}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <UniformGrid Columns="3" />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
+                                <!-- SCREENS / WEB / APPS, each a header over a three-across grid.
+                                     Stacked explicitly (an outer section list, an inner card grid)
+                                     rather than with a grouped view, whose GroupStyle transposed
+                                     the sections into side-by-side columns. -->
+                                <ItemsControl ItemsSource="{Binding StageGroups}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Button Height="120" Margin="0,0,20,20"
-                                                    Command="{Binding DataContext.ChooseStageCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}"
-                                                    IsEnabled="{Binding IsAvailable}"
-                                                    Cursor="Hand">
-                                                <Button.Template>
-                                                    <ControlTemplate TargetType="Button">
-                                                        <Border x:Name="Chrome"
-                                                                Background="{DynamicResource SurfaceBrush}"
-                                                                BorderBrush="{DynamicResource HairlineBrush}"
-                                                                BorderThickness="1"
-                                                                CornerRadius="18"
-                                                                Padding="24,0,24,0">
-                                                            <ContentPresenter VerticalAlignment="Center" />
-                                                        </Border>
-                                                        <ControlTemplate.Triggers>
-                                                            <Trigger Property="IsEnabled" Value="False">
-                                                                <Setter TargetName="Chrome" Property="Background" Value="Transparent" />
-                                                                <Setter TargetName="Chrome" Property="Opacity" Value="0.45" />
-                                                            </Trigger>
-                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="Chrome" Property="BorderBrush"
-                                                                        Value="{DynamicResource AccentBrush}" />
-                                                            </Trigger>
-                                                        </ControlTemplate.Triggers>
-                                                    </ControlTemplate>
-                                                </Button.Template>
-                                                <StackPanel>
-                                                    <TextBlock FontFamily="{StaticResource UiFont}"
-                                                               FontSize="26" FontWeight="SemiBold"
-                                                               Foreground="{DynamicResource TextHighBrush}"
-                                                               Text="{Binding Name}" />
-                                                    <TextBlock Margin="0,8,0,0"
-                                                               Style="{StaticResource CaptionText}"
-                                                               Text="{Binding Detail}" />
-                                                </StackPanel>
-                                            </Button>
+                                            <StackPanel Margin="0,0,0,6">
+                                                <TextBlock Style="{StaticResource CaptionText}"
+                                                           Margin="0,2,0,12"
+                                                           Text="{Binding Header}" />
+
+                                                <ItemsControl ItemsSource="{Binding Options}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <UniformGrid Columns="3" />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Button Height="104" Margin="0,0,20,16"
+                                                                    Command="{Binding DataContext.ChooseStageCommand,
+                                                                              RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    IsEnabled="{Binding IsAvailable}"
+                                                                    Cursor="Hand">
+                                                                <Button.Template>
+                                                                    <ControlTemplate TargetType="Button">
+                                                                        <Border x:Name="Chrome"
+                                                                                Background="{DynamicResource SurfaceBrush}"
+                                                                                BorderBrush="{DynamicResource HairlineBrush}"
+                                                                                BorderThickness="1"
+                                                                                CornerRadius="18"
+                                                                                Padding="24,0,24,0">
+                                                                            <ContentPresenter VerticalAlignment="Center" />
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="IsEnabled" Value="False">
+                                                                                <Setter TargetName="Chrome" Property="Background" Value="Transparent" />
+                                                                                <Setter TargetName="Chrome" Property="Opacity" Value="0.45" />
+                                                                            </Trigger>
+                                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                                <Setter TargetName="Chrome" Property="BorderBrush"
+                                                                                        Value="{DynamicResource AccentBrush}" />
+                                                                            </Trigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Button.Template>
+                                                                <StackPanel>
+                                                                    <TextBlock FontFamily="{StaticResource UiFont}"
+                                                                               FontSize="24" FontWeight="SemiBold"
+                                                                               Foreground="{DynamicResource TextHighBrush}"
+                                                                               Text="{Binding Name}" />
+                                                                    <TextBlock Margin="0,6,0,0"
+                                                                               Style="{StaticResource CaptionText}"
+                                                                               Text="{Binding Detail}" />
+                                                                </StackPanel>
+                                                            </Button>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>

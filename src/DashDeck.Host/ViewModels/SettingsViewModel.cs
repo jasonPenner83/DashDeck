@@ -305,6 +305,18 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Where the app list is written. Shown, so it can be found and backed up.</summary>
     public string AppsPath => _userApps.Path;
 
+    /// <summary>
+    /// The apps that ship with DashDeck — Nuvio, Stremio and the Probe — listed for reference but
+    /// not editable. Their value is the curated multi-candidate install paths, which is exactly
+    /// why they stay in code rather than in the store (ADR-0024).
+    /// </summary>
+    public IReadOnlyList<BuiltInAppRow> BuiltInApps { get; } =
+    [
+        BuiltInAppRow.From(DashDeck.Host.Stage.AppLaunchSpec.Nuvio),
+        BuiltInAppRow.From(DashDeck.Host.Stage.AppLaunchSpec.Stremio),
+        BuiltInAppRow.From(DashDeck.Host.Stage.AppLaunchSpec.Probe),
+    ];
+
     /// <summary>The name for the app being added.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AppMessage))]
@@ -442,6 +454,13 @@ public sealed partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(ResolvedTheme));
         OnPropertyChanged(nameof(CustomMessageBrush));
     }
+}
+
+/// <summary>One shipped app, for the read-only Built-in list.</summary>
+public sealed record BuiltInAppRow(string Name, string Detail)
+{
+    public static BuiltInAppRow From(DashDeck.Host.Stage.AppLaunchSpec spec) =>
+        new(spec.Name, spec.IsInstalled ? spec.Detail : $"{spec.Detail} — not installed");
 }
 
 /// <summary>One web-scale chip.</summary>
