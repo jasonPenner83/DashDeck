@@ -101,10 +101,13 @@ Also worth knowing: `MeasuredRequestsPerSecond` — the `req/s` on the status st
 adapter's measured **capability**, not the achieved load. It is not a way to check whether
 something is consuming budget, and reading it as one is an easy mistake to make twice.
 
-One open question worth knowing before touching the stage: **audio started on an occupant
-has no defined lifetime** (F22). Leaving via the nav keeps it playing, going into Settings
-keeps it playing but hidden, and picking another occupant kills the process mid-song. Three
-lifecycles, three answers, none of them chosen.
+Worth knowing before touching the stage: **an occupant lives as long as it is the stage
+occupant** (ADR-0025, resolving F22). Leaving it — navigating below the stage, or opening a
+full-screen view over it — keeps it running (the phone model, Q17/B2); *replacing* it with
+another occupant ends it. The one gap that left — a full-screen view hiding a running occupant
+with nothing on screen to say so — is closed by a **▶ NAME** pill in the always-visible status
+strip that appears only then and taps back to the stage, not by changing the lifecycle. Still
+open one layer down: **where projected audio comes out at all** (F21).
 
 **The component host works, widget and all** (ADR-0023). The in-process loader discovers
 `plugins/`, validates the manifest and `apiVersion` before mapping any code, loads each
@@ -202,11 +205,13 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Twenty-three exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Twenty-five exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
-vehicle-first rule and sensor catalog for anything the tablet could also guess at, and the
-fixed-height stage that came out of the first drive, phone projection through a dongle, and native apps owned and placed over the stage rather than re-parented into it.
+vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
+fixed-height stage that came out of the first drive, phone projection through a dongle, native
+apps owned and placed over the stage rather than re-parented into it, user-added app launchers
+from the UI, and the rule that an occupant lives as long as it is the stage occupant.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

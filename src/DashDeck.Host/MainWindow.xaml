@@ -62,6 +62,43 @@
                     </StackPanel>
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <!-- The stage keeps running behind a full-screen view (Q17), so audio can
+                             play with nothing on screen to say so (F22/ADR-0025). This pill appears
+                             only then, names what is on, and taps back to it. Hidden the moment the
+                             stage is visible again, so it costs nothing in the ordinary case. -->
+                        <Button Margin="0,0,18,0"
+                                VerticalAlignment="Center"
+                                Cursor="Hand"
+                                ToolTip="Back to the stage"
+                                Command="{Binding ReturnToStageCommand}"
+                                Visibility="{Binding StageRunningButHidden, Converter={StaticResource BoolToVis}}">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="Pill" CornerRadius="999" Padding="11,4"
+                                            Background="{DynamicResource SurfaceBrush}"
+                                            BorderBrush="{DynamicResource AccentBrush}"
+                                            BorderThickness="1">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="▶"
+                                                       FontFamily="{StaticResource UiFont}" FontSize="10"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource AccentBrush}" />
+                                            <TextBlock Text="{Binding StageName}" Margin="7,0,0,0"
+                                                       FontFamily="{StaticResource MonoFont}" FontSize="11"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextMidBrush}" />
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="Pill" Property="Background"
+                                                    Value="{DynamicResource HairlineBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
                         <!-- Never removed, however tight the bar gets. Synthetic numbers that
                              could be mistaken for real ones are the one thing this project
                              will not ship. -->

@@ -30,6 +30,7 @@ including the reasoning that later turns out to be wrong.
 | [0022](ADR-0022-actions-not-a-bar.md) | Occupant controls are verbs in the overflow menu, not a band of the stage (supersedes 0018's action bar) | Accepted |
 | [0023](ADR-0023-component-host.md) | In-process component host: manifest + `apiVersion` validation, isolated load context, guarded lifecycle; a component's widget lives on the dash | Accepted |
 | [0024](ADR-0024-user-app-launchers.md) | User-added stage apps from the UI, persisted to `apps.json`; built-ins stay in code; still a launcher, not an extension mechanism | Accepted |
+| [0025](ADR-0025-occupant-lifetime.md) | An occupant lives as long as it is the stage occupant — leaving keeps it, replacing ends it; a now-playing return in the status strip (resolves F22) | Accepted |
 
 
 

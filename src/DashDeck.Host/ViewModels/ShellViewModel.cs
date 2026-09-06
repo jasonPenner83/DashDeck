@@ -78,12 +78,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsOccupantVisible))]
     [NotifyPropertyChangedFor(nameof(IsFullScreenOpen))]
     [NotifyPropertyChangedFor(nameof(IsDashVisible))]
+    [NotifyPropertyChangedFor(nameof(StageRunningButHidden))]
     private string _activeDestination = "DASH";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StageHasOccupant))]
     [NotifyPropertyChangedFor(nameof(StageIsEmpty))]
     [NotifyPropertyChangedFor(nameof(IsOccupantVisible))]
+    [NotifyPropertyChangedFor(nameof(StageRunningButHidden))]
     private FrameworkElement? _stageContent;
 
     [ObservableProperty]
@@ -207,6 +209,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(IsFullScreenOpen));
                 OnPropertyChanged(nameof(IsDashEditing));
                 OnPropertyChanged(nameof(IsNavVisible));
+                OnPropertyChanged(nameof(StageRunningButHidden));
                 SyncWidgetBands();
             }
         };
@@ -440,6 +443,39 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>What is on the stage, for the chip. Empty stages still say so.</summary>
     public string StageName => _stage?.Name ?? "EMPTY";
+
+    /// <summary>
+    /// True when an occupant is running but hidden behind a full-screen view — Settings, the card
+    /// editor, a component detail.
+    /// </summary>
+    /// <remarks>
+    /// The one case F22 named as wrong: leaving the stage keeps the occupant alive (the layer
+    /// model, Q17/B2), which is right, but a full-screen view then hides it with no sign it is
+    /// still going — "audio with no visible source". The status strip shows it while this holds,
+    /// as a one-tap way back (ADR-0025). The picker is deliberately not counted: it is a brief,
+    /// on-DASH choosing state, and the launcher it sits over already says what is on.
+    /// </remarks>
+    public bool StageRunningButHidden => StageContent is not null && IsFullScreenOpen;
+
+    /// <summary>
+    /// Return to the running occupant from the status-strip indicator: close whatever full-screen
+    /// view is covering it and go back to the DASH, where the stage shows again (F22/ADR-0025).
+    /// </summary>
+    [RelayCommand]
+    private void ReturnToStage()
+    {
+        if (Dashboard.IsCardEditorOpen)
+        {
+            Dashboard.CloseEditorCommand.Execute(null);
+        }
+
+        if (Dashboard.IsComponentDetailOpen)
+        {
+            Dashboard.CloseComponentDetailCommand.Execute(null);
+        }
+
+        ActiveDestination = "DASH";
+    }
 
     /// <summary>
     /// How many of the six bands the stage takes. An occupant asks for what it needs;
