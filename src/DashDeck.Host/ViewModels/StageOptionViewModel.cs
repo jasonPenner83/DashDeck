@@ -30,4 +30,7 @@ public sealed partial class StageOptionViewModel(StageOption option) : Observabl
 
     /// <summary>Which picker group this sits under — SCREENS, WEB or APPS.</summary>
     public string GroupLabel => Option.GroupLabel;
+
+    /// <summary>True for occupants that play audio/video and can persist in the background (ADR-0026).</summary>
+    public bool AudioVisualSource => Option.AudioVisualSource;
 }

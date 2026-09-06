@@ -243,6 +243,25 @@
                                TextWrapping="Wrap"
                                Style="{StaticResource MicroText}"
                                Text="Applies to Spotify, Apple Music, Maps, Nuvio and Stremio — live, including whatever is on the stage right now." />
+
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,30,0,0" Text="STAGE AUDIO" />
+
+                    <Button Style="{StaticResource StageLauncherButton}"
+                            Height="52" MinWidth="330" Margin="0,14,0,0"
+                            HorizontalAlignment="Left"
+                            Command="{Binding ToggleKeepStageAudioCommand}">
+                        <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="14">
+                            <Run Text="KEEP PLAYING WHEN YOU SWITCH —" />
+                            <Run Text="{Binding KeepStageAudioLabel, Mode=OneWay}" FontWeight="Bold" />
+                        </TextBlock>
+                    </Button>
+
+                    <TextBlock Margin="2,12,0,0"
+                               MaxWidth="620"
+                               HorizontalAlignment="Left"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="On: a source — Spotify, Music, video, Stremio, Nuvio, phone — keeps playing when you switch the stage to a screen like the gauges, and the ▶ pill in the status bar brings it back. Off: switching stops it." />
                 </StackPanel>
             </ScrollViewer>
 
@@ -297,6 +316,16 @@
                         </Button>
                     </StackPanel>
 
+                    <!-- Whether this app plays audio and should keep going in the background when
+                         you switch to a screen (ADR-0026). Off by default. -->
+                    <Button Style="{StaticResource StageLauncherButton}"
+                            Height="46" MinWidth="300" Margin="0,12,0,0"
+                            HorizontalAlignment="Left"
+                            Command="{Binding ToggleNewAppKeepPlayingCommand}">
+                        <TextBlock Text="{Binding NewAppKeepPlayingLabel}"
+                                   FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                    </Button>
+
                     <TextBlock Margin="2,12,0,0" MaxWidth="620" HorizontalAlignment="Left"
                                TextWrapping="Wrap" Style="{StaticResource MicroText}"
                                Foreground="{Binding AppMessageBrush}"
@@ -320,9 +349,16 @@
                                         </Grid.ColumnDefinitions>
 
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Name}"
-                                                       FontFamily="{StaticResource MonoFont}" FontSize="15"
-                                                       Foreground="{DynamicResource TextHighBrush}" />
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontFamily="{StaticResource MonoFont}" FontSize="15"
+                                                           Foreground="{DynamicResource TextHighBrush}" />
+                                                <TextBlock Text="▶ keeps playing" Margin="10,0,0,0"
+                                                           VerticalAlignment="Center"
+                                                           Style="{StaticResource MicroText}"
+                                                           Foreground="{DynamicResource AccentBrush}"
+                                                           Visibility="{Binding KeepPlaying, Converter={StaticResource BoolToVis}}" />
+                                            </StackPanel>
                                             <TextBlock Margin="0,3,0,0" Style="{StaticResource MicroText}"
                                                        TextTrimming="CharacterEllipsis" Text="{Binding Path}" />
                                         </StackPanel>

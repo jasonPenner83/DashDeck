@@ -39,6 +39,24 @@ public sealed class UserAppTests
     }
 
     [Fact]
+    public void The_keep_playing_flag_survives_a_reload()
+    {
+        var path = TempPath();
+
+        try
+        {
+            var store = new UserAppStore(path);
+            store.Add(new UserAppEntry { Name = "CHROME", Path = @"C:\chrome.exe", KeepPlaying = true });
+
+            Assert.True(Assert.Single(new UserAppStore(path).Apps).KeepPlaying);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void Removing_an_app_persists_too()
     {
         var path = TempPath();

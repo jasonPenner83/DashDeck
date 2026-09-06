@@ -83,7 +83,7 @@
                                                        FontFamily="{StaticResource UiFont}" FontSize="10"
                                                        VerticalAlignment="Center"
                                                        Foreground="{DynamicResource AccentBrush}" />
-                                            <TextBlock Text="{Binding StageName}" Margin="7,0,0,0"
+                                            <TextBlock Text="{Binding HiddenOccupantName}" Margin="7,0,0,0"
                                                        FontFamily="{StaticResource MonoFont}" FontSize="11"
                                                        VerticalAlignment="Center"
                                                        Foreground="{DynamicResource TextMidBrush}" />
@@ -236,6 +236,15 @@
 
                             </DockPanel>
                         </Border>
+
+                        <!-- The audio/video source, in its own host behind the screen (ADR-0026).
+                             It keeps this host for its whole life, so switching to a screen only
+                             collapses it — never reparents it — and it keeps playing. Only ever
+                             visible when no screen is over it, so two child windows never draw at
+                             once. -->
+                        <ContentControl Grid.Row="0"
+                                        Content="{Binding SourceContent}"
+                                        Visibility="{Binding IsSourceVisible, Converter={StaticResource BoolToVis}}" />
 
                         <ContentControl Grid.Row="0"
                                         Content="{Binding StageContent}"

@@ -25,7 +25,16 @@ namespace DashDeck.Host.ViewModels;
 public sealed partial class ShellViewModel : ObservableObject, IDisposable
 {
     private readonly VehicleStack _vehicle;
-    private IStageOccupant? _stage;
+
+    // The stage holds up to two occupants (ADR-0026): a non-source "screen" in front, and an
+    // audio/video "source" that is either in front (no screen) or playing hidden behind one.
+    // Each keeps its own content host for its whole life so a live WebView2 or owned window is
+    // never reparented, which would reload it and drop its audio.
+    private IStageOccupant? _screen;
+    private StageOptionViewModel? _screenOption;
+    private IStageOccupant? _source;
+    private StageOptionViewModel? _sourceOption;
+
     private readonly IClock _clock;
     private readonly ThemeService _theme;
     private readonly DispatcherTimer _timer;
@@ -76,20 +85,34 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(StageBands))]
     [NotifyPropertyChangedFor(nameof(WidgetBands))]
     [NotifyPropertyChangedFor(nameof(IsOccupantVisible))]
+    [NotifyPropertyChangedFor(nameof(IsSourceVisible))]
     [NotifyPropertyChangedFor(nameof(IsFullScreenOpen))]
     [NotifyPropertyChangedFor(nameof(IsDashVisible))]
     [NotifyPropertyChangedFor(nameof(StageRunningButHidden))]
+    [NotifyPropertyChangedFor(nameof(HiddenOccupantName))]
     private string _activeDestination = "DASH";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StageHasOccupant))]
     [NotifyPropertyChangedFor(nameof(StageIsEmpty))]
     [NotifyPropertyChangedFor(nameof(IsOccupantVisible))]
+    [NotifyPropertyChangedFor(nameof(IsSourceVisible))]
     [NotifyPropertyChangedFor(nameof(StageRunningButHidden))]
     private FrameworkElement? _stageContent;
 
+    /// <summary>The audio/video source's view, in its own host behind the screen's, so a live
+    /// player is never reparented. Shown when the source is in front; collapsed (alive, still
+    /// playing) when a screen is over it (ADR-0026).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StageHasOccupant))]
+    [NotifyPropertyChangedFor(nameof(StageIsEmpty))]
+    [NotifyPropertyChangedFor(nameof(IsSourceVisible))]
+    [NotifyPropertyChangedFor(nameof(StageRunningButHidden))]
+    private FrameworkElement? _sourceContent;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsOccupantVisible))]
+    [NotifyPropertyChangedFor(nameof(IsSourceVisible))]
     private bool _isStagePickerOpen;
 
     /// <summary>
@@ -209,7 +232,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(IsFullScreenOpen));
                 OnPropertyChanged(nameof(IsDashEditing));
                 OnPropertyChanged(nameof(IsNavVisible));
+                OnPropertyChanged(nameof(IsSourceVisible));
                 OnPropertyChanged(nameof(StageRunningButHidden));
+                OnPropertyChanged(nameof(HiddenOccupantName));
                 SyncWidgetBands();
             }
         };
@@ -314,7 +339,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// </remarks>
     private void RebuildStageOptions()
     {
-        var currentName = _stage?.Name;
+        var current = Foreground;
+        var currentName = current?.Name;
 
         StageOptions.Clear();
 
@@ -326,7 +352,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         foreach (var candidate in StageOptions)
         {
-            candidate.IsCurrent = candidate.Name == currentName && _stage is not null;
+            candidate.IsCurrent = candidate.Name == currentName && current is not null;
         }
 
         // Re-form the headed sections in the order the options appear — StageOption.All lists
@@ -375,8 +401,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>True when something is actually on the stage.</summary>
-    public bool StageHasOccupant => StageContent is not null;
+    /// <summary>The occupant in front — the screen if there is one, otherwise the source. What
+    /// the name, the actions and the launcher highlight all reflect.</summary>
+    private IStageOccupant? Foreground => _screen ?? _source;
+
+    /// <summary>True when something is actually on the stage, in either slot.</summary>
+    public bool StageHasOccupant => _screen is not null || _source is not null;
 
     /// <summary>
     /// Whether the occupant's view is shown right now.
@@ -393,6 +423,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// </remarks>
     public bool IsOccupantVisible =>
         StageContent is not null && !IsStagePickerOpen && !IsFullScreenOpen;
+
+    /// <summary>
+    /// Whether the source's own host is the thing on screen — only when no screen is over it.
+    /// </summary>
+    /// <remarks>
+    /// A backgrounded source stays in the tree but Collapsed (alive, still playing) so it is not
+    /// reparented; this is what draws it when it is the one in front (ADR-0026).
+    /// </remarks>
+    public bool IsSourceVisible =>
+        SourceContent is not null && _screen is null && !IsStagePickerOpen && !IsFullScreenOpen;
 
     /// <summary>True when a card is open in the editor.</summary>
     public bool IsCardEditorOpen => Dashboard.IsCardEditorOpen;
@@ -439,27 +479,36 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// True when nothing occupies the stage. Rendered as an explicit empty state rather
     /// than filling the space with something invented (Q13).
     /// </summary>
-    public bool StageIsEmpty => StageContent is null;
+    public bool StageIsEmpty => _screen is null && _source is null;
 
     /// <summary>What is on the stage, for the chip. Empty stages still say so.</summary>
-    public string StageName => _stage?.Name ?? "EMPTY";
+    public string StageName => Foreground?.Name ?? "EMPTY";
 
     /// <summary>
-    /// True when an occupant is running but hidden behind a full-screen view — Settings, the card
-    /// editor, a component detail.
+    /// The occupant that is running but not on screen, if any — the one the status-strip pill
+    /// names and taps back to.
     /// </summary>
     /// <remarks>
-    /// The one case F22 named as wrong: leaving the stage keeps the occupant alive (the layer
-    /// model, Q17/B2), which is right, but a full-screen view then hides it with no sign it is
-    /// still going — "audio with no visible source". The status strip shows it while this holds,
-    /// as a one-tap way back (ADR-0025). The picker is deliberately not counted: it is a brief,
-    /// on-DASH choosing state, and the launcher it sits over already says what is on.
+    /// Two ways an occupant runs unseen: a source is playing in the background while a screen is
+    /// in front (ADR-0026), or the foreground occupant is hidden behind a full-screen view
+    /// (F22/ADR-0025). The backgrounded source wins, because getting back to the music is the
+    /// point; only when there is none does the pill offer the hidden foreground.
     /// </remarks>
-    public bool StageRunningButHidden => StageContent is not null && IsFullScreenOpen;
+    private IStageOccupant? HiddenOccupant =>
+        _source is not null && _screen is not null ? _source
+        : Foreground is not null && IsFullScreenOpen ? Foreground
+        : null;
+
+    /// <summary>True when something is running but not on screen — see <see cref="HiddenOccupant"/>.</summary>
+    public bool StageRunningButHidden => HiddenOccupant is not null;
+
+    /// <summary>What the pill says — the hidden occupant's name.</summary>
+    public string HiddenOccupantName => HiddenOccupant?.Name ?? string.Empty;
 
     /// <summary>
-    /// Return to the running occupant from the status-strip indicator: close whatever full-screen
-    /// view is covering it and go back to the DASH, where the stage shows again (F22/ADR-0025).
+    /// Go back to the running-but-hidden occupant from the status-strip pill: close whatever
+    /// full-screen view is covering the stage, and if a source is playing in the background, bring
+    /// it forward (F22/ADR-0025, ADR-0026).
     /// </summary>
     [RelayCommand]
     private void ReturnToStage()
@@ -475,6 +524,17 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         }
 
         ActiveDestination = "DASH";
+
+        // A source playing behind a screen: drop the screen and let the source show again. Its
+        // view stays put in its own host, so it is never reparented — it just stops being covered.
+        if (_source is not null && _screen is not null)
+        {
+            _screen.Dispose();
+            _screen = null;
+            _screenOption = null;
+            StageContent = null;
+            AfterStageChange();
+        }
     }
 
     /// <summary>
@@ -515,7 +575,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <remarks>
     /// For <c>--shot</c>, which cannot photograph a video surface drawn into a child window.
     /// </remarks>
-    public string? DescribeStage() => _stage?.Describe();
+    public string? DescribeStage() =>
+        _source is not null && _screen is not null
+            ? $"{_screen.Describe()} · source backgrounded: {_source.Describe()}"
+            : Foreground?.Describe();
 
     /// <summary>
     /// Open or close the picker.
@@ -553,7 +616,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // first item says PLAY or PAUSE, and a stale one is worse than no label.
         if (!IsMenuOpen)
         {
-            StageActions = _stage?.Actions ?? [];
+            StageActions = Foreground?.Actions ?? [];
         }
 
         IsMenuOpen = !IsMenuOpen;
@@ -603,32 +666,108 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     private void SetStage(StageOptionViewModel option)
     {
-        // The outgoing occupant goes away properly — video keeps decoding otherwise, and a
-        // stage nobody can see is the worst possible consumer of a tablet's battery.
-        _stage?.Dispose();
+        var incomingIsSource = option.AudioVisualSource;
+        var frontIsSource = _screen is null && _source is not null;
+        var incomingIsBackgroundSource =
+            _source is not null && _screen is not null && ReferenceEquals(option, _sourceOption);
 
-        _stage = option.Option.Create?.Invoke();
-        StageContent = _stage?.CreateView();
+        var action = StageSwitch.Decide(
+            Display.KeepStageAudio, frontIsSource, incomingIsSource, incomingIsBackgroundSource);
 
-        // Read every time the menu opens rather than cached, because a caption can depend on
-        // state — the video occupant''s first item says PLAY or PAUSE.
-        StageActions = _stage?.Actions ?? [];
-
-        foreach (var candidate in StageOptions)
+        switch (action)
         {
-            candidate.IsCurrent = ReferenceEquals(candidate, option) && _stage is not null;
+            case StageSwitchAction.BringForwardSource:
+                // The backgrounded source is chosen again: drop the screen over it and let it
+                // show. The source itself is never touched, so its audio and place hold.
+                DisposeScreen();
+                break;
+
+            case StageSwitchAction.BackgroundSourceShowIncoming:
+                // The source in front stays alive as the background; the chosen screen goes over
+                // it. _source / _sourceOption already hold that source.
+                _screen = option.Option.Create?.Invoke();
+                _screenOption = _screen is null ? null : option;
+                StageContent = _screen?.CreateView();
+                break;
+
+            case StageSwitchAction.ReplaceWithSource:
+                // One source at a time: dispose the front screen and any background source, then
+                // bring the new source up in its own host.
+                DisposeScreen();
+                DisposeSource();
+                _source = option.Option.Create?.Invoke();
+                _sourceOption = _source is null ? null : option;
+                SourceContent = _source?.CreateView();
+                break;
+
+            case StageSwitchAction.ReplaceFrontKeepBackground:
+                // Dispose only whatever is in front; a source already in the background keeps
+                // playing. Then show the chosen (non-source) screen.
+                if (_screen is not null)
+                {
+                    DisposeScreen();
+                }
+                else
+                {
+                    DisposeSource();
+                }
+
+                _screen = option.Option.Create?.Invoke();
+                _screenOption = _screen is null ? null : option;
+                StageContent = _screen?.CreateView();
+                break;
         }
 
-        // Recomputed after the flags, so a newly-chosen app that lives in the grid gets
-        // pulled into the row rather than leaving it looking like nothing is on.
+        AfterStageChange();
+    }
+
+    private void DisposeScreen()
+    {
+        _screen?.Dispose();
+        _screen = null;
+        _screenOption = null;
+        StageContent = null;
+    }
+
+    private void DisposeSource()
+    {
+        _source?.Dispose();
+        _source = null;
+        _sourceOption = null;
+        SourceContent = null;
+    }
+
+    /// <summary>Fire everything that depends on which occupants are on the stage.</summary>
+    private void AfterStageChange()
+    {
+        var foreground = Foreground;
+
+        // Read fresh, because a caption can depend on state — the video occupant's first item
+        // says PLAY or PAUSE, and a stale one is worse than none.
+        StageActions = foreground?.Actions ?? [];
+
+        var currentName = foreground?.Name;
+        foreach (var candidate in StageOptions)
+        {
+            candidate.IsCurrent = candidate.Name == currentName && foreground is not null;
+        }
+
+        // Recomputed after the flags, so a newly-chosen app that lives in the grid gets pulled
+        // into the row rather than leaving it looking like nothing is on.
         RefreshQuickOptions();
 
         OnPropertyChanged(nameof(StageName));
+        OnPropertyChanged(nameof(StageHasOccupant));
+        OnPropertyChanged(nameof(StageIsEmpty));
+        OnPropertyChanged(nameof(IsOccupantVisible));
+        OnPropertyChanged(nameof(IsSourceVisible));
+        OnPropertyChanged(nameof(StageRunningButHidden));
+        OnPropertyChanged(nameof(HiddenOccupantName));
         OnPropertyChanged(nameof(StageBands));
         OnPropertyChanged(nameof(WidgetBands));
 
-        // A new occupant can claim a different number of bands, which changes how many rows
-        // of cards fit and therefore how they page.
+        // A new occupant can claim a different number of bands, which changes how many rows of
+        // cards fit and therefore how they page.
         SyncWidgetBands();
     }
 
@@ -641,8 +780,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Sensors.Dispose();
 
         // The stage is a layer with its own lifecycle (B2) — it outlives navigation, but
-        // not the shell.
-        _stage?.Dispose();
+        // not the shell. Both slots go: a backgrounded source is still ours to close.
+        _screen?.Dispose();
+        _source?.Dispose();
     }
 
     private void Refresh()

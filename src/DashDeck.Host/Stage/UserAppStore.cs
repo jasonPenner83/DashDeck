@@ -29,6 +29,14 @@ public sealed record UserAppEntry
     [JsonPropertyName("arguments")]
     public string Arguments { get; init; } = "";
 
+    /// <summary>
+    /// Whether this app is an audio/video source that keeps playing in the background when you
+    /// switch to a silent occupant (ADR-0026). Off by default — a launched program is not assumed
+    /// to make sound.
+    /// </summary>
+    [JsonPropertyName("keepPlaying")]
+    public bool KeepPlaying { get; init; }
+
     /// <summary>True when the executable is actually on this machine right now.</summary>
     [JsonIgnore]
     public bool IsInstalled => !string.IsNullOrWhiteSpace(Path) && System.IO.File.Exists(Path);

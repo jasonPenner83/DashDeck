@@ -38,9 +38,18 @@ public sealed partial class DisplaySettings : ObservableObject
     [ObservableProperty]
     private double _webScale = 1.0;
 
+    /// <summary>
+    /// Keep an audio/video source playing in the background when the stage switches to a silent
+    /// occupant (ADR-0026). Read at switch time by the shell; persisted like the scale.
+    /// </summary>
+    [ObservableProperty]
+    private bool _keepStageAudio;
+
     public DisplaySettings()
     {
-        WebScale = Clamp(SettingsStore.Load().WebScale);
+        var stored = SettingsStore.Load();
+        WebScale = Clamp(stored.WebScale);
+        KeepStageAudio = stored.KeepStageAudio;
         _loaded = true;
     }
 
@@ -70,5 +79,15 @@ public sealed partial class DisplaySettings : ObservableObject
         // Written the moment it changes, like every other choice: a dash is closed by having
         // its power pulled (ADR-0014).
         SettingsStore.Update(stored => stored with { WebScale = value });
+    }
+
+    partial void OnKeepStageAudioChanged(bool value)
+    {
+        if (!_loaded)
+        {
+            return;
+        }
+
+        SettingsStore.Update(stored => stored with { KeepStageAudio = value });
     }
 }

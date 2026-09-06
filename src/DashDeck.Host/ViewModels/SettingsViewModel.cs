@@ -187,6 +187,17 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
+    /// <summary>ON/OFF for the keep-stage-audio toggle.</summary>
+    public string KeepStageAudioLabel => Display.KeepStageAudio ? "ON" : "OFF";
+
+    /// <summary>Flip whether a source keeps playing when you switch the stage (ADR-0026).</summary>
+    [RelayCommand]
+    private void ToggleKeepStageAudio()
+    {
+        Display.KeepStageAudio = !Display.KeepStageAudio;
+        OnPropertyChanged(nameof(KeepStageAudioLabel));
+    }
+
     private void SyncScales()
     {
         foreach (var option in WebScales)
@@ -337,6 +348,19 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _newAppArguments = "";
 
+    /// <summary>Whether the app being added plays audio/video and should persist in the
+    /// background (ADR-0026).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NewAppKeepPlayingLabel))]
+    private bool _newAppKeepPlaying;
+
+    /// <summary>The toggle's caption.</summary>
+    public string NewAppKeepPlayingLabel => NewAppKeepPlaying ? "PLAYS AUDIO — KEEP PLAYING" : "SILENT APP";
+
+    /// <summary>Flip whether the app being added keeps playing in the background.</summary>
+    [RelayCommand]
+    private void ToggleNewAppKeepPlaying() => NewAppKeepPlaying = !NewAppKeepPlaying;
+
     /// <summary>Whether the typed name, upper-cased, already names a built-in or an added app.</summary>
     private bool NameCollides
     {
@@ -420,11 +444,13 @@ public sealed partial class SettingsViewModel : ObservableObject
             Name = NewAppName.Trim().ToUpperInvariant(),
             Path = NewAppPath.Trim(),
             Arguments = NewAppArguments.Trim(),
+            KeepPlaying = NewAppKeepPlaying,
         });
 
         NewAppName = string.Empty;
         NewAppPath = string.Empty;
         NewAppArguments = string.Empty;
+        NewAppKeepPlaying = false;
     }
 
     /// <summary>Remove an app. Bound to the ✕ on each row.</summary>

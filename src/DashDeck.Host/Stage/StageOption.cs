@@ -20,7 +20,12 @@ namespace DashDeck.Host.Stage;
 /// Builds the occupant, or returns <see langword="null"/> for an empty stage. A
 /// <see langword="null"/> factory means the option cannot be chosen at all.
 /// </param>
-public sealed record StageOption(string Name, string Detail, Func<IStageOccupant?>? Create, StageKind Kind = StageKind.Screen)
+public sealed record StageOption(
+    string Name,
+    string Detail,
+    Func<IStageOccupant?>? Create,
+    StageKind Kind = StageKind.Screen,
+    bool AudioVisualSource = false)
 {
     /// <summary>False for the placeholders â€” listed, but not choosable.</summary>
     public bool IsAvailable => Create is not null;
@@ -80,12 +85,14 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
 
         // Android Auto and CarPlay through a Carlinkit dongle (ADR-0019). The dongle is
         // chosen and not bought, so this runs against a synthetic one and says so.
-        new StageOption("PHONE", "Android Auto Â· CarPlay", () => new PhoneLinkStageOccupant(clock)),
+        new StageOption("PHONE", "Android Auto Â· CarPlay", () => new PhoneLinkStageOccupant(clock),
+            AudioVisualSource: true),
 
         new StageOption(
             "VIDEO",
             videoPath is null ? "Pick a file" : System.IO.Path.GetFileName(videoPath),
-            () => CreateVideo(videoPath)),
+            () => CreateVideo(videoPath),
+            AudioVisualSource: true),
 
         // ── WEB: pages in WebView2 — external services, but still inside DashDeck. ─────────
 
@@ -98,9 +105,9 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
         // Both are web players, and both gate playback behind Widevine â€” which WebView2 does
         // not ship. The occupant probes for it and says so rather than presenting a player
         // that looks fine and refuses to make a sound.
-        new StageOption("SPOTIFY", "open.spotify.com", () => new WebStageOccupant("SPOTIFY", SpotifyUrl, display), StageKind.Web),
+        new StageOption("SPOTIFY", "open.spotify.com", () => new WebStageOccupant("SPOTIFY", SpotifyUrl, display), StageKind.Web, AudioVisualSource: true),
 
-        new StageOption("MUSIC", "music.apple.com", () => new WebStageOccupant("MUSIC", AppleMusicUrl, display), StageKind.Web),
+        new StageOption("MUSIC", "music.apple.com", () => new WebStageOccupant("MUSIC", AppleMusicUrl, display), StageKind.Web, AudioVisualSource: true),
 
         // ── APPS: separate Windows programs, owned and placed over the stage where that works
         //    (ADR-0020/0021), otherwise left in their own window. The built-ins below ship with
@@ -113,7 +120,7 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
             AppLaunchSpec.Nuvio.Name,
             AppLaunchSpec.Nuvio.IsInstalled ? "NuvioDesktop" : "NuvioDesktop — not installed",
             () => new AppStageOccupant(AppLaunchSpec.Nuvio),
-            StageKind.App),
+            StageKind.App, AudioVisualSource: true),
 
         // The desktop shell rather than web.stremio.com. Same reasoning as Nuvio: the real
         // application is better than a browser tab of it, and the stage can host one now.
@@ -121,7 +128,7 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
             AppLaunchSpec.Stremio.Name,
             AppLaunchSpec.Stremio.IsInstalled ? "Stremio desktop" : "Stremio — not installed",
             () => new AppStageOccupant(AppLaunchSpec.Stremio),
-            StageKind.App),
+            StageKind.App, AudioVisualSource: true),
 
         // Development affordance: a plain Win32 window, to tell "our plumbing is wrong" from
         // "that application will not be embedded".
@@ -135,7 +142,8 @@ public sealed record StageOption(string Name, string Detail, Func<IStageOccupant
             app.Name.Trim().ToUpperInvariant(),
             app.IsInstalled ? System.IO.Path.GetFileName(app.Path) : "not found — check the path",
             () => new AppStageOccupant(AppLaunchSpec.FromUser(app)),
-            StageKind.App)),
+            StageKind.App,
+            AudioVisualSource: app.KeepPlaying)),
     ];
 
     /// <summary>Display-only map. Turn-by-turn is a separate, unanswered question (Q18).</summary>

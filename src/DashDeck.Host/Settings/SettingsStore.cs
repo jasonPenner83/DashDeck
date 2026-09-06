@@ -34,6 +34,14 @@ public sealed record UserSettings
     /// </remarks>
     [JsonPropertyName("webScale")]
     public double WebScale { get; init; } = 1.0;
+
+    /// <summary>
+    /// Keep an audio/video source playing in the background when you switch the stage to a silent
+    /// occupant (ADR-0026). Off by default: it changes the plain "replacing ends it" behaviour
+    /// (ADR-0025), so it is opt-in.
+    /// </summary>
+    [JsonPropertyName("keepStageAudio")]
+    public bool KeepStageAudio { get; init; }
 }
 
 /// <summary>

@@ -106,7 +106,13 @@ occupant** (ADR-0025, resolving F22). Leaving it — navigating below the stage,
 full-screen view over it — keeps it running (the phone model, Q17/B2); *replacing* it with
 another occupant ends it. The one gap that left — a full-screen view hiding a running occupant
 with nothing on screen to say so — is closed by a **▶ NAME** pill in the always-visible status
-strip that appears only then and taps back to the stage, not by changing the lifecycle. Still
+strip that appears only then and taps back to the stage, not by changing the lifecycle.
+**One exception to "replacing ends it"** (ADR-0026): some occupants are audio/video *sources*
+(VIDEO, SPOTIFY, MUSIC, NUVIO, STREMIO, phone, and any user app marked so), and with the global
+"keep stage audio" setting on, switching from a source to a silent occupant keeps the source
+**alive and playing, hidden** behind it — the same ▶ pill brings it back. The stage holds up to
+two occupants for this, each in its own content host so a live player is **never reparented**
+(that would reload it and drop audio); the switch rule is the pure `StageSwitch.Decide`. Still
 open one layer down: **where projected audio comes out at all** (F21).
 
 **The component host works, widget and all** (ADR-0023). The in-process loader discovers
@@ -205,13 +211,14 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Twenty-five exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Twenty-six exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
 fixed-height stage that came out of the first drive, phone projection through a dongle, native
 apps owned and placed over the stage rather than re-parented into it, user-added app launchers
-from the UI, and the rule that an occupant lives as long as it is the stage occupant.
+from the UI, the rule that an occupant lives as long as it is the stage occupant, and a
+persistent audio/video source that keeps playing behind a silent occupant.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.
