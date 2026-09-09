@@ -45,11 +45,21 @@ public sealed partial class DisplaySettings : ObservableObject
     [ObservableProperty]
     private bool _keepStageAudio;
 
+    /// <summary>Take GPS from the phone over the network (ADR-0027). Applied at next launch.</summary>
+    [ObservableProperty]
+    private bool _gpsEnabled;
+
+    /// <summary>The phone's GPS-share endpoint, <c>host:port</c>. Applied at next launch.</summary>
+    [ObservableProperty]
+    private string _gpsEndpoint = "";
+
     public DisplaySettings()
     {
         var stored = SettingsStore.Load();
         WebScale = Clamp(stored.WebScale);
         KeepStageAudio = stored.KeepStageAudio;
+        GpsEnabled = stored.GpsEnabled;
+        GpsEndpoint = stored.GpsEndpoint;
         _loaded = true;
     }
 
@@ -89,5 +99,25 @@ public sealed partial class DisplaySettings : ObservableObject
         }
 
         SettingsStore.Update(stored => stored with { KeepStageAudio = value });
+    }
+
+    partial void OnGpsEnabledChanged(bool value)
+    {
+        if (!_loaded)
+        {
+            return;
+        }
+
+        SettingsStore.Update(stored => stored with { GpsEnabled = value });
+    }
+
+    partial void OnGpsEndpointChanged(string value)
+    {
+        if (!_loaded)
+        {
+            return;
+        }
+
+        SettingsStore.Update(stored => stored with { GpsEndpoint = value });
     }
 }

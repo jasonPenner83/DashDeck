@@ -198,6 +198,17 @@ public sealed partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(KeepStageAudioLabel));
     }
 
+    /// <summary>ON/OFF for the phone-GPS toggle (ADR-0027).</summary>
+    public string GpsEnabledLabel => Display.GpsEnabled ? "ON" : "OFF";
+
+    /// <summary>Flip whether GPS is taken from the phone. Applied at the next launch.</summary>
+    [RelayCommand]
+    private void ToggleGps()
+    {
+        Display.GpsEnabled = !Display.GpsEnabled;
+        OnPropertyChanged(nameof(GpsEnabledLabel));
+    }
+
     private void SyncScales()
     {
         foreach (var option in WebScales)

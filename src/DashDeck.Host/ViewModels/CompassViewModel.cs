@@ -56,6 +56,14 @@ public sealed partial class CompassViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private SignalQuality _headingQuality = SignalQuality.Unavailable;
 
+    /// <summary>Latitude, longitude — from the phone's GPS (ADR-0027), or a dash when there is none.</summary>
+    [ObservableProperty]
+    private string _positionText = "— , —";
+
+    /// <summary>Where the position came from, shown like the heading's source.</summary>
+    [ObservableProperty]
+    private string _positionSource = string.Empty;
+
     /// <summary>Rose rotation. Negative, because the card turns under a fixed marker.</summary>
     [ObservableProperty]
     private double _roseAngle;
@@ -199,6 +207,24 @@ public sealed partial class CompassViewModel : ObservableObject, IDisposable
         RefreshHeading();
         RefreshAttitude();
         RefreshMotion();
+        RefreshPosition();
+    }
+
+    private void RefreshPosition()
+    {
+        var lat = _sensors.Read("location.latitude");
+        var lon = _sensors.Read("location.longitude");
+
+        if (lat.IsUsable && lon.IsUsable)
+        {
+            PositionText = string.Create(CultureInfo.CurrentCulture, $"{lat.Value:0.0000}, {lon.Value:0.0000}");
+            PositionSource = lat.Source;
+        }
+        else
+        {
+            PositionText = "— , —";
+            PositionSource = lat.Source is "NO SUCH SENSOR" ? string.Empty : lat.Source;
+        }
     }
 
     private void RefreshHeading()

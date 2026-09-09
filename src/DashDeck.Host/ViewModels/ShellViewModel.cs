@@ -147,7 +147,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         WeatherService weather,
         string? videoPath = null,
         string? startOn = null,
-        Components.ComponentHost? components = null)
+        Components.ComponentHost? components = null,
+        string? gpsOverride = null)
     {
         _vehicle = vehicle;
         _clock = clock;
@@ -156,12 +157,25 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         Display = new DisplaySettings();
 
+        // The phone's GPS (ADR-0027), if it is turned on or a --gps override forces one. When
+        // there is one, the tablet sensors and the phone GPS share a device behind the composite;
+        // otherwise it is the tablet's sensors alone, exactly as before.
+        var location = ResolveLocationSource(gpsOverride, Display, clock);
+        IDeviceSensors? device = null;
+
+        if (location is not null)
+        {
+            location.Start();
+            device = new CompositeDeviceSensors(new DeviceSensors(), new PhoneLocationSensors(location, clock));
+        }
+
         // One service for the whole session: it holds the mount reference and any vehicle
         // declarations, so it must outlive whichever occupant happens to be on the stage.
         Sensors = new SensorService(
             SensorCatalog.FromFileOrEmpty(CatalogPath.Find("sensors.device.json")),
             vehicle.Signals,
-            clock);
+            clock,
+            device);
 
         _videoPath = videoPath;
 
@@ -769,6 +783,53 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // A new occupant can claim a different number of bands, which changes how many rows of
         // cards fit and therefore how they page.
         SyncWidgetBands();
+    }
+
+    /// <summary>
+    /// Which location source to run, if any: a <c>--gps</c> override wins (a <c>host:port</c>, or
+    /// <c>synthetic</c> for the desk), otherwise the persisted GPS setting. Null when GPS is off —
+    /// and then the sensors are the tablet's alone, exactly as before (ADR-0027).
+    /// </summary>
+    private static Location.ILocationSource? ResolveLocationSource(
+        string? gpsOverride, DisplaySettings display, IClock clock)
+    {
+        if (!string.IsNullOrWhiteSpace(gpsOverride))
+        {
+            return string.Equals(gpsOverride, "synthetic", StringComparison.OrdinalIgnoreCase)
+                ? new Location.SyntheticLocationSource(clock)
+                : TryEndpoint(gpsOverride, out var oh, out var op)
+                    ? new Location.TcpNmeaLocationSource(oh, op, clock)
+                    : null;
+        }
+
+        return display.GpsEnabled && TryEndpoint(display.GpsEndpoint, out var h, out var p)
+            ? new Location.TcpNmeaLocationSource(h, p, clock)
+            : null;
+    }
+
+    /// <summary>Split a <c>host:port</c> endpoint. False for anything that is not one.</summary>
+    private static bool TryEndpoint(string? endpoint, out string host, out int port)
+    {
+        host = string.Empty;
+        port = 0;
+
+        if (string.IsNullOrWhiteSpace(endpoint))
+        {
+            return false;
+        }
+
+        var colon = endpoint.LastIndexOf(':');
+
+        if (colon <= 0 || colon == endpoint.Length - 1)
+        {
+            return false;
+        }
+
+        host = endpoint[..colon].Trim();
+
+        return host.Length > 0
+            && int.TryParse(endpoint[(colon + 1)..].Trim(), out port)
+            && port is > 0 and <= 65535;
     }
 
     /// <inheritdoc />

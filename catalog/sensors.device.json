@@ -71,5 +71,43 @@
     "needsMountReference": true,
     "min": -2,
     "max": 2
+  },
+
+  // The phone's GPS (ADR-0027), over the network — the tablet has no GPS of its own. Ground
+  // speed prefers vehicle.speed, so the truck's own wheel speed wins when it is plugged in and
+  // the phone is the fallback. Latitude and longitude prefer vehicle signals that do not exist
+  // yet (the F16/F19 convention): the day a Ford position PID is found, they come from the truck.
+  {
+    "id": "location.latitude",
+    "name": "Latitude",
+    "unit": "°",
+    "source": "Gps",
+    "channel": "Latitude",
+    "prefer": "vehicle.latitude",
+    "defaultRateHz": 2,
+    "min": -90,
+    "max": 90
+  },
+  {
+    "id": "location.longitude",
+    "name": "Longitude",
+    "unit": "°",
+    "source": "Gps",
+    "channel": "Longitude",
+    "prefer": "vehicle.longitude",
+    "defaultRateHz": 2,
+    "min": -180,
+    "max": 180
+  },
+  {
+    "id": "location.groundSpeed",
+    "name": "GPS Speed",
+    "unit": "km/h",
+    "source": "Gps",
+    "channel": "GroundSpeed",
+    "prefer": "vehicle.speed",
+    "defaultRateHz": 2,
+    "min": 0,
+    "max": 320
   }
 ]

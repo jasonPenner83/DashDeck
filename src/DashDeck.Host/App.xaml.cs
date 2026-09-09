@@ -154,6 +154,8 @@ public partial class App : Application
         await componentHost.LoadAllAsync(CancellationToken.None);
 
         // --stage <NAME> opens on a named occupant: CLOCK, VIDEO, NUVIO, MAPS or STREMIO.
+        // --gps <host:port|synthetic> forces a phone-GPS source (ADR-0027) for a screenshot or a
+        // quick test, over whatever the persisted setting says.
         _shell = new ShellViewModel(
             _vehicle,
             SystemClock.Instance,
@@ -161,7 +163,8 @@ public partial class App : Application
             _weather,
             stagedVideo,
             ArgValue(e.Args, "--stage"),
-            componentHost);
+            componentHost,
+            ArgValue(e.Args, "--gps"));
 
         // --nav <DEST> opens on a destination below the stage, so Settings can be reviewed
         // without a finger.

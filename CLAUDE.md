@@ -211,14 +211,15 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Twenty-six exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Twenty-seven exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
 fixed-height stage that came out of the first drive, phone projection through a dongle, native
 apps owned and placed over the stage rather than re-parented into it, user-added app launchers
-from the UI, the rule that an occupant lives as long as it is the stage occupant, and a
-persistent audio/video source that keeps playing behind a silent occupant.
+from the UI, the rule that an occupant lives as long as it is the stage occupant, a
+persistent audio/video source that keeps playing behind a silent occupant, and the phone's GPS
+as a third source (`PHONE`) behind a transport seam.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

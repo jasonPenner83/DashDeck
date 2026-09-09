@@ -42,6 +42,14 @@ public sealed record UserSettings
     /// </summary>
     [JsonPropertyName("keepStageAudio")]
     public bool KeepStageAudio { get; init; }
+
+    /// <summary>Take GPS from the phone over the network (ADR-0027). Off by default.</summary>
+    [JsonPropertyName("gpsEnabled")]
+    public bool GpsEnabled { get; init; }
+
+    /// <summary>Where the phone's GPS-share app is serving NMEA, as <c>host:port</c>.</summary>
+    [JsonPropertyName("gpsEndpoint")]
+    public string GpsEndpoint { get; init; } = "";
 }
 
 /// <summary>

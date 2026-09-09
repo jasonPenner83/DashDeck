@@ -71,6 +71,18 @@
                        FontSize="12"
                        Foreground="{Binding HeadingQuality, Converter={StaticResource QualityBrushToken}}"
                        Text="{Binding HeadingSource}" />
+
+            <!-- Position from the phone's GPS (ADR-0027), or a dash when there is none. -->
+            <TextBlock HorizontalAlignment="Center" Margin="0,16,0,0"
+                       Style="{StaticResource CaptionText}" Text="POSITION" />
+            <TextBlock HorizontalAlignment="Center"
+                       FontFamily="{StaticResource MonoFont}" FontSize="14"
+                       Foreground="{DynamicResource TextMidBrush}"
+                       Text="{Binding PositionText}" />
+            <TextBlock HorizontalAlignment="Center"
+                       FontFamily="{StaticResource MonoFont}" FontSize="12"
+                       Foreground="{DynamicResource TextFaintBrush}"
+                       Text="{Binding PositionSource}" />
         </StackPanel>
 
         <!-- G meter. -->

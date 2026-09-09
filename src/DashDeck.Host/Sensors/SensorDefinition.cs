@@ -2,12 +2,15 @@ using System.Text.Json.Serialization;
 
 namespace DashDeck.Host.Sensors;
 
-/// <summary>Which piece of tablet hardware a sensor reads.</summary>
+/// <summary>Which piece of hardware a sensor reads.</summary>
 public enum SensorSource
 {
     Compass,
     Accelerometer,
     Inclinometer,
+
+    /// <summary>The phone's GPS, over the network (ADR-0027). Not the tablet's own — it has none.</summary>
+    Gps,
 }
 
 /// <summary>Which value to take from that hardware, once the mount reference is applied.</summary>
@@ -22,6 +25,15 @@ public enum SensorChannel
 
     /// <summary>Along the vehicle. Positive forward, so braking is negative.</summary>
     Longitudinal,
+
+    /// <summary>Latitude in decimal degrees, north positive.</summary>
+    Latitude,
+
+    /// <summary>Longitude in decimal degrees, east positive.</summary>
+    Longitude,
+
+    /// <summary>Speed over ground, from the GPS rather than the wheels.</summary>
+    GroundSpeed,
 }
 
 /// <summary>

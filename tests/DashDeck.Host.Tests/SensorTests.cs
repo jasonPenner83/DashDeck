@@ -127,7 +127,8 @@ public sealed class SensorTests
 
         var catalog = SensorCatalog.FromFileOrEmpty(path);
 
-        Assert.Equal(5, catalog.Count);
+        // Five tablet sensors plus the three phone-GPS entries (ADR-0027).
+        Assert.Equal(8, catalog.Count);
         Assert.True(catalog.TryGet("motion.lateralG", out var lateral));
         Assert.Equal("vehicle.lateralAccel", lateral.Prefer);
         Assert.True(lateral.NeedsMountReference);
@@ -136,6 +137,11 @@ public sealed class SensorTests
         // field rather than against the mount.
         Assert.True(catalog.TryGet("attitude.heading", out var heading));
         Assert.False(heading.NeedsMountReference);
+
+        // GPS ground speed prefers the truck's own speed, so the truck wins when it is plugged in.
+        Assert.True(catalog.TryGet("location.groundSpeed", out var speed));
+        Assert.Equal(SensorSource.Gps, speed.Source);
+        Assert.Equal("vehicle.speed", speed.Prefer);
     }
 
     [Fact]
