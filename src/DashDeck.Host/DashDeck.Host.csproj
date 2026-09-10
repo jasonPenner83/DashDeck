@@ -25,6 +25,10 @@
     <PackageReference Include="LibVLCSharp.WPF" Version="3.10.1" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4191.47" />
     <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23.1" />
+    <!-- The phone's GPS over Bluetooth (ADR-0027): a paired phone appears as a virtual COM
+         port using Windows' in-box serial-over-Bluetooth driver, so this reads NMEA from it.
+         No driver install, so it does not touch C1's two-driver limit. -->
+    <PackageReference Include="System.IO.Ports" Version="10.0.0" />
   </ItemGroup>
 
   <PropertyGroup>

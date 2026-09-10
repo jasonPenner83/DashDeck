@@ -50,6 +50,14 @@ public sealed record UserSettings
     /// <summary>Where the phone's GPS-share app is serving NMEA, as <c>host:port</c>.</summary>
     [JsonPropertyName("gpsEndpoint")]
     public string GpsEndpoint { get; init; } = "";
+
+    /// <summary>How the phone's GPS arrives: <c>Bluetooth</c> (the default) or <c>Network</c>.</summary>
+    [JsonPropertyName("gpsTransport")]
+    public string GpsTransport { get; init; } = "Bluetooth";
+
+    /// <summary>The paired phone's virtual COM port, e.g. <c>COM7</c>, for the Bluetooth transport.</summary>
+    [JsonPropertyName("gpsSerialPort")]
+    public string GpsSerialPort { get; init; } = "";
 }
 
 /// <summary>

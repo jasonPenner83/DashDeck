@@ -33,6 +33,7 @@ including the reasoning that later turns out to be wrong.
 | [0025](ADR-0025-occupant-lifetime.md) | An occupant lives as long as it is the stage occupant — leaving keeps it, replacing ends it; a now-playing return in the status strip (resolves F22) | Accepted |
 | [0026](ADR-0026-persistent-source.md) | A persistent audio/video source: with a global toggle on, switching to a silent occupant keeps the source playing hidden behind it (amends 0025) | Accepted |
 | [0027](ADR-0027-phone-location.md) | The phone's GPS as a third source (`PHONE`): heading/speed/position over NMEA behind a transport seam, truck-first, no driver (extends 0016/0017) | Accepted |
+| [0028](ADR-0028-bluetooth-gps.md) | Bluetooth as the default GPS transport — NMEA over the paired phone's in-box virtual COM port; no driver, so C1's limit is untouched (extends 0027) | Accepted |
 
 
 

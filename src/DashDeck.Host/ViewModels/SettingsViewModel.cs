@@ -141,6 +141,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         theme.PropertyChanged += (_, _) => Sync();
         Sync();
+
+        // Populate the COM-port list once so the Bluetooth picker has something to show.
+        RefreshSerialPorts();
     }
 
     /// <summary>True once the tablet''s mount has been levelled.</summary>
@@ -207,6 +210,62 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         Display.GpsEnabled = !Display.GpsEnabled;
         OnPropertyChanged(nameof(GpsEnabledLabel));
+    }
+
+    /// <summary>Which transport carries the GPS — the label shown on the toggle.</summary>
+    public string GpsTransportLabel => Display.GpsTransport;
+
+    /// <summary>True when the Bluetooth (COM port) transport is selected.</summary>
+    public bool IsBluetoothGps =>
+        string.Equals(Display.GpsTransport, "Bluetooth", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>True when the network (host:port) transport is selected.</summary>
+    public bool IsNetworkGps => !IsBluetoothGps;
+
+    /// <summary>Switch between Bluetooth and the network for the phone's GPS.</summary>
+    [RelayCommand]
+    private void ToggleGpsTransport()
+    {
+        Display.GpsTransport = IsBluetoothGps ? "Network" : "Bluetooth";
+        OnPropertyChanged(nameof(GpsTransportLabel));
+        OnPropertyChanged(nameof(IsBluetoothGps));
+        OnPropertyChanged(nameof(IsNetworkGps));
+    }
+
+    /// <summary>The COM ports Windows currently knows — a paired phone shows up here.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<SerialPortOption> SerialPorts { get; } = [];
+
+    /// <summary>Re-enumerate the COM ports, so a phone paired after opening Settings appears.</summary>
+    [RelayCommand]
+    private void RefreshSerialPorts()
+    {
+        SerialPorts.Clear();
+
+        foreach (var name in System.IO.Ports.SerialPort.GetPortNames()
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase))
+        {
+            SerialPorts.Add(new SerialPortOption(name)
+            {
+                IsSelected = string.Equals(name, Display.GpsSerialPort, StringComparison.OrdinalIgnoreCase),
+            });
+        }
+    }
+
+    /// <summary>Pick the paired phone's COM port.</summary>
+    [RelayCommand]
+    private void SelectSerialPort(SerialPortOption? option)
+    {
+        if (option is null)
+        {
+            return;
+        }
+
+        Display.GpsSerialPort = option.Name;
+
+        foreach (var port in SerialPorts)
+        {
+            port.IsSelected = ReferenceEquals(port, option);
+        }
     }
 
     private void SyncScales()
@@ -491,6 +550,15 @@ public sealed partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(ResolvedTheme));
         OnPropertyChanged(nameof(CustomMessageBrush));
     }
+}
+
+/// <summary>One COM port, for the Bluetooth GPS picker.</summary>
+public sealed partial class SerialPortOption(string name) : ObservableObject
+{
+    public string Name { get; } = name;
+
+    [ObservableProperty]
+    private bool _isSelected;
 }
 
 /// <summary>One shipped app, for the read-only Built-in list.</summary>

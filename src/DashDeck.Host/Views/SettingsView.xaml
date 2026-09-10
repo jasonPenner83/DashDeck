@@ -274,17 +274,60 @@
                                 <Run Text="{Binding GpsEnabledLabel, Mode=OneWay}" FontWeight="Bold" />
                             </TextBlock>
                         </Button>
-                        <TextBox Style="{StaticResource InputField}" Width="230" Margin="14,0,0,0"
+                        <Button Style="{StaticResource StageLauncherButton}"
+                                Height="52" MinWidth="180" Margin="14,0,0,0"
+                                Command="{Binding ToggleGpsTransportCommand}">
+                            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="14">
+                                <Run Text="VIA —" />
+                                <Run Text="{Binding GpsTransportLabel, Mode=OneWay}" FontWeight="Bold" />
+                            </TextBlock>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Bluetooth: pick the phone's paired COM port. -->
+                    <StackPanel Margin="0,16,0,0"
+                                Visibility="{Binding IsBluetoothGps, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="PHONE COM PORT" />
+                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                            <ItemsControl ItemsSource="{Binding SerialPorts}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource OptionChipButton}" MinWidth="96"
+                                                Command="{Binding DataContext.SelectSerialPortCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}">
+                                            <TextBlock Text="{Binding Name}"
+                                                       FontFamily="{StaticResource MonoFont}" FontSize="14" />
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Style="{StaticResource StageLauncherButton}"
+                                    Height="56" MinWidth="110" VerticalAlignment="Top"
+                                    Command="{Binding RefreshSerialPortsCommand}">
+                                <TextBlock Text="REFRESH" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Network: the host:port the phone's app serves NMEA on. -->
+                    <StackPanel Margin="0,16,0,0"
+                                Visibility="{Binding IsNetworkGps, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="PHONE APP HOST:PORT" />
+                        <TextBox Style="{StaticResource InputField}" Width="230" Margin="0,10,0,0"
                                  VerticalContentAlignment="Center"
                                  Text="{Binding Display.GpsEndpoint, UpdateSourceTrigger=PropertyChanged}" />
                     </StackPanel>
 
-                    <TextBlock Margin="2,12,0,0"
-                               MaxWidth="620"
+                    <TextBlock Margin="2,14,0,0"
+                               MaxWidth="640"
                                HorizontalAlignment="Left"
                                TextWrapping="Wrap"
                                Style="{StaticResource MicroText}"
-                               Text="Run a GPS-share app on your Android phone that serves NMEA over TCP, and put its host:port here (e.g. 192.168.1.7:11123). Takes effect at the next launch. Heading and position read PHONE; speed falls back to the truck's own when the adapter is plugged in." />
+                               Text="Run a GPS-share app on your Android phone (e.g. gpsdRelay or Share GPS) that outputs NMEA. Bluetooth: pair the phone in Windows Bluetooth settings, then pick the COM port it appears as — no Wi-Fi needed. Network: the app serves NMEA over TCP; put its host:port here. Takes effect at the next launch. Heading and position read PHONE; speed falls back to the truck's own when the adapter is plugged in." />
                 </StackPanel>
             </ScrollViewer>
 

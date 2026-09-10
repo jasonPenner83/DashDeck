@@ -793,19 +793,45 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private static Location.ILocationSource? ResolveLocationSource(
         string? gpsOverride, DisplaySettings display, IClock clock)
     {
+        // --gps wins: "synthetic", a COM port for Bluetooth, or a host:port for the network.
         if (!string.IsNullOrWhiteSpace(gpsOverride))
         {
-            return string.Equals(gpsOverride, "synthetic", StringComparison.OrdinalIgnoreCase)
-                ? new Location.SyntheticLocationSource(clock)
-                : TryEndpoint(gpsOverride, out var oh, out var op)
-                    ? new Location.TcpNmeaLocationSource(oh, op, clock)
-                    : null;
+            if (string.Equals(gpsOverride, "synthetic", StringComparison.OrdinalIgnoreCase))
+            {
+                return new Location.SyntheticLocationSource(clock);
+            }
+
+            if (IsSerialPort(gpsOverride))
+            {
+                return new Location.SerialNmeaLocationSource(gpsOverride.Trim(), clock);
+            }
+
+            return TryEndpoint(gpsOverride, out var oh, out var op)
+                ? new Location.TcpNmeaLocationSource(oh, op, clock)
+                : null;
         }
 
-        return display.GpsEnabled && TryEndpoint(display.GpsEndpoint, out var h, out var p)
+        if (!display.GpsEnabled)
+        {
+            return null;
+        }
+
+        // Bluetooth (the default) reads a paired phone's COM port; Network dials a host:port.
+        if (string.Equals(display.GpsTransport, "Bluetooth", StringComparison.OrdinalIgnoreCase))
+        {
+            return string.IsNullOrWhiteSpace(display.GpsSerialPort)
+                ? null
+                : new Location.SerialNmeaLocationSource(display.GpsSerialPort.Trim(), clock);
+        }
+
+        return TryEndpoint(display.GpsEndpoint, out var h, out var p)
             ? new Location.TcpNmeaLocationSource(h, p, clock)
             : null;
     }
+
+    /// <summary>True for a Windows COM-port name, e.g. <c>COM7</c> — the Bluetooth override.</summary>
+    private static bool IsSerialPort(string value) =>
+        value.Trim().StartsWith("COM", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Split a <c>host:port</c> endpoint. False for anything that is not one.</summary>
     private static bool TryEndpoint(string? endpoint, out string host, out int port)

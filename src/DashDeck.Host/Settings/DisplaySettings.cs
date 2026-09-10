@@ -53,6 +53,14 @@ public sealed partial class DisplaySettings : ObservableObject
     [ObservableProperty]
     private string _gpsEndpoint = "";
 
+    /// <summary>How the phone's GPS arrives — <c>Bluetooth</c> or <c>Network</c>. Applied at next launch.</summary>
+    [ObservableProperty]
+    private string _gpsTransport = "Bluetooth";
+
+    /// <summary>The paired phone's virtual COM port for the Bluetooth transport. Applied at next launch.</summary>
+    [ObservableProperty]
+    private string _gpsSerialPort = "";
+
     public DisplaySettings()
     {
         var stored = SettingsStore.Load();
@@ -60,6 +68,8 @@ public sealed partial class DisplaySettings : ObservableObject
         KeepStageAudio = stored.KeepStageAudio;
         GpsEnabled = stored.GpsEnabled;
         GpsEndpoint = stored.GpsEndpoint;
+        GpsTransport = stored.GpsTransport;
+        GpsSerialPort = stored.GpsSerialPort;
         _loaded = true;
     }
 
@@ -119,5 +129,25 @@ public sealed partial class DisplaySettings : ObservableObject
         }
 
         SettingsStore.Update(stored => stored with { GpsEndpoint = value });
+    }
+
+    partial void OnGpsTransportChanged(string value)
+    {
+        if (!_loaded)
+        {
+            return;
+        }
+
+        SettingsStore.Update(stored => stored with { GpsTransport = value });
+    }
+
+    partial void OnGpsSerialPortChanged(string value)
+    {
+        if (!_loaded)
+        {
+            return;
+        }
+
+        SettingsStore.Update(stored => stored with { GpsSerialPort = value });
     }
 }
