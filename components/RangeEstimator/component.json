@@ -1,0 +1,20 @@
+{
+  "id": "com.jpenner.rangeestimator",
+  "name": "Range Estimator",
+  "version": "0.1.0",
+  "author": "Jason Penner",
+  "apiVersion": "1.0",
+
+  "entry": { "assembly": "RangeEstimator.dll", "type": "RangeEstimator.Component" },
+
+  "surfaces": ["widget", "fullscreen"],
+  "widget": { "preferredSize": "1x1", "minSize": "1x1" },
+
+  "signals": [
+    { "id": "vehicle.speed",      "priority": "normal", "rateHz": 2 },
+    { "id": "engine.fuelRate",    "priority": "normal", "rateHz": 2 },
+    { "id": "fuel.levelPercent",  "priority": "normal", "rateHz": 0.2 }
+  ],
+
+  "permissions": ["signals.read"]
+}

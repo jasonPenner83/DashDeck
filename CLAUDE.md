@@ -126,11 +126,14 @@ and **activated by the visible page** (the ADR-0015 rule reaches a component thr
 opens its **`IDashComponentView.CreateFullScreen` detail** as a full-screen view with a back bar
 (Q17 — the stage keeps running underneath); the host draws that chrome, the component supplies
 the content — and the card whose detail is open stays active so it keeps feeding it (the same
-exemption the edited card gets). **Four components ship in `components/`**, all built through the
+exemption the edited card gets). **Five components ship in `components/`**, all built through the
 public SDK: `TripComputer` (integrates and draws distance), `FuelEconomy` (instantaneous L/100km
 from two signals — the value a card can't derive), `TripEconomy` (trip-average economy,
-persisted, with a full-screen detail and a reset), and `Tpms` (per-wheel tyre pressure with an
-overhead white F-150 that lights the low corner). **TPMS is the first MS-CAN signal set** — its
+persisted, with a full-screen detail and a reset), `Tpms` (per-wheel tyre pressure with an
+overhead white F-150 that lights the low corner), and `RangeEstimator` (distance to empty — fuel
+level over a recent economy it derives from fuel rate and speed, with a full-screen breakdown;
+the assumed tank size is a documented constant until per-component settings land). **TPMS is the
+first MS-CAN signal set** — its
 four `tire.*.pressure` ids carry **placeholder mode/PID** (documented in the catalog) because
 Ford's real body-module message is undiscovered (R2); the synthetic answers them on MS-CAN
 flagged Simulated, and on a real truck without the PID they read Unavailable and every corner
