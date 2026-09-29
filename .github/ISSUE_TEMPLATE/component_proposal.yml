@@ -1,0 +1,38 @@
+name: Component proposal
+description: Propose a new component for the ecosystem
+labels: [component]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Component name and id
+      placeholder: "Oil Life — io.github.yourname.oillife"
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What it shows or does
+    validations:
+      required: true
+  - type: textarea
+    id: signals
+    attributes:
+      label: Signals it needs
+      description: Named signals from catalog/, and any that are missing from the catalog (with a source for the PID, never a guess).
+    validations:
+      required: true
+  - type: dropdown
+    id: surfaces
+    attributes:
+      label: Surfaces
+      multiple: true
+      options:
+        - Dash card (widget)
+        - Full-screen detail
+        - Background worker
+  - type: textarea
+    id: rate
+    attributes:
+      label: Request budget
+      description: How often does it need each signal? The adapter's ceiling is shared by the whole app.

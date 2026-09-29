@@ -6,11 +6,15 @@
 |---|---|---|
 | `main` | **The build that is on the truck tablet.** | Never commit directly. Only merges from `develop`, and only when you would be happy driving with it. Every merge is tagged. |
 | `develop` | Integration branch. Day-to-day work lands here. | May be broken between commits. Nothing here is expected to be drivable. |
-| `feature/*`, `fix/*` | Optional, for work large enough to want isolating. | Branch from `develop`, merge back to `develop`. Delete after merge. |
+| `feature/*`, `fix/*` | Where contributors work. | Branch from `develop`, open a PR back into `develop`. Delete after merge. |
 
-That is the whole model. No release branches, no hotfix branches, no GitFlow. This is a
-one-person project; ceremony beyond this costs more than it returns. A bug found while
-driving is fixed on `develop`, merged, and tagged as a patch like anything else.
+That is the whole model. No release branches, no hotfix branches, no GitFlow. Ceremony
+beyond this costs more than it returns. A bug found while driving is fixed on `develop`,
+merged, and tagged as a patch like anything else.
+
+Both `main` and `develop` are **protected**: changes arrive by pull request with CI green.
+Contributors target `develop`; only the maintainer merges `develop` into `main`, because
+only the maintainer drives the result. See [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 The `main`/`develop` split earns its keep for one reason: the artifact ends up in a
 vehicle. "Stable" here means something concrete — the build you rely on at highway speed —
@@ -60,11 +64,15 @@ installer and no tooling is worth more than it looks.
 
 Release notes say what changed from the driver's seat, not what changed in the code.
 
-## CI (planned, once there is code)
+## CI
 
-On pull requests into `develop` and `main`:
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on every push and pull
+request to `develop` and `main`, on `windows-latest` (the shell is WPF): build the
+solution, build every component in `components/`, run all tests. Dependabot proposes
+NuGet and Actions updates monthly, against `develop`.
 
-- Build the solution and run tests.
+Still planned:
+
 - **Validate the signal catalog** — every referenced signal exists, every definition
   decodes its recorded fixture correctly.
 - Run the trip computer against a scripted drive with a known fuel consumption and assert

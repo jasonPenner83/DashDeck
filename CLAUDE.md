@@ -151,14 +151,16 @@ it would fail with an impossible "cannot convert IDashComponent to IDashComponen
 context defers the contract assemblies to the host's default context; the component's
 `ProjectReference` sets `Private=false` so no copy is ever emitted beside its DLL.
 
-Two pieces of hardware are chosen and not bought: the **OBDLink EX** adapter, wired USB
-(ADR-0007), and a **Carlinkit CPC200** for Android Auto and CarPlay (ADR-0019). Both are
-built against synthetic transports behind a seam, so neither is blocking.
+The **OBDLink EX** adapter, wired USB (ADR-0007), was **ordered 2026-09-29, due 2026-10-05**
+(genuine, sold by OBD Solutions). The **Carlinkit CPC200** for Android Auto and CarPlay
+(ADR-0019) is chosen and not bought. Both are built against synthetic transports behind a
+seam, so neither is blocking. First bring-up with the EX: a real `UsbSerialTransport`, then
+measure the request ceiling (Q12) and what the Gateway Module passes on MS-CAN (Q5).
 
 ## Things that are easy to get wrong here
 
-1. **No hardware exists yet.** The adapter is *chosen* (OBDLink EX over wired USB,
-   ADR-0007) but not bought. Everything runs on the synthetic vehicle (ADR-0005). Do not
+1. **No hardware exists yet.** The adapter (OBDLink EX over wired USB, ADR-0007) is
+   ordered, not in hand. Until bring-up, everything runs on the synthetic vehicle (ADR-0005). Do not
    write code that assumes a truck is attached, and do not defer work waiting for hardware.
 2. **The Surface is a personal device.** No kiosk mode, no shell replacement, no services,
    no registry writes. Self-contained folder deploy, settings in `%LOCALAPPDATA%`.
@@ -190,8 +192,16 @@ built against synthetic transports behind a seam, so neither is blocking.
 ## Branching and versions
 
 `main` is **the build on the truck tablet** — never commit directly to it, only tagged
-merges from `develop`. `develop` is day-to-day work and may be broken. See
-[`docs/05-releases-and-branching.md`](docs/05-releases-and-branching.md).
+merges from `develop`. `develop` is day-to-day work and testing, and may be broken. Both are
+protected: work goes on a `feature/*` or `fix/*` branch and reaches `develop` by PR with CI
+green (`.github/workflows/ci.yml`, Windows). See
+[`docs/05-releases-and-branching.md`](docs/05-releases-and-branching.md) and
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+**The repo is public (MIT).** Commit as the GitHub noreply address, never a personal email.
+Never commit an asset without the right to publish it — the TPMS overhead photo was an
+AI-generated image and was purged from history; `components/Tpms/truck.png` is git-ignored
+and the component draws its vector truck without it. No secrets, VINs or home coordinates.
 
 Three things version independently, and **must not be welded together** (ADR-0008): the
 app (SemVer tags), `DashDeck.Abstractions` (`apiVersion`, bumped only when the component

@@ -1,0 +1,28 @@
+name: Feature request
+description: An idea for the host, the stage or the dash
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve from the driver's seat?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you'd like
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Could this be a component instead of a host change?
+      description: The project prefers components. If it can't be one, say why.
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Checks
+      options:
+        - label: I've checked the ADRs in docs/decisions/ and docs/04-open-questions.md
+        - label: This doesn't need writes to the vehicle (or I've read ADR-0006)

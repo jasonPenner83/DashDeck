@@ -1,0 +1,5 @@
+# The maintainer reviews everything; these paths especially.
+*                               @jasonPenner83
+/src/DashDeck.Abstractions/     @jasonPenner83
+/docs/decisions/                @jasonPenner83
+/catalog/                       @jasonPenner83

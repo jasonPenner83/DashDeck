@@ -32,3 +32,6 @@ appsettings.local.json
 # OS
 Thumbs.db
 .DS_Store
+
+# Assets we have no right to publish (see CONTRIBUTING.md). TPMS uses one if present.
+components/Tpms/truck.png
