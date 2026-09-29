@@ -73,6 +73,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         new SettingsSection("APPEARANCE") { IsSelected = true },
         new SettingsSection("MOUNT"),
         new SettingsSection("DISPLAY"),
+        new SettingsSection("VEHICLE"),
         new SettingsSection("APPS"),
         new SettingsSection("DIAGNOSTICS"),
     ];
@@ -82,6 +83,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsAppearance))]
     [NotifyPropertyChangedFor(nameof(IsMount))]
     [NotifyPropertyChangedFor(nameof(IsDisplay))]
+    [NotifyPropertyChangedFor(nameof(IsVehicle))]
     [NotifyPropertyChangedFor(nameof(IsApps))]
     [NotifyPropertyChangedFor(nameof(IsDiagnostics))]
     private string _section = "APPEARANCE";
@@ -89,6 +91,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public bool IsAppearance => Section == "APPEARANCE";
     public bool IsMount => Section == "MOUNT";
     public bool IsDisplay => Section == "DISPLAY";
+    public bool IsVehicle => Section == "VEHICLE";
     public bool IsApps => Section == "APPS";
     public bool IsDiagnostics => Section == "DIAGNOSTICS";
 

@@ -179,7 +179,7 @@ public sealed class LoadedComponent
 /// component costs nothing and never runs a line of its code.
 /// </para>
 /// </remarks>
-public sealed class ComponentHost(IVehicleSignals signals, IClock clock, string pluginsRoot)
+public sealed class ComponentHost(IVehicleSignals signals, IClock clock, string pluginsRoot, VehicleProfile vehicle)
 {
     private const int MaxLogLines = 200;
 
@@ -320,7 +320,7 @@ public sealed class ComponentHost(IVehicleSignals signals, IClock clock, string 
         var storage = new FileComponentStorage(Path.Combine(scope, "storage"));
         var settings = new FileComponentSettings(Path.Combine(scope, "settings.json"));
 
-        return new HostComponentContext(signals, storage, settings, logger, clock);
+        return new HostComponentContext(signals, storage, settings, logger, clock, vehicle);
     }
 
     private LoadedComponent Reject(string id, ComponentManifest? manifest, string reason)

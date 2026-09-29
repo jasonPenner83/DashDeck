@@ -31,7 +31,7 @@ public class ComponentHostTests : IDisposable
 
     private async Task<LoadedComponent> LoadOne(params string[] knownSignals)
     {
-        var host = new ComponentHost(new FakeSignals(knownSignals), new FixedClock(DateTimeOffset.UnixEpoch), _root);
+        var host = new ComponentHost(new FakeSignals(knownSignals), new FixedClock(DateTimeOffset.UnixEpoch), _root, VehicleProfile.Empty);
         await host.LoadAllAsync(CancellationToken.None);
         return Assert.Single(host.Components);
     }
@@ -95,7 +95,7 @@ public class ComponentHostTests : IDisposable
     [Fact]
     public async Task An_empty_plugins_folder_loads_nothing()
     {
-        var host = new ComponentHost(new FakeSignals(), new FixedClock(DateTimeOffset.UnixEpoch), _root);
+        var host = new ComponentHost(new FakeSignals(), new FixedClock(DateTimeOffset.UnixEpoch), _root, VehicleProfile.Empty);
         await host.LoadAllAsync(CancellationToken.None);
 
         Assert.Empty(host.Components);

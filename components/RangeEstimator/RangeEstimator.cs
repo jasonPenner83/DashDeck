@@ -27,10 +27,11 @@ namespace RangeEstimator;
 public sealed class Component : IDashComponent, IDashComponentView
 {
     /// <summary>
-    /// Usable tank, litres. Jason's 2019 F-150 has the 36 US-gallon tank (≈ 136 L). A documented
-    /// constant for now; the Vehicle section in Settings will make it editable.
+    /// Fallback tank, litres, for a host that supplies no vehicle profile (apiVersion &lt; 1.1).
+    /// The real value comes from Settings ▸ Vehicle via <see cref="IComponentContext.Vehicle"/>
+    /// (ADR-0029); this is Jason's 36 US-gallon tank (≈ 136 L) in case it does not.
     /// </summary>
-    private const double TankLitres = 136.0;
+    private const double FallbackTankLitres = 136.0;
 
     /// <summary>Below this the fuel-rate-over-speed quotient is meaningless, so economy is not learned.</summary>
     private const double MinSpeedKmh = 5.0;
@@ -122,8 +123,15 @@ public sealed class Component : IDashComponent, IDashComponentView
         _economy += Alpha * (instant - _economy);
     }
 
+    /// <summary>The tank size the user set in Settings ▸ Vehicle, or the fallback if none.</summary>
+    private double TankLitres()
+    {
+        var fromProfile = _context.Vehicle.FuelTankLitres;
+        return fromProfile > 0 ? fromProfile : FallbackTankLitres;
+    }
+
     private double LitresRemaining =>
-        _level.IsUsable ? Math.Clamp(_level.Value, 0, 100) / 100.0 * TankLitres : double.NaN;
+        _level.IsUsable ? Math.Clamp(_level.Value, 0, 100) / 100.0 * TankLitres() : double.NaN;
 
     private double RangeKm
     {
@@ -214,7 +222,7 @@ public sealed class Component : IDashComponent, IDashComponentView
         panel.Children.Add(rows);
         panel.Children.Add(new TextBlock
         {
-            Text = $"Assuming a {TankLitres:0} L tank and recent economy. Change the tank size in the component to match the truck.",
+            Text = $"Assuming a {TankLitres():0} L tank and recent economy. Set the tank size in Settings ▸ Vehicle.",
             FontFamily = Font("MonoFont"),
             FontSize = 12,
             MaxWidth = 520,
