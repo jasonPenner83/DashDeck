@@ -27,11 +27,10 @@ namespace RangeEstimator;
 public sealed class Component : IDashComponent, IDashComponentView
 {
     /// <summary>
-    /// Assumed usable tank, litres. A 2019 F-150 ships a 23, 26 or 36 US-gallon tank depending on
-    /// the build; 26 gal (98 L) is the common one. Per-component settings are not built yet (the
-    /// component host's deferred "Next"), so this is the one number to change to match the truck.
+    /// Usable tank, litres. Jason's 2019 F-150 has the 36 US-gallon tank (≈ 136 L). A documented
+    /// constant for now; the Vehicle section in Settings will make it editable.
     /// </summary>
-    private const double TankLitres = 98.0;
+    private const double TankLitres = 136.0;
 
     /// <summary>Below this the fuel-rate-over-speed quotient is meaningless, so economy is not learned.</summary>
     private const double MinSpeedKmh = 5.0;
