@@ -55,7 +55,7 @@ public partial class App : Application
         if (ArgValue(e.Args, "--components") is { } reportPath)
         {
             var root = Components.PluginPath.FindRoot();
-            var host = new Components.ComponentHost(_vehicle.Signals, SystemClock.Instance, root ?? "plugins");
+            var host = new Components.ComponentHost(_vehicle.Signals, SystemClock.Instance, root ?? "plugins", VehicleProfile.Empty);
             await host.LoadAllAsync(CancellationToken.None);
 
             // Let a background worker actually run, so the report shows it working rather than
@@ -149,8 +149,13 @@ public partial class App : Application
         // The component host, loaded once at startup. A component's widget can now sit on the
         // dash (ADR-0023); a headless one runs from here too. Loading never throws for bad
         // component content, so a broken plugin cannot stop the shell coming up.
+        // The truck's own facts, read from settings at launch and lent to every component
+        // (ADR-0029). A snapshot: a tank does not change size while you drive, so a change in
+        // Settings applies on the next start, like the GPS transport.
+        var vehicle = new VehicleProfile { FuelTankLitres = Settings.SettingsStore.Load().FuelTankLitres };
+
         var componentHost = new Components.ComponentHost(
-            _vehicle.Signals, SystemClock.Instance, Components.PluginPath.FindRoot() ?? "plugins");
+            _vehicle.Signals, SystemClock.Instance, Components.PluginPath.FindRoot() ?? "plugins", vehicle);
         await componentHost.LoadAllAsync(CancellationToken.None);
 
         // --stage <NAME> opens on a named occupant: CLOCK, VIDEO, NUVIO, MAPS or STREMIO.

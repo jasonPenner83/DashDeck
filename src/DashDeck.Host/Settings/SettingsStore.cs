@@ -58,6 +58,13 @@ public sealed record UserSettings
     /// <summary>The paired phone's virtual COM port, e.g. <c>COM7</c>, for the Bluetooth transport.</summary>
     [JsonPropertyName("gpsSerialPort")]
     public string GpsSerialPort { get; init; } = "";
+
+    /// <summary>
+    /// Usable fuel tank, litres — a truck fact a range estimate needs and no PID reports
+    /// (ADR-0029). Defaults to the 36 US-gallon tank (≈ 136 L) Jason's F-150 has.
+    /// </summary>
+    [JsonPropertyName("fuelTankLitres")]
+    public double FuelTankLitres { get; init; } = 136;
 }
 
 /// <summary>

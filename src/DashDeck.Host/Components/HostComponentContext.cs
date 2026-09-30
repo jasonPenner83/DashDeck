@@ -18,7 +18,8 @@ internal sealed class HostComponentContext(
     IComponentStorage storage,
     IComponentSettings settings,
     IComponentLogger logger,
-    IClock clock) : IComponentContext
+    IClock clock,
+    VehicleProfile vehicle) : IComponentContext
 {
     public IVehicleSignals Signals => signals;
 
@@ -29,6 +30,9 @@ internal sealed class HostComponentContext(
     public IComponentLogger Logger => logger;
 
     public IClock Clock => clock;
+
+    // The truck's own facts, set in Settings (ADR-0029). Shared across components, like signals.
+    public VehicleProfile Vehicle => vehicle;
 
     // Actions stays null (the interface default): read-only until Phase 3 (ADR-0006).
 }

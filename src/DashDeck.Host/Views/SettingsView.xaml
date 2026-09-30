@@ -331,6 +331,32 @@
                 </StackPanel>
             </ScrollViewer>
 
+            <!-- ── VEHICLE (ADR-0029) ────────────────────────────────────── -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding IsVehicle, Converter={StaticResource BoolToVis}}">
+                <StackPanel Margin="31,26,31,24">
+                    <TextBlock Style="{StaticResource CaptionText}" Text="THE TRUCK" />
+
+                    <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                               TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                               Text="Facts about your F-150 the dash needs but can't read off the bus. Components read them — the range estimate uses the tank size. More factors will land here." />
+
+                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,22,0,0" Text="FUEL TANK (LITRES)" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <TextBox Style="{StaticResource InputField}" Width="150"
+                                 VerticalContentAlignment="Center"
+                                 Text="{Binding Display.FuelTankLitres, UpdateSourceTrigger=LostFocus, StringFormat=0}" />
+                        <TextBlock Text="{Binding Display.FuelTankGallons}" Margin="14,0,0,0"
+                                   VerticalAlignment="Center" Style="{StaticResource MicroText}" />
+                    </StackPanel>
+
+                    <TextBlock Margin="2,12,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                               TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                               Text="A 2019 F-150 ships a 23, 26 or 36 US-gallon tank (≈ 87, 98 or 136 L). Yours is the 36. Takes effect at the next launch — a tank doesn't change size while you drive." />
+                </StackPanel>
+            </ScrollViewer>
+
             <!-- ── APPS (ADR-0024) ───────────────────────────────────────── -->
             <ScrollViewer VerticalScrollBarVisibility="Auto"
                           Visibility="{Binding IsApps, Converter={StaticResource BoolToVis}}">
