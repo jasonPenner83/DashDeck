@@ -44,7 +44,13 @@ public partial class App : Application
 
         try
         {
-            _vehicle = await VehicleStack.StartAsync(adapterPort, drive, CancellationToken.None);
+            // The user's own signals (ADR-0032), read once at launch like every other choice
+            // that shapes the pipeline. A bad file is reported in Settings, never fatal.
+            _vehicle = await VehicleStack.StartAsync(
+                adapterPort,
+                drive,
+                new Settings.UserSignalStore().Definitions,
+                CancellationToken.None);
         }
         catch (Exception ex)
         {
@@ -391,6 +397,24 @@ public partial class App : Application
         }
     }
 
+    /// <summary>Set by <see cref="RequestRestart"/>; acted on in <see cref="OnExit"/>.</summary>
+    private static bool _restartRequested;
+
+    /// <summary>
+    /// Close and start again, with the same arguments — how a change that applies at the next
+    /// launch, like a new signal definition (ADR-0032), is applied without leaving the truck.
+    /// </summary>
+    /// <remarks>
+    /// The new process is started from <see cref="OnExit"/>, <em>after</em> the vehicle stack has
+    /// been disposed, not here. On the truck the adapter is a serial port only one process can
+    /// hold, and a successor started first would find it still open and come up with no truck.
+    /// </remarks>
+    public static void RequestRestart()
+    {
+        _restartRequested = true;
+        Current.Shutdown(0);
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
         _shell?.Dispose();
@@ -400,6 +424,25 @@ public partial class App : Application
         {
             // Blocking on shutdown is acceptable; blocking anywhere else is not.
             _vehicle.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+
+        if (_restartRequested && Environment.ProcessPath is { } exe)
+        {
+            var start = new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = false };
+
+            foreach (var arg in Environment.GetCommandLineArgs().Skip(1))
+            {
+                start.ArgumentList.Add(arg);
+            }
+
+            try
+            {
+                System.Diagnostics.Process.Start(start);
+            }
+            catch (Exception ex)
+            {
+                Fail("Could not restart", ex);
+            }
         }
 
         base.OnExit(e);

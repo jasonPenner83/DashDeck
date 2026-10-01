@@ -101,6 +101,7 @@ public sealed record SignalDefinition
 
     public double? Max { get; init; }
 
+    [JsonIgnore]
     public TimeSpan StalenessBudget => TimeSpan.FromSeconds(
         StalenessSeconds ?? Math.Max(2.0, 5.0 / Math.Max(DefaultRateHz, 0.05)));
 
