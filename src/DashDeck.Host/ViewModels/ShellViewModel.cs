@@ -89,6 +89,21 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// </remarks>
     public string? AdapterFallbackReason => _vehicle.FallbackReason;
 
+    /// <summary>True when a configured adapter failed and the dash came up simulated instead.</summary>
+    public bool HasAdapterFallback => !string.IsNullOrWhiteSpace(_vehicle.FallbackReason);
+
+    /// <summary>
+    /// The fallback, phrased for the person in the driver's seat.
+    /// </summary>
+    /// <remarks>
+    /// This exists because the reason was previously captured and bound to nothing: the app
+    /// knew exactly why it had fallen back to the simulator and showed none of it, which
+    /// left "I set the port and it didn't work" with no way to self-diagnose. A diagnostic
+    /// that is recorded but never surfaced is not a diagnostic.
+    /// </remarks>
+    public string AdapterFallbackText =>
+        HasAdapterFallback ? $"ADAPTER NOT FOUND — SHOWING SIMULATED DATA · {_vehicle.FallbackReason}" : string.Empty;
+
     /// <summary>What the banner says. A fault is not the same as a pulled cable.</summary>
     public string LinkStatusText => LinkState is TransportState.Faulted
         ? "ADAPTER FAULT"

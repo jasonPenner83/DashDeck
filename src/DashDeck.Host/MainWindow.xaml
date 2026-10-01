@@ -157,6 +157,26 @@
                                    VerticalAlignment="Center"
                                    Text="{Binding LinkStatusText}" />
                     </Border>
+
+                    <!-- A configured adapter that did not come up. Falling back to the
+                         simulator keeps the dash alive on a desk, but it must never be
+                         silent: without this the app knew why and showed nothing, which is
+                         indistinguishable from the setting not having worked. -->
+                    <Border CornerRadius="6"
+                            Background="#22E0B23C"
+                            BorderBrush="#E0B23C"
+                            BorderThickness="1"
+                            Padding="12,4"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding HasAdapterFallback, Converter={StaticResource BoolToVis}}">
+                        <TextBlock FontFamily="{StaticResource MonoFont}"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="#E0B23C"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding AdapterFallbackText}" />
+                    </Border>
                 </Grid>
             </Border>
 
