@@ -70,6 +70,12 @@ public sealed partial class DisplaySettings : ObservableObject
     /// <summary>
     /// The OBD-II adapter's COM port. Empty runs the synthetic truck. Applied at next launch.
     /// </summary>
+    /// <remarks>
+    /// Saved on every keystroke rather than on focus loss, unlike the tank size beside it.
+    /// A tank size needs focus loss because half-typed digits are a different number; a
+    /// port name does not, and the field is one people type and then immediately relaunch —
+    /// losing it that way costs more than the extra writes.
+    /// </remarks>
     [ObservableProperty]
     private string _adapterSerialPort = "";
 
