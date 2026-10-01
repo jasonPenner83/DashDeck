@@ -138,3 +138,79 @@ public class BringUpDiagnosticsTests
         Assert.All(report.Steps, s => Assert.False(string.IsNullOrWhiteSpace(s.Note)));
     }
 }
+
+/// <summary>
+/// Opening a serial port at the wrong baud rate does not fail — it succeeds and returns
+/// mojibake, which reads as a broken adapter rather than a configuration mismatch. These
+/// cover the check that tells the two apart.
+/// </summary>
+public class BaudNegotiatorTests
+{
+    [Theory]
+    [InlineData("ELM327 v1.4b\r\r>", true)]
+    [InlineData("STN2232 v5.12.4\r\r>", true)]
+    [InlineData("OBDLink EX r2.7.1\r\r>", true)]
+    [InlineData("", false)]
+    [InlineData("\xff\xfe\x80\x81ELM\xff\xff\xff\xff\xff", false)]
+    [InlineData("OK\r\r>", false)]
+    public void Recognises_a_real_identity_and_rejects_noise(string reply, bool expected)
+    {
+        Assert.Equal(expected, BaudNegotiator.LooksLikeAdapter(reply));
+    }
+
+    [Fact]
+    public void Tries_the_factory_default_first()
+    {
+        // 115200 is what the OBDLink EX ships at, so the common case must not pay for the
+        // search. 2 Mbps follows because that is what FORScan negotiates on this adapter.
+        Assert.Equal(115200, BaudNegotiator.CandidateRates[0]);
+        Assert.Contains(2000000, BaudNegotiator.CandidateRates);
+    }
+
+    [Fact]
+    public async Task Walks_past_rates_that_return_garbage()
+    {
+        var tried = new List<int>();
+
+        var (found, attempts) = await BaudNegotiator.FindAsync(
+            rate =>
+            {
+                tried.Add(rate);
+
+                // Only 2 Mbps answers coherently — the state the adapter is left in after
+                // FORScan has raised its UART rate and not reverted it.
+                return rate == 2000000
+                    ? new SyntheticTransport(
+                        new SimulatedF150(Drives.Idle), faults: SyntheticFaults.BenchNoVehicle)
+                    : new GarbageTransport();
+            },
+            rates: [115200, 230400, 2000000],
+            ct: TestCancellation.Token);
+
+        Assert.Equal(2000000, found);
+        Assert.Equal([115200, 230400, 2000000], tried);
+        Assert.Equal(3, attempts.Count);
+        Assert.False(attempts[0].Succeeded);
+    }
+
+    /// <summary>A port opened at the wrong rate: it works, and says nothing meaningful.</summary>
+    private sealed class GarbageTransport : DashDeck.Vehicle.IVehicleTransport
+    {
+        public DashDeck.Vehicle.TransportState State => DashDeck.Vehicle.TransportState.Connected;
+
+        public string Description => "garbage";
+
+        public event Action<DashDeck.Vehicle.TransportState>? StateChanged;
+
+        public Task ConnectAsync(CancellationToken ct)
+        {
+            StateChanged?.Invoke(State);
+            return Task.CompletedTask;
+        }
+
+        public Task<string> ExchangeAsync(string command, CancellationToken ct) =>
+            Task.FromResult("ÿþ\u0080\u0081ÿÿÿ>");
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+}

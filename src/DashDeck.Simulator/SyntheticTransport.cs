@@ -375,11 +375,15 @@ public sealed record SyntheticFaults(
     bool VehiclePresent = true)
 {
     /// <summary>
-    /// The default. 60 ms per request is roughly a 15 requests/second ceiling — the
-    /// pessimistic Bluetooth-era figure, kept deliberately until a real USB number is
-    /// measured on the truck (open question Q12).
+    /// The default, now matched to the real truck.
     /// </summary>
-    public static readonly SyntheticFaults Realistic = new(LatencyMs: 60, DropProbability: 0.02, SupportsMsCan: true);
+    /// <remarks>
+    /// 52 ms is the mean round trip measured on the 2019 F-150 with an OBDLink EX on
+    /// 2026-10-01 (~19 requests/second). Keeping the simulator at the vehicle's real
+    /// latency is the whole point: a simulator with more headroom than the truck produces
+    /// components that only fail on the road.
+    /// </remarks>
+    public static readonly SyntheticFaults Realistic = new(LatencyMs: 52, DropProbability: 0.02, SupportsMsCan: true);
 
     /// <summary>No latency and no drops. For unit tests that are not about timing.</summary>
     public static readonly SyntheticFaults Perfect = new(LatencyMs: 0, DropProbability: 0, SupportsMsCan: true);

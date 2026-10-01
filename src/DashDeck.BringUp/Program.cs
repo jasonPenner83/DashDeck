@@ -51,6 +51,28 @@ if (simulate || benchSim)
 else
 {
     portName = portArg ?? await FindAdapterPortAsync(baud, ct);
+
+    if (ArgValue("--baud") is null)
+    {
+        // The rate cannot be assumed from the model: the EX ships at 115200 but its STN
+        // chip reaches 2 Mbps, and other software raises it (FORScan runs this adapter at
+        // 2,000,000). Opening at the wrong rate is worse than failing -- the port opens and
+        // returns mojibake, which reads as a broken adapter rather than a mismatch.
+        var (negotiated, attempts) = await BaudNegotiator.FindAsync(
+            rate => new SerialPortTransport(portName, rate) { ResponseTimeout = TimeSpan.FromSeconds(2) },
+            ct: ct);
+
+        if (attempts.Count > 1)
+        {
+            foreach (var attempt in attempts)
+            {
+                Console.WriteLine($"  baud       {attempt.BaudRate,8} {(attempt.Succeeded ? "ok" : "--")} {attempt.Reply}");
+            }
+        }
+
+        baud = negotiated;
+    }
+
     transport = new SerialPortTransport(portName, baud);
     Console.WriteLine($"  transport  {portName} @ {baud} baud");
 }

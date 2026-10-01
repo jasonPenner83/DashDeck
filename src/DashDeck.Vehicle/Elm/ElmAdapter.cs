@@ -18,12 +18,23 @@ public sealed class ElmAdapter : IVehicleAdapter
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     /// <summary>
-    /// Conservative ceiling assumed before anything is measured. This is the Bluetooth-era
-    /// figure and is deliberately pessimistic: the real USB number is unknown until it is
-    /// measured on the truck (open question Q12), and assuming headroom we have not
-    /// verified would produce components that only fail on the first drive.
+    /// Request ceiling, measured on the truck rather than assumed.
     /// </summary>
-    public const double AssumedRequestsPerSecond = 15.0;
+    /// <remarks>
+    /// Measured 2026-10-01 on the 2019 F-150 with an OBDLink EX (STN2232 v5.12.4) over USB
+    /// at 115200: mean 52.5 ms round trip over 60 requests, min 47.8 ms, p95 71.4 ms, no
+    /// failures. That is ~19 requests/second for the whole app, and it closes open
+    /// question Q12.
+    /// <para>
+    /// Note what this is *not*: FORScan reports a 15 ms "min delay" for the same adapter,
+    /// which is its inter-command gap, not a round trip. The vehicle's own response time
+    /// dominates, so the usable rate is about a quarter of what that figure suggests.
+    /// Risk R1 therefore stands largely as written — the move from Bluetooth to USB bought
+    /// far less than hoped, and smooth high-rate gauges need request batching rather than
+    /// a faster link.
+    /// </para>
+    /// </remarks>
+    public const double AssumedRequestsPerSecond = 19.0;
 
     private CanBus _selectedBus = CanBus.Hs;
 
