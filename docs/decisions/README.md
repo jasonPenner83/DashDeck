@@ -35,6 +35,7 @@ including the reasoning that later turns out to be wrong.
 | [0027](ADR-0027-phone-location.md) | The phone's GPS as a third source (`PHONE`): heading/speed/position over NMEA behind a transport seam, truck-first, no driver (extends 0016/0017) | Accepted |
 | [0028](ADR-0028-bluetooth-gps.md) | Bluetooth as the default GPS transport — NMEA over the paired phone's in-box virtual COM port; no driver, so C1's limit is untouched (extends 0027) | Accepted |
 | [0029](ADR-0029-vehicle-profile.md) | A `VehicleProfile` on the component context (fuel tank size, more later), set in a Settings ▸ Vehicle section — the first additive `apiVersion` bump, 1.0 → 1.1 | Accepted |
+| [0030](ADR-0030-signal-discovery-and-user-catalog.md) | A Settings ▸ Sensors section: an inventory of every signal and sensor, a supported-PID scan that finds missing ones, and an editor with TEST that writes a user overlay catalog in `%LOCALAPPDATA%` (applied at next launch) | Accepted |
 
 
 

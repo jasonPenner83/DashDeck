@@ -20,17 +20,45 @@ namespace DashDeck.Host;
 /// just another consumer of the state bus, which is the property that lets a real adapter
 /// replace the bottom layer later without anything above it changing (ADR-0003).
 /// </remarks>
-public sealed class VehicleStack : IAsyncDisposable
+public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventorySource
 {
     private readonly VehicleService _service;
 
-    private VehicleStack(VehicleService service, SyntheticTransport synthetic, string driveName, SignalCatalog catalog)
+    private VehicleStack(
+        VehicleService service,
+        SyntheticTransport synthetic,
+        string driveName,
+        SignalCatalog shipped,
+        SignalCatalog catalog,
+        string? overlayError)
     {
         _service = service;
         Synthetic = synthetic;
         DriveName = driveName;
+        Shipped = shipped;
         Catalog = catalog;
+        OverlayError = overlayError;
     }
+
+    /// <summary>The catalog as it ships, before the user's overlay (ADR-0030).</summary>
+    public SignalCatalog Shipped { get; }
+
+    /// <summary>
+    /// Why the user's overlay was not applied at launch, when it was not.
+    /// </summary>
+    /// <remarks>
+    /// A bad overlay is dropped whole and the shipped catalog runs alone. Half-applying it would
+    /// leave the dash running a catalog nobody wrote; refusing to start over a hand-edited file
+    /// would be worse. The Sensors section shows this so the drop is never silent.
+    /// </remarks>
+    public string? OverlayError { get; }
+
+    /// <summary>What polling has learned about a signal, for the settings inventory.</summary>
+    public SignalPollStatus StatusOf(string signalId) => _service.StatusOf(signalId);
+
+    /// <summary>One question to the adapter outside the plan — a scan or a TEST (ADR-0030).</summary>
+    public Task<DashDeck.Vehicle.PidResponse> ProbeAsync(DashDeck.Vehicle.PidRequest request, CancellationToken ct) =>
+        _service.ProbeAsync(request, ct);
 
     /// <summary>Named-signal access. This is all the UI is allowed to know about.</summary>
     public IVehicleSignals Signals => _service.Bus;
@@ -88,12 +116,17 @@ public sealed class VehicleStack : IAsyncDisposable
     /// every value it produces is flagged <see cref="SignalQuality.Simulated"/> so it can
     /// never be mistaken on screen for a real reading.
     /// </summary>
+    /// <param name="driveName">Which scripted drive to run.</param>
+    /// <param name="userSignals">The user's overlay (ADR-0030); read once, here, at launch.</param>
+    /// <param name="cancellationToken">Cancels start-up.</param>
     public static async Task<VehicleStack> StartSyntheticAsync(
         string driveName,
+        IReadOnlyList<SignalDefinition> userSignals,
         CancellationToken cancellationToken)
     {
         var drive = Drives.ByName(driveName);
-        var catalog = SignalCatalog.FromFile(FindCatalog());
+        var shipped = SignalCatalog.FromFile(FindCatalog());
+        var (catalog, overlayError) = ApplyOverlay(shipped, userSignals);
         var synthetic = new SyntheticTransport(new SimulatedF150(drive));
 
         var service = new VehicleService(new ElmAdapter(synthetic), catalog)
@@ -102,7 +135,27 @@ public sealed class VehicleStack : IAsyncDisposable
         };
 
         await service.StartAsync(cancellationToken);
-        return new VehicleStack(service, synthetic, drive.Name, catalog);
+        return new VehicleStack(service, synthetic, drive.Name, shipped, catalog, overlayError);
+    }
+
+    /// <summary>The shipped catalog with the overlay laid over it, or alone and a reason.</summary>
+    internal static (SignalCatalog Catalog, string? Error) ApplyOverlay(
+        SignalCatalog shipped,
+        IReadOnlyList<SignalDefinition> userSignals)
+    {
+        if (userSignals.Count == 0)
+        {
+            return (shipped, null);
+        }
+
+        try
+        {
+            return (SignalCatalog.Overlay(shipped, userSignals), null);
+        }
+        catch (System.IO.InvalidDataException ex)
+        {
+            return (shipped, ex.Message);
+        }
     }
 
     /// <inheritdoc />

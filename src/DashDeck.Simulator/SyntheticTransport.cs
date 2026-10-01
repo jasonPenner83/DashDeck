@@ -171,7 +171,14 @@ public sealed class SyntheticTransport : IVehicleTransport
         // Bus decides what is reachable: the powertrain PIDs live on HS-CAN, the body-module
         // TPMS placeholders on MS-CAN. Asking for one on the wrong bus gets NO DATA, which is
         // exactly what a real adapter switched to the wrong bus would say.
-        var payload = _bus == CanBus.Ms ? EncodeMsPid(pid) : EncodePid(pid);
+        // The supported-PID bitmaps (00, 20, 40 …) are answered from the same list the model
+        // encodes, so a scan of the synthetic truck tells the truth about it. Only on HS-CAN:
+        // the body modules on MS-CAN are not emissions ECUs and do not answer the standard
+        // question — which is why Ford's own PIDs are found by asking, not by scanning.
+        var payload = _bus == CanBus.Ms ? EncodeMsPid(pid)
+            : pid % 0x20 == 0 ? Bitmap(pid, HsPids)
+            : EncodePid(pid);
+
         return payload is null
             ? "NO DATA\r\r>"
             : Respond(mode, pid, payload);
@@ -219,8 +226,56 @@ public sealed class SyntheticTransport : IVehicleTransport
         0x2E => [Scale255(Math.Clamp(_truck.Jitter(6, 6), 0, 100))],                            // evap purge
         0x42 => TwoByte((ushort)Math.Clamp((_truck.SpeedKph > 0 ? 14.2 : 12.6) * 1000, 0, 65535)), // control module voltage
 
+        // Answered, but deliberately absent from the shipped catalog: the 3.5 EcoBoost is a V6
+        // with two banks, so a real one reports bank 2 as well. These are what a supported-PID
+        // scan of the synthetic truck turns up as missing (ADR-0030).
+        0x08 => [(byte)Math.Clamp(Math.Round((_truck.Jitter(0, 3) + 100) / 0.78125), 0, 255)],  // short-term fuel trim, bank 2
+        0x09 => [(byte)Math.Clamp(Math.Round((-1.6 + 100) / 0.78125), 0, 255)],                 // long-term fuel trim, bank 2
+        0x3D => TwoByte((ushort)Math.Clamp((245 + (_truck.EnginePowerKw * 3) + 40) * 10, 0, 65535)), // catalyst temp, bank 2
+        0x44 => TwoByte((ushort)Math.Clamp(Math.Round(_truck.Jitter(1.0, 0.02) * 32768), 0, 65535)), // commanded lambda
+        0x21 => TwoByte(0),                                                                     // distance with MIL on
+
         _ => null,
     };
+
+    /// <summary>
+    /// Every HS-CAN mode 01 PID <see cref="EncodePid"/> answers. Kept beside it; a test scans the
+    /// bitmaps and asks every PID, and holds the two answers equal.
+    /// </summary>
+    private static readonly IReadOnlySet<int> HsPids = new HashSet<int>
+    {
+        0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x1F,
+        0x21, 0x23, 0x2C, 0x2E, 0x2F, 0x30, 0x31, 0x33, 0x3C, 0x3D, 0x42, 0x43, 0x44, 0x45, 0x46,
+        0x47, 0x49, 0x4A, 0x4C, 0x52, 0x5C, 0x5E, 0x61, 0x62, 0x63,
+    };
+
+    /// <summary>
+    /// The supported-PID bitmap for the range starting at <paramref name="basePid"/>, with the
+    /// last bit set when anything further along is supported — the way an ECU chains them.
+    /// </summary>
+    private static byte[]? Bitmap(byte basePid, IReadOnlySet<int> supported)
+    {
+        // A range nobody chained to is not answered at all, as on a real ECU.
+        if (basePid != 0 && !supported.Any(p => p > basePid))
+        {
+            return null;
+        }
+
+        var bitmap = new byte[4];
+
+        for (var i = 0; i < 32; i++)
+        {
+            var pid = basePid + i + 1;
+            var set = i == 31 ? supported.Any(p => p > pid) : supported.Contains(pid);
+
+            if (set)
+            {
+                bitmap[i / 8] |= (byte)(0x80 >> (i % 8));
+            }
+        }
+
+        return bitmap;
+    }
 
     /// <summary>
     /// MS-CAN body-module PIDs. Only the per-wheel TPMS placeholders, for now (see catalog).
