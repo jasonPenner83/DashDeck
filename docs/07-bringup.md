@@ -100,6 +100,19 @@ it.
 `captures/bringup-<timestamp>.jsonl`, alongside a markdown report with the full command
 transcript.
 
+## Running the app itself on the adapter
+
+Bring-up proves the pipeline; the shell is wired separately (ADR-0031). Put the adapter's
+COM port in **Settings → Vehicle → OBD-II adapter**, then relaunch. Leave it empty to run
+the synthetic truck.
+
+The **SIM badge in the status strip is the thing to watch**: it is bound to whether the
+data is simulated, so its absence is what tells you the dash is live. If a configured
+adapter does not come up, the dash comes up simulated rather than dead and records why —
+so a missing badge is the only confirmation that the numbers are real.
+
+For a one-off without changing settings: `DashDeck.Host.exe --port COM7`.
+
 ## After the run
 
 Commit both files:

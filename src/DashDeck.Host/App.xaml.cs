@@ -36,9 +36,15 @@ public partial class App : Application
         // where quality transitions actually happen and the shell has to render them.
         var drive = PositionalArg(e.Args) ?? "cold-start-city";
 
+        // The adapter, if one is configured in Settings -> Vehicle. A --port argument wins,
+        // so a real adapter can be tried without changing stored settings. Empty means the
+        // synthetic truck, which is the right default for a tablet that spends most of its
+        // life away from the truck (ADR-0005).
+        var adapterPort = ArgValue(e.Args, "--port") ?? Settings.SettingsStore.Load().AdapterSerialPort;
+
         try
         {
-            _vehicle = await VehicleStack.StartSyntheticAsync(drive, CancellationToken.None);
+            _vehicle = await VehicleStack.StartAsync(adapterPort, drive, CancellationToken.None);
         }
         catch (Exception ex)
         {

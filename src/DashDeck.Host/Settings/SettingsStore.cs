@@ -65,6 +65,18 @@ public sealed record UserSettings
     /// </summary>
     [JsonPropertyName("fuelTankLitres")]
     public double FuelTankLitres { get; init; } = 136;
+
+    /// <summary>
+    /// The OBD-II adapter's virtual COM port, e.g. <c>COM7</c>. Empty means run the
+    /// synthetic truck.
+    /// </summary>
+    /// <remarks>
+    /// Empty is the default and stays the default: most of this app's life is spent on a
+    /// desk with no vehicle attached (ADR-0005), and a dash that comes up dead there would
+    /// be worse than one that comes up simulated and says so.
+    /// </remarks>
+    [JsonPropertyName("adapterSerialPort")]
+    public string AdapterSerialPort { get; init; } = "";
 }
 
 /// <summary>
