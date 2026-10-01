@@ -552,7 +552,7 @@
                         <TextBox Style="{StaticResource InputField}" Width="150"
                                  CharacterCasing="Upper"
                                  VerticalContentAlignment="Center"
-                                 Text="{Binding Display.AdapterSerialPort, UpdateSourceTrigger=LostFocus}" />
+                                 Text="{Binding Display.AdapterSerialPort, UpdateSourceTrigger=PropertyChanged}" />
                         <TextBlock Text="{Binding DetectedSerialPorts}" Margin="14,0,0,0"
                                    VerticalAlignment="Center" Style="{StaticResource MicroText}" />
                     </StackPanel>
