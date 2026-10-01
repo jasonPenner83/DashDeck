@@ -91,6 +91,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         new SettingsSection("MOUNT"),
         new SettingsSection("DISPLAY"),
         new SettingsSection("VEHICLE"),
+        new SettingsSection("SENSORS"),
         new SettingsSection("APPS"),
         new SettingsSection("DIAGNOSTICS"),
     ];
@@ -101,6 +102,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsMount))]
     [NotifyPropertyChangedFor(nameof(IsDisplay))]
     [NotifyPropertyChangedFor(nameof(IsVehicle))]
+    [NotifyPropertyChangedFor(nameof(IsSensors))]
     [NotifyPropertyChangedFor(nameof(IsApps))]
     [NotifyPropertyChangedFor(nameof(IsDiagnostics))]
     private string _section = "APPEARANCE";
@@ -109,6 +111,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public bool IsMount => Section == "MOUNT";
     public bool IsDisplay => Section == "DISPLAY";
     public bool IsVehicle => Section == "VEHICLE";
+    public bool IsSensors => Section == "SENSORS";
     public bool IsApps => Section == "APPS";
     public bool IsDiagnostics => Section == "DIAGNOSTICS";
 
@@ -134,9 +137,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         DashDeck.Host.Settings.DisplaySettings display,
         DashDeck.Host.Sensors.SensorService sensors,
         DashDeck.Host.Stage.UserAppStore userApps,
-        IReadOnlyList<string> reservedNames)
+        IReadOnlyList<string> reservedNames,
+        SensorInventoryViewModel inventory)
     {
         _theme = theme;
+        Inventory = inventory;
         Display = display;
         _sensors = sensors;
         _userApps = userApps;
@@ -165,6 +170,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         // Populate the COM-port list once so the Bluetooth picker has something to show.
         RefreshSerialPorts();
     }
+
+    /// <summary>Every signal and sensor, the scan that finds missing ones, and the editor (ADR-0032).</summary>
+    public SensorInventoryViewModel Inventory { get; }
 
     /// <summary>True once the tablet''s mount has been levelled.</summary>
     public bool IsLevelled => _sensors.IsLevelled;

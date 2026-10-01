@@ -22,7 +22,7 @@ namespace DashDeck.Host;
 /// just another consumer of the state bus, which is the property that lets a real adapter
 /// replace the bottom layer later without anything above it changing (ADR-0003).
 /// </remarks>
-public sealed class VehicleStack : IAsyncDisposable
+public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventorySource
 {
     private readonly VehicleService _service;
     private readonly IVehicleTransport _transport;
@@ -32,16 +32,40 @@ public sealed class VehicleStack : IAsyncDisposable
         IVehicleTransport transport,
         SyntheticTransport? synthetic,
         string driveName,
+        SignalCatalog shipped,
         SignalCatalog catalog,
+        string? overlayError,
         string? fallbackReason = null)
     {
         _service = service;
         _transport = transport;
         Synthetic = synthetic;
         DriveName = driveName;
+        Shipped = shipped;
         Catalog = catalog;
+        OverlayError = overlayError;
         FallbackReason = fallbackReason;
     }
+
+    /// <summary>The catalog as it ships, before the user's overlay (ADR-0032).</summary>
+    public SignalCatalog Shipped { get; }
+
+    /// <summary>
+    /// Why the user's overlay was not applied at launch, when it was not.
+    /// </summary>
+    /// <remarks>
+    /// A bad overlay is dropped whole and the shipped catalog runs alone. Half-applying it would
+    /// leave the dash running a catalog nobody wrote; refusing to start over a hand-edited file
+    /// would be worse. The Sensors section shows this so the drop is never silent.
+    /// </remarks>
+    public string? OverlayError { get; }
+
+    /// <summary>What polling has learned about a signal, for the settings inventory.</summary>
+    public SignalPollStatus StatusOf(string signalId) => _service.StatusOf(signalId);
+
+    /// <summary>One question to the adapter outside the plan — a scan or a TEST (ADR-0032).</summary>
+    public Task<PidResponse> ProbeAsync(PidRequest request, CancellationToken ct) =>
+        _service.ProbeAsync(request, ct);
 
     /// <summary>Named-signal access. This is all the UI is allowed to know about.</summary>
     public IVehicleSignals Signals => _service.Bus;
@@ -125,12 +149,17 @@ public sealed class VehicleStack : IAsyncDisposable
     /// every value it produces is flagged <see cref="SignalQuality.Simulated"/> so it can
     /// never be mistaken on screen for a real reading.
     /// </summary>
+    /// <param name="driveName">Which scripted drive to run.</param>
+    /// <param name="userSignals">The user's overlay (ADR-0032); read once, at launch.</param>
+    /// <param name="cancellationToken">Cancels start-up.</param>
     public static async Task<VehicleStack> StartSyntheticAsync(
         string driveName,
+        IReadOnlyList<SignalDefinition> userSignals,
         CancellationToken cancellationToken)
     {
         var drive = Drives.ByName(driveName);
-        var catalog = SignalCatalog.FromFile(FindCatalog());
+        var shipped = SignalCatalog.FromFile(FindCatalog());
+        var (catalog, overlayError) = ApplyOverlay(shipped, userSignals);
         var synthetic = new SyntheticTransport(new SimulatedF150(drive));
 
         var service = new VehicleService(new ElmAdapter(synthetic), catalog)
@@ -139,7 +168,7 @@ public sealed class VehicleStack : IAsyncDisposable
         };
 
         await service.StartAsync(cancellationToken);
-        return new VehicleStack(service, synthetic, synthetic, drive.Name, catalog);
+        return new VehicleStack(service, synthetic, synthetic, drive.Name, shipped, catalog, overlayError);
     }
 
     /// <summary>
@@ -157,9 +186,11 @@ public sealed class VehicleStack : IAsyncDisposable
     /// </remarks>
     public static async Task<VehicleStack> StartLiveAsync(
         string portName,
+        IReadOnlyList<SignalDefinition> userSignals,
         CancellationToken cancellationToken)
     {
-        var catalog = SignalCatalog.FromFile(FindCatalog());
+        var shipped = SignalCatalog.FromFile(FindCatalog());
+        var (catalog, overlayError) = ApplyOverlay(shipped, userSignals);
 
         var (baud, _) = await BaudNegotiator.FindAsync(
             rate => new SerialPortTransport(portName, rate) { ResponseTimeout = TimeSpan.FromSeconds(2) },
@@ -172,7 +203,7 @@ public sealed class VehicleStack : IAsyncDisposable
         };
 
         await service.StartAsync(cancellationToken);
-        return new VehicleStack(service, transport, synthetic: null, $"{portName} @ {baud}", catalog);
+        return new VehicleStack(service, transport, synthetic: null, $"{portName} @ {baud}", shipped, catalog, overlayError);
     }
 
     /// <summary>
@@ -194,28 +225,51 @@ public sealed class VehicleStack : IAsyncDisposable
     public static async Task<VehicleStack> StartAsync(
         string? adapterPort,
         string driveName,
+        IReadOnlyList<SignalDefinition> userSignals,
         CancellationToken cancellationToken)
     {
         if (!AdapterSelection.TryResolvePort(adapterPort, out var port))
         {
-            return await StartSyntheticAsync(driveName, cancellationToken);
+            return await StartSyntheticAsync(driveName, userSignals, cancellationToken);
         }
 
         try
         {
-            return await StartLiveAsync(port, cancellationToken);
+            return await StartLiveAsync(port, userSignals, cancellationToken);
         }
         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or TimeoutException)
         {
-            var fallback = await StartSyntheticAsync(driveName, cancellationToken);
+            var fallback = await StartSyntheticAsync(driveName, userSignals, cancellationToken);
 
             return new VehicleStack(
                 fallback._service,
                 fallback._transport,
                 fallback.Synthetic,
                 fallback.DriveName,
+                fallback.Shipped,
                 fallback.Catalog,
+                fallback.OverlayError,
                 $"{port}: {ex.Message}");
+        }
+    }
+
+    /// <summary>The shipped catalog with the overlay laid over it, or alone and a reason.</summary>
+    internal static (SignalCatalog Catalog, string? Error) ApplyOverlay(
+        SignalCatalog shipped,
+        IReadOnlyList<SignalDefinition> userSignals)
+    {
+        if (userSignals.Count == 0)
+        {
+            return (shipped, null);
+        }
+
+        try
+        {
+            return (SignalCatalog.Overlay(shipped, userSignals), null);
+        }
+        catch (System.IO.InvalidDataException ex)
+        {
+            return (shipped, ex.Message);
         }
     }
 

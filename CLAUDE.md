@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **196 tests green** — 54 engine, 142 shell.
+(ADR-0010). **295 tests green** — 93 engine, 202 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -46,8 +46,14 @@ budget, and their footer says where they answered from rather than an allocated 
 so the card editor's picker is **searchable and grouped by function**; the synthetic truck
 answers the new PIDs so the extra options are live. Cards flow into rows and rows into pages
 that snap sideways; **only the visible page declares signals.** Settings is **split into a rail
-of sections** (Appearance, Mount, Display, Diagnostics); it and the card editor are full-screen
-views that take all six bands and hide the stage, which keeps running (Q17).
+of sections** (Appearance, Mount, Display, Vehicle, Sensors, Apps, Diagnostics); it and the card
+editor are full-screen views that take all six bands and hide the stage, which keeps running (Q17).
+**Settings ▸ Sensors** (ADR-0032) lists every vehicle signal and tablet sensor with what the
+truck has said about each — without ever declaring demand — **scans** the supported-PID bitmaps
+to find what the truck supports and the catalog lacks (and the reverse), and **edits**
+definitions with a **TEST** that asks the truck before saving. Edits go to a user overlay,
+`%LOCALAPPDATA%\DashDeck\signals.user.json`, laid over the shipped catalog at the next launch
+(RESTART NOW is in the section); the shipped files are never written on the tablet.
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
@@ -155,7 +161,9 @@ The **OBDLink EX** adapter, wired USB (ADR-0007), was **ordered 2026-09-29, due 
 (genuine, sold by OBD Solutions). The **Carlinkit CPC200** for Android Auto and CarPlay
 (ADR-0019) is chosen and not bought. Both are built against synthetic transports behind a
 seam, so neither is blocking. First bring-up with the EX: a real `UsbSerialTransport`, then
-measure the request ceiling (Q12) and what the Gateway Module passes on MS-CAN (Q5).
+measure the request ceiling (Q12) and what the Gateway Module passes on MS-CAN (Q5). Then
+**Settings ▸ Sensors ▸ SCAN THE TRUCK** asks which standard PIDs it supports from the tablet,
+and **TEST** is the loop for trying Ford mode 22 PIDs (R2, Q13) from the driver's seat.
 
 ## Things that are easy to get wrong here
 
@@ -224,7 +232,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Twenty-nine exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Thirty-two exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -234,7 +242,9 @@ from the UI, the rule that an occupant lives as long as it is the stage occupant
 persistent audio/video source that keeps playing behind a silent occupant, and the phone's GPS
 as a third source (`PHONE`) behind a transport seam — over Bluetooth by default (an in-box
 virtual COM port, no driver) or the network, and a `VehicleProfile` on the component context
-(fuel tank size, set in Settings ▸ Vehicle) that made the first additive `apiVersion` bump to 1.1.
+(fuel tank size, set in Settings ▸ Vehicle) that made the first additive `apiVersion` bump to 1.1,
+and finding and defining signals from Settings ▸ Sensors — a supported-PID scan, a TEST, and a
+user overlay catalog that the shipped one never absorbs by accident.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

@@ -37,3 +37,4 @@ including the reasoning that later turns out to be wrong.
 | [0030](ADR-0030-fuel-flow-without-maf.md) | Fuel flow by speed-density; tank calibration becomes mandatory | Accepted |
 | [0029](ADR-0029-vehicle-profile.md) | A `VehicleProfile` on the component context (fuel tank size, more later), set in a Settings ▸ Vehicle section — the first additive `apiVersion` bump, 1.0 → 1.1 | Accepted |
 | [0031](ADR-0031-live-adapter-in-the-host.md) | The Host can run on the real adapter, falling back to the simulator | Accepted |
+| [0032](ADR-0032-signal-discovery-and-user-catalog.md) | A Settings ▸ Sensors section: an inventory of every signal and sensor, a supported-PID scan that finds missing ones, and an editor with TEST that writes a user overlay catalog in `%LOCALAPPDATA%` (applied at next launch) | Accepted |

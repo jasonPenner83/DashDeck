@@ -32,6 +32,44 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- A whole row you tap to open it: a signal in the Sensors inventory. -->
+        <Style x:Key="SensorRowButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Chrome"
+                                Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1"
+                                CornerRadius="12" Padding="14,9,14,9" MinHeight="56">
+                            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Stretch" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A refusal reads in the fault red the dash uses for a fault (QualityPalette.Fault). -->
+        <Style x:Key="EditorMessage" TargetType="TextBlock" BasedOn="{StaticResource MicroText}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding HasProblems}" Value="True">
+                    <Setter Property="Foreground" Value="#FFE5544B" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- A labelled field in the editor: caption above, input below. -->
+        <Style x:Key="EditorField" TargetType="StackPanel">
+            <Setter Property="Margin" Value="0,0,12,14" />
+        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -373,6 +411,405 @@
                                Text="Leave empty to run the synthetic truck — the SIM badge in the status strip tells you which you're looking at. Set it to the adapter's port (FORScan's connection screen shows it) to read the real bus. The baud rate is worked out automatically. Takes effect at the next launch; if the adapter doesn't answer, the dash comes up simulated rather than dead, and says why." />
                 </StackPanel>
             </ScrollViewer>
+
+            <!-- ── SENSORS (ADR-0032) ────────────────────────────────────── -->
+            <Grid Visibility="{Binding IsSensors, Converter={StaticResource BoolToVis}}">
+                <Grid DataContext="{Binding Inventory}">
+
+                    <!-- The inventory: every signal and sensor, the scan, the way in to the editor. -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  Visibility="{Binding IsListing, Converter={StaticResource BoolToVis}}">
+                        <StackPanel Margin="31,26,31,24">
+                            <TextBlock Style="{StaticResource CaptionText}" Text="SENSORS" />
+
+                            <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                                       TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                       Text="Everything the dash can show, and where it comes from. Tap a signal to correct it. NOT ASKED means nothing has wanted it since launch — listing a signal here never polls it." />
+
+                            <!-- Never silent: a dropped overlay looks exactly like signals that vanished. -->
+                            <TextBlock Margin="2,12,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                                       TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                       Foreground="#FFE5544B"
+                                       Text="{Binding Problem}"
+                                       Visibility="{Binding Problem, Converter={StaticResource EmptyToCollapsed}}" />
+
+                            <Border Margin="0,16,0,0" Padding="16,12,12,12" CornerRadius="12"
+                                    Background="{DynamicResource AccentWashBrush}"
+                                    BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                                    Visibility="{Binding RestartNeeded, Converter={StaticResource BoolToVis}}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap"
+                                               Style="{StaticResource MicroText}"
+                                               Foreground="{DynamicResource AccentBrush}"
+                                               Text="Changes are saved and take effect at the next launch." />
+                                    <Button Grid.Column="1" Style="{StaticResource StageLauncherButton}"
+                                            Height="48" Margin="12,0,0,0"
+                                            Command="{Binding RestartCommand}"
+                                            Visibility="{Binding CanRestart, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="RESTART NOW" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                    </Button>
+                                </Grid>
+                            </Border>
+
+                            <!-- Find -->
+                            <TextBlock Style="{StaticResource FieldLabel}" Margin="0,24,0,0" Text="FIND MISSING" />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <Button Style="{StaticResource StageLauncherButton}" MinWidth="170"
+                                        Command="{Binding ScanCommand}">
+                                    <TextBlock Text="SCAN THE TRUCK" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                </Button>
+                                <Button Style="{StaticResource StageLauncherButton}" MinWidth="170"
+                                        Command="{Binding NewCommand}">
+                                    <TextBlock Text="+ NEW SIGNAL" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                </Button>
+                            </StackPanel>
+
+                            <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                                       TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                       Text="{Binding ScanStatus}" />
+
+                            <StackPanel Visibility="{Binding HasScanned, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Style="{StaticResource FieldLabel}" Margin="0,16,0,0"
+                                           Text="SUPPORTED BY THE TRUCK, NOT IN THE CATALOG" />
+                                <ItemsControl ItemsSource="{Binding Missing}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource SensorRowButton}"
+                                                    Command="{Binding DataContext.AddMissingCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Caption}" TextTrimming="CharacterEllipsis"
+                                                                   FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                                                   Foreground="{DynamicResource TextHighBrush}" />
+                                                        <TextBlock Margin="0,3,0,0" Style="{StaticResource MicroText}" Text="{Binding Detail}" />
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="1" Text="+ ADD" VerticalAlignment="Center" Margin="12,0,0,0"
+                                                               FontFamily="{StaticResource MonoFont}" FontSize="13"
+                                                               Foreground="{DynamicResource AccentBrush}" />
+                                                </Grid>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <TextBlock Style="{StaticResource FieldLabel}" Margin="0,16,0,0"
+                                           Text="IN THE CATALOG, NOT SUPPORTED BY THE TRUCK" />
+                                <ItemsControl ItemsSource="{Binding Unsupported}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource SensorRowButton}"
+                                                    Command="{Binding DataContext.EditCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Caption}" TextTrimming="CharacterEllipsis"
+                                                               FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                                               Foreground="{DynamicResource TextMidBrush}" />
+                                                    <TextBlock Margin="0,3,0,0" Style="{StaticResource MicroText}" Text="{Binding Detail}" />
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+
+                            <!-- Show -->
+                            <TextBlock Style="{StaticResource FieldLabel}" Margin="0,26,0,0" Text="VEHICLE SIGNALS" />
+
+                            <TextBox Style="{StaticResource InputField}" Margin="0,4,0,0"
+                                     Text="{Binding Filter, UpdateSourceTrigger=PropertyChanged}" />
+
+                            <TextBlock Margin="2,10,0,0" Style="{StaticResource MicroText}" Text="{Binding Summary}" />
+
+                            <ItemsControl Margin="0,14,0,0" ItemsSource="{Binding Groups}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,0,0,10">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="{Binding Header}" />
+                                            <ItemsControl ItemsSource="{Binding Rows}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Button Style="{StaticResource SensorRowButton}"
+                                                                Command="{Binding DataContext.EditCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=ItemsControl, AncestorLevel=2}}"
+                                                                CommandParameter="{Binding}">
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <StackPanel>
+                                                                    <StackPanel Orientation="Horizontal">
+                                                                        <TextBlock Text="{Binding Caption}" TextTrimming="CharacterEllipsis"
+                                                                                   FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                                                                   Foreground="{DynamicResource TextHighBrush}" />
+                                                                        <TextBlock Text="{Binding OriginLabel}" Margin="10,0,0,0"
+                                                                                   VerticalAlignment="Center"
+                                                                                   Style="{StaticResource MicroText}"
+                                                                                   Foreground="{DynamicResource AccentBrush}" />
+                                                                    </StackPanel>
+                                                                    <TextBlock Margin="0,3,0,0" Style="{StaticResource MicroText}"
+                                                                               TextTrimming="CharacterEllipsis" Text="{Binding Detail}" />
+                                                                </StackPanel>
+                                                                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                                            VerticalAlignment="Center" Margin="12,0,0,0">
+                                                                    <Ellipse Width="9" Height="9" VerticalAlignment="Center"
+                                                                             Fill="{Binding Quality, Converter={StaticResource QualityBrushToken}}" />
+                                                                    <TextBlock Text="{Binding StatusText}" Margin="8,0,0,0"
+                                                                               VerticalAlignment="Center"
+                                                                               FontFamily="{StaticResource MonoFont}" FontSize="13"
+                                                                               Foreground="{Binding Quality, Converter={StaticResource ValueBrushToken}}" />
+                                                                </StackPanel>
+                                                            </Grid>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <!-- The tablet's own sensors and the phone's GPS: hardware, listed for reference. -->
+                            <StackPanel Visibility="{Binding HasTabletSensors, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Style="{StaticResource FieldLabel}" Margin="0,16,0,0" Text="TABLET AND PHONE" />
+                                <TextBlock Margin="2,0,0,10" MaxWidth="620" HorizontalAlignment="Left"
+                                           TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                           Text="Measured by the hardware, so nothing to define. Each names the truck signal that takes over the day the catalog has it (ADR-0016)." />
+                                <ItemsControl ItemsSource="{Binding TabletSensors}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{DynamicResource SurfaceBrush}"
+                                                    BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1"
+                                                    CornerRadius="12" Padding="14,9,14,9" Margin="0,0,0,8" MinHeight="56">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Caption}"
+                                                                   FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                                                   Foreground="{DynamicResource TextHighBrush}" />
+                                                        <TextBlock Margin="0,3,0,0" Style="{StaticResource MicroText}"
+                                                                   TextTrimming="CharacterEllipsis" Text="{Binding Detail}" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                                VerticalAlignment="Center" Margin="12,0,0,0">
+                                                        <Ellipse Width="9" Height="9" VerticalAlignment="Center"
+                                                                 Fill="{Binding Quality, Converter={StaticResource QualityBrushToken}}" />
+                                                        <TextBlock Text="{Binding StatusText}" Margin="8,0,0,0"
+                                                                   VerticalAlignment="Center"
+                                                                   FontFamily="{StaticResource MonoFont}" FontSize="13"
+                                                                   Foreground="{Binding Quality, Converter={StaticResource ValueBrushToken}}" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+
+                            <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                                       TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                       Text="{Binding UserFilePath, StringFormat=Your signals are saved to {0} and laid over the shipped catalog at launch.}" />
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- The editor: one definition, tested against the truck before it is saved. -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                  Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}">
+                        <StackPanel Margin="31,26,31,24" DataContext="{Binding Editor}">
+                            <TextBlock Style="{StaticResource CaptionText}" Text="{Binding Title}" />
+
+                            <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                                       TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                       Foreground="{DynamicResource AccentBrush}"
+                                       Text="{Binding Note}"
+                                       Visibility="{Binding Note, Converter={StaticResource EmptyToCollapsed}}" />
+
+                            <StackPanel Style="{StaticResource EditorField}" Margin="0,20,0,14">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="NAME" />
+                                <TextBox Style="{StaticResource InputField}"
+                                         Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal">
+                                <StackPanel Style="{StaticResource EditorField}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="ID — WHAT CARDS SUBSCRIBE TO" />
+                                    <TextBox Style="{StaticResource InputField}" Width="330"
+                                             IsReadOnly="{Binding IsIdLocked}"
+                                             Text="{Binding Id, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource EditorField}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="GROUP" />
+                                    <TextBox Style="{StaticResource InputField}" Width="230"
+                                             Text="{Binding Category, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- The request, and the TEST that asks the truck. -->
+                            <TextBlock Style="{StaticResource CaptionText}" Margin="0,12,0,12" Text="REQUEST" />
+
+                            <StackPanel Orientation="Horizontal">
+                                <StackPanel Style="{StaticResource EditorField}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="BUS" />
+                                    <Button Style="{StaticResource StageLauncherButton}" MinWidth="170"
+                                            Command="{Binding ToggleBusCommand}">
+                                        <TextBlock Text="{Binding BusLabel}" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                    </Button>
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource EditorField}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="MODE (HEX)" />
+                                    <TextBox Style="{StaticResource InputField}" Width="100" CharacterCasing="Upper"
+                                             Text="{Binding ModeText, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource EditorField}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="PID (HEX)" />
+                                    <TextBox Style="{StaticResource InputField}" Width="120" CharacterCasing="Upper"
+                                             Text="{Binding PidText, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource EditorField}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text=" " />
+                                    <Button Style="{StaticResource StageLauncherButton}" MinWidth="110"
+                                            Command="{Binding TestCommand}">
+                                        <TextBlock Text="TEST" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                    </Button>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <Border Padding="14,10,14,10" CornerRadius="12" Margin="0,0,0,14"
+                                    Background="{DynamicResource SurfaceBrush}"
+                                    BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1"
+                                    Visibility="{Binding HasTested, Converter={StaticResource BoolToVis}}">
+                                <StackPanel>
+                                    <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="15" TextWrapping="Wrap"
+                                               Foreground="{DynamicResource TextHighBrush}">
+                                        <Run Text="{Binding RequestText, Mode=OneWay}" Foreground="{DynamicResource TextLowBrush}" />
+                                        <Run Text="→" Foreground="{DynamicResource TextLowBrush}" />
+                                        <Run Text="{Binding TestRaw, Mode=OneWay}" />
+                                    </TextBlock>
+                                    <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                               Text="{Binding TestDecoded}" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- How the bytes become a number. -->
+                            <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,12"
+                                       Text="DECODE — VALUE = RAW × SCALE + OFFSET" />
+
+                            <StackPanel Orientation="Horizontal">
+                                <StackPanel Style="{StaticResource EditorField}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="FIRST BYTE" />
+                                    <TextBox Style="{StaticResource InputField}" Width="110"
+                                             Text="{Binding ByteOffsetText, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource EditorField}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="LENGTH" />
+                                    <ItemsControl ItemsSource="{Binding ByteLengths}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Style="{StaticResource OptionChipButton}" MinWidth="90" Margin="0,0,8,0"
+                                                        Command="{Binding DataContext.SetByteLengthCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <TextBlock Text="{Binding Label}" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal">
+                                <StackPanel Style="{StaticResource EditorField}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="SIGN" />
+                                    <Button Style="{StaticResource StageLauncherButton}" MinWidth="130"
+                                            Command="{Binding ToggleSignedCommand}">
+                                        <TextBlock Text="{Binding SignedLabel}" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                    </Button>
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource EditorField}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="SCALE" />
+                                    <TextBox Style="{StaticResource InputField}" Width="150"
+                                             Text="{Binding ScaleText, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource EditorField}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="OFFSET" />
+                                    <TextBox Style="{StaticResource InputField}" Width="110"
+                                             Text="{Binding OffsetText, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource EditorField}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="UNIT" />
+                                    <TextBox Style="{StaticResource InputField}" Width="100"
+                                             Text="{Binding Unit, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- The guard and the cost. -->
+                            <TextBlock Style="{StaticResource CaptionText}" Margin="0,6,0,12" Text="RANGE AND RATE" />
+
+                            <StackPanel Orientation="Horizontal">
+                                <StackPanel Style="{StaticResource EditorField}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="MIN" />
+                                    <TextBox Style="{StaticResource InputField}" Width="130"
+                                             Text="{Binding MinText, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource EditorField}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="MAX" />
+                                    <TextBox Style="{StaticResource InputField}" Width="130"
+                                             Text="{Binding MaxText, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Style="{StaticResource EditorField}">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="RATE (HZ)" />
+                                    <TextBox Style="{StaticResource InputField}" Width="110"
+                                             Text="{Binding RateText, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <TextBlock MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                                       Style="{StaticResource MicroText}"
+                                       Text="A reading outside min/max is dropped, never shown: a wrong formula should read as a blank, not as a plausible number. The rate is what a card asks for by default — every signal shares one link." />
+
+                            <TextBlock Margin="2,18,0,0" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                                       Style="{StaticResource EditorMessage}" Text="{Binding Message}" />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                <Button Style="{StaticResource StageLauncherButton}" MinWidth="120"
+                                        Command="{Binding SaveCommand}">
+                                    <TextBlock Text="SAVE" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                </Button>
+                                <Button Style="{StaticResource StageLauncherButton}" MinWidth="120"
+                                        Command="{Binding CancelCommand}">
+                                    <TextBlock Text="CANCEL" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                </Button>
+                                <Button Style="{StaticResource StageLauncherButton}" MinWidth="120"
+                                        Command="{Binding RemoveCommand}"
+                                        Visibility="{Binding CanRemove, Converter={StaticResource BoolToVis}}">
+                                    <TextBlock Text="{Binding RemoveCaption}" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                </Button>
+                            </StackPanel>
+
+                            <TextBlock Margin="2,12,0,0" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                                       Style="{StaticResource MicroText}" Text="{Binding SaveDetail}" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Grid>
 
             <!-- ── APPS (ADR-0024) ───────────────────────────────────────── -->
             <ScrollViewer VerticalScrollBarVisibility="Auto"

@@ -226,7 +226,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         // Settings owns levelling now, so it needs the sensors (ADR-0022); it also edits the
         // user app store, and refuses names that collide with a built-in.
-        Settings = new SettingsViewModel(theme, Display, Sensors, _userApps, reservedNames);
+        // The Sensors section (ADR-0032) reads the running pipeline and edits the user's own
+        // signal file, which the next launch lays over the shipped catalog.
+        Inventory = new SensorInventoryViewModel(vehicle, new UserSignalStore(), Sensors, App.RequestRestart);
+
+        Settings = new SettingsViewModel(theme, Display, Sensors, _userApps, reservedNames, Inventory);
 
         RebuildStageOptions();
 
@@ -310,6 +314,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>Appearance and, in time, the rest.</summary>
     public SettingsViewModel Settings { get; }
+
+    /// <summary>The Sensors section's inventory, refreshed on the clock beat while it is open.</summary>
+    private SensorInventoryViewModel Inventory { get; }
 
     public bool IsDashActive => ActiveDestination == "DASH";
 
@@ -932,6 +939,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         RequestRateText = measured > 0
             ? string.Create(CultureInfo.CurrentCulture, $"{measured:0.#} req/s")
             : "—— req/s";
+
+        // The Sensors section shows live statuses, read on this beat and only while it is on
+        // screen — forty rows of status text are not worth refreshing behind the dash.
+        if (IsSettingsActive && Settings.IsSensors && Inventory.IsListing)
+        {
+            Inventory.Refresh();
+        }
 
         // The banner the mockups have and the shell never showed. Sampled here, on the UI
         // thread, so nothing has to marshal a worker-thread event onto it.

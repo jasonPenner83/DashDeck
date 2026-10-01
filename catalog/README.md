@@ -17,6 +17,21 @@ Ford-specific definitions will land in a `signals.ford-f150-2019.json` once they
 discovered on the truck. Keeping them in a separate file matters: the standard set is
 known-good and should not be churned by the trial and error of PID discovery.
 
+## Your own signals (ADR-0032)
+
+Signals found on the truck, and corrections to shipped ones, are made on the tablet in
+**Settings ▸ Sensors** — never by editing these files there. They are written to
+`%LOCALAPPDATA%\DashDeck\signals.user.json`, in exactly this format, and laid over the shipped
+catalog at launch: a user definition with a shipped `id` replaces it, a new `id` adds one. A
+deploy never touches that file. The merged catalog is validated as one; if it is invalid the
+whole overlay is dropped, the shipped catalog runs alone, and the Sensors section says why.
+
+The same section has **SCAN THE TRUCK**, which asks the supported-PID bitmaps (mode 01 PIDs `00`,
+`20`, `40` …) and lists what the truck supports that no file defines, and what a file defines that
+the truck does not support; and **TEST**, which sends one request and shows the raw bytes and what
+the formula makes of them before anything is saved. Once a user definition has proved itself on
+the truck, promote it by copying it into the right file here.
+
 ## Fields
 
 ```jsonc
