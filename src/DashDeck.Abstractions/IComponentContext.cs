@@ -49,4 +49,12 @@ public interface IComponentContext
     /// granted component sees is stable, and so the guarantee is a nullable reference.
     /// </summary>
     IVehicleActions? Actions => null;
+
+    /// <summary>
+    /// Facts about the truck the app is fitted to — the fuel tank's size today, more later —
+    /// set by the user in Settings (ADR-0029). A value that depends on the vehicle but cannot
+    /// be read off the bus reads it here. Defaults to <see cref="VehicleProfile.Empty"/> on a
+    /// host that provides none, so a component built for it degrades rather than breaks.
+    /// </summary>
+    VehicleProfile Vehicle => VehicleProfile.Empty;
 }

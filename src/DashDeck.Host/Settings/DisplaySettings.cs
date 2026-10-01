@@ -61,6 +61,12 @@ public sealed partial class DisplaySettings : ObservableObject
     [ObservableProperty]
     private string _gpsSerialPort = "";
 
+    /// <summary>Usable fuel tank, litres (ADR-0029). Read into the vehicle profile at launch, so a
+    /// change applies the next time — a tank does not change size while you drive.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FuelTankGallons))]
+    private double _fuelTankLitres = 136;
+
     public DisplaySettings()
     {
         var stored = SettingsStore.Load();
@@ -70,8 +76,12 @@ public sealed partial class DisplaySettings : ObservableObject
         GpsEndpoint = stored.GpsEndpoint;
         GpsTransport = stored.GpsTransport;
         GpsSerialPort = stored.GpsSerialPort;
+        FuelTankLitres = stored.FuelTankLitres;
         _loaded = true;
     }
+
+    /// <summary>The tank in US gallons, for the hint beside the litres field — Jason thinks in gallons.</summary>
+    public string FuelTankGallons => $"≈ {FuelTankLitres / 3.785411784:0.0} US gal";
 
     /// <summary>The current scale as a percentage, for the screen.</summary>
     public string WebScaleText => $"{WebScale * 100:0}%";
@@ -149,5 +159,15 @@ public sealed partial class DisplaySettings : ObservableObject
         }
 
         SettingsStore.Update(stored => stored with { GpsSerialPort = value });
+    }
+
+    partial void OnFuelTankLitresChanged(double value)
+    {
+        if (!_loaded)
+        {
+            return;
+        }
+
+        SettingsStore.Update(stored => stored with { FuelTankLitres = value });
     }
 }

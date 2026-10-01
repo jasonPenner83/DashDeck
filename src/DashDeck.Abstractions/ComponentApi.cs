@@ -20,5 +20,7 @@ namespace DashDeck.Abstractions;
 public static class ComponentApi
 {
     /// <summary>The contract version, <c>major.minor</c>. Additive changes bump the minor.</summary>
-    public const string Version = "1.0";
+    /// <remarks>1.1 added <see cref="IComponentContext.Vehicle"/> (ADR-0029); a 1.0 component
+    /// still loads and runs, since the addition is a member it simply does not read.</remarks>
+    public const string Version = "1.1";
 }

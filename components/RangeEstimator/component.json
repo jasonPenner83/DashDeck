@@ -3,7 +3,7 @@
   "name": "Range Estimator",
   "version": "0.1.0",
   "author": "Jason Penner",
-  "apiVersion": "1.0",
+  "apiVersion": "1.1",
 
   "entry": { "assembly": "RangeEstimator.dll", "type": "RangeEstimator.Component" },
 

@@ -224,7 +224,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Twenty-eight exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Twenty-nine exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -233,7 +233,8 @@ apps owned and placed over the stage rather than re-parented into it, user-added
 from the UI, the rule that an occupant lives as long as it is the stage occupant, a
 persistent audio/video source that keeps playing behind a silent occupant, and the phone's GPS
 as a third source (`PHONE`) behind a transport seam — over Bluetooth by default (an in-box
-virtual COM port, no driver) or the network.
+virtual COM port, no driver) or the network, and a `VehicleProfile` on the component context
+(fuel tank size, set in Settings ▸ Vehicle) that made the first additive `apiVersion` bump to 1.1.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.
