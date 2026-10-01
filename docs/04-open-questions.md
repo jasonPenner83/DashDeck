@@ -180,3 +180,10 @@ the property that made 3/6 the video size on the Pro 9 survives the change.
 > numbers. They remain valid for layout, hierarchy and the design system; only the
 > absolute pixel values are stale.
 
+## Answerable now that the adapter exists
+
+Q4 (fuel-rate PID support) and Q12 (the real throughput ceiling) are no longer research
+questions — the bring-up tool measures both. See
+[`07-bringup.md`](07-bringup.md). Stage 1 runs on a desk with no vehicle; stage 2 in the
+truck produces the numbers, and the capture it records lets later work be developed
+against real truck data with no truck present.

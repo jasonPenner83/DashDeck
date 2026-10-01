@@ -135,6 +135,13 @@ public sealed class SyntheticTransport : IVehicleTransport
     {
         "ATI" => "STN2230 v5.6.6 (synthetic)\r\r>",
         "ATZ" => "\rELM327 v1.5\r\r>",
+        "AT@1" => "OBDLink EX r1.0 (synthetic)\r\r>",
+        "STI" => "STN2230 v5.6.6\r\r>",
+
+        // Voltage is measured at OBD-II pin 16, which is vehicle power. On a desk the
+        // adapter runs from USB and reads near zero -- a useful way to tell "not plugged
+        // into the truck" from "plugged in with the ignition off".
+        "ATRV" => _faults.VehiclePresent ? "14.1V\r\r>" : "0.2V\r\r>",
         "STP53" => SwitchBus(CanBus.Ms),
         "STP33" => SwitchBus(CanBus.Hs),
         _ => "OK\r\r>",
@@ -163,9 +170,32 @@ public sealed class SyntheticTransport : IVehicleTransport
             return "?\r\r>";
         }
 
+        if (!_faults.VehiclePresent)
+        {
+            // What the adapter says on a desk: it hunted for a bus and found none. Control
+            // commands still answer, because the adapter is powered from USB.
+            return "SEARCHING...\rUNABLE TO CONNECT\r\r>";
+        }
+
         if (mode != 0x01)
         {
             return "NO DATA\r\r>";
+        }
+
+        // Mode 01 support bitmaps. A real ECU answers these, and they are how the vehicle
+        // tells us which PIDs it implements rather than us assuming.
+        if (pid is 0x00 or 0x20 or 0x40 or 0x60 or 0x80)
+        {
+            if (_bus == CanBus.Ms)
+            {
+                // Ford's body-module PIDs are manufacturer-specific and are not advertised
+                // in the standard support bitmaps. A scan of MS-CAN finding nothing is the
+                // truthful answer, and is why those signals need discovering by other means.
+                return "NO DATA\r\r>";
+            }
+
+            var bitmap = BuildSupportBitmap(pid);
+            return bitmap is null ? "NO DATA\r\r>" : Respond(mode, pid, bitmap);
         }
 
         // Bus decides what is reachable: the powertrain PIDs live on HS-CAN, the body-module
@@ -175,6 +205,64 @@ public sealed class SyntheticTransport : IVehicleTransport
         return payload is null
             ? "NO DATA\r\r>"
             : Respond(mode, pid, payload);
+    }
+
+    /// <summary>
+    /// The HS-CAN mode 01 PIDs this synthetic ECU answers.
+    /// </summary>
+    /// <remarks>
+    /// Declared explicitly rather than derived from <see cref="EncodePid"/>, because
+    /// probing that method to build a bitmap would consume random numbers and break the
+    /// determinism that makes scripted drives usable as fixtures. A test asserts this list
+    /// matches what <see cref="EncodePid"/> actually implements, so drift fails CI instead
+    /// of going unnoticed.
+    /// </remarks>
+    public static readonly byte[] SupportedHsPids =
+    [
+        0x04, 0x05, 0x06, 0x07, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+        0x10, 0x11, 0x1F, 0x23, 0x2C, 0x2E, 0x2F, 0x30, 0x31, 0x33,
+        0x3C, 0x42, 0x43, 0x45, 0x46, 0x47, 0x49, 0x4A, 0x4C, 0x52,
+        0x5C, 0x5E, 0x61, 0x62, 0x63,
+    ];
+
+    /// <summary>True when <see cref="EncodePid"/> has an implementation for this PID.</summary>
+    internal bool ImplementsHsPid(byte pid) => EncodePid(pid) is not null;
+
+    /// <summary>
+    /// Build the four-byte support bitmap for a range, the way an ECU does.
+    /// </summary>
+    /// <remarks>
+    /// Bit 0 is the most significant bit of the first byte and means
+    /// <c>basePid + 1</c>. The last bit of the range doubles as "the next range exists",
+    /// which is how a scanner knows whether to keep walking.
+    /// </remarks>
+    private static byte[]? BuildSupportBitmap(byte basePid)
+    {
+        var supported = new HashSet<byte>(SupportedHsPids);
+        var anyBeyond = SupportedHsPids.Any(p => p > basePid + 0x20);
+
+        if (basePid != 0x00 && !supported.Any(p => p > basePid && p <= basePid + 0x20) && !anyBeyond)
+        {
+            return null;
+        }
+
+        var bitmap = new byte[4];
+
+        for (var index = 0; index < 32; index++)
+        {
+            var pid = basePid + 1 + index;
+
+            var isSupported = pid == basePid + 0x20
+                ? anyBeyond
+                : supported.Contains((byte)pid);
+
+            if (isSupported)
+            {
+                bitmap[index / 8] |= (byte)(1 << (7 - (index % 8)));
+            }
+        }
+
+        return bitmap;
     }
 
     /// <summary>Encode the model's state the way a real ECU would, with the same quantisation.</summary>
@@ -276,7 +364,15 @@ public sealed class SyntheticTransport : IVehicleTransport
 /// <param name="LatencyMs">Per-request round-trip delay. Real adapters are not instant.</param>
 /// <param name="DropProbability">Fraction of requests answered <c>NO DATA</c> at random.</param>
 /// <param name="SupportsMsCan">False simulates a toggle-switch or HS-only adapter.</param>
-public sealed record SyntheticFaults(int LatencyMs, double DropProbability, bool SupportsMsCan)
+/// <param name="VehiclePresent">
+/// False simulates the adapter powered on a desk with nothing plugged into the OBD-II
+/// port: control commands answer normally, vehicle requests report UNABLE TO CONNECT.
+/// </param>
+public sealed record SyntheticFaults(
+    int LatencyMs,
+    double DropProbability,
+    bool SupportsMsCan,
+    bool VehiclePresent = true)
 {
     /// <summary>
     /// The default. 60 ms per request is roughly a 15 requests/second ceiling — the
@@ -290,4 +386,10 @@ public sealed record SyntheticFaults(int LatencyMs, double DropProbability, bool
 
     /// <summary>A cheap HS-CAN-only adapter, for testing the degraded-capability path.</summary>
     public static readonly SyntheticFaults HsCanOnly = new(LatencyMs: 60, DropProbability: 0.02, SupportsMsCan: false);
+
+    /// <summary>
+    /// A healthy adapter on a desk with no vehicle attached — the first bring-up stage.
+    /// </summary>
+    public static readonly SyntheticFaults BenchNoVehicle =
+        new(LatencyMs: 20, DropProbability: 0, SupportsMsCan: true, VehiclePresent: false);
 }
