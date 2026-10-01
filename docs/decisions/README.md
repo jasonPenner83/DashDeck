@@ -36,6 +36,4 @@ including the reasoning that later turns out to be wrong.
 | [0028](ADR-0028-bluetooth-gps.md) | Bluetooth as the default GPS transport — NMEA over the paired phone's in-box virtual COM port; no driver, so C1's limit is untouched (extends 0027) | Accepted |
 | [0030](ADR-0030-fuel-flow-without-maf.md) | Fuel flow by speed-density; tank calibration becomes mandatory | Accepted |
 | [0029](ADR-0029-vehicle-profile.md) | A `VehicleProfile` on the component context (fuel tank size, more later), set in a Settings ▸ Vehicle section — the first additive `apiVersion` bump, 1.0 → 1.1 | Accepted |
-
-
-
+| [0031](ADR-0031-live-adapter-in-the-host.md) | The Host can run on the real adapter, falling back to the simulator | Accepted |

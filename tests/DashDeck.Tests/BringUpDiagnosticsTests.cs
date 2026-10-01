@@ -214,3 +214,43 @@ public class BaudNegotiatorTests
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }
+
+/// <summary>
+/// The rule that decides whether the shell talks to a truck or a simulation (ADR-0031).
+/// Getting it wrong either kills the dash on a desk or quietly simulates in the truck.
+/// </summary>
+public class AdapterSelectionTests
+{
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("\t")]
+    public void Blank_means_simulate(string? configured)
+    {
+        // The setting is free text. A stray space pasted into it must not become an attempt
+        // to open a device named nothing, which would take the dash down on a desk.
+        Assert.False(AdapterSelection.TryResolvePort(configured, out var port));
+        Assert.Equal(string.Empty, port);
+    }
+
+    [Theory]
+    [InlineData("COM7", "COM7")]
+    [InlineData("  COM7 ", "COM7")]
+    [InlineData("com7", "com7")]
+    public void Surrounding_whitespace_is_dropped(string configured, string expected)
+    {
+        Assert.True(AdapterSelection.TryResolvePort(configured, out var port));
+        Assert.Equal(expected, port);
+    }
+
+    [Fact]
+    public void Case_is_preserved_because_posix_device_paths_are_case_sensitive()
+    {
+        // This layer is cross-platform — the bring-up tool runs on Linux. Case-folding is
+        // harmless for a Windows COM name and turns /dev/ttyUSB0 into a port that does not
+        // exist.
+        Assert.True(AdapterSelection.TryResolvePort(" /dev/ttyUSB0 ", out var port));
+        Assert.Equal("/dev/ttyUSB0", port);
+    }
+}
