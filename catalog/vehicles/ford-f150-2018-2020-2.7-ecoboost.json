@@ -1,0 +1,20 @@
+// Signals for the 2018–2020 Ford F-150 with the 2.7 L EcoBoost twin-turbo V6 (ADR-0033).
+//
+// Laid over the standard catalog when the decoded VIN matches. This is where Ford's own mode 22
+// values go once they are CONFIRMED on a real truck with Settings ▸ Sensors ▸ TEST (ADR-0032,
+// open question Q13: transmission temperature, real oil temperature, fuel flow).
+//
+// Empty on purpose. A guessed PID that happens to answer decodes into a plausible wrong number,
+// which is the one failure this project refuses. Add a definition here only with the TEST
+// reading that proved it, and the reading it was checked against, in the commit message.
+{
+  "name": "Ford F-150 2.7 EcoBoost (2018–2020)",
+  "match": {
+    "make": "Ford",
+    "model": "F-150",
+    "yearMin": 2018,
+    "yearMax": 2020,
+    "displacementLitres": 2.7
+  },
+  "signals": []
+}

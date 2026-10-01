@@ -230,7 +230,20 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // signal file, which the next launch lays over the shipped catalog.
         Inventory = new SensorInventoryViewModel(vehicle, new UserSignalStore(), Sensors, App.RequestRestart);
 
-        Settings = new SettingsViewModel(theme, Display, Sensors, _userApps, reservedNames, Inventory);
+        // Which vehicle this is (ADR-0033): read from the truck or typed, decoded once by NHTSA,
+        // cached, and applied at the next launch like the rest of the Vehicle section.
+        VehicleIdentity = new VehicleIdentityViewModel(
+            new VehicleIdentityStore(),
+            new Identity.VpicVinDecoder(),
+            vehicle.ProbeAsync,
+            clock,
+            vehicle.IsSimulated,
+            vehicle.AvailablePacks,
+            vehicle.ActivePacks,
+            vehicle.PackProblem,
+            App.RequestRestart);
+
+        Settings = new SettingsViewModel(theme, Display, Sensors, _userApps, reservedNames, Inventory, VehicleIdentity);
 
         RebuildStageOptions();
 
@@ -314,6 +327,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>Appearance and, in time, the rest.</summary>
     public SettingsViewModel Settings { get; }
+
+    /// <summary>Which vehicle this is, for Settings ▸ Vehicle.</summary>
+    private VehicleIdentityViewModel VehicleIdentity { get; }
 
     /// <summary>The Sensors section's inventory, refreshed on the clock beat while it is open.</summary>
     private SensorInventoryViewModel Inventory { get; }

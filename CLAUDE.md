@@ -4,7 +4,7 @@ Working memory for this repo. Read this first; it is kept current deliberately.
 
 ## What this project is
 
-A Windows infotainment app for Jason's **2019 Ford F-150**, running on a **Surface Pro 7
+A Windows infotainment app for Jason's **2019 Ford F-150 (2.7 L EcoBoost)**, running on a **Surface Pro 7
 (Intel, 912 x 1368 portrait)** mounted in **portrait**, carried in and out of the truck. It reads vehicle data
 over an OBD-II adapter and presents it through **pluggable components**.
 
@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **295 tests green** — 93 engine, 202 shell.
+(ADR-0010). **333 tests green** — 118 engine, 215 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -54,6 +54,12 @@ to find what the truck supports and the catalog lacks (and the reverse), and **e
 definitions with a **TEST** that asks the truck before saving. Edits go to a user overlay,
 `%LOCALAPPDATA%\DashDeck\signals.user.json`, laid over the shipped catalog at the next launch
 (RESTART NOW is in the section); the shipped files are never written on the tablet.
+**Settings ▸ Vehicle** (ADR-0033) says *which* vehicle this is, so nothing hard-codes it: the
+VIN is **read from the truck** (mode 09) or typed, **decoded once by NHTSA vPIC** and cached in
+`%LOCALAPPDATA%\DashDeck\vehicle.json`, and every decoded field is correctable by hand. It fills
+`VehicleProfile` (year, make, model, engine — `apiVersion 1.2`, **never the VIN**) and picks a
+**vehicle signal pack** from `catalog/vehicles/` to lay over the standard set
+(standard → pack → your overlay). The F-150 2.7 pack is empty until TEST confirms Ford PIDs.
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
@@ -232,7 +238,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Thirty-two exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Thirty-three exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -244,7 +250,9 @@ as a third source (`PHONE`) behind a transport seam — over Bluetooth by defaul
 virtual COM port, no driver) or the network, and a `VehicleProfile` on the component context
 (fuel tank size, set in Settings ▸ Vehicle) that made the first additive `apiVersion` bump to 1.1,
 and finding and defining signals from Settings ▸ Sensors — a supported-PID scan, a TEST, and a
-user overlay catalog that the shipped one never absorbs by accident.
+user overlay catalog that the shipped one never absorbs by accident, and which vehicle this is —
+a VIN read from the truck or typed, decoded once and cached, filling `VehicleProfile`
+(`apiVersion 1.2`) and choosing a vehicle signal pack.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

@@ -16,6 +16,38 @@ public sealed record VehicleProfile
     /// <summary>Usable fuel tank, litres. Zero or negative means the user has not set it.</summary>
     public double FuelTankLitres { get; init; }
 
+    // ── apiVersion 1.2: what the vehicle is, decoded from its VIN (ADR-0033) ──
+    // Read at launch from the user's cached decode, corrected by hand where the decoder was
+    // wrong. Zero, empty and null all mean "not known" — a component must cope with each.
+    // The VIN itself is deliberately not here: no component needs the number to use the facts.
+
+    /// <summary>Model year, e.g. 2019. Zero when not known.</summary>
+    public int ModelYear { get; init; }
+
+    /// <summary>Manufacturer as the decoder names it, e.g. <c>FORD</c>. Empty when not known.</summary>
+    public string Make { get; init; } = "";
+
+    /// <summary>Model, e.g. <c>F-150</c>. Empty when not known.</summary>
+    public string Model { get; init; } = "";
+
+    /// <summary>Trim level, e.g. <c>XLT</c>. Empty when not known — the VIN rarely says.</summary>
+    public string Trim { get; init; } = "";
+
+    /// <summary>
+    /// Engine displacement in litres, e.g. 2.7. Zero when not known — and for an electric
+    /// vehicle, which has none.
+    /// </summary>
+    public double EngineDisplacementLitres { get; init; }
+
+    /// <summary>Number of cylinders. Zero when not known.</summary>
+    public int EngineCylinders { get; init; }
+
+    /// <summary>True for a turbocharged engine, false for one that is not, null when not known.</summary>
+    public bool? Turbocharged { get; init; }
+
+    /// <summary>Primary fuel, e.g. <c>Gasoline</c> or <c>Diesel</c>. Empty when not known.</summary>
+    public string FuelType { get; init; } = "";
+
     /// <summary>Nothing set — what a component sees on a host that provides no profile.</summary>
     public static VehicleProfile Empty { get; } = new();
 }

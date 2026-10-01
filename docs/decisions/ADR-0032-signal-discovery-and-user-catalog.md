@@ -104,7 +104,7 @@ edits the catalog, which is data, the way a text editor on the JSON would.
 - **`signals.user.json` joins `%LOCALAPPDATA%\DashDeck\`.** A corrupt file is an empty overlay and
   a reason, never a dash that will not start.
 - **The synthetic truck answers five standard PIDs the shipped catalog lacks** — bank 2's fuel
-  trims and catalyst temperature (the 3.5 EcoBoost is a V6), commanded λ, and distance with the
+  trims and catalyst temperature (the 2.7 EcoBoost is a V6), commanded λ, and distance with the
   MIL on — and lists them in the bitmaps it already answered for the bring-up tool, so a scan
   has something to find on the desk.
 - **The bitmap decoding is shared with the bring-up tool** (`PidSupportScanner.DecodeBitmap`).
