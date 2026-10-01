@@ -11,7 +11,7 @@ namespace DashDeck.Host.Tests;
 
 /// <summary>
 /// The Settings ▸ Sensors section: the inventory, the scan that finds missing signals, and the
-/// editor that defines them into the user's overlay file (ADR-0030).
+/// editor that defines them into the user's overlay file (ADR-0032).
 /// </summary>
 public sealed class SensorInventoryTests : IDisposable
 {

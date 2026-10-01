@@ -99,14 +99,18 @@
                             </Button.Template>
                         </Button>
 
-                        <!-- Never removed, however tight the bar gets. Synthetic numbers that
-                             could be mistaken for real ones are the one thing this project
-                             will not ship. -->
+                        <!-- Never removed while the data is simulated, however tight the bar
+                             gets: synthetic numbers that could be mistaken for real ones are
+                             the one thing this project will not ship. It is bound rather than
+                             always-on now that a real adapter is possible — a badge reading
+                             SIM over live data is worse than no badge, because it teaches you
+                             to ignore it. -->
                         <Border CornerRadius="999"
                                 Padding="10,4,10,4"
                                 VerticalAlignment="Center"
                                 BorderThickness="1"
-                                BorderBrush="#8DA6FF">
+                                BorderBrush="#8DA6FF"
+                                Visibility="{Binding IsSimulated, Converter={StaticResource BoolToVis}}">
                             <TextBlock FontFamily="{StaticResource MonoFont}"
                                        FontSize="11"
                                        Foreground="#8DA6FF"

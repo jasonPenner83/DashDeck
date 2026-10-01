@@ -1,4 +1,4 @@
-# ADR-0030 — Finding and defining signals from Settings: a scan, a TEST, and a user overlay catalog
+# ADR-0032 — Finding and defining signals from Settings: a scan, a TEST, and a user overlay catalog
 
 **Status:** Accepted · 2026-10-01
 **Extends:** [ADR-0004](ADR-0004-request-arbiter.md) (the catalogs are data) and
@@ -103,12 +103,15 @@ edits the catalog, which is data, the way a text editor on the JSON would.
 - **A seventh Settings section, SENSORS**, between Vehicle and Apps.
 - **`signals.user.json` joins `%LOCALAPPDATA%\DashDeck\`.** A corrupt file is an empty overlay and
   a reason, never a dash that will not start.
-- **The synthetic truck answers the supported-PID bitmaps** on HS-CAN from the same list it
-  encodes (a test holds the two equal), and answers five standard PIDs the shipped catalog lacks —
-  bank 2's fuel trims and catalyst temperature (the 3.5 EcoBoost is a V6), commanded λ, and
-  distance with the MIL on — so a scan has something to find before the adapter arrives.
+- **The synthetic truck answers five standard PIDs the shipped catalog lacks** — bank 2's fuel
+  trims and catalyst temperature (the 3.5 EcoBoost is a V6), commanded λ, and distance with the
+  MIL on — and lists them in the bitmaps it already answered for the bring-up tool, so a scan
+  has something to find on the desk.
+- **The bitmap decoding is shared with the bring-up tool** (`PidSupportScanner.DecodeBitmap`).
+  `PidScanner` exists beside it because the app asks through the running pipeline
+  (`VehicleService.ProbeAsync`) and must re-ask a dropped bitmap rather than end the walk.
 - **`SignalCatalog` gains `Overlay`, `FromDefinitions`, `Check`, `ParseList` and `ToJson`**;
   `VehicleService` gains `StatusOf` and `ProbeAsync`. Validation gained two rules: a name is
   required, and scale must be a non-zero number.
-- **First bring-up with the EX gets a tool**: SCAN answers what the truck supports (Q4's fuel rate
-  among it), and TEST is how Ford PIDs are tried (R2) — from the driver's seat, without a laptop.
+- **Bring-up with the EX gets a tool on the tablet**: SCAN answers what the truck supports, and
+  TEST is how Ford mode 22 PIDs are tried (R2, Q13) — from the driver's seat, without a laptop.

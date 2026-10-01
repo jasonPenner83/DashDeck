@@ -79,7 +79,7 @@ public sealed class VehicleService : IAsyncDisposable
     /// Ask the adapter one question, outside the polling plan.
     /// </summary>
     /// <remarks>
-    /// For discovery from Settings (ADR-0030): a supported-PID scan, or a TEST of a definition
+    /// For discovery from Settings (ADR-0032): a supported-PID scan, or a TEST of a definition
     /// before it is saved. It goes through the same adapter as the plan, whose own gate
     /// serialises it between polls, so it can never interleave on the wire. It is a handful of
     /// requests a person asks for by hand — not polling, and nothing here repeats it — so it

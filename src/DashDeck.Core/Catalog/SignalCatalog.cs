@@ -56,7 +56,7 @@ public sealed class SignalCatalog
     }
 
     /// <summary>
-    /// The shipped catalog with the user's own definitions laid over it (ADR-0030).
+    /// The shipped catalog with the user's own definitions laid over it (ADR-0032).
     /// </summary>
     /// <remarks>
     /// A user definition with a shipped id <em>replaces</em> that definition — which is how a

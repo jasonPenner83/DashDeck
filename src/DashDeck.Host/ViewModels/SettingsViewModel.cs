@@ -58,6 +58,23 @@ public sealed partial class SettingsSection(string name) : ObservableObject
 /// </remarks>
 public sealed partial class SettingsViewModel : ObservableObject
 {
+    /// <summary>
+    /// Serial ports the OS can see, as a hint beside the adapter field.
+    /// </summary>
+    /// <remarks>
+    /// A hint rather than a picker: the list can be long and full of unrelated devices
+    /// (the phone's Bluetooth GPS shows up here too), and a wrong pick is cheaper to
+    /// correct than a wrong guess is to diagnose.
+    /// </remarks>
+    public string DetectedSerialPorts
+    {
+        get
+        {
+            var ports = Settings.DisplaySettings.AvailableSerialPorts();
+            return ports.Count == 0 ? "no serial ports detected" : "detected: " + string.Join(", ", ports);
+        }
+    }
+
     private readonly ThemeService _theme;
     private readonly DashDeck.Host.Sensors.SensorService _sensors;
     private readonly DashDeck.Host.Stage.UserAppStore _userApps;
@@ -154,7 +171,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         RefreshSerialPorts();
     }
 
-    /// <summary>Every signal and sensor, the scan that finds missing ones, and the editor (ADR-0030).</summary>
+    /// <summary>Every signal and sensor, the scan that finds missing ones, and the editor (ADR-0032).</summary>
     public SensorInventoryViewModel Inventory { get; }
 
     /// <summary>True once the tablet''s mount has been levelled.</summary>

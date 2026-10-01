@@ -1,0 +1,216 @@
+using System.IO.Ports;
+using System.Text;
+using DashDeck.Abstractions;
+
+namespace DashDeck.Vehicle;
+
+/// <summary>
+/// Talks to an ELM327-compatible adapter over a virtual COM port — the OBDLink EX's FTDI
+/// bridge, in our case (ADR-0007).
+/// </summary>
+/// <remarks>
+/// Framing is by the adapter's <c>&gt;</c> prompt, not by newlines: a response may span
+/// several lines and only the prompt reliably marks the end of one.
+/// <para>
+/// Two details matter more than they look. The input buffer is drained before every write,
+/// because a timed-out request leaves its late response sitting in the buffer and the next
+/// command would read it as its own answer — putting a real value against the wrong
+/// signal. And disconnection is a normal state with automatic reconnect, because a USB
+/// cable in a truck gets knocked and the tablet sleeps (risk R3).
+/// </para>
+/// </remarks>
+public sealed class SerialPortTransport : IVehicleTransport
+{
+    /// <summary>The OBDLink EX ships at 115200 baud.</summary>
+    public const int DefaultBaudRate = 115200;
+
+    private readonly string _portName;
+    private readonly int _baudRate;
+    private readonly byte[] _readBuffer = new byte[1024];
+
+    private SerialPort? _port;
+    private TransportState _state = TransportState.Disconnected;
+
+    public SerialPortTransport(string portName, int baudRate = DefaultBaudRate)
+    {
+        _portName = portName;
+        _baudRate = baudRate;
+    }
+
+    public TransportState State
+    {
+        get => _state;
+        private set
+        {
+            if (_state == value)
+            {
+                return;
+            }
+
+            _state = value;
+            StateChanged?.Invoke(value);
+        }
+    }
+
+    public string Description => $"{_portName} @ {_baudRate} baud";
+
+    public event Action<TransportState>? StateChanged;
+
+    /// <summary>
+    /// How long to wait for a response. Generous by default: an adapter searching for a
+    /// vehicle bus can take several seconds before it gives up.
+    /// </summary>
+    public TimeSpan ResponseTimeout { get; set; } = TimeSpan.FromSeconds(5);
+
+    /// <summary>Serial ports visible to the OS. On Windows these are <c>COMn</c>.</summary>
+    public static IReadOnlyList<string> AvailablePorts() => SerialPort.GetPortNames();
+
+    public Task ConnectAsync(CancellationToken ct)
+    {
+        State = TransportState.Connecting;
+
+        try
+        {
+            _port?.Dispose();
+
+            _port = new SerialPort(_portName, _baudRate, Parity.None, 8, StopBits.One)
+            {
+                // Some adapters hold their interpreter in reset until these assert.
+                DtrEnable = true,
+                RtsEnable = true,
+                Handshake = Handshake.None,
+                ReadTimeout = (int)ResponseTimeout.TotalMilliseconds,
+                WriteTimeout = 2000,
+                NewLine = "\r",
+            };
+
+            _port.Open();
+            _port.DiscardInBuffer();
+            _port.DiscardOutBuffer();
+
+            State = TransportState.Connected;
+            return Task.CompletedTask;
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or ArgumentException)
+        {
+            State = TransportState.Faulted;
+
+            throw new IOException(
+                $"Could not open {_portName}. Check the adapter is plugged in, the FTDI driver " +
+                "is installed (a red LED on the adapter means it is not), and that nothing else " +
+                "— FORScan, OBDwiz — is holding the port.",
+                ex);
+        }
+    }
+
+    public async Task<string> ExchangeAsync(string command, CancellationToken ct)
+    {
+        if (_port is not { IsOpen: true })
+        {
+            await ReconnectAsync(ct).ConfigureAwait(false);
+        }
+
+        var port = _port ?? throw new IOException($"{_portName} is not open.");
+
+        try
+        {
+            // Drain anything left from a previous timeout. Without this, a late response is
+            // read as the answer to the next question.
+            if (port.BytesToRead > 0)
+            {
+                port.DiscardInBuffer();
+            }
+
+            var payload = Encoding.ASCII.GetBytes(command.TrimEnd('\r') + "\r");
+            await port.BaseStream.WriteAsync(payload, ct).ConfigureAwait(false);
+            await port.BaseStream.FlushAsync(ct).ConfigureAwait(false);
+
+            return await ReadToPromptAsync(port, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            // The cable was pulled, or the tablet slept. Normal, not exceptional.
+            State = TransportState.Disconnected;
+            throw new IOException($"{_portName} dropped mid-exchange.", ex);
+        }
+    }
+
+    /// <summary>Read until the adapter's prompt, the only reliable end marker.</summary>
+    private async Task<string> ReadToPromptAsync(SerialPort port, CancellationToken ct)
+    {
+        var builder = new StringBuilder();
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(ResponseTimeout);
+
+        try
+        {
+            while (!timeout.IsCancellationRequested)
+            {
+                var read = await port.BaseStream
+                    .ReadAsync(_readBuffer.AsMemory(), timeout.Token)
+                    .ConfigureAwait(false);
+
+                if (read <= 0)
+                {
+                    continue;
+                }
+
+                builder.Append(Encoding.ASCII.GetString(_readBuffer, 0, read));
+
+                if (builder.ToString().Contains('>', StringComparison.Ordinal))
+                {
+                    return builder.ToString();
+                }
+            }
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            // Our own timeout, not the caller's cancellation. Return what arrived; the
+            // parser classifies an empty or partial response as a timeout.
+        }
+
+        return builder.ToString();
+    }
+
+    private async Task ReconnectAsync(CancellationToken ct)
+    {
+        int[] delays = [200, 500, 1000, 2000];
+
+        for (var attempt = 0; attempt < delays.Length; attempt++)
+        {
+            try
+            {
+                await ConnectAsync(ct).ConfigureAwait(false);
+                return;
+            }
+            catch (IOException) when (attempt < delays.Length - 1)
+            {
+                await Task.Delay(delays[attempt], ct).ConfigureAwait(false);
+            }
+        }
+
+        throw new IOException($"Could not reopen {_portName} after {delays.Length} attempts.");
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_port is { IsOpen: true })
+            {
+                _port.Close();
+            }
+
+            _port?.Dispose();
+        }
+        catch (IOException)
+        {
+            // Nothing useful to do while tearing down a port that is already gone.
+        }
+
+        _port = null;
+        State = TransportState.Disconnected;
+        return ValueTask.CompletedTask;
+    }
+}

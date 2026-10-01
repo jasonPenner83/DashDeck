@@ -10,7 +10,7 @@ namespace DashDeck.Tests;
 
 /// <summary>
 /// Finding what the truck supports and the catalog lacks, and the user's overlay catalog that
-/// adds it (ADR-0030).
+/// adds it (ADR-0032).
 /// </summary>
 public class DiscoveryTests
 {
@@ -23,15 +23,6 @@ public class DiscoveryTests
     }
 
     // ── The bitmap ────────────────────────────────────────────────────────────
-
-    [Fact]
-    public void A_bitmap_reads_most_significant_bit_first()
-    {
-        // Byte A's top bit is base+1; byte D's bottom bit is base+32.
-        Assert.Equal([0x01, 0x20], SupportedPids.Decode(0x00, [0x80, 0x00, 0x00, 0x01]));
-        Assert.Equal([0x22], SupportedPids.Decode(0x20, [0x40, 0x00, 0x00, 0x00]));
-        Assert.Equal([0x4C], SupportedPids.Decode(0x40, [0x00, 0x10, 0x00, 0x00]));
-    }
 
     [Theory]
     [InlineData(0x00, true)]

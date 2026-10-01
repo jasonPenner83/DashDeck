@@ -71,6 +71,24 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <summary>True whenever the adapter is anything but connected.</summary>
     public bool IsAdapterLost => LinkState is not TransportState.Connected;
 
+    /// <summary>
+    /// Whether the numbers on screen are simulated. The SIM badge binds to this.
+    /// </summary>
+    /// <remarks>
+    /// Cannot change after launch — the transport is chosen once — so a plain getter is
+    /// enough and no change notification is needed.
+    /// </remarks>
+    public bool IsSimulated => _vehicle.IsSimulated;
+
+    /// <summary>
+    /// Why a configured adapter was not used, if one was configured and did not come up.
+    /// </summary>
+    /// <remarks>
+    /// Surfaced rather than swallowed: coming up simulated when you plugged in an adapter
+    /// and expected real data is precisely the confusion the quality flags exist to prevent.
+    /// </remarks>
+    public string? AdapterFallbackReason => _vehicle.FallbackReason;
+
     /// <summary>What the banner says. A fault is not the same as a pulled cable.</summary>
     public string LinkStatusText => LinkState is TransportState.Faulted
         ? "ADAPTER FAULT"
@@ -193,7 +211,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         // Settings owns levelling now, so it needs the sensors (ADR-0022); it also edits the
         // user app store, and refuses names that collide with a built-in.
-        // The Sensors section (ADR-0030) reads the running pipeline and edits the user's own
+        // The Sensors section (ADR-0032) reads the running pipeline and edits the user's own
         // signal file, which the next launch lays over the shipped catalog.
         Inventory = new SensorInventoryViewModel(vehicle, new UserSignalStore(), Sensors, App.RequestRestart);
 

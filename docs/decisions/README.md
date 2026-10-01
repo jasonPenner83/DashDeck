@@ -34,8 +34,7 @@ including the reasoning that later turns out to be wrong.
 | [0026](ADR-0026-persistent-source.md) | A persistent audio/video source: with a global toggle on, switching to a silent occupant keeps the source playing hidden behind it (amends 0025) | Accepted |
 | [0027](ADR-0027-phone-location.md) | The phone's GPS as a third source (`PHONE`): heading/speed/position over NMEA behind a transport seam, truck-first, no driver (extends 0016/0017) | Accepted |
 | [0028](ADR-0028-bluetooth-gps.md) | Bluetooth as the default GPS transport — NMEA over the paired phone's in-box virtual COM port; no driver, so C1's limit is untouched (extends 0027) | Accepted |
+| [0030](ADR-0030-fuel-flow-without-maf.md) | Fuel flow by speed-density; tank calibration becomes mandatory | Accepted |
 | [0029](ADR-0029-vehicle-profile.md) | A `VehicleProfile` on the component context (fuel tank size, more later), set in a Settings ▸ Vehicle section — the first additive `apiVersion` bump, 1.0 → 1.1 | Accepted |
-| [0030](ADR-0030-signal-discovery-and-user-catalog.md) | A Settings ▸ Sensors section: an inventory of every signal and sensor, a supported-PID scan that finds missing ones, and an editor with TEST that writes a user overlay catalog in `%LOCALAPPDATA%` (applied at next launch) | Accepted |
-
-
-
+| [0031](ADR-0031-live-adapter-in-the-host.md) | The Host can run on the real adapter, falling back to the simulator | Accepted |
+| [0032](ADR-0032-signal-discovery-and-user-catalog.md) | A Settings ▸ Sensors section: an inventory of every signal and sensor, a supported-PID scan that finds missing ones, and an editor with TEST that writes a user overlay catalog in `%LOCALAPPDATA%` (applied at next launch) | Accepted |

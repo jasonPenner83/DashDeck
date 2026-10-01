@@ -67,6 +67,12 @@ public sealed partial class DisplaySettings : ObservableObject
     [NotifyPropertyChangedFor(nameof(FuelTankGallons))]
     private double _fuelTankLitres = 136;
 
+    /// <summary>
+    /// The OBD-II adapter's COM port. Empty runs the synthetic truck. Applied at next launch.
+    /// </summary>
+    [ObservableProperty]
+    private string _adapterSerialPort = "";
+
     public DisplaySettings()
     {
         var stored = SettingsStore.Load();
@@ -77,6 +83,7 @@ public sealed partial class DisplaySettings : ObservableObject
         GpsTransport = stored.GpsTransport;
         GpsSerialPort = stored.GpsSerialPort;
         FuelTankLitres = stored.FuelTankLitres;
+        AdapterSerialPort = stored.AdapterSerialPort;
         _loaded = true;
     }
 
@@ -169,5 +176,29 @@ public sealed partial class DisplaySettings : ObservableObject
         }
 
         SettingsStore.Update(stored => stored with { FuelTankLitres = value });
+    }
+
+    partial void OnAdapterSerialPortChanged(string value)
+    {
+        if (!_loaded)
+        {
+            return;
+        }
+
+        SettingsStore.Update(stored => stored with { AdapterSerialPort = value });
+    }
+
+    /// <summary>Serial ports the OS can see, for the adapter picker.</summary>
+    public static IReadOnlyList<string> AvailableSerialPorts()
+    {
+        try
+        {
+            return DashDeck.Vehicle.SerialPortTransport.AvailablePorts();
+        }
+        catch (Exception)
+        {
+            // Enumerating ports is not worth failing a settings screen over.
+            return [];
+        }
     }
 }

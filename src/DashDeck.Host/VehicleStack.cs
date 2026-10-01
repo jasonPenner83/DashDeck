@@ -2,6 +2,8 @@
 using DashDeck.Core;
 using DashDeck.Core.Catalog;
 using DashDeck.Simulator;
+using DashDeck.Vehicle;
+using DashDeck.Vehicle.Diagnostics;
 using DashDeck.Vehicle.Elm;
 
 // System.Windows.Shapes.Path is in scope in a WPF project, so the file-system one is
@@ -23,24 +25,29 @@ namespace DashDeck.Host;
 public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventorySource
 {
     private readonly VehicleService _service;
+    private readonly IVehicleTransport _transport;
 
     private VehicleStack(
         VehicleService service,
-        SyntheticTransport synthetic,
+        IVehicleTransport transport,
+        SyntheticTransport? synthetic,
         string driveName,
         SignalCatalog shipped,
         SignalCatalog catalog,
-        string? overlayError)
+        string? overlayError,
+        string? fallbackReason = null)
     {
         _service = service;
+        _transport = transport;
         Synthetic = synthetic;
         DriveName = driveName;
         Shipped = shipped;
         Catalog = catalog;
         OverlayError = overlayError;
+        FallbackReason = fallbackReason;
     }
 
-    /// <summary>The catalog as it ships, before the user's overlay (ADR-0030).</summary>
+    /// <summary>The catalog as it ships, before the user's overlay (ADR-0032).</summary>
     public SignalCatalog Shipped { get; }
 
     /// <summary>
@@ -56,15 +63,41 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// <summary>What polling has learned about a signal, for the settings inventory.</summary>
     public SignalPollStatus StatusOf(string signalId) => _service.StatusOf(signalId);
 
-    /// <summary>One question to the adapter outside the plan — a scan or a TEST (ADR-0030).</summary>
-    public Task<DashDeck.Vehicle.PidResponse> ProbeAsync(DashDeck.Vehicle.PidRequest request, CancellationToken ct) =>
+    /// <summary>One question to the adapter outside the plan — a scan or a TEST (ADR-0032).</summary>
+    public Task<PidResponse> ProbeAsync(PidRequest request, CancellationToken ct) =>
         _service.ProbeAsync(request, ct);
 
     /// <summary>Named-signal access. This is all the UI is allowed to know about.</summary>
     public IVehicleSignals Signals => _service.Bus;
 
-    /// <summary>The synthetic truck, for the ground-truth figures the status strip shows.</summary>
-    public SyntheticTransport Synthetic { get; }
+    /// <summary>
+    /// The synthetic truck, or null when a real adapter is driving the stack.
+    /// </summary>
+    /// <remarks>
+    /// Nullable rather than always-present because the ground-truth figures and the
+    /// unplug/replug diagnostics it backs only exist in simulation — a real truck has no
+    /// "pretend the cable came out" button, and no exact fuel figure to compare against.
+    /// </remarks>
+    public SyntheticTransport? Synthetic { get; }
+
+    /// <summary>
+    /// True when the numbers on screen come from the simulator rather than a vehicle.
+    /// </summary>
+    /// <remarks>
+    /// The status strip's SIM badge binds to this. It used to be hard-coded, which was
+    /// correct while the app could only ever be simulated — but a badge that says SIM over
+    /// real data is worse than no badge at all, because it teaches you to ignore it.
+    /// </remarks>
+    public bool IsSimulated => Synthetic is not null;
+
+    /// <summary>
+    /// Why the real adapter was not used, when one was configured and did not come up.
+    /// Null when nothing was configured, or when the adapter is working.
+    /// </summary>
+    public string? FallbackReason { get; }
+
+    /// <summary>What the stack is actually talking to, for the status strip.</summary>
+    public string TransportDescription => _transport.Description;
 
     /// <summary>
     /// Where the link to the adapter currently is, for the status strip to render.
@@ -76,7 +109,7 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// error (see <see cref="DashDeck.Vehicle.TransportState"/>): the strip shows it, the
     /// pipeline recovers on its own, and nothing above here needs a restart (constraint C5).
     /// </remarks>
-    public DashDeck.Vehicle.TransportState LinkState => Synthetic.State;
+    public TransportState LinkState => _transport.State;
 
     /// <summary>
     /// The loaded catalog, so the card editor can offer what actually exists.
@@ -106,10 +139,10 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// should age into <see cref="SignalQuality.Stale"/> rather than freezing at its last
     /// number.
     /// </summary>
-    public void Unplug() => Synthetic.Unplug();
+    public void Unplug() => Synthetic?.Unplug();
 
     /// <summary>Plug it back in. The dash must recover without a restart (constraint C5).</summary>
-    public void Replug() => Synthetic.Replug();
+    public void Replug() => Synthetic?.Replug();
 
     /// <summary>
     /// Start the synthetic vehicle. No adapter and no truck are involved (ADR-0005), and
@@ -117,7 +150,7 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// never be mistaken on screen for a real reading.
     /// </summary>
     /// <param name="driveName">Which scripted drive to run.</param>
-    /// <param name="userSignals">The user's overlay (ADR-0030); read once, here, at launch.</param>
+    /// <param name="userSignals">The user's overlay (ADR-0032); read once, at launch.</param>
     /// <param name="cancellationToken">Cancels start-up.</param>
     public static async Task<VehicleStack> StartSyntheticAsync(
         string driveName,
@@ -135,7 +168,89 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         };
 
         await service.StartAsync(cancellationToken);
-        return new VehicleStack(service, synthetic, drive.Name, shipped, catalog, overlayError);
+        return new VehicleStack(service, synthetic, synthetic, drive.Name, shipped, catalog, overlayError);
+    }
+
+    /// <summary>
+    /// Start against a real OBD-II adapter on a serial port.
+    /// </summary>
+    /// <remarks>
+    /// The baud rate is negotiated rather than assumed: the OBDLink EX ships at 115200 but
+    /// its STN chip reaches 2 Mbps and other software raises it, and opening at the wrong
+    /// rate does not fail — it returns mojibake that reads as a broken adapter.
+    /// <para>
+    /// Everything above the transport is identical to the synthetic path. That is the
+    /// property ADR-0003 was for, and this method existing at ten lines is the evidence it
+    /// held.
+    /// </para>
+    /// </remarks>
+    public static async Task<VehicleStack> StartLiveAsync(
+        string portName,
+        IReadOnlyList<SignalDefinition> userSignals,
+        CancellationToken cancellationToken)
+    {
+        var shipped = SignalCatalog.FromFile(FindCatalog());
+        var (catalog, overlayError) = ApplyOverlay(shipped, userSignals);
+
+        var (baud, _) = await BaudNegotiator.FindAsync(
+            rate => new SerialPortTransport(portName, rate) { ResponseTimeout = TimeSpan.FromSeconds(2) },
+            ct: cancellationToken);
+
+        var transport = new SerialPortTransport(portName, baud);
+        var service = new VehicleService(new ElmAdapter(transport), catalog)
+        {
+            Quality = SignalQuality.Live,
+        };
+
+        await service.StartAsync(cancellationToken);
+        return new VehicleStack(service, transport, synthetic: null, $"{portName} @ {baud}", shipped, catalog, overlayError);
+    }
+
+    /// <summary>
+    /// Start the stack the way the app does: the configured adapter if there is one, the
+    /// synthetic truck otherwise.
+    /// </summary>
+    /// <remarks>
+    /// Falling back rather than failing is deliberate. Most of this app's life is spent on
+    /// a desk with no vehicle attached (ADR-0005), and a dash that comes up dead there
+    /// would be worse than one that comes up simulated and says so. The honesty is carried
+    /// by <see cref="IsSimulated"/> and by every value's <see cref="SignalQuality"/>, not by
+    /// refusing to run.
+    /// <para>
+    /// A configured port that does not come up is reported in <see cref="FallbackReason"/>
+    /// rather than swallowed: silently simulating when you expected real data is exactly
+    /// the confusion the quality flags exist to prevent.
+    /// </para>
+    /// </remarks>
+    public static async Task<VehicleStack> StartAsync(
+        string? adapterPort,
+        string driveName,
+        IReadOnlyList<SignalDefinition> userSignals,
+        CancellationToken cancellationToken)
+    {
+        if (!AdapterSelection.TryResolvePort(adapterPort, out var port))
+        {
+            return await StartSyntheticAsync(driveName, userSignals, cancellationToken);
+        }
+
+        try
+        {
+            return await StartLiveAsync(port, userSignals, cancellationToken);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or TimeoutException)
+        {
+            var fallback = await StartSyntheticAsync(driveName, userSignals, cancellationToken);
+
+            return new VehicleStack(
+                fallback._service,
+                fallback._transport,
+                fallback.Synthetic,
+                fallback.DriveName,
+                fallback.Shipped,
+                fallback.Catalog,
+                fallback.OverlayError,
+                $"{port}: {ex.Message}");
+        }
     }
 
     /// <summary>The shipped catalog with the overlay laid over it, or alone and a reason.</summary>

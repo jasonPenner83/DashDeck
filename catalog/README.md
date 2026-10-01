@@ -17,7 +17,7 @@ Ford-specific definitions will land in a `signals.ford-f150-2019.json` once they
 discovered on the truck. Keeping them in a separate file matters: the standard set is
 known-good and should not be churned by the trial and error of PID discovery.
 
-## Your own signals (ADR-0030)
+## Your own signals (ADR-0032)
 
 Signals found on the truck, and corrections to shipped ones, are made on the tablet in
 **Settings ▸ Sensors** — never by editing these files there. They are written to

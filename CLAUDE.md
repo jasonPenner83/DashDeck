@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **232 tests green** — 71 engine, 161 shell.
+(ADR-0010). **295 tests green** — 93 engine, 202 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -48,7 +48,7 @@ answers the new PIDs so the extra options are live. Cards flow into rows and row
 that snap sideways; **only the visible page declares signals.** Settings is **split into a rail
 of sections** (Appearance, Mount, Display, Vehicle, Sensors, Apps, Diagnostics); it and the card
 editor are full-screen views that take all six bands and hide the stage, which keeps running (Q17).
-**Settings ▸ Sensors** (ADR-0030) lists every vehicle signal and tablet sensor with what the
+**Settings ▸ Sensors** (ADR-0032) lists every vehicle signal and tablet sensor with what the
 truck has said about each — without ever declaring demand — **scans** the supported-PID bitmaps
 to find what the truck supports and the catalog lacks (and the reverse), and **edits**
 definitions with a **TEST** that asks the truck before saving. Edits go to a user overlay,
@@ -162,8 +162,8 @@ The **OBDLink EX** adapter, wired USB (ADR-0007), was **ordered 2026-09-29, due 
 (ADR-0019) is chosen and not bought. Both are built against synthetic transports behind a
 seam, so neither is blocking. First bring-up with the EX: a real `UsbSerialTransport`, then
 measure the request ceiling (Q12) and what the Gateway Module passes on MS-CAN (Q5). Then
-**Settings ▸ Sensors ▸ SCAN THE TRUCK** answers which standard PIDs it supports (Q4's fuel rate
-among them), and **TEST** is the loop for trying Ford PIDs (R2) from the driver's seat.
+**Settings ▸ Sensors ▸ SCAN THE TRUCK** asks which standard PIDs it supports from the tablet,
+and **TEST** is the loop for trying Ford mode 22 PIDs (R2, Q13) from the driver's seat.
 
 ## Things that are easy to get wrong here
 
@@ -232,7 +232,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Thirty exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Thirty-two exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the

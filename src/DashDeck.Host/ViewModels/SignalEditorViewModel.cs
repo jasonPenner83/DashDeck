@@ -19,7 +19,7 @@ public sealed partial class ByteLengthOption(int length) : ObservableObject
 }
 
 /// <summary>
-/// One signal definition being written or corrected, in the Sensors section (ADR-0030).
+/// One signal definition being written or corrected, in the Sensors section (ADR-0032).
 /// </summary>
 /// <remarks>
 /// Every field is text, parsed as it is typed and checked by the catalog's own

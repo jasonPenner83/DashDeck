@@ -11,4 +11,12 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+
+  <ItemGroup>
+    <!-- The drift guard in DashDeck.Tests asserts that SupportedHsPids matches what
+         EncodePid actually implements. That check needs to see internals rather than
+         widening the simulator's public surface for a test's benefit. -->
+    <InternalsVisibleTo Include="DashDeck.Tests" />
+  </ItemGroup>
+
 </Project>

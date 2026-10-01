@@ -4,7 +4,7 @@ using DashDeck.Core.Catalog;
 namespace DashDeck.Host.Settings;
 
 /// <summary>
-/// The signals the user has added or corrected, kept apart from the shipped catalog (ADR-0030).
+/// The signals the user has added or corrected, kept apart from the shipped catalog (ADR-0032).
 /// </summary>
 /// <remarks>
 /// The shipped catalog sits beside the executable, which <c>publish.ps1</c> deletes and rewrites

@@ -1,5 +1,6 @@
 using DashDeck.Abstractions;
 using DashDeck.Vehicle;
+using DashDeck.Vehicle.Diagnostics;
 
 namespace DashDeck.Core.Discovery;
 
@@ -17,26 +18,6 @@ public static class SupportedPids
 {
     /// <summary>The PIDs that answer a bitmap rather than a value: 00, 20, 40 … E0.</summary>
     public static bool IsRangeQuery(int pid) => pid is >= 0 and <= 0xE0 && pid % 0x20 == 0;
-
-    /// <summary>
-    /// The PIDs a bitmap marks as supported.
-    /// </summary>
-    /// <param name="basePid">The PID that was asked: 00, 20, 40 ….</param>
-    /// <param name="bitmap">Its four payload bytes. Byte A's top bit is <paramref name="basePid"/>+1.</param>
-    public static IReadOnlyList<int> Decode(int basePid, ReadOnlySpan<byte> bitmap)
-    {
-        var result = new List<int>();
-
-        for (var i = 0; i < 32 && i / 8 < bitmap.Length; i++)
-        {
-            if ((bitmap[i / 8] & (0x80 >> (i % 8))) != 0)
-            {
-                result.Add(basePid + i + 1);
-            }
-        }
-
-        return result;
-    }
 }
 
 /// <summary>What one bus said when asked which PIDs it supports.</summary>
@@ -53,10 +34,13 @@ public sealed record PidScanResult(CanBus Bus, IReadOnlySet<int> Supported, stri
 /// Walks the supported-PID bitmaps on one bus.
 /// </summary>
 /// <remarks>
-/// Takes the request as a delegate rather than an adapter so it runs through whatever
-/// serialises access — <see cref="VehicleService.ProbeAsync"/> in the app — and so a test can
-/// hand it canned answers. It is a one-off question a person asks from Settings, not polling:
-/// it never enters the arbiter's plan.
+/// The bring-up tool's <see cref="PidSupportScanner"/> asks the same question of a bare
+/// adapter, and this shares its bitmap decoding. It differs in two ways the running app needs:
+/// it takes the request as a delegate, so it goes through whatever serialises access —
+/// <see cref="VehicleService.ProbeAsync"/>, with the polling plan running — and so a test can
+/// hand it canned answers; and it asks a dropped bitmap again rather than ending the walk
+/// there. It is a one-off question a person asks from Settings, not polling: it never enters
+/// the arbiter's plan.
 /// </remarks>
 public static class PidScanner
 {
@@ -91,7 +75,7 @@ public static class PidScanner
 
             var next = false;
 
-            foreach (var pid in SupportedPids.Decode(basePid, response.Data))
+            foreach (int pid in PidSupportScanner.DecodeBitmap((ushort)basePid, response.Data))
             {
                 if (pid == basePid + 0x20)
                 {

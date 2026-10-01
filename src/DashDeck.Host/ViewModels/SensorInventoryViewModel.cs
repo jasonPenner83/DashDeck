@@ -161,7 +161,7 @@ public sealed record MissingPidViewModel(int Pid, CanBus Bus, string Name, bool 
 
 /// <summary>
 /// The Sensors section: every value DashDeck can show, where each comes from, and the tools to
-/// find and define the ones it cannot show yet (ADR-0030).
+/// find and define the ones it cannot show yet (ADR-0032).
 /// </summary>
 /// <remarks>
 /// Three jobs, in the order a person reaches for them.
