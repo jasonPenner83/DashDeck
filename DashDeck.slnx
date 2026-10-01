@@ -1,7 +1,8 @@
-﻿<Solution>
+<Solution>
   <Folder Name="/src/">
     <Project Path="src/DashDeck.Abstractions/DashDeck.Abstractions.csproj" />
     <Project Path="src/DashDeck.Abstractions.Wpf/DashDeck.Abstractions.Wpf.csproj" />
+    <Project Path="src/DashDeck.BringUp/DashDeck.BringUp.csproj" />
     <Project Path="src/DashDeck.Core/DashDeck.Core.csproj" />
     <Project Path="src/DashDeck.DebugConsole/DashDeck.DebugConsole.csproj" />
     <Project Path="src/DashDeck.Host/DashDeck.Host.csproj" />
