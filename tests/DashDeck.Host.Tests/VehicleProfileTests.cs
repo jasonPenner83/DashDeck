@@ -15,6 +15,8 @@ public sealed class VehicleProfileTests
     [Theory]
     [InlineData("1.0", true)]   // the four original components still load
     [InlineData("1.1", true)]   // the profile bump
+    [InlineData("1.2", true)]   // what the vehicle is, from its VIN (ADR-0033)
+    [InlineData("1.3", false)]  // not from the future
     [InlineData("2.0", false)]  // a major change would need its own ADR
     public void The_host_serves_one_zero_through_the_current_minor(string apiVersion, bool served) =>
         Assert.Equal(served, ApiRange.Serves(apiVersion));

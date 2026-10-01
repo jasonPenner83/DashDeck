@@ -21,6 +21,8 @@ public static class ComponentApi
 {
     /// <summary>The contract version, <c>major.minor</c>. Additive changes bump the minor.</summary>
     /// <remarks>1.1 added <see cref="IComponentContext.Vehicle"/> (ADR-0029); a 1.0 component
-    /// still loads and runs, since the addition is a member it simply does not read.</remarks>
-    public const string Version = "1.1";
+    /// still loads and runs, since the addition is a member it simply does not read.
+    /// 1.2 added what the vehicle is — year, make, model, engine — to
+    /// <see cref="VehicleProfile"/>, decoded from its VIN (ADR-0033); additive in the same way.</remarks>
+    public const string Version = "1.2";
 }

@@ -177,6 +177,11 @@ public sealed class SyntheticTransport : IVehicleTransport
             return "SEARCHING...\rUNABLE TO CONNECT\r\r>";
         }
 
+        if (mode == 0x09 && pid == 0x02 && _bus == CanBus.Hs)
+        {
+            return VinResponse;
+        }
+
         if (mode != 0x01)
         {
             return "NO DATA\r\r>";
@@ -205,6 +210,28 @@ public sealed class SyntheticTransport : IVehicleTransport
         return payload is null
             ? "NO DATA\r\r>"
             : Respond(mode, pid, payload);
+    }
+
+    /// <summary>
+    /// The synthetic truck's VIN. Shaped like a 2019 F-150's, but serial <c>000000</c> is
+    /// never issued, so it belongs to no real vehicle — the repository must never hold a real
+    /// VIN (CLAUDE.md). The check digit is correct, so it exercises the same path a real one does.
+    /// </summary>
+    public const string SyntheticVin = "1FTEW1EP2KF000000";
+
+    /// <summary>
+    /// Mode 09 PID 02 the way an ELM327 with spaces off prints a multi-frame reply: a byte count
+    /// (0x14 — 49 02 01 and seventeen characters), then ISO-TP frames whose index is glued to
+    /// the data. The VIN is the first reply DashDeck reads that does not fit one CAN frame, so
+    /// this is what keeps the parser honest about them (ADR-0033).
+    /// </summary>
+    private static string VinResponse
+    {
+        get
+        {
+            var hex = Convert.ToHexString(Encoding.ASCII.GetBytes(SyntheticVin));
+            return $"014\r0:490201{hex[..6]}\r1:{hex[6..20]}\r2:{hex[20..]}\r\r>";
+        }
     }
 
     /// <summary>
@@ -311,7 +338,7 @@ public sealed class SyntheticTransport : IVehicleTransport
         0x2E => [Scale255(Math.Clamp(_truck.Jitter(6, 6), 0, 100))],                            // evap purge
         0x42 => TwoByte((ushort)Math.Clamp((_truck.SpeedKph > 0 ? 14.2 : 12.6) * 1000, 0, 65535)), // control module voltage
 
-        // Answered, but deliberately absent from the shipped catalog: the 3.5 EcoBoost is a V6
+        // Answered, but deliberately absent from the shipped catalog: the 2.7 EcoBoost is a V6
         // with two banks, so a real one reports bank 2 as well. These are what a supported-PID
         // scan of the synthetic truck turns up as missing (ADR-0032).
         0x08 => [(byte)Math.Clamp(Math.Round((_truck.Jitter(0, 3) + 100) / 0.78125), 0, 255)],  // short-term fuel trim, bank 2

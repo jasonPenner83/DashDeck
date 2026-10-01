@@ -1,6 +1,7 @@
 ﻿using DashDeck.Abstractions;
 using DashDeck.Core;
 using DashDeck.Core.Catalog;
+using DashDeck.Core.Identity;
 using DashDeck.Simulator;
 using DashDeck.Vehicle;
 using DashDeck.Vehicle.Diagnostics;
@@ -32,23 +33,34 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         IVehicleTransport transport,
         SyntheticTransport? synthetic,
         string driveName,
-        SignalCatalog shipped,
-        SignalCatalog catalog,
-        string? overlayError,
+        LoadedCatalog loaded,
         string? fallbackReason = null)
     {
         _service = service;
         _transport = transport;
         Synthetic = synthetic;
         DriveName = driveName;
-        Shipped = shipped;
-        Catalog = catalog;
-        OverlayError = overlayError;
+        Loaded = loaded;
         FallbackReason = fallbackReason;
     }
 
-    /// <summary>The catalog as it ships, before the user's overlay (ADR-0032).</summary>
-    public SignalCatalog Shipped { get; }
+    /// <summary>How the running catalog was put together: standard, vehicle packs, your overlay.</summary>
+    public LoadedCatalog Loaded { get; }
+
+    /// <summary>The vehicle packs laid over the standard set at launch (ADR-0033). Empty for most vehicles.</summary>
+    public IReadOnlyList<VehiclePack> ActivePacks => Loaded.ActivePacks;
+
+    /// <summary>Every pack that ships, so Settings can say which one a newly decoded VIN would pick.</summary>
+    public IReadOnlyList<VehiclePack> AvailablePacks => Loaded.AvailablePacks;
+
+    /// <summary>Why a pack was left out, when one was. Never fatal.</summary>
+    public string? PackProblem => Loaded.PackProblem;
+
+    /// <summary>
+    /// The catalog as it ships for this vehicle — the standard set plus any matching vehicle
+    /// pack (ADR-0033) — before the user's overlay (ADR-0032).
+    /// </summary>
+    public SignalCatalog Shipped => Loaded.Shipped;
 
     /// <summary>
     /// Why the user's overlay was not applied at launch, when it was not.
@@ -58,7 +70,7 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// leave the dash running a catalog nobody wrote; refusing to start over a hand-edited file
     /// would be worse. The Sensors section shows this so the drop is never silent.
     /// </remarks>
-    public string? OverlayError { get; }
+    public string? OverlayError => Loaded.OverlayError;
 
     /// <summary>What polling has learned about a signal, for the settings inventory.</summary>
     public SignalPollStatus StatusOf(string signalId) => _service.StatusOf(signalId);
@@ -126,7 +138,7 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// about PIDs, and an editor that picks signals is held to the same line.
     /// </para>
     /// </remarks>
-    public SignalCatalog Catalog { get; }
+    public SignalCatalog Catalog => Loaded.Catalog;
 
     /// <summary>Which scripted drive is running.</summary>
     public string DriveName { get; }
@@ -150,16 +162,16 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// never be mistaken on screen for a real reading.
     /// </summary>
     /// <param name="driveName">Which scripted drive to run.</param>
-    /// <param name="userSignals">The user's overlay (ADR-0032); read once, at launch.</param>
+    /// <param name="sources">The vehicle and the user's overlay; read once, at launch.</param>
     /// <param name="cancellationToken">Cancels start-up.</param>
     public static async Task<VehicleStack> StartSyntheticAsync(
         string driveName,
-        IReadOnlyList<SignalDefinition> userSignals,
+        CatalogSources sources,
         CancellationToken cancellationToken)
     {
         var drive = Drives.ByName(driveName);
-        var shipped = SignalCatalog.FromFile(FindCatalog());
-        var (catalog, overlayError) = ApplyOverlay(shipped, userSignals);
+        var loaded = LoadCatalog(sources);
+        var catalog = loaded.Catalog;
         var synthetic = new SyntheticTransport(new SimulatedF150(drive));
 
         var service = new VehicleService(new ElmAdapter(synthetic), catalog)
@@ -168,7 +180,7 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         };
 
         await service.StartAsync(cancellationToken);
-        return new VehicleStack(service, synthetic, synthetic, drive.Name, shipped, catalog, overlayError);
+        return new VehicleStack(service, synthetic, synthetic, drive.Name, loaded);
     }
 
     /// <summary>
@@ -186,11 +198,11 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// </remarks>
     public static async Task<VehicleStack> StartLiveAsync(
         string portName,
-        IReadOnlyList<SignalDefinition> userSignals,
+        CatalogSources sources,
         CancellationToken cancellationToken)
     {
-        var shipped = SignalCatalog.FromFile(FindCatalog());
-        var (catalog, overlayError) = ApplyOverlay(shipped, userSignals);
+        var loaded = LoadCatalog(sources);
+        var catalog = loaded.Catalog;
 
         var (baud, _) = await BaudNegotiator.FindAsync(
             rate => new SerialPortTransport(portName, rate) { ResponseTimeout = TimeSpan.FromSeconds(2) },
@@ -203,7 +215,7 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         };
 
         await service.StartAsync(cancellationToken);
-        return new VehicleStack(service, transport, synthetic: null, $"{portName} @ {baud}", shipped, catalog, overlayError);
+        return new VehicleStack(service, transport, synthetic: null, $"{portName} @ {baud}", loaded);
     }
 
     /// <summary>
@@ -225,32 +237,63 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     public static async Task<VehicleStack> StartAsync(
         string? adapterPort,
         string driveName,
-        IReadOnlyList<SignalDefinition> userSignals,
+        CatalogSources sources,
         CancellationToken cancellationToken)
     {
         if (!AdapterSelection.TryResolvePort(adapterPort, out var port))
         {
-            return await StartSyntheticAsync(driveName, userSignals, cancellationToken);
+            return await StartSyntheticAsync(driveName, sources, cancellationToken);
         }
 
         try
         {
-            return await StartLiveAsync(port, userSignals, cancellationToken);
+            return await StartLiveAsync(port, sources, cancellationToken);
         }
         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or TimeoutException)
         {
-            var fallback = await StartSyntheticAsync(driveName, userSignals, cancellationToken);
+            var fallback = await StartSyntheticAsync(driveName, sources, cancellationToken);
 
             return new VehicleStack(
                 fallback._service,
                 fallback._transport,
                 fallback.Synthetic,
                 fallback.DriveName,
-                fallback.Shipped,
-                fallback.Catalog,
-                fallback.OverlayError,
+                fallback.Loaded,
                 $"{port}: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Put the catalog together: the standard set, then the vehicle packs the decoded VIN
+    /// matches (ADR-0033), then the user's own overlay (ADR-0032).
+    /// </summary>
+    /// <remarks>
+    /// Only the standard file is load-bearing. A pack that will not load, or will not combine
+    /// with the standard set, is left out and reported; an overlay that will not combine is
+    /// dropped and reported. Either way the dash starts.
+    /// </remarks>
+    internal static LoadedCatalog LoadCatalog(CatalogSources sources)
+    {
+        var standard = SignalCatalog.FromFile(FindCatalog());
+        var (available, problems) = VehiclePacks.LoadFolder(CatalogPath.FindFolder("vehicles"));
+        var active = VehiclePacks.Select(available, sources.Vehicle);
+        var packProblem = problems.Count > 0 ? string.Join(" ", problems) : null;
+
+        SignalCatalog shipped;
+
+        try
+        {
+            shipped = VehiclePacks.Apply(standard, active);
+        }
+        catch (System.IO.InvalidDataException ex)
+        {
+            shipped = standard;
+            active = [];
+            packProblem = ex.Message;
+        }
+
+        var (catalog, overlayError) = ApplyOverlay(shipped, sources.UserSignals);
+        return new LoadedCatalog(shipped, catalog, overlayError, active, available, packProblem);
     }
 
     /// <summary>The shipped catalog with the overlay laid over it, or alone and a reason.</summary>
@@ -290,3 +333,20 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
             "Run from inside the repository.");
 }
 
+/// <summary>What the catalog is built from at launch, besides the shipped files.</summary>
+/// <param name="Vehicle">The decoded vehicle, which picks the signal pack (ADR-0033).</param>
+/// <param name="UserSignals">The user's own overlay (ADR-0032).</param>
+public sealed record CatalogSources(VehicleIdentity Vehicle, IReadOnlyList<SignalDefinition> UserSignals)
+{
+    /// <summary>No vehicle known and no overlay — the standard set alone.</summary>
+    public static CatalogSources None { get; } = new(VehicleIdentity.Unknown, []);
+}
+
+/// <summary>How the running catalog was put together, and what was left out of it.</summary>
+public sealed record LoadedCatalog(
+    SignalCatalog Shipped,
+    SignalCatalog Catalog,
+    string? OverlayError,
+    IReadOnlyList<VehiclePack> ActivePacks,
+    IReadOnlyList<VehiclePack> AvailablePacks,
+    string? PackProblem);

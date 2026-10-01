@@ -138,10 +138,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         DashDeck.Host.Sensors.SensorService sensors,
         DashDeck.Host.Stage.UserAppStore userApps,
         IReadOnlyList<string> reservedNames,
-        SensorInventoryViewModel inventory)
+        SensorInventoryViewModel inventory,
+        VehicleIdentityViewModel vehicle)
     {
         _theme = theme;
         Inventory = inventory;
+        Vehicle = vehicle;
         Display = display;
         _sensors = sensors;
         _userApps = userApps;
@@ -173,6 +175,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Every signal and sensor, the scan that finds missing ones, and the editor (ADR-0032).</summary>
     public SensorInventoryViewModel Inventory { get; }
+
+    /// <summary>Which vehicle this is: its VIN, the decode, the signal pack (ADR-0033).</summary>
+    public VehicleIdentityViewModel Vehicle { get; }
 
     /// <summary>True once the tablet''s mount has been levelled.</summary>
     public bool IsLevelled => _sensors.IsLevelled;

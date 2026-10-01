@@ -369,17 +369,168 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <!-- ── VEHICLE (ADR-0029) ────────────────────────────────────── -->
+            <!-- ── VEHICLE (ADR-0029, ADR-0033) ────────────────────────────────────── -->
             <ScrollViewer VerticalScrollBarVisibility="Auto"
                           Visibility="{Binding IsVehicle, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="31,26,31,24">
-                    <TextBlock Style="{StaticResource CaptionText}" Text="THE TRUCK" />
+                    <!-- Which vehicle this is, from its VIN (ADR-0033). Truck first, typed as the fallback. -->
+                    <TextBlock Style="{StaticResource CaptionText}" Text="THE VEHICLE" />
 
                     <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
                                TextWrapping="Wrap" Style="{StaticResource MicroText}"
-                               Text="Facts about your F-150 the dash needs but can't read off the bus. Components read them — the range estimate uses the tank size. More factors will land here." />
+                               Text="What the dash is fitted to. The VIN says what it is — year, make, model, engine — which picks the signals that fit it, and components read the rest." />
 
-                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,22,0,0" Text="FUEL TANK (LITRES)" />
+                    <StackPanel Margin="0,16,0,0">
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="VIN" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBox Style="{StaticResource InputField}" Width="300" MaxLength="24"
+                                     CharacterCasing="Upper"
+                                     Text="{Binding Vehicle.VinText, UpdateSourceTrigger=PropertyChanged}" />
+                            <Button Style="{StaticResource StageLauncherButton}" MinWidth="130" Margin="12,0,0,0"
+                                    Command="{Binding Vehicle.ReadFromTruckCommand}">
+                                <TextBlock Text="READ FROM TRUCK" FontFamily="{StaticResource MonoFont}" FontSize="12" />
+                            </Button>
+                            <Button Style="{StaticResource StageLauncherButton}" MinWidth="100" Margin="0"
+                                    Command="{Binding Vehicle.LookUpCommand}">
+                                <TextBlock Text="LOOK UP" FontFamily="{StaticResource MonoFont}" FontSize="12" />
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                               Text="{Binding Vehicle.VinMessage}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource MicroText}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Vehicle.VinIsSuspect}" Value="True">
+                                        <!-- The Stale amber: worth a second look, not a refusal. -->
+                                        <Setter Property="Foreground" Value="#FFE0B23C" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <TextBlock Margin="2,6,0,0" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                               Text="{Binding Vehicle.Status}"
+                               Visibility="{Binding Vehicle.Status, Converter={StaticResource EmptyToCollapsed}}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource MicroText}">
+                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Vehicle.StatusIsProblem}" Value="True">
+                                        <Setter Property="Foreground" Value="#FFE5544B" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <!-- What it decoded to, every field correctable by hand. -->
+                    <Border Margin="0,16,0,0" Padding="16,14,16,6" CornerRadius="12"
+                            Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1">
+                        <StackPanel>
+                            <TextBlock Text="{Binding Vehicle.Summary}" TextWrapping="Wrap"
+                                       FontFamily="{StaticResource MonoFont}" FontSize="15"
+                                       Foreground="{DynamicResource TextHighBrush}" />
+                            <TextBlock Margin="0,4,0,12" Style="{StaticResource MicroText}" Text="{Binding Vehicle.SourceText}"
+                                       Visibility="{Binding Vehicle.SourceText, Converter={StaticResource EmptyToCollapsed}}" />
+
+                            <StackPanel Orientation="Horizontal">
+                                <StackPanel Margin="0,0,12,12">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="YEAR" />
+                                    <TextBox Style="{StaticResource InputField}" Width="100"
+                                             Text="{Binding Vehicle.YearText, UpdateSourceTrigger=LostFocus}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,12,12">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="MAKE" />
+                                    <TextBox Style="{StaticResource InputField}" Width="170"
+                                             Text="{Binding Vehicle.Make, UpdateSourceTrigger=LostFocus}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,0,12">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="MODEL" />
+                                    <TextBox Style="{StaticResource InputField}" Width="250"
+                                             Text="{Binding Vehicle.Model, UpdateSourceTrigger=LostFocus}" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal">
+                                <StackPanel Margin="0,0,12,12">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="TRIM" />
+                                    <TextBox Style="{StaticResource InputField}" Width="130"
+                                             Text="{Binding Vehicle.Trim, UpdateSourceTrigger=LostFocus}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,12,12">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="ENGINE (L)" />
+                                    <TextBox Style="{StaticResource InputField}" Width="110"
+                                             Text="{Binding Vehicle.DisplacementText, UpdateSourceTrigger=LostFocus}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,12,12">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="CYLINDERS" />
+                                    <TextBox Style="{StaticResource InputField}" Width="100"
+                                             Text="{Binding Vehicle.CylindersText, UpdateSourceTrigger=LostFocus}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,0,12">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="FUEL" />
+                                    <TextBox Style="{StaticResource InputField}" Width="150"
+                                             Text="{Binding Vehicle.FuelType, UpdateSourceTrigger=LostFocus}" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <Button Style="{StaticResource StageLauncherButton}" MinWidth="200"
+                                        Command="{Binding Vehicle.CycleTurboCommand}">
+                                    <TextBlock Text="{Binding Vehicle.TurboLabel}" FontFamily="{StaticResource MonoFont}" FontSize="12" />
+                                </Button>
+                                <Button Style="{StaticResource StageLauncherButton}" MinWidth="120"
+                                        Command="{Binding Vehicle.ForgetCommand}">
+                                    <TextBlock Text="FORGET" FontFamily="{StaticResource MonoFont}" FontSize="12" />
+                                </Button>
+                            </StackPanel>
+
+                            <TextBlock Margin="2,0,0,8" TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                       Foreground="#FFE5544B"
+                                       Text="{Binding Vehicle.FieldProblem}"
+                                       Visibility="{Binding Vehicle.FieldProblem, Converter={StaticResource EmptyToCollapsed}}" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}" Foreground="{DynamicResource TextMidBrush}"
+                               Text="{Binding Vehicle.PackText}"
+                               Visibility="{Binding Vehicle.PackText, Converter={StaticResource EmptyToCollapsed}}" />
+
+                    <TextBlock Margin="2,6,0,0" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}" Foreground="#FFE5544B"
+                               Text="{Binding Vehicle.PackProblem, StringFormat=A signal pack was left out: {0}}"
+                               Visibility="{Binding Vehicle.PackProblem, Converter={StaticResource EmptyToCollapsed}}" />
+
+                    <Border Margin="0,12,0,0" Padding="16,12,12,12" CornerRadius="12"
+                            Background="{DynamicResource AccentWashBrush}"
+                            BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                            Visibility="{Binding Vehicle.RestartNeeded, Converter={StaticResource BoolToVis}}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                       Foreground="{DynamicResource AccentBrush}"
+                                       Text="Saved. The signals and what components see change at the next launch." />
+                            <Button Grid.Column="1" Style="{StaticResource StageLauncherButton}" Height="48" Margin="12,0,0,0"
+                                    Command="{Binding Vehicle.RestartCommand}"
+                                    Visibility="{Binding Vehicle.CanRestart, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="RESTART NOW" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="{Binding Vehicle.StorePath, StringFormat=LOOK UP sends the VIN once to the NHTSA public decoder (vpic.nhtsa.dot.gov). It is kept only on this tablet in {0} — FORGET deletes it. Components get the facts and never the VIN.}" />
+
+                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,28,0,0" Text="FUEL TANK (LITRES)" />
 
                     <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                         <TextBox Style="{StaticResource InputField}" Width="150"
@@ -391,7 +542,7 @@
 
                     <TextBlock Margin="2,12,0,0" MaxWidth="620" HorizontalAlignment="Left"
                                TextWrapping="Wrap" Style="{StaticResource MicroText}"
-                               Text="A 2019 F-150 ships a 23, 26 or 36 US-gallon tank (≈ 87, 98 or 136 L). Yours is the 36. Takes effect at the next launch — a tank doesn't change size while you drive." />
+                               Text="The VIN doesn't say how big the tank is, so set it here — the owner's manual or the window sticker has it. The range estimate uses it. Takes effect at the next launch — a tank doesn't change size while you drive." />
 
                     <!-- The real adapter (ADR-0031). Empty is the default and stays the
                          default: most of this tablet's life is nowhere near the truck. -->

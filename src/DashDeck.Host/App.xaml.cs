@@ -42,14 +42,18 @@ public partial class App : Application
         // life away from the truck (ADR-0005).
         var adapterPort = ArgValue(e.Args, "--port") ?? Settings.SettingsStore.Load().AdapterSerialPort;
 
+        // Which vehicle this is, decoded from its VIN and cached (ADR-0033). It picks the vehicle
+        // signal pack and fills the component profile; unknown is fine — the standard set runs.
+        var identity = new Settings.VehicleIdentityStore().Identity;
+
         try
         {
-            // The user's own signals (ADR-0032), read once at launch like every other choice
-            // that shapes the pipeline. A bad file is reported in Settings, never fatal.
+            // The vehicle's pack and the user's own signals (ADR-0032), read once at launch like
+            // every other choice that shapes the pipeline. A bad file is reported, never fatal.
             _vehicle = await VehicleStack.StartAsync(
                 adapterPort,
                 drive,
-                new Settings.UserSignalStore().Definitions,
+                new CatalogSources(identity, new Settings.UserSignalStore().Definitions),
                 CancellationToken.None);
         }
         catch (Exception ex)
@@ -164,7 +168,9 @@ public partial class App : Application
         // The truck's own facts, read from settings at launch and lent to every component
         // (ADR-0029). A snapshot: a tank does not change size while you drive, so a change in
         // Settings applies on the next start, like the GPS transport.
-        var vehicle = new VehicleProfile { FuelTankLitres = Settings.SettingsStore.Load().FuelTankLitres };
+        // What the vehicle is joined it in apiVersion 1.2 (ADR-0033) — everything decoded from the
+        // VIN except the VIN itself, which no component needs.
+        var vehicle = identity.ToProfile(Settings.SettingsStore.Load().FuelTankLitres);
 
         var componentHost = new Components.ComponentHost(
             _vehicle.Signals, SystemClock.Instance, Components.PluginPath.FindRoot() ?? "plugins", vehicle);

@@ -1,7 +1,7 @@
 namespace DashDeck.Simulator;
 
 /// <summary>
-/// A physical model of a 2019 F-150 with the 3.5L EcoBoost, good enough to produce
+/// A physical model of a 2019 F-150 with the 2.7L EcoBoost, good enough to produce
 /// believable OBD-II values and an exactly known fuel consumption.
 /// </summary>
 /// <remarks>
