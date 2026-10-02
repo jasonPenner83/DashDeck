@@ -353,3 +353,60 @@ why to `%LOCALAPPDATA%\DashDeck\crash.log` — send that file.
   the dash cards stay green.
 
 Photograph anything that looks wrong. For a layout bug, also send the `.json` you were editing.
+
+## The launcher as a file — order, the quick bar, web pages and programs (ADR-0038)
+
+**You need:** the tablet in its mount, **parked**. Ignition on or off — nothing here reads the
+truck. Internet for the web page in step 6. Notepad.
+
+1. Look at the bar below the stage. **Expect:** exactly what was there before this build —
+   **GAUGES, CLOCK, COMPASS, PHONE, VIDEO** and the nine-dot button. Open the grid. **Expect:**
+   SCREENS, WEB and APPS in the same order as before, with your own apps from Settings ▸ Apps at
+   the end of APPS.
+2. **Settings ▸ Apps.** **Expect:** a **STAGE LAUNCHER** block where the built-in list used to be:
+   **USING BUILT IN**, then every entry with **BAR** beside the first five, **GRID** beside the
+   rest, and **YOUR APPS** last. No amber lines.
+3. Tap **MAKE IT MINE**. **Expect:** **USING YOUR FILE — LAUNCHER.JSON**, the same list, a line
+   saying it was created, and the MAKE IT MINE button gone. The bar and the stage don't change.
+4. Tap **OPEN FOLDER**. **Expect:** Explorer on `…\AppData\Local\DashDeck` with `launcher.json`
+   and `launcher.example.json` in it. Open `launcher.json` in Notepad.
+5. **Reorder the bar.** Change the `quickBar` line to
+   `"quickBar": [ "MAPS", "GAUGES", "CLOCK" ],`. Save. Back in Settings ▸ Apps tap **RELOAD**.
+   **Expect:** the line *Reloaded launcher.json: …* and **BAR** now beside MAPS, GAUGES and CLOCK.
+   Go back to the dash. **Expect:** three buttons — **MAPS, GAUGES, CLOCK** — plus the nine-dot.
+   Whatever was on the stage is still on it and still lit; if it was COMPASS, a fourth COMPASS
+   button sits at the end.
+6. **Add a web page with its own zoom.** In `entries`, after the MAPS line, add:
+   `{ "name": "RADAR", "type": "web", "url": "https://weather.gc.ca/radar/", "zoom": 0.75, "group": "WEATHER" },`
+   Save, **RELOAD**. Open the grid. **Expect:** a **WEATHER** heading with **RADAR** under it,
+   detail `weather.gc.ca`. Tap it. **Expect:** the radar page on the stage, zoomed out further than
+   MAPS, and **RADAR** in the status strip.
+7. **Rename and hide.** Change `"name": "CLOCK"` to `"name": "TIME"` (and `CLOCK` in `quickBar` to
+   `TIME`), and add `"hidden": true` to the MUSIC entry. Save, **RELOAD**. **Expect:** the bar says
+   **TIME**; choosing it shows the clock with **TIME** in the status strip and the TIME button lit.
+   MUSIC is gone from the grid; Settings lists it as **HIDDEN**.
+8. **A layout on its own button** (needs a layout you saved, e.g. `lcars` from the stage walkthrough
+   — or use the shipped `lcars`): add
+   `{ "name": "LCARS", "type": "gauges", "layout": "lcars" },` and put `"LCARS"` in `quickBar`.
+   Save, **RELOAD**. With the **DashDeck** theme worn, tap **GAUGES**, then **LCARS**. **Expect:**
+   the F-150 dials, then the LCARS stage — without changing the theme or the Settings choice.
+9. **Break it on purpose.** Add `{ "name": "OOPS", "type": "hologram" },` and put `"NOPE"` in
+   `quickBar`. Save, **RELOAD**. **Expect:** two amber lines in Settings — *OOPS: type 'hologram'
+   is not one of … — left out* and *quickBar: 'NOPE' is not an offered entry — left out* — and
+   everything else still working. Then delete a `{` somewhere so the file is not JSON, save,
+   **RELOAD**. **Expect:** **USING BUILT IN**, the first amber line saying `launcher.json was not
+   used`, and the original five buttons back. Undo it in Notepad and **RELOAD**.
+10. **Restart DashDeck** (three-dot ▸ CLOSE DASHDECK twice, then start it). **Expect:** your bar,
+    your names, and the stage starting on **GAUGES** (`startOn`).
+11. Clean up: delete `launcher.json` and tap **RELOAD**. **Expect:** **USING BUILT IN** and the
+    original bar.
+
+**A failure looks like:**
+- the bar or grid order differing from the file after RELOAD;
+- the stage restarting (a video jumping back, a program relaunching) when you RELOAD;
+- a renamed entry whose button does not light while it is on the stage;
+- a web page ignoring its `zoom`;
+- a broken file leaving the bar empty instead of falling back;
+- a program entry that is installed reading *not installed*.
+
+Photograph anything that looks wrong and send the `launcher.json` you were editing.

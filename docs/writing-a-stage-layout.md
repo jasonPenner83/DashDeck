@@ -25,6 +25,9 @@ replace the LCARS stage whenever the LCARS theme is worn.
 4. Go to the stage and choose **RELOAD STAGE LAYOUT** from the three-dot menu, or press **RELOAD** in
    Settings. Problems are listed in Settings, under the layout's name.
 
+A layout can also have **its own button** below the stage — TOWING beside GAUGES — with a `gauges`
+entry that names it in the launcher file: see [writing-a-launcher.md](writing-a-launcher.md).
+
 ## The file
 
 ```jsonc

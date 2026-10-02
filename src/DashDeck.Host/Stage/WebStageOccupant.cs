@@ -22,18 +22,24 @@ public sealed class WebStageOccupant : IStageOccupant
 {
     private readonly Uri _uri;
     private readonly DisplaySettings? _display;
+    private readonly double? _zoom;
     private WebView2? _view;
     private bool _disposed;
 
-    public WebStageOccupant(string name, string url, DisplaySettings? display = null)
+    /// <param name="name">The stage's name while it shows.</param>
+    /// <param name="url">The page.</param>
+    /// <param name="display">Where the page zoom comes from when <paramref name="zoom"/> does not fix it.</param>
+    /// <param name="zoom">A zoom the launcher file fixed for this page (ADR-0038), or null to follow Settings ▸ Display.</param>
+    public WebStageOccupant(string name, string url, DisplaySettings? display = null, double? zoom = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
         Name = name;
         _uri = new Uri(url);
         _display = display;
+        _zoom = zoom;
 
-        if (_display is not null)
+        if (_display is not null && _zoom is null)
         {
             _display.PropertyChanged += OnDisplayChanged;
         }
@@ -57,14 +63,14 @@ public sealed class WebStageOccupant : IStageOccupant
     /// </remarks>
     private void ApplyScale()
     {
-        if (_disposed || _view?.CoreWebView2 is null || _display is null)
+        if (_disposed || _view?.CoreWebView2 is null || (_display is null && _zoom is null))
         {
             return;
         }
 
         try
         {
-            _view.ZoomFactor = DisplaySettings.Clamp(_display.WebScale);
+            _view.ZoomFactor = _zoom ?? DisplaySettings.Clamp(_display!.WebScale);
         }
         catch (Exception)
         {

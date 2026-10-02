@@ -1,6 +1,6 @@
 # ADR-0024 — User-added stage apps, from the UI, persisted
 
-**Status:** Accepted · 2026-09-03
+**Status:** Accepted · 2026-09-03 · *Built-ins in code* superseded by [ADR-0038](ADR-0038-stage-launcher-file.md)
 **Relates to:** [ADR-0021](ADR-0021-owned-not-reparented.md) and
 [ADR-0020](ADR-0020-native-app-occupants.md) (the `AppStageOccupant` this builds on), and
 [ADR-0012](ADR-0012-widgets-and-applets.md) (web applets are the *third-party* model — still

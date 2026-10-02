@@ -14,12 +14,13 @@ namespace DashDeck.Host.Stage;
 /// hand — replaces it: gauges, text, the clock and panels, anywhere on the stage. It is the default
 /// the stage falls back to rather than the clock (F12).
 /// </remarks>
-public sealed class GaugesStageOccupant(IVehicleSignals signals, IClock clock, StageLayoutService layouts) : IStageOccupant
+/// <param name="name">What the launcher calls it (ADR-0038) — GAUGES, or TOWING for a pinned layout.</param>
+public sealed class GaugesStageOccupant(IVehicleSignals signals, IClock clock, StageLayoutService layouts, string name = "GAUGES") : IStageOccupant
 {
     private StageLayoutView? _view;
 
     /// <inheritdoc />
-    public string Name => "GAUGES";
+    public string Name => name;
 
     /// <inheritdoc />
     public FrameworkElement CreateView() => _view = new StageLayoutView(layouts, signals, clock);
