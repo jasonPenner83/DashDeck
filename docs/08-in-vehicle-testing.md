@@ -411,59 +411,24 @@ truck. Internet for the web page in step 6. Notepad.
 
 Photograph anything that looks wrong and send the `launcher.json` you were editing.
 
-## COMPASS as a stage layout — editing the rose and the G meter (ADR-0039)
+## One DashDeck at a time
 
-**You need:** the tablet in its mount, parked on ground as flat as you can find, ignition **on**
-(speed and outside air come from the truck). The phone's GPS on if you use it. Notepad. Step 8 needs
-a short drive with someone else watching the screen — or watch it only while stopped.
+**You need:** the tablet, the adapter plugged in. Ignition on, so you can see the dash is live.
+Task Manager (search the Start menu for it, or long-press the taskbar ▸ Task Manager).
 
-1. Tap **COMPASS**. **Expect:** the same screen as before this build:
-   - the rose on the left, with the heading number and its compass point (N, NE…) in the middle and
-     **TABLET · MAGNETIC** (or **TABLET · TRUE**) under it;
-   - **LATITUDE** and **LONGITUDE** below it, each with **PHONE · GPS** — or **PHONE · NO FIX** /
-     **PHONE** and NO DATA without a phone;
-   - the G meter in the middle;
-   - **PITCH**, **ROLL**, **SPEED** and **OUTSIDE** on the right. SPEED reads **0 km/h** and OUTSIDE
-     the air temperature, each with a green dot.
-2. Compare the heading with your phone's compass app. **Expect:** within a few degrees, and the
-   compass point matching.
-3. If you have never levelled: **Expect** PITCH and ROLL to say **NO DATA** with **NOT LEVELLED**
-   underneath, and the G meter to show *Park level, then LEVEL…* with no ball. That is right — it's
-   refusing to show the cradle's angle as the truck's.
-4. **Settings ▸ Mount ▸ LEVEL THE MOUNT**, then back to COMPASS. **Expect:** PITCH and ROLL near
-   **0.0** with **TABLET** under them, a ball in the middle of the G meter, and **G 0.00**.
-5. Open the three-dot menu. **Expect:** **RESET PEAK G** and **RELOAD STAGE LAYOUT** at the top.
-   Tap RESET PEAK G. **Expect:** PEAK reads **0.00**.
-6. **Make it yours.** Settings ▸ Themes ▸ STAGE LAYOUT ▸ **OPEN FOLDER**. Open the **examples**
-   folder and copy `compass.json` **up one folder** (into `stage`), keeping the name. Open that copy
-   in Notepad and:
-   - in the `"heading"` element, add `"parts": { "mode": "needle", "northColour": "#FF3B30" },`
-     after `"height": 344,`;
-   - in the `"g"` element, change `"height": 312 }` to `"height": 312, "parts": { "range": 0.5 } }`.
+1. Close every DashDeck: three-dot ▸ **CLOSE DASHDECK** twice. In Task Manager, end any
+   **DashDeck.Host** still listed. **Expect:** none left.
+2. Tap the DashDeck icon **three times quickly**. **Expect:** one window, after the usual few
+   seconds, with live (green) cards. In Task Manager, **one** DashDeck.Host. The extra copies wait,
+   see the first window appear, bring it forward and close themselves.
+3. With DashDeck open, switch to another app (Notepad), then tap the DashDeck icon again.
+   **Expect:** the same dash comes to the front, still live, nothing restarted — a video or a
+   page on the stage carries on. Still one in Task Manager.
+4. Settings ▸ Sensors (or Vehicle) ▸ **RESTART NOW**, if it's showing. **Expect:** the window
+   closes and one new one opens within about ten seconds, live. One in Task Manager.
+5. Three-dot ▸ **CLOSE DASHDECK** twice, then tap the icon straight away. **Expect:** a new dash
+   within about ten seconds — it waits for the old one to let go of the adapter — and live cards.
 
-   Save. On COMPASS, three-dot ▸ **RELOAD STAGE LAYOUT**. **Expect:** the rose no longer turns —
-   N stays at the top in **red** — and a needle points the way the truck faces; the G meter's rings
-   look the same but the ball moves twice as far for the same push. In Settings ▸ Themes ▸ STAGE
-   LAYOUT, a **COMPASS** row marked **YOURS** sits beside the built-in one.
-7. **Break it on purpose.** In Notepad change `"range": 0.5` to `"range": 0`, save, **RELOAD STAGE
-   LAYOUT**. **Expect:** the G meter gone, everything else drawn, and an amber line in Settings ▸
-   Themes ▸ STAGE LAYOUT: *g: range must be above 0 and at most 10 g — left out*. Put it back.
-8. **On the move** (someone else watching, or only at stops). **Expect:**
-   - **braking** throws the ball **up**, accelerating pulls it down;
-   - a **right** turn throws it **left**;
-   - PEAK climbs and stays;
-   - the heading follows turns smoothly, including through north — never spinning round through south;
-   - SPEED follows the speedometer.
-9. Clean up: delete `stage\compass.json` and **RELOAD STAGE LAYOUT**. **Expect:** the built-in
-   compass back, rose turning.
-
-**A failure looks like:**
-- any reading shown with no source line under it;
-- a ball while NOT LEVELLED;
-- a heading that jumps through south when crossing north;
-- the ball moving the wrong way on braking or turning;
-- a confident number where NO DATA belongs (for example LATITUDE with no phone);
-- the dash cards going Stale while COMPASS is up (it should add no load);
-- a bad `compass.json` blanking COMPASS instead of leaving out one element.
-
-Photograph anything that looks wrong and send the `compass.json` you were editing.
+**A failure looks like:** two DashDeck.Host in Task Manager; a second window; a dash that comes up
+with the SIM badge or amber cards while another is running; tapping the icon doing nothing for
+more than 20 seconds.
