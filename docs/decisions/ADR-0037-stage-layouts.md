@@ -82,6 +82,11 @@ THE THEME and every layout, with SAVE AS (your editable copy of the one showing)
 OPEN FOLDER and RELOAD; the three-dot menu on the stage has **RELOAD STAGE LAYOUT** for the
 edit–look loop without leaving it.
 
+**The shipped layouts are written out as examples.** Every launch writes each shipped layout,
+exactly as shipped, and the built-in cluster as JSON, to `stage\examples\` beside the user's
+layouts, with a README. They are references to read and copy from, not layouts: only files directly
+in `stage\` are loaded, and the examples are put back whenever they differ from the running build.
+
 **The first shipped layout is the LCARS (inspired) stage**: a frame of elbows and bars, a title and
 the time, and the same six readings as segmented LCARS bars. The LCARS theme names it.
 

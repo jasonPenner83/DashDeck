@@ -256,4 +256,31 @@ public sealed class StageLayoutTests : IDisposable
         Assert.Contains("missing", service.Reason, StringComparison.Ordinal);
         Assert.True(changes >= 3);
     }
+
+    [Fact]
+    public void The_shipped_layouts_are_written_out_as_examples_that_are_not_loaded()
+    {
+        var library = new StageLayoutLibrary(ShippedFolder("stage"), Path.Combine(_dir, "yours"));
+
+        Assert.Null(library.WriteExamples());
+
+        var lcars = Path.Combine(library.ExamplesFolder, "lcars.json");
+        var cluster = Path.Combine(library.ExamplesFolder, "f150-cluster.json");
+        Assert.Equal(File.ReadAllText(Path.Combine(ShippedFolder("stage"), "lcars.json")), File.ReadAllText(lcars));
+        Assert.True(File.Exists(Path.Combine(library.ExamplesFolder, "README.txt")));
+
+        // The written-out cluster is a real layout: copied up a folder, it loads cleanly.
+        var parsed = StageLayout.Parse(File.ReadAllText(cluster));
+        Assert.Empty(parsed.Problems);
+        Assert.Equal(6, parsed.Gauges.Count());
+
+        // Examples are references, not layouts.
+        library.Reload();
+        Assert.DoesNotContain(library.Layouts, l => l.Origin is LayoutOrigin.Yours);
+
+        // An edited example is put back.
+        File.WriteAllText(lcars, "{ edited }");
+        library.WriteExamples();
+        Assert.NotEqual("{ edited }", File.ReadAllText(lcars));
+    }
 }

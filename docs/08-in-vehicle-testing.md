@@ -324,7 +324,10 @@ why to `%LOCALAPPDATA%\DashDeck\crash.log` — send that file.
    the theme*, and the list with **FOLLOW THE THEME** marked **CHOSEN**. Tap **F-150 CLUSTER**,
    go back to the stage. **Expect:** the dials again, still under the LCARS theme's colours. Tap
    **FOLLOW THE THEME** to go back.
-6. Under **EDIT YOUR OWN COPY OF THE ONE SHOWING**, type `lcars`, press **SAVE AS**. **Expect:** a
+6. Press **OPEN FOLDER**. **Expect:** an **examples** folder containing `lcars.json`,
+   `f150-cluster.json` and `README.txt`. Open `lcars.json`: it's the LCARS stage with its comments.
+   Close it without saving.
+   Then, under **EDIT YOUR OWN COPY OF THE ONE SHOWING**, type `lcars`, press **SAVE AS**. **Expect:** a
    row **LCARS (INSPIRED) STAGE (MINE)** marked **YOURS**, and the stage unchanged.
 7. Press **OPEN FOLDER**, open `lcars.json` in Notepad. Find `"title"` and change
    `"ENGINE STATUS"` to `"MY TRUCK"`. Find the `"boost"` gauge and change `"segments": 24` to

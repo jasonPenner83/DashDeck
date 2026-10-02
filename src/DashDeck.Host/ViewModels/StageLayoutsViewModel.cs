@@ -145,6 +145,7 @@ public sealed partial class StageLayoutsViewModel : ObservableObject
     private void OpenFolder()
     {
         Directory.CreateDirectory(UserFolder);
+        _layouts.Library.WriteExamples();
         _dialogs.OpenFolder(UserFolder);
     }
 

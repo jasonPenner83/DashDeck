@@ -438,7 +438,7 @@
 
                         <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
                                    TextWrapping="Wrap" Style="{StaticResource MicroText}"
-                                   Text="{Binding UserFolder, StringFormat=Your layouts are kept in {0}. Save as the name a theme uses (lcars) to replace its stage. The stage is 912 × 636; RELOAD STAGE LAYOUT in the three-dot menu redraws it without leaving the stage.}" />
+                                   Text="{Binding UserFolder, StringFormat=Your layouts are kept in {0}. The examples folder inside it has every shipped layout as a file to copy from. Save as the name a theme uses (lcars) to replace its stage. The stage is 912 × 636; RELOAD STAGE LAYOUT in the three-dot menu redraws it without leaving the stage.}" />
                     </StackPanel>
 
                     <!-- The reference for editing a file by hand. -->

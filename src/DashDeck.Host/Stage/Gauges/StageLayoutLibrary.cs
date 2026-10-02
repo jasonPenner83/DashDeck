@@ -91,6 +91,90 @@ public sealed class StageLayoutLibrary
     }
 
     /// <summary>
+    /// The reference copies: <c>stage\examples\</c> beside your layouts. Not loaded — only the
+    /// files directly in <see cref="UserFolder"/> are layouts.
+    /// </summary>
+    public string ExamplesFolder => Path.Combine(UserFolder, "examples");
+
+    /// <summary>
+    /// Write every layout DashDeck ships into <see cref="ExamplesFolder"/>, to read and copy from:
+    /// the shipped files exactly as they are, comments and all, and the built-in F-150 cluster —
+    /// which otherwise exists only in code — as JSON.
+    /// </summary>
+    /// <remarks>
+    /// Rewritten whenever they differ, so the examples always match the build that is running; an
+    /// example you edited is put back, which is why the README says to copy one out first. Never
+    /// throws: examples are a convenience, and a dash must not fail to start over one.
+    /// </remarks>
+    /// <returns>Why they could not be written, or null.</returns>
+    public string? WriteExamples()
+    {
+        try
+        {
+            Directory.CreateDirectory(ExamplesFolder);
+
+            Write("README.txt", ExamplesReadme);
+            Write("f150-cluster.json", BuiltInHeader + StageLayout.BuiltIn.ToJson() + Environment.NewLine);
+
+            if (ShippedFolder is not null && Directory.Exists(ShippedFolder))
+            {
+                foreach (var path in Directory.EnumerateFiles(ShippedFolder, "*.json"))
+                {
+                    Write(Path.GetFileName(path), File.ReadAllText(path));
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return ex.Message;
+        }
+
+        void Write(string name, string content)
+        {
+            var target = Path.Combine(ExamplesFolder, name);
+            if (!File.Exists(target) || File.ReadAllText(target) != content)
+            {
+                File.WriteAllText(target, content);
+            }
+        }
+    }
+
+    private const string BuiltInHeader = """
+        // The built-in F-150 cluster, written out as a reference (ADR-0037). DashDeck draws it from
+        // code, so this copy is only for reading — editing it here changes nothing, and it is put
+        // back at the next launch. To make your own: copy it up one folder (into stage\), rename
+        // it, and choose it in Settings ▸ Themes ▸ STAGE LAYOUT. Every field is explained in
+        // docs/writing-a-stage-layout.md.
+
+        """;
+
+    private const string ExamplesReadme = """
+        DashDeck stage layout examples
+        ==============================
+
+        These are the stage layouts that ship with DashDeck, kept here as references:
+
+          f150-cluster.json   the built-in six-dial cluster (boost, oil, volts, intake, throttle, load)
+          lcars.json          the LCARS (inspired) stage, worn with the LCARS theme
+
+        They are NOT loaded from this folder, and they are rewritten every time DashDeck starts,
+        so any change made here is lost. To use one as a starting point:
+
+          1. Copy it up one folder, into  ...\DashDeck\stage\
+          2. Rename it if you like. Keeping the name  lcars.json  makes your copy replace the
+             shipped LCARS stage whenever the LCARS theme is worn.
+          3. Edit it in Notepad and save.
+          4. In DashDeck: Settings > Themes > STAGE LAYOUT > RELOAD (or choose it there), or
+             RELOAD STAGE LAYOUT from the three-dot menu while the stage shows it.
+
+        Any problem with the file is listed in Settings > Themes > STAGE LAYOUT, under its name.
+        A bad element is left out; it never blanks the stage.
+
+        """;
+
+    /// <summary>
     /// Copy a layout into the user's folder under a new file name — the way to start your own,
     /// then edit it by hand. Saving as the same name as a shipped layout overrides it for themes.
     /// </summary>

@@ -4,6 +4,17 @@ The GAUGES stage is drawn from a **stage layout**: a JSON file listing every ele
 where it sits, what it shows and how it looks (ADR-0037). It works like a Home Assistant dashboard
 written in YAML, but in JSON with `//` comments allowed. Change the file, press **RELOAD**, look.
 
+## Examples to copy from
+
+Every layout DashDeck ships is written out to `%LOCALAPPDATA%\DashDeck\stage\examples\` each
+time DashDeck starts:
+- `lcars.json`: the LCARS (inspired) stage, comments and all;
+- `f150-cluster.json`: the built-in six-dial cluster, which otherwise only exists in code.
+
+That folder is for reading. Files there are not loaded, and they're put back at the next launch.
+Copy one up a folder into `stage\` to make it yours. Keeping the name `lcars.json` makes your copy
+replace the LCARS stage whenever the LCARS theme is worn.
+
 ## The loop
 
 1. **Settings ▸ Themes ▸ STAGE LAYOUT**: the layout showing is named at the top.

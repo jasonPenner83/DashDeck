@@ -114,6 +114,9 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
             stored.StageLayout,
             choice => SettingsStore.Update(s => s with { StageLayout = choice }));
 
+        // The shipped layouts as files beside yours, to read and copy from.
+        Layouts.Library.WriteExamples();
+
         // Re-checked on load, not just on entry. A stored colour was validated against the
         // quality palette of whatever build wrote it; if a later build moves one of those
         // four, an accent that used to be fine can stop being fine, and falling back beats
