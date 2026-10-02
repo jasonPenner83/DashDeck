@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using DashDeck.Abstractions;
 using DashDeck.Core.Catalog;
 using DashDeck.Core.Discovery;
+using DashDeck.Host.Settings;
 using DashDeck.Vehicle;
 
 namespace DashDeck.Host.ViewModels;
@@ -26,10 +27,15 @@ public sealed partial class ModuleRowViewModel(DiscoveredModule module, string? 
         ? $"MODULE {AddressText}"
         : $"{AddressText}  ·  {likelyName.ToUpperInvariant()}";
 
-    /// <summary>Which bus, and what it said when asked its part number.</summary>
+    /// <summary>Which bus, what it said when asked its part number, and which ranges are saved.</summary>
     public string Detail => string.Create(
         CultureInfo.InvariantCulture,
-        $"{(Bus is CanBus.Ms ? "MS-CAN" : "HS-CAN")}  ·  answers on {Address + 8:X3}  ·  {(Module.PartNumber is { } part ? $"part {part}" : Module.RefusalCode is { } code ? $"part number: {ModuleScanner.DescribeRefusal(code)}" : "no part number")}{(likelyName is null ? "" : "  ·  name is likely, not read")}");
+        $"{(Bus is CanBus.Ms ? "MS-CAN" : "HS-CAN")}  ·  answers on {Address + 8:X3}  ·  {(Module.PartNumber is { } part ? $"part {part}" : Module.RefusalCode is { } code ? $"part number: {ModuleScanner.DescribeRefusal(code)}" : "no part number")}{(likelyName is null ? "" : "  ·  name is likely, not read")}{(SweptRanges.Count == 0 ? "" : $"  ·  swept {string.Join(", ", SweptRanges)}")}");
+
+    /// <summary>The identifier ranges with a saved sweep, so a module's row says what is already known.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Detail))]
+    private IReadOnlyList<string> _sweptRanges = [];
 
     /// <summary>True while this is the module the identifier sweep is pointed at.</summary>
     [ObservableProperty]
@@ -96,14 +102,24 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
 {
     private readonly ISignalInventorySource _vehicle;
     private readonly Action<SignalDefinition, string> _define;
+    private readonly DiscoveryStore? _store;
+    private readonly IClock _clock;
     private CancellationTokenSource? _running;
 
     /// <param name="vehicle">The running pipeline.</param>
     /// <param name="define">Open the signal editor on a suggested definition, with a note.</param>
-    public ModuleDiscoveryViewModel(ISignalInventorySource vehicle, Action<SignalDefinition, string> define)
+    /// <param name="store">Where results are kept across launches, or null to keep nothing.</param>
+    /// <param name="clock">For when a scan or sweep ran.</param>
+    public ModuleDiscoveryViewModel(
+        ISignalInventorySource vehicle,
+        Action<SignalDefinition, string> define,
+        DiscoveryStore? store = null,
+        IClock? clock = null)
     {
         _vehicle = vehicle;
         _define = define;
+        _store = store;
+        _clock = clock ?? SystemClock.Instance;
 
         Ranges =
         [
@@ -116,6 +132,12 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
         ];
 
         SelectRange(Ranges[0]);
+
+        // What the truck answered last time, so a restart does not cost another minute parked.
+        if (store?.LoadModules() is { } saved)
+        {
+            ApplyModules(saved, store.ModulesScannedUtc);
+        }
     }
 
     /// <summary>Modules that answered, in bus then address order.</summary>
@@ -194,6 +216,7 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
 
         FromText = option.First.ToString("X4", CultureInfo.InvariantCulture);
         ToText = option.Last.ToString("X4", CultureInfo.InvariantCulture);
+        ShowSaved();
     }
 
     [RelayCommand]
@@ -216,6 +239,29 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
         }
 
         Selected = module;
+        ShowSaved();
+    }
+
+    /// <summary>
+    /// Show the saved sweep of the selected module and range, if there is one — what it answered
+    /// last time, and when. SWEEP asks again and replaces it.
+    /// </summary>
+    private void ShowSaved()
+    {
+        if (IsSweeping || Selected is not { } module || _store is null || !TryRange(out var first, out var last, out _))
+        {
+            return;
+        }
+
+        if (_store.LoadSweep(module.Bus, module.Address, first, last) is { } saved)
+        {
+            ApplyIdentifiers(module, saved.Result, saved.SweptUtc);
+        }
+        else
+        {
+            Identifiers.Clear();
+            SweepStatus = string.Create(CultureInfo.CurrentCulture, $"{first:X4}–{last:X4} has not been swept on {module.AddressText}. SWEEP asks it.");
+        }
     }
 
     private bool CanStart() => !IsSweeping;
@@ -236,6 +282,13 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
         try
         {
             var result = await ModuleScanner.ScanAsync(_vehicle.ProbeAsync, [CanBus.Hs, CanBus.Ms], Reporter(), cts.Token);
+
+            // Kept for the next launch — the real truck only, never the synthetic one.
+            if (!_vehicle.IsSimulated && result.Completed)
+            {
+                _store?.SaveModules(result, _clock.UtcNow);
+            }
+
             ApplyModules(result);
         }
         finally
@@ -245,7 +298,9 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
     }
 
     /// <summary>Show a module sweep's results. Separate from the sweep so it can be tested directly.</summary>
-    internal void ApplyModules(ModuleScanResult result)
+    /// <param name="result">The scan.</param>
+    /// <param name="savedUtc">When it ran, when it is a saved one being shown again at launch.</param>
+    internal void ApplyModules(ModuleScanResult result, DateTimeOffset? savedUtc = null)
     {
         Found.Clear();
         Identifiers.Clear();
@@ -253,7 +308,10 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
 
         foreach (var module in result.Modules.OrderBy(m => m.Bus).ThenBy(m => m.Address))
         {
-            Found.Add(new ModuleRowViewModel(module, ModuleNames.Likely(module.Address, _vehicle.ActivePacks)));
+            Found.Add(new ModuleRowViewModel(module, ModuleNames.Likely(module.Address, _vehicle.ActivePacks))
+            {
+                SweptRanges = _store?.SweptRanges(module.Bus, module.Address) ?? [],
+            });
         }
 
         var hs = result.Modules.Count(m => m.Bus is CanBus.Hs);
@@ -270,9 +328,13 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
             parts.Add("stopped before the end");
         }
 
-        if (_vehicle.IsSimulated)
+        if (savedUtc is { } at)
         {
-            parts.Add("SIMULATED — these are the synthetic truck's modules");
+            parts.Insert(0, string.Create(CultureInfo.CurrentCulture, $"SAVED SCAN, {at.ToLocalTime():d MMM HH:mm}"));
+        }
+        else if (_vehicle.IsSimulated)
+        {
+            parts.Add("SIMULATED — these are the synthetic truck's modules, and they are not saved");
         }
 
         Status = string.Join("  ·  ", parts);
@@ -303,6 +365,15 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
         try
         {
             var result = await DidScanner.ScanAsync(_vehicle.ProbeAsync, module.Bus, module.Address, first, last, Reporter(), cts.Token);
+
+            // Kept for the next launch, as for the module scan — a stopped sweep too: what it
+            // found before STOP is real, and the status says it stopped.
+            if (!_vehicle.IsSimulated && _store is not null)
+            {
+                _store.SaveSweep(module.Bus, module.Address, first, last, result, _clock.UtcNow);
+                module.SweptRanges = _store.SweptRanges(module.Bus, module.Address);
+            }
+
             ApplyIdentifiers(module, result);
         }
         finally
@@ -311,8 +382,8 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
         }
     }
 
-    /// <summary>Show an identifier sweep's results.</summary>
-    internal void ApplyIdentifiers(ModuleRowViewModel module, DidSweepResult result)
+    /// <summary>Show an identifier sweep's results — a fresh one, or a saved one with when it ran.</summary>
+    internal void ApplyIdentifiers(ModuleRowViewModel module, DidSweepResult result, DateTimeOffset? savedUtc = null)
     {
         Identifiers.Clear();
 
@@ -326,7 +397,7 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
 
         SweepStatus = string.Create(
             CultureInfo.CurrentCulture,
-            $"{result.Asked} asked  ·  {answered} answered  ·  {declined} there but declined{(result.Problem is { } problem ? $"  ·  {problem}" : "")}{(_vehicle.IsSimulated ? "  ·  SIMULATED" : "")}");
+            $"{(savedUtc is { } at ? $"SAVED SWEEP, {at.ToLocalTime():d MMM HH:mm}  ·  " : "")}{result.Asked} asked  ·  {answered} answered  ·  {declined} there but declined{(result.Problem is { } problem ? $"  ·  {problem}" : "")}{(savedUtc is null && _vehicle.IsSimulated ? "  ·  SIMULATED, not saved" : "")}");
     }
 
     [RelayCommand(CanExecute = nameof(IsSweeping))]
