@@ -25,38 +25,62 @@ If components says `none`, a component did not build — check `components/` bef
 To confirm the loader in the deployed folder without opening the shell:
 `DashDeck.Host.exe --components <outfile>` should list all five.
 
+To attach the build to its GitHub Release (rollback is unzipping the previous one):
+
+```powershell
+Compress-Archive -Path dist\DashDeck\* -DestinationPath dist\DashDeck-v0.3.0-win-x64.zip -Force
+```
+
 ## What this build contains
 
-**`v0.1.0`** — the first tagged release, deployed 2026-09-30 on the Surface Pro 7.
+**`v0.3.0`** — tagged 2026-10-02 on `main`. The first build that reads the real truck. It adds
+the following to `v0.1.0`:
 
-- **The shell**: six-band layout, status strip (weather · SIM badge · clock, plus an
-  `ADAPTER LOST — RECONNECTING` banner when the link drops), stage, and the seven-across nav.
-- **Stage occupants**: clock/weather, compass (with G, pitch, roll), a gauge cluster,
-  phone-projection placeholder, local video, web applets, and native Windows apps (Nuvio,
-  Stremio) owned and placed over the stage — plus **your own apps**, added from the picker
-  (ADR-0024). An occupant keeps running while you're elsewhere, and with "keep stage audio" on,
-  a video or music source keeps playing behind a silent occupant; the **▶ NAME** pill in the
-  status strip brings it back (ADR-0025, ADR-0026).
-- **Location**: the phone's GPS as a third source (`PHONE`), over Bluetooth by default
-  (ADR-0027, ADR-0028).
-- **The dash**: user-arranged cards, paged, edited through MODIFY WIDGETS. The signal picker is
-  **searchable and grouped by function**, over the **standard OBD-II Mode 01 set** (~35 signals)
-  plus tablet sensors.
-- **Five components** in `plugins/`: Trip Computer, Fuel Economy, Avg Economy (tap for a
-  detail with a reset), Tire Pressure (tap for the overhead F-150 that lights a low corner), and
-  **Range Estimator** (distance to empty, tap for the breakdown).
-- **Settings** in a rail of sections: Appearance, Mount, Display, **Vehicle**, Diagnostics.
-  Vehicle holds the fuel tank size the Range Estimator uses (ADR-0029); it applies at the next
-  launch.
+- **The real adapter** (ADR-0031, ADR-0034). Choose it in **Settings ▸ Vehicle ▸ OBD-II
+  adapter**, from a list of **tested ports**. Each row shows the adapter's identity, its baud rate
+  and the voltage at the OBD port, or IN USE, NO ADAPTER or PHONE GPS.
+  - The **SIM** badge goes when the dash is live.
+  - A dash that came up simulated goes live by itself when the adapter answers.
+  - A knocked cable shows **ADAPTER LOST — RECONNECTING** and recovers without a restart.
+  - A renumbered COM port is followed.
+  - What the link does is logged to `%LOCALAPPDATA%\DashDeck\adapter.log`.
+- **Settings ▸ Vehicle ▸ VIN** (ADR-0033): read from the truck or typed, decoded once by NHTSA
+  (needs internet the first time), cached in `vehicle.json`, every field correctable. It picks the
+  F-150 2.7 vehicle pack.
+- **Settings ▸ Sensors** (ADR-0032):
+  - every vehicle signal and tablet sensor, with what the truck has said;
+  - **SCAN THE TRUCK** for supported standard PIDs;
+  - an editor with **TEST**, saving to `signals.user.json` (applied at the next launch,
+    **RESTART NOW** in the section).
+- Everything in `v0.1.0`:
+  - the six-band shell;
+  - stage occupants (clock and weather, compass, video, web applets, native and user-added
+    apps), with the ▶ pill and "keep stage audio";
+  - the phone's GPS over Bluetooth;
+  - the arranged, paged dash with the grouped, searchable picker;
+  - the five components in `plugins/`;
+  - Settings sections for Appearance, Mount, Display, Vehicle and Diagnostics.
+
+Not in this build: **Settings ▸ Sensors ▸ MODULES** (ADR-0035) is on `develop`, waiting for the
+next release.
 
 ## Known limits — read before deciding something is broken
 
-- **No adapter yet.** Everything runs on the **synthetic F-150** (ADR-0005). The **SIM** badge is
-  on, and the adapter-lost banner will *not* appear — there is no real link to lose. Every value
-  is simulated, including the new OBD-II signals and TPMS, which read plausible numbers, not real
-  ones. TPMS uses placeholder PIDs; the rear-left tyre reads low on purpose.
-- **Levelling is required** before pitch, roll, G or the compass attitude render — Settings →
-  Mount → LEVEL THE MOUNT, done parked with the tablet in its cradle.
+- **Fuel Economy, Avg Economy and Range Estimator read blank on the real truck.** They need the
+  engine fuel-rate PID (`5E`), and this F-150 supports neither that nor mass air flow (`10`).
+  Bring-up found this on 2026-10-01. The speed-density replacement is decided (ADR-0030) but not
+  built. On the simulator they still read.
+- **Tire Pressure shows a dash at every corner on the real truck.** Its PIDs are placeholders
+  until Ford's body-module values are found (R2). On the simulator, the rear-left tyre reads low on
+  purpose.
+- **The F-150 2.7 vehicle pack has no signals yet.** Ford mode 22 values go there once TEST has
+  confirmed them on the truck.
+- **Close FORScan before launching DashDeck.** Only one app can hold the adapter's port. TEST
+  PORTS shows IN USE when something else has it.
+- **Signal edits apply at the next launch**, not immediately. So do the vehicle profile and the
+  fuel tank size.
+- **Levelling is required** before pitch, roll, G or the compass attitude render: Settings ▸
+  Mount ▸ LEVEL THE MOUNT, parked, with the tablet in its cradle.
 - **Stage occupant is not remembered** across launches (F12); the dash comes up on the clock.
 - **The TPMS photo is local-only.** The overhead truck photo is not in the repo (no right to
   publish it). A build made on a machine that has `components/Tpms/truck.png` ships it; any
@@ -64,16 +88,17 @@ To confirm the loader in the deployed folder without opening the shell:
 
 ## What to check in the truck
 
-The things that only reveal themselves on glass and in the mount:
+Step-by-step walkthroughs, with what to expect and what a failure looks like, are in
+[08-in-vehicle-testing](08-in-vehicle-testing.md). For this build:
 
-- **Touch gestures**: page-swipe on the cards; tap a component card to open its detail; MODIFY
-  WIDGETS → the grouped/searchable picker; the Settings section rail. (Tap-to-detail and the
-  edit buttons were mouse-only until they were fixed for touch — worth re-confirming.)
-- **Reachability** of the bottom nav and launcher from the driver's seat.
-- **Levelling**, then that the compass and attitude read sanely at the mount angle.
-- **Legibility** at a glance in daylight and at night (Settings → Appearance → Day/Night/Auto).
-- **Vehicle → fuel tank**: set 136 L (36 gal), relaunch, and check the Range Estimator's
-  distance to empty is believable against the gauge.
+- **The adapter link**, sections A–E: live on launch, a late adapter, a knocked cable, a moved
+  USB socket, testing ports while it searches. A–C passed on 2026-10-02 after the reconnect fix.
+- **Settings ▸ Sensors**: the scan should list Fuel Rate and Mass Air Flow as *not supported by
+  the truck*. Check TEST rpm against the tachometer.
+- **VIN lookup**: read from the truck, and decoded as a 2019 Ford F-150 with the 2.7 L.
+
+The `v0.1.0` checks still apply: touch gestures on glass, reach from the driver's seat, levelling,
+and day/night legibility.
 
 When something turns up, it is fixed on `develop`, merged to `main` and tagged, and the deploy
 refreshed — the truck has been

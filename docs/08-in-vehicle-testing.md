@@ -161,3 +161,106 @@ If step 7 fails, **don't restart yet.** Open **Settings ▸ Vehicle**: the statu
 `Last: …`, saying what the link last ran into. Photograph it, then send `adapter.log`. The first
 run of step 7, on 2026-10-02, found that a pulled USB device throws "access denied" rather than
 an I/O error, and that stopped polling for good. Fixed in the change that added this paragraph.
+
+---
+
+## Settings ▸ Sensors ▸ Modules — finding modules and their identifiers (ADR-0035)
+
+**You need:** the truck, the adapter, the dash on the real adapter (no SIM badge), **parked**,
+ignition **on** for steps 1–6, **running** for step 7. FORScan on a laptop or phone is useful for
+step 3 but not required. **Close FORScan before starting** — the adapter can only talk to one app.
+
+1. Open **Settings ▸ Sensors** and scroll to **MODULES**. Press **SCAN FOR MODULES**. **Expect:** a
+   progress bar and a line like `HS 7A3 · 52 of 256 · 6 found`. It takes about a minute. The dash
+   behind it may go amber (Stale) while it runs — that's expected, the sweep is using the adapter.
+2. When it finishes, **expect** a summary like `HS-CAN: n modules · MS-CAN: n modules`, and a list
+   of rows such as `7E0 · PCM — POWERTRAIN CONTROL` with `part …` underneath.
+   - **HS-CAN** should include at least **7E0** (the engine), and very likely **760** (ABS) and
+     **730** (power steering).
+   - **MS-CAN** should include **726** (the body module) and very likely **720** (the cluster) and
+     **7D0** (SYNC).
+   - A row whose second line says `part number: not supported here` is still a module: it's there,
+     it just wouldn't give its part number.
+3. Compare with FORScan's module list if you have it. Same addresses? Names are marked **likely**,
+   so note any that are wrong — they're easy to correct in the vehicle pack.
+4. Tap **7E0**. **Expect:** an **IDENTIFIERS IN 7E0 ON HS-CAN** block with range chips. Leave
+   **F100–F1FF IDENTITY** selected and press **SWEEP**. **Expect:** about 15 seconds, then rows
+   such as `22 F190 · 17 bytes · "1FT…"` — **the truck's VIN**, read from the engine computer —
+   and `22 F113` with the part number from step 2. Don't photograph or share the VIN row.
+5. Tap **726** (MS-CAN) and sweep **DD00–DDFF**. **Expect:** it finishes, and lists whatever the
+   body module answers there (perhaps nothing — that's a valid result). Rows that say `there, but
+   locked (security access)` are real identifiers it won't read without unlocking; we leave those.
+6. Check STOP: start a sweep of **0000–0FFF** on any module, then press **STOP**. **Expect:** it
+   stops within a second and says `stopped`. (The sweeps also refuse to start while the truck is
+   moving. Don't test that by driving.)
+7. Engine **running**: on **7E0**, pick an identifier from step 4 that came back with 1–2 bytes
+   and press it. **Expect:** the editor opens with **MODE 22**, the identifier, **MODULE 7E0** and
+   `Asks 7E0 and listens on 7E8 — likely the PCM …` under it. Press **TEST** a few times while
+   blipping the throttle or watching the temperature climb. Whether the raw bytes move with
+   something real is how a Ford PID is found. Press **CANCEL** unless it's one worth keeping.
+8. Go back to the dash for ten seconds. **Expect:** the cards are green (Live) again and updating —
+   the adapter went back to the broadcast after the sweeps.
+
+**A failure looks like:**
+- the module scan finding **nothing** on HS-CAN (7E0 must answer — it answers the dash);
+- the scan running much past two minutes, or STOP not stopping it;
+- the dash still amber a minute after leaving the Sensors section (the adapter didn't go back to
+  the broadcast — send `adapter.log` and a photo);
+- step 7's TEST saying `NO DATA` for an identifier the sweep just found on the same module;
+- the app freezing at any point.
+
+If MS-CAN finds nothing at all, check **Settings ▸ Vehicle**'s adapter line still lists MS-CAN as
+reachable, and note it — the 2026-10-01 bring-up found the adapter accepts the MS-CAN switch, so
+silence there would be news.
+
+---
+
+## Settings ▸ Themes — wearing a theme in the cab (ADR-0036)
+
+**You need:** the tablet in its mount. Ignition **on** or **running**, parked. Do one pass in
+**daylight** and, if you can, one after dark (or set **Settings ▸ Appearance ▸ NIGHT** to fake it).
+No internet needed. The adapter is optional; with it, the card borders show real Live green.
+
+1. Open **Settings ▸ Themes**. **Expect:** a list of **DASHDECK** (built in, marked **WEARING**)
+   and **LCARS (INSPIRED)** (shipped), each with five colour swatches, and a token list below.
+2. Tap **LCARS (INSPIRED)**. **Expect**, within a second and without a restart:
+   - a black screen;
+   - **pill-shaped** buttons in periwinkle with black lettering;
+   - **tall, narrow capital lettering** (the Antonio font);
+   - the selected settings tab filled **orange** with black lettering.
+
+   If the lettering looks like ordinary wide Windows text instead, the font didn't load — note it.
+3. Go to the dash. **Expect:**
+   - **The nav bar**: black, with lavender labels; the current destination is filled orange with
+     black lettering.
+   - **The cards**: black, with rounder corners and peach captions.
+   - **The card borders keep their quality colours**: green for Live, blue for Simulated, amber
+     for Stale.
+   - **Values** are still the same off-white.
+4. Glance test from the driver's seat, in daylight. Can you read a card value, a caption and the nav
+   labels at a glance? Is the peach caption text too faint in sun? Note anything you had to squint at.
+5. Touch test: switch dash pages, open the stage launcher, change the stage, open and close a card's
+   detail. **Expect:** every pill button responds to a finger as before.
+6. Night: **Settings ▸ Appearance ▸ NIGHT** (or wait for dark on AUTO). **Expect:** the LCARS
+   colours dim — orange and lavender get darker, the screen stops being the brightest thing in the
+   cab — and stay readable. Set it back to AUTO.
+7. Pull the adapter's USB (if connected). **Expect:** the **ADAPTER LOST — RECONNECTING** banner is
+   still the amber it always is, not an LCARS colour. Plug it back in.
+8. Quit DashDeck and start it again. **Expect:** it comes up already in LCARS — the choice is
+   remembered.
+9. Back in **Settings ▸ Themes**: type `My LCARS` under **START YOUR OWN FROM THIS ONE**, press
+   **SAVE AS**. **Expect:** a **MY LCARS** row marked **YOURS** and **WEARING**. Press **DELETE** on
+   it. **Expect:** it's gone and the dash is back to the DashDeck look. Tap **DASHDECK** to make
+   sure the default is back exactly as it was.
+
+**A failure looks like:**
+- the dash not changing when a theme is tapped, or only part of it changing (for example, buttons
+  still square);
+- wide, ordinary lettering under LCARS (the font did not load);
+- a quality colour that changed with the theme (a card border, the SIM badge, the ADAPTER LOST
+  banner);
+- text you can't read in daylight or at night;
+- a selected button or tab whose lettering disappears into its fill;
+- the theme not remembered after a restart.
+
+Take a photo of anything that looks wrong; for a theme, the screen *is* the bug report.

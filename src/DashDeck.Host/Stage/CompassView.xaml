@@ -7,7 +7,7 @@
 
         <!-- A small readout: caption above, value and unit below. -->
         <Style x:Key="MetricValue" TargetType="TextBlock">
-            <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+            <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
             <Setter Property="FontSize" Value="30" />
             <Setter Property="FontWeight" Value="Bold" />
             <Setter Property="Foreground" Value="{DynamicResource TextHighBrush}" />
@@ -44,14 +44,14 @@
 
                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                     <TextBlock HorizontalAlignment="Center"
-                               FontFamily="{StaticResource UiFont}"
+                               FontFamily="{DynamicResource UiFont}"
                                FontSize="62"
                                FontWeight="Bold"
                                Foreground="{Binding HeadingQuality, Converter={StaticResource ValueBrushToken}}"
                                Text="{Binding HeadingText}" />
                     <TextBlock HorizontalAlignment="Center"
                                Margin="0,-6,0,0"
-                               FontFamily="{StaticResource MonoFont}"
+                               FontFamily="{DynamicResource MonoFont}"
                                FontSize="24"
                                Foreground="{DynamicResource AccentBrush}"
                                Text="{Binding CardinalText}" />
@@ -67,7 +67,7 @@
 
             <TextBlock HorizontalAlignment="Center"
                        Margin="0,2,0,0"
-                       FontFamily="{StaticResource MonoFont}"
+                       FontFamily="{DynamicResource MonoFont}"
                        FontSize="12"
                        Foreground="{Binding HeadingQuality, Converter={StaticResource QualityBrushToken}}"
                        Text="{Binding HeadingSource}" />
@@ -76,11 +76,11 @@
             <TextBlock HorizontalAlignment="Center" Margin="0,16,0,0"
                        Style="{StaticResource CaptionText}" Text="POSITION" />
             <TextBlock HorizontalAlignment="Center"
-                       FontFamily="{StaticResource MonoFont}" FontSize="14"
+                       FontFamily="{DynamicResource MonoFont}" FontSize="14"
                        Foreground="{DynamicResource TextMidBrush}"
                        Text="{Binding PositionText}" />
             <TextBlock HorizontalAlignment="Center"
-                       FontFamily="{StaticResource MonoFont}" FontSize="12"
+                       FontFamily="{DynamicResource MonoFont}" FontSize="12"
                        Foreground="{DynamicResource TextFaintBrush}"
                        Text="{Binding PositionSource}" />
         </StackPanel>

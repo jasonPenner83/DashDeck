@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.IO;
+using System.Windows;
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using DashDeck.Abstractions;
@@ -21,7 +22,7 @@ public enum ThemeMode
 }
 
 /// <summary>
-/// Owns the live palette: day or night, and which accent.
+/// Owns the live look: which theme (ADR-0036), day or night, and which accent.
 /// </summary>
 /// <remarks>
 /// Applied by <em>replacing</em> the brushes in <c>Application.Resources</c>, which every
@@ -33,7 +34,7 @@ public enum ThemeMode
 /// palette without remembering it.
 /// </para>
 /// </remarks>
-public sealed partial class ThemeService : ObservableObject
+public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHost
 {
     private readonly IClock _clock;
     private readonly Stage.WeatherService _weather;
@@ -45,6 +46,20 @@ public sealed partial class ThemeService : ObservableObject
 
     [ObservableProperty]
     private AccentOption _accent = AccentOption.Ember;
+
+    /// <summary>The theme being worn. The built-in DashDeck look until one is chosen.</summary>
+    [ObservableProperty]
+    private ThemeDefinition _current = ThemeDefinition.BuiltIn;
+
+    /// <summary>
+    /// What is wrong with the current theme, one line each: values it could not use, text that
+    /// will be hard to read, an accent too close to a quality colour. Never silent.
+    /// </summary>
+    [ObservableProperty]
+    private IReadOnlyList<string> _problems = [];
+
+    /// <summary>The shipped themes and the user's own.</summary>
+    public ThemeLibrary Library { get; }
 
     [ObservableProperty]
     private bool _isNight;
@@ -60,6 +75,8 @@ public sealed partial class ThemeService : ObservableObject
     {
         _clock = clock;
         _weather = weather;
+
+        Library = new ThemeLibrary(CatalogPath.FindFolder("themes"), JsonFile.InLocalAppData("themes"));
 
         // Observes the shell's single fetch rather than running a second one. This class used
         // to fetch sunrise and sunset itself, on its own timer with its own backoff — and that
@@ -81,6 +98,10 @@ public sealed partial class ThemeService : ObservableObject
         {
             _mode = mode;
         }
+
+        // A theme that has gone — deleted, or a shipped one a later build dropped — falls back
+        // to the DashDeck look rather than leaving the screen undressed.
+        _current = Library.Find(stored.ThemeId) ?? ThemeDefinition.BuiltIn;
 
         // Re-checked on load, not just on entry. A stored colour was validated against the
         // quality palette of whatever build wrote it; if a later build moves one of those
@@ -106,12 +127,17 @@ public sealed partial class ThemeService : ObservableObject
     /// overwrite whatever the user had actually chosen — looking at night mode once would make
     /// it permanent.
     /// </remarks>
-    public void Preview(ThemeMode? mode, AccentOption? accent)
+    public void Preview(ThemeMode? mode, AccentOption? accent, ThemeDefinition? theme = null)
     {
         _suppressPersist = true;
 
         try
         {
+            if (theme is not null)
+            {
+                Wear(theme);
+            }
+
             if (mode is { } m)
             {
                 Mode = m;
@@ -158,6 +184,43 @@ public sealed partial class ThemeService : ObservableObject
     }
 
     /// <summary>
+    /// Wear a theme, and take its accent with it.
+    /// </summary>
+    /// <remarks>
+    /// The accent picker in Appearance still works on top of a theme — choosing a theme sets the
+    /// accent to the theme's, and picking another afterwards overrides it until the next theme is
+    /// chosen. A theme's accent passes the same check a hand-picked one does (ADR-0014): one too
+    /// close to a quality colour is not worn, the DashDeck accent is, and the theme says why.
+    /// </remarks>
+    public void Wear(ThemeDefinition theme)
+    {
+        Current = theme;
+
+        var day = ThemeResolver.Resolve(theme, night: false).Colour("accent");
+        var colour = Color.FromRgb(day.R, day.G, day.B);
+
+        Accent = AccentValidation.Check(colour).IsUsable
+            ? AccentOption.All.FirstOrDefault(a => a.Colour == colour) ?? new AccentOption("THEME", colour)
+            : AccentOption.Ember;
+
+        Apply();
+        Persist();
+    }
+
+    /// <summary>
+    /// Read the theme folders again and re-apply — the way to see a hand edit without a restart,
+    /// as Home Assistant's "reload themes" does.
+    /// </summary>
+    public void Reload()
+    {
+        Library.Reload();
+        var reloaded = Library.Find(Current.Id) ?? ThemeDefinition.BuiltIn;
+
+        // Through Wear, so an edited accent is picked up with everything else.
+        Wear(reloaded);
+    }
+
+    /// <summary>
     /// Write the choice out.
     /// </summary>
     /// <remarks>
@@ -177,6 +240,7 @@ public sealed partial class ThemeService : ObservableObject
         SettingsStore.Update(stored => stored with
         {
             ThemeMode = Mode.ToString(),
+            ThemeId = Current.Id,
             AccentName = Accent.Name,
             AccentColour = ToHex(Accent.Colour),
         });
@@ -195,21 +259,82 @@ public sealed partial class ThemeService : ObservableObject
             _ => ResolveAuto(),
         };
 
-        var palette = IsNight ? ThemePalette.Night : ThemePalette.Day;
+        var theme = ThemeResolver.Resolve(Current, IsNight);
         var accent = IsNight ? ThemePalette.Dim(Accent.Colour, 0.82) : Accent.Colour;
 
-        SetBrush("CanvasBrush", palette.Canvas);
-        SetBrush("SurfaceBrush", palette.Surface);
-        SetBrush("RaisedBrush", palette.Raised);
-        SetBrush("HairlineBrush", palette.Hairline);
-        SetBrush("HairlineStrongBrush", palette.HairlineStrong);
-        SetBrush("TextHighBrush", palette.TextHigh);
-        SetBrush("TextMidBrush", palette.TextMid);
-        SetBrush("TextLowBrush", palette.TextLow);
-        SetBrush("TextFaintBrush", palette.TextFaint);
+        foreach (var token in ThemeTokens.All)
+        {
+            switch (token.Kind)
+            {
+                case TokenKind.Colour when token.Key is "accent":
+                    SetBrush(token.ResourceKey, accent);
+                    break;
 
-        SetBrush("AccentBrush", accent);
-        SetBrush("AccentWashBrush", Color.FromArgb(0x14, accent.R, accent.G, accent.B));
+                // Following the accent by default, so it follows the one actually worn — which may
+                // be a hand-picked override — rather than the theme's.
+                case TokenKind.Colour when token.Key is "selectedText" && !Current.Tokens.ContainsKey("selectedText"):
+                    SetBrush(token.ResourceKey, accent);
+                    break;
+
+                case TokenKind.Colour:
+                    var c = theme.Colour(token.Key);
+                    SetBrush(token.ResourceKey, Color.FromArgb(c.A, c.R, c.G, c.B));
+                    break;
+
+                case TokenKind.Number when token.Key is "borderWidth":
+                    Application.Current.Resources[token.ResourceKey] = new Thickness(theme.Number(token.Key));
+                    break;
+
+                case TokenKind.Number when token.ResourceKey.Length > 0:
+                    Application.Current.Resources[token.ResourceKey] = new CornerRadius(theme.Number(token.Key));
+                    break;
+
+                case TokenKind.Font:
+                    Application.Current.Resources[token.ResourceKey] = Font(theme.Fonts[token.Key], Current);
+                    break;
+            }
+        }
+
+        var wash = (byte)Math.Round(theme.Number("accentWash") * 255);
+        SetBrush("AccentWashBrush", Color.FromArgb(wash, accent.R, accent.G, accent.B));
+
+        Problems = Describe(theme);
+    }
+
+    /// <summary>Everything worth saying about the theme being worn, for Settings to show.</summary>
+    private IReadOnlyList<string> Describe(ResolvedTheme worn)
+    {
+        var lines = new List<string>(worn.Problems);
+        lines.AddRange(ThemeResolver.Legibility(IsNight ? ThemeResolver.Resolve(Current, night: false) : worn));
+
+        var wanted = ThemeResolver.Resolve(Current, night: false).Colour("accent");
+        var check = AccentValidation.Check(Color.FromRgb(wanted.R, wanted.G, wanted.B));
+        if (!check.IsUsable)
+        {
+            lines.Add($"Its accent {wanted} was not used: {check.Message} Wearing EMBER instead.");
+        }
+
+        return lines;
+    }
+
+    /// <summary>
+    /// A theme's font: its own font files first, from beside the theme file, then whatever the
+    /// tablet has by that name, then the next name in the list.
+    /// </summary>
+    private static FontFamily Font(string families, ThemeDefinition theme)
+    {
+        if (theme.Folder is not { } folder || theme.FontFiles.Count == 0)
+        {
+            return new FontFamily(families);
+        }
+
+        // "./#Antonio" finds the family in the theme's own folder; the bare name after it is the
+        // fallback if that file has gone.
+        var names = families.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var list = string.Join(", ", names.SelectMany(n => new[] { $"./#{n}", n }));
+        var baseUri = new Uri(Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar);
+
+        return new FontFamily(baseUri, list);
     }
 
     /// <summary>

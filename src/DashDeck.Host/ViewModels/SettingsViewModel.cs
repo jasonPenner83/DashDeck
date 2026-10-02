@@ -71,6 +71,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<SettingsSection> Sections { get; } =
     [
         new SettingsSection("APPEARANCE") { IsSelected = true },
+        new SettingsSection("THEMES"),
         new SettingsSection("MOUNT"),
         new SettingsSection("DISPLAY"),
         new SettingsSection("VEHICLE"),
@@ -82,6 +83,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Which section is showing.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsAppearance))]
+    [NotifyPropertyChangedFor(nameof(IsThemes))]
     [NotifyPropertyChangedFor(nameof(IsMount))]
     [NotifyPropertyChangedFor(nameof(IsDisplay))]
     [NotifyPropertyChangedFor(nameof(IsVehicle))]
@@ -91,6 +93,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private string _section = "APPEARANCE";
 
     public bool IsAppearance => Section == "APPEARANCE";
+    public bool IsThemes => Section == "THEMES";
     public bool IsMount => Section == "MOUNT";
     public bool IsDisplay => Section == "DISPLAY";
     public bool IsVehicle => Section == "VEHICLE";
@@ -133,6 +136,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         Adapter = adapter;
         _theme = theme;
+        Themes = new ThemesViewModel(theme, new ThemeDialogs());
         Inventory = inventory;
         Vehicle = vehicle;
         Display = display;
@@ -163,6 +167,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         // Populate the COM-port list once so the Bluetooth picker has something to show.
         RefreshSerialPorts();
     }
+
+    /// <summary>Choosing, importing and exporting themes (ADR-0036).</summary>
+    public ThemesViewModel Themes { get; }
 
     /// <summary>Every signal and sensor, the scan that finds missing ones, and the editor (ADR-0032).</summary>
     public SensorInventoryViewModel Inventory { get; }
