@@ -115,6 +115,7 @@ public sealed partial class LauncherSettingsViewModel : ObservableObject
                 LauncherTypes.Web => $"web · {entry.Url}",
                 LauncherTypes.App => $"app · {entry.Paths?.FirstOrDefault()}",
                 LauncherTypes.Gauges when entry.Layout is { Length: > 0 } layout => $"gauges · layout {layout}",
+                LauncherTypes.Compass => $"compass · layout {entry.Layout ?? "compass"}",
                 LauncherTypes.Video when entry.Path is { Length: > 0 } file => $"video · {file}",
                 _ => entry.Type,
             };

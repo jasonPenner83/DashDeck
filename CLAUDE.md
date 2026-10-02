@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **474 tests green** — 166 engine, 308 shell.
+(ADR-0010). **492 tests green** — 166 engine, 326 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -108,6 +108,15 @@ name (`NamedOccupant` wraps an occupant whose own name differs, because the butt
 the stage by name). A bad entry is left out and named; a bad file leaves the built-in list.
 **Settings ▸ Apps ▸ STAGE LAUNCHER** shows it, with RELOAD, MAKE IT MINE and OPEN FOLDER.
 Reference: [`docs/writing-a-launcher.md`](docs/writing-a-launcher.md).
+
+**COMPASS is a stage layout too** (ADR-0039). A gauge's `source` can be a **`sensor`** from the
+sensor catalog (`attitude.pitch`, `motion.lateralG`, `location.latitude`…) instead of a signal —
+read through `SensorService`, truck first, with the source (`TRUCK`, `TABLET`, `NOT LEVELLED`) drawn
+along the gauge's bottom edge. Two new elements: **`compass`** (a rose, `mode` `rose` or `needle`) and
+**`gMeter`** (no levelled mount, no ball; RESET PEAK G appears in the three-dot menu on any stage with
+one). The old screen is the compiled-in **`compass`** layout; the launcher's `compass` entry shows it,
+and a `compass.json` of the user's in `stage\` replaces it. `CompassView`/`CompassViewModel`/
+`CompassStageOccupant` are gone; the arithmetic lives in `SensorMath`.
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
@@ -321,7 +330,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Thirty-eight exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Thirty-nine exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -341,7 +350,8 @@ live when the adapter answers, chosen from a list of tested ports, and asking mo
 address — a module sweep, an identifier sweep, and signals that name their module, and
 themes as files of named tokens chosen in Settings, with the quality colours still out of reach,
 and the stage as a file of gauges, text, clock and panels that a theme can bring with it, and
-the launcher as a file — every stage option, web page and program, in order, and the quick bar.
+the launcher as a file — every stage option, web page and program, in order, and the quick bar, and
+the compass as layout elements — sensor-sourced gauges, a rose and a G meter.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

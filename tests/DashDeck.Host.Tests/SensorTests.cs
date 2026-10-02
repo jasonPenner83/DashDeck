@@ -1,7 +1,6 @@
 using System.IO;
 using DashDeck.Abstractions;
 using DashDeck.Host.Sensors;
-using DashDeck.Host.ViewModels;
 
 namespace DashDeck.Host.Tests;
 
@@ -237,11 +236,11 @@ public sealed class SensorTests
     [InlineData(270, "W")]
     [InlineData(350, "N")]
     public void Cardinal_points_own_the_sector_centred_on_them(double degrees, string expected) =>
-        Assert.Equal(expected, CompassViewModel.Cardinal(degrees));
+        Assert.Equal(expected, DashDeck.Host.Stage.Gauges.SensorMath.Cardinal(degrees));
 
     [Fact]
     public void An_absent_bearing_has_no_cardinal_point() =>
-        Assert.Equal("——", CompassViewModel.Cardinal(double.NaN));
+        Assert.Equal("——", DashDeck.Host.Stage.Gauges.SensorMath.Cardinal(double.NaN));
 
     private static IClock Clock => SystemClock.Instance;
 
