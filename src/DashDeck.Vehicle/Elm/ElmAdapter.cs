@@ -38,6 +38,9 @@ public sealed class ElmAdapter : IVehicleAdapter
 
     private CanBus _selectedBus = CanBus.Hs;
 
+    /// <summary>The module the adapter is addressing, or null for the broadcast it starts on.</summary>
+    private ushort? _selectedHeader;
+
     public ElmAdapter(IVehicleTransport transport, IClock? clock = null)
     {
         _transport = transport;
@@ -90,8 +93,10 @@ public sealed class ElmAdapter : IVehicleAdapter
     /// <summary>Put the adapter in the state every request assumes, and learn what it can reach.</summary>
     private async Task ConfigureAsync(CancellationToken ct)
     {
-        // Whatever the adapter was doing, ATZ puts it back on HS-CAN with defaults.
+        // Whatever the adapter was doing, ATZ puts it back on HS-CAN with defaults — the
+        // broadcast header and no receive filter among them.
         _selectedBus = CanBus.Hs;
+        _selectedHeader = null;
 
         await _transport.ExchangeAsync("ATZ", ct).ConfigureAwait(false);      // reset
         await _transport.ExchangeAsync("ATE0", ct).ConfigureAwait(false);     // echo off
@@ -158,6 +163,45 @@ public sealed class ElmAdapter : IVehicleAdapter
         _selectedBus = bus;
     }
 
+    /// <summary>
+    /// Point the adapter at one module, or back at the broadcast (ADR-0035).
+    /// </summary>
+    /// <remarks>
+    /// Three things move together. <c>ATSH</c> sets the id requests go out on; <c>ATCRA</c>
+    /// listens only for that module's answer, so another module chattering on the same bus is
+    /// not read as the reply; and the flow-control header is set explicitly, because a reply
+    /// longer than one frame (a part number, a VIN) needs the adapter to tell <em>that</em>
+    /// module to carry on, and the automatic choice is only documented for the
+    /// <c>7E0</c>–<c>7E7</c> engine range. All three are adapter settings — nothing here is
+    /// sent to the vehicle. Returns false when the adapter refuses them.
+    /// </remarks>
+    private async Task<bool> SelectHeaderAsync(ushort? header, CancellationToken ct)
+    {
+        if (_selectedHeader == header)
+        {
+            return true;
+        }
+
+        string[] commands = header is { } id
+            ? [$"ATSH{id:X3}", $"ATCRA{id + 8:X3}", $"ATFCSH{id:X3}", "ATFCSD300000", "ATFCSM1"]
+            : [$"ATSH{PidRequest.Broadcast:X3}", "ATAR", "ATFCSM0"];
+
+        foreach (var command in commands)
+        {
+            var reply = await _transport.ExchangeAsync(command, ct).ConfigureAwait(false);
+            if (reply.Contains('?', StringComparison.Ordinal))
+            {
+                // Half-applied is unknown, not "still the old one": 0 is neither the broadcast
+                // nor a module, so whatever the next request wants is set again in full.
+                _selectedHeader = 0;
+                return false;
+            }
+        }
+
+        _selectedHeader = header;
+        return true;
+    }
+
     public async Task<PidResponse> RequestAsync(PidRequest request, CancellationToken ct)
     {
         await _gate.WaitAsync(ct).ConfigureAwait(false);
@@ -178,6 +222,16 @@ public sealed class ElmAdapter : IVehicleAdapter
             }
 
             await SelectBusAsync(request.Bus, ct).ConfigureAwait(false);
+
+            if (request.Header is { } header && !PidRequest.IsModuleAddress(header))
+            {
+                return PidResponse.Failed(request, PidFailure.Malformed, _clock.UtcNow);
+            }
+
+            if (!await SelectHeaderAsync(request.Header, ct).ConfigureAwait(false))
+            {
+                return PidResponse.Failed(request, PidFailure.BusError, _clock.UtcNow);
+            }
 
             var raw = await _transport.ExchangeAsync(request.ToCommand(), ct).ConfigureAwait(false);
             return ElmResponseParser.Parse(request, raw, _clock.UtcNow);

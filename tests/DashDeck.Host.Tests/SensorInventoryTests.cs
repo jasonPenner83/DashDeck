@@ -62,12 +62,26 @@ public sealed class SensorInventoryTests : IDisposable
 
         public IVehicleSignals Signals { get; } = new Components.FakeSignals();
 
+        public IReadOnlyList<VehiclePack> ActivePacks { get; init; } = [];
+
+        public bool IsSimulated { get; init; }
+
+        /// <summary>What an addressed module answers, by module and identifier (ADR-0035).</summary>
+        public Dictionary<(ushort Module, ushort Did), byte[]> ModuleAnswers { get; } = [];
+
         public SignalPollStatus StatusOf(string signalId) =>
             Statuses.GetValueOrDefault(signalId, SignalPollStatus.NotAsked);
 
         public Task<PidResponse> ProbeAsync(PidRequest request, CancellationToken ct)
         {
             Asked.Add(request);
+
+            if (request.Header is { } module)
+            {
+                return Task.FromResult(ModuleAnswers.TryGetValue((module, request.Pid), out var reply)
+                    ? PidResponse.Ok(request, reply, DateTimeOffset.UnixEpoch)
+                    : PidResponse.Refused(request, 0x31, DateTimeOffset.UnixEpoch));
+            }
 
             // HS-CAN only, like the synthetic truck: the body modules do not answer the bitmaps.
             return Task.FromResult(request.Bus is CanBus.Hs && Answers.TryGetValue(request.Pid, out var data)
@@ -318,6 +332,121 @@ public sealed class SensorInventoryTests : IDisposable
 
         Assert.StartsWith("NO DATA", editor.TestRaw, StringComparison.Ordinal);
         Assert.Equal("", editor.TestDecoded);
+    }
+
+    // ── Modules (ADR-0035) ────────────────────────────────────────────────────
+
+    private static readonly VehiclePack FordPack = new()
+    {
+        Name = "test",
+        Match = new VehiclePackMatch { Make = "Ford" },
+        Modules = new Dictionary<string, string> { ["726"] = "BCM — body control" },
+    };
+
+    private static ModuleScanResult TwoModules() => new(
+        [
+            new DiscoveredModule(CanBus.Ms, 0x726, "SYNTH-BCM", null),
+            new DiscoveredModule(CanBus.Hs, 0x7E0, null, 0x31),
+        ],
+        new Dictionary<CanBus, string>(),
+        Completed: true);
+
+    [Fact]
+    public void Found_modules_are_listed_hs_first_with_a_likely_name_that_says_it_is_likely()
+    {
+        var inventory = new SensorInventoryViewModel(new FakeVehicle(Shipped()) { ActivePacks = [FordPack] }, new UserSignalStore(FilePath));
+        var modules = inventory.Modules;
+
+        modules.ApplyModules(TwoModules());
+
+        Assert.Equal([0x7E0, 0x726], modules.Found.Select(m => (int)m.Address));
+        Assert.Contains("BCM", modules.Found[1].Caption, StringComparison.Ordinal);
+        Assert.Contains("likely", modules.Found[1].Detail, StringComparison.Ordinal);
+        Assert.Contains("SYNTH-BCM", modules.Found[1].Detail, StringComparison.Ordinal);
+        Assert.Contains("HS-CAN: 1 module", modules.Status, StringComparison.Ordinal);
+        Assert.Contains("MS-CAN: 1 module", modules.Status, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Sweeping_a_module_asks_it_by_address_and_a_find_opens_the_editor_ready_to_test()
+    {
+        var vehicle = new FakeVehicle(Shipped()) { IsSimulated = true };
+        vehicle.ModuleAnswers[(0x726, 0x4001)] = [0x00, 0x8D];
+
+        var store = new UserSignalStore(FilePath);
+        var inventory = new SensorInventoryViewModel(vehicle, store);
+        var modules = inventory.Modules;
+        modules.ApplyModules(TwoModules());
+
+        modules.SelectCommand.Execute(modules.Found[1]);
+        modules.FromText = "4000";
+        modules.ToText = "400F";
+        Assert.True(modules.SweepCommand.CanExecute(null));
+
+        await modules.SweepCommand.ExecuteAsync(null);
+
+        Assert.All(vehicle.Asked, r => Assert.Equal((ushort)0x726, r.Header));
+        Assert.Equal(16, vehicle.Asked.Count);
+        var found = Assert.Single(modules.Identifiers);
+        Assert.Equal("22 4001", found.Caption);
+        Assert.True(found.CanDefine);
+
+        modules.DefineCommand.Execute(found);
+        var editor = inventory.Editor!;
+        Assert.Equal("726", editor.ModuleText);
+        Assert.True(editor.IsMsCan);
+        Assert.Equal("22 4001 → 726", editor.RequestText);
+        Assert.False(editor.HasProblems, editor.Message);
+
+        // TEST goes to the module too.
+        vehicle.Asked.Clear();
+        await editor.TestCommand.ExecuteAsync(null);
+        Assert.Equal(new PidRequest(0x22, 0x4001, CanBus.Ms, 0x726), Assert.Single(vehicle.Asked));
+        Assert.Equal("00 8D", editor.TestRaw);
+
+        editor.SaveCommand.Execute(null);
+        Assert.Equal("726", Assert.Single(store.Definitions).Module);
+    }
+
+    [Fact]
+    public void A_range_too_wide_or_backwards_cannot_be_swept()
+    {
+        var inventory = new SensorInventoryViewModel(new FakeVehicle(Shipped()), new UserSignalStore(FilePath));
+        var modules = inventory.Modules;
+        modules.ApplyModules(TwoModules());
+        modules.SelectCommand.Execute(modules.Found[0]);
+
+        Assert.True(modules.SweepCommand.CanExecute(null));
+
+        modules.FromText = "0000";
+        modules.ToText = "1000";
+        Assert.False(modules.SweepCommand.CanExecute(null));
+        Assert.NotNull(modules.RangeProblem);
+
+        modules.ToText = "0FFF";
+        Assert.Null(modules.RangeProblem);
+
+        modules.FromText = "2000";
+        Assert.False(modules.SweepCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void The_editor_refuses_a_reply_address_as_a_module()
+    {
+        var inventory = new SensorInventoryViewModel(new FakeVehicle(Shipped()), new UserSignalStore(FilePath));
+        inventory.NewCommand.Execute(null);
+        var editor = inventory.Editor!;
+        editor.Id = "body.thing";
+        editor.Name = "Thing";
+        editor.PidText = "4001";
+
+        editor.ModuleText = "72E";
+        Assert.Contains("module", editor.Message, StringComparison.Ordinal);
+        Assert.False(editor.TestCommand.CanExecute(null));
+
+        editor.ModuleText = "";
+        Assert.True(editor.SaveCommand.CanExecute(null), editor.Message);
+        Assert.Contains("broadcast", editor.ModuleHint, StringComparison.Ordinal);
     }
 
     [Theory]

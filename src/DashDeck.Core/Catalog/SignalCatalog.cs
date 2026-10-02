@@ -152,6 +152,11 @@ public sealed class SignalCatalog
             problems.Add($"'{d.Id}': min is greater than max");
         }
 
+        if (!string.IsNullOrWhiteSpace(d.Module) && d.ModuleAddress is null)
+        {
+            problems.Add($"'{d.Id}': module must be a module address in hex, 700–7F7 with the 8s digit clear (e.g. 726), not '{d.Module}'");
+        }
+
         return problems;
     }
 

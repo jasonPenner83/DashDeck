@@ -31,6 +31,9 @@ means nothing to somebody else's truck.
     "yearMax": 2020,
     "displacementLitres": 2.7     // to a tenth of a litre
   },
+  "modules": {                    // likely names for module addresses, for the module sweep
+    "726": "BCM — body control"   // labels only; the screen says "likely" (ADR-0035)
+  },
   "signals": [ /* definitions, in the format below */ ]
 }
 ```
@@ -52,7 +55,10 @@ whole overlay is dropped, the shipped catalog runs alone, and the Sensors sectio
 The same section has **SCAN THE TRUCK**, which asks the supported-PID bitmaps (mode 01 PIDs `00`,
 `20`, `40` …) and lists what the truck supports that no file defines, and what a file defines that
 the truck does not support; and **TEST**, which sends one request and shows the raw bytes and what
-the formula makes of them before anything is saved. Once a user definition has proved itself on
+the formula makes of them before anything is saved. **SCAN FOR MODULES** asks every module address
+on both buses for its part number, the way FORScan lists modules, and a found module's
+**identifiers** can be swept a range at a time; one that answers opens the editor with its module,
+bus and mode 22 filled in (ADR-0035). Once a user definition has proved itself on
 the truck, promote it by copying it into the right file here.
 
 ## Fields
@@ -64,6 +70,9 @@ the truck, promote it by copying it into the right file here.
   "bus": "Hs",                  // Hs (pins 6/14, 500k) or Ms (pins 3/11, 125k)
   "mode": 1,                    // OBD-II service, defaults to 01
   "pid": 13,                    // decimal in JSON — 13 is 0x0D
+  "module": null,               // hex text, e.g. "726": ask that module by address (ADR-0035).
+                                // Left out, the request goes to the broadcast (7DF), which is
+                                // what every standard mode 01 PID wants.
   "decode": {
     "byteOffset": 0,            // index into the payload, after the echoed mode and PID
     "byteLength": 1,            // 1, 2 or 4, big-endian

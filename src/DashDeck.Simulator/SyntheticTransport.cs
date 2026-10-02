@@ -28,6 +28,9 @@ public sealed class SyntheticTransport : IVehicleTransport
     private DateTimeOffset _lastAdvance;
     private CanBus _bus = CanBus.Hs;
 
+    /// <summary>The module requests are addressed to, or null for the broadcast (ATSH).</summary>
+    private ushort? _header;
+
     public SyntheticTransport(
         SimulatedF150 truck,
         IClock? clock = null,
@@ -131,7 +134,31 @@ public sealed class SyntheticTransport : IVehicleTransport
         _lastAdvance = now;
     }
 
-    private string HandleControl(string command) => command switch
+    private string HandleControl(string command)
+    {
+        // ATSH sets the request header. ATCRA and the flow-control commands only shape what the
+        // adapter listens for, which a simulator answering by address already gets right.
+        if (command.StartsWith("ATSH", StringComparison.Ordinal))
+        {
+            if (!ushort.TryParse(command.AsSpan(4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var header))
+            {
+                return "?\r\r>";
+            }
+
+            _header = header == PidRequest.Broadcast ? null : header;
+            return "OK\r\r>";
+        }
+
+        if (command == "ATZ")
+        {
+            _header = null;
+            _bus = CanBus.Hs;
+        }
+
+        return HandleFixedControl(command);
+    }
+
+    private string HandleFixedControl(string command) => command switch
     {
         "ATI" => "STN2230 v5.6.6 (synthetic)\r\r>",
         "ATZ" => "\rELM327 v1.5\r\r>",
@@ -175,6 +202,18 @@ public sealed class SyntheticTransport : IVehicleTransport
             // What the adapter says on a desk: it hunted for a bus and found none. Control
             // commands still answer, because the adapter is powered from USB.
             return "SEARCHING...\rUNABLE TO CONNECT\r\r>";
+        }
+
+        if (mode == 0x22)
+        {
+            return HandleModuleRead(command);
+        }
+
+        // The broadcast reaches the engine computer, and so does addressing it as 7E0. Every
+        // other module ignores modes 01 and 09.
+        if (_header is not null && !(_header == 0x7E0 && _bus == CanBus.Hs))
+        {
+            return "NO DATA\r\r>";
         }
 
         if (mode == 0x09 && pid == 0x02 && _bus == CanBus.Hs)
@@ -365,6 +404,99 @@ public sealed class SyntheticTransport : IVehicleTransport
         0xC3 => [Psi(_truck.Jitter(_truck.TirePsiRearRight, 0.1))],
         _ => null,
     };
+
+    /// <summary>
+    /// The synthetic truck's modules, by bus and address, and the identifiers each answers.
+    /// </summary>
+    /// <remarks>
+    /// Enough for the module sweep (ADR-0035) to find something on each bus and for the
+    /// identifier sweep to find something in a module: part numbers at <c>F113</c>, the
+    /// engine's VIN at <c>F190</c>, a couple of live values on the body module. The part
+    /// numbers say SYNTH, and the identifiers in <c>4xxx</c> are invented — none of this is a
+    /// claim about a real Ford, which is the line the vehicle packs hold (ADR-0033). The gateway
+    /// declines <c>F113</c>, so the "it is there but would not say" path runs too.
+    /// </remarks>
+    private Dictionary<ushort, Func<byte[]>>? ModuleAt(CanBus bus, ushort address) => (bus, address) switch
+    {
+        (CanBus.Hs, 0x7E0) => new()
+        {
+            [0xF113] = () => Ascii("SYNTH-PCM-14C204-AA"),
+            [0xF188] = () => Ascii("SYNTH-STRATEGY-01"),
+            [0xF190] = () => Ascii(SyntheticVin),
+        },
+        (CanBus.Hs, 0x7E1) => new() { [0xF113] = () => Ascii("SYNTH-TCM-7J104-AB") },
+        (CanBus.Hs, 0x760) => new() { [0xF113] = () => Ascii("SYNTH-ABS-2C219-AC") },
+        (CanBus.Hs, 0x730) => new() { [0xF113] = () => Ascii("SYNTH-PSCM-3F964-AA") },
+        (CanBus.Hs, 0x716) => new(),
+        (CanBus.Ms, 0x726) => new()
+        {
+            [0xF113] = () => Ascii("SYNTH-BCM-14B476-AD"),
+
+            // Invented: battery voltage in tenths of a volt, and an ambient temperature.
+            [0x4001] = () => TwoByte((ushort)Math.Round(_truck.Jitter(141, 1))),
+            [0x4002] = () => [Temp(_truck.AmbientTempC)],
+        },
+        (CanBus.Ms, 0x720) => new() { [0xF113] = () => Ascii("SYNTH-IPC-10849-AE") },
+        (CanBus.Ms, 0x733) => new() { [0xF113] = () => Ascii("SYNTH-HVAC-18C612-AA") },
+        _ => null,
+    };
+
+    /// <summary>Identifiers a module has but will not give without security access.</summary>
+    private static bool IsLocked(ushort address, ushort did) => address == 0x726 && did == 0x4003;
+
+    /// <summary>Mode 22 to one module: data, a negative response, or silence if nothing is there.</summary>
+    private string HandleModuleRead(string command)
+    {
+        if (_header is not { } address ||
+            command.Length != 6 ||
+            !ushort.TryParse(command.AsSpan(2, 4), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var did))
+        {
+            // Mode 22 is not a broadcast service: nothing answers 7DF.
+            return "NO DATA\r\r>";
+        }
+
+        if (ModuleAt(_bus, address) is not { } module)
+        {
+            return "NO DATA\r\r>";
+        }
+
+        if (IsLocked(address, did))
+        {
+            return "7F2233\r\r>";
+        }
+
+        return module.TryGetValue(did, out var read)
+            ? Frames([0x62, (byte)(did >> 8), (byte)did, .. read()])
+            : "7F2231\r\r>";
+    }
+
+    private static byte[] Ascii(string text) => Encoding.ASCII.GetBytes(text);
+
+    /// <summary>
+    /// Print a reply the way an ELM327 with spaces off does: one line when it fits a CAN frame,
+    /// otherwise a byte count and ISO-TP frames with their index glued on — six bytes in the
+    /// first frame, seven in each after.
+    /// </summary>
+    private static string Frames(byte[] reply)
+    {
+        if (reply.Length <= 7)
+        {
+            return Convert.ToHexString(reply) + "\r\r>";
+        }
+
+        var sb = new StringBuilder();
+        sb.Append(reply.Length.ToString("X3", CultureInfo.InvariantCulture)).Append('\r');
+        sb.Append("0:").Append(Convert.ToHexString(reply, 0, 6)).Append('\r');
+
+        var index = 1;
+        for (var at = 6; at < reply.Length; at += 7, index++)
+        {
+            sb.Append((index % 16).ToString("X", CultureInfo.InvariantCulture)).Append(':')
+              .Append(Convert.ToHexString(reply, at, Math.Min(7, reply.Length - at))).Append('\r');
+        }
+
+        return sb.Append("\r>").ToString();
+    }
 
     private static byte Temp(double celsius) => (byte)Math.Clamp(Math.Round(celsius + 40), 0, 255);
 

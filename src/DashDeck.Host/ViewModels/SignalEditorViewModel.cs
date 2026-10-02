@@ -37,6 +37,7 @@ public sealed partial class SignalEditorViewModel : ObservableObject
 {
     private readonly Func<PidRequest, CancellationToken, Task<PidResponse>> _probe;
     private readonly Func<string, bool> _idTaken;
+    private readonly Func<ushort, string?> _moduleName;
     private readonly Action<SignalDefinition> _save;
     private readonly Action _cancel;
     private readonly Action<string>? _remove;
@@ -47,6 +48,7 @@ public sealed partial class SignalEditorViewModel : ObservableObject
     /// <param name="note">A line about where <paramref name="start"/> came from, or null.</param>
     /// <param name="probe">One request to the adapter, for TEST.</param>
     /// <param name="idTaken">True for an id already in the catalog, for a new signal's check.</param>
+    /// <param name="moduleName">A likely name for a module address, or null (ADR-0035).</param>
     /// <param name="save">Write the finished definition.</param>
     /// <param name="cancel">Close without saving.</param>
     /// <param name="remove">Drop the user's definition, when there is one to drop.</param>
@@ -57,12 +59,14 @@ public sealed partial class SignalEditorViewModel : ObservableObject
         string? note,
         Func<PidRequest, CancellationToken, Task<PidResponse>> probe,
         Func<string, bool> idTaken,
+        Func<ushort, string?> moduleName,
         Action<SignalDefinition> save,
         Action cancel,
         Action<string>? remove)
     {
         _probe = probe;
         _idTaken = idTaken;
+        _moduleName = moduleName;
         _save = save;
         _cancel = cancel;
         _remove = origin is SignalOrigin.Shipped ? null : remove;
@@ -77,6 +81,7 @@ public sealed partial class SignalEditorViewModel : ObservableObject
         _isMsCan = start.Bus is CanBus.Ms;
         _modeText = start.Mode.ToString("X2", CultureInfo.InvariantCulture);
         _pidText = start.Pid.ToString(start.Pid <= 0xFF ? "X2" : "X4", CultureInfo.InvariantCulture);
+        _moduleText = start.Module ?? "";
         _byteOffsetText = Format(start.Decode.ByteOffset);
         _isSigned = start.Decode.Signed;
         _scaleText = Format(start.Decode.Scale);
@@ -160,6 +165,36 @@ public sealed partial class SignalEditorViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(Problems), nameof(HasProblems), nameof(Message), nameof(RequestText))]
     [NotifyCanExecuteChangedFor(nameof(SaveCommand), nameof(TestCommand))]
     private string _pidText;
+
+    /// <summary>
+    /// The module to ask, as a hex address — blank for the broadcast every standard PID uses
+    /// (ADR-0035).
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Problems), nameof(HasProblems), nameof(Message), nameof(RequestText), nameof(ModuleHint))]
+    [NotifyCanExecuteChangedFor(nameof(SaveCommand), nameof(TestCommand))]
+    private string _moduleText;
+
+    /// <summary>What the module field means as typed: the broadcast, a likely name, or a refusal.</summary>
+    public string ModuleHint
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(ModuleText))
+            {
+                return "Blank asks the broadcast (7DF), which the engine computer answers. Ford's own values need the module's address — find it with SCAN FOR MODULES.";
+            }
+
+            if (SignalDefinition.ParseModule(ModuleText) is not { } address)
+            {
+                return "Not a module address: hex, 700–7F7, with the 8s digit clear (the module answers on that +8).";
+            }
+
+            return _moduleName(address) is { } name
+                ? string.Create(CultureInfo.InvariantCulture, $"Asks {address:X3} and listens on {address + 8:X3} — likely the {name}.")
+                : string.Create(CultureInfo.InvariantCulture, $"Asks {address:X3} and listens on {address + 8:X3}.");
+        }
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Problems), nameof(HasProblems), nameof(Message), nameof(TestDecoded))]
@@ -281,6 +316,7 @@ public sealed partial class SignalEditorViewModel : ObservableObject
             Kind = _kind,
             Mode = (byte)mode,
             Pid = (ushort)pid,
+            Module = string.IsNullOrWhiteSpace(ModuleText) ? null : ModuleText.Trim().ToUpperInvariant().Replace("0X", "", StringComparison.Ordinal),
             Decode = new DecodeSpec(byteOffset, _byteLength, IsSigned, scale, offset, (Unit ?? "").Trim()),
             DefaultRateHz = rate,
             StalenessSeconds = _stalenessSeconds,
@@ -329,10 +365,17 @@ public sealed partial class SignalEditorViewModel : ObservableObject
 
     // ── TEST ──────────────────────────────────────────────────────────────────
 
-    /// <summary>The request as the adapter will see it, e.g. <c>01 0C on HS</c>.</summary>
+    /// <summary>The request as the adapter will see it, e.g. <c>01 0C</c> or <c>22 4001 → 726</c>.</summary>
     public string RequestText => TryHex(ModeText, 0xFF, out var mode) && TryHex(PidText, 0xFFFF, out var pid)
-        ? string.Create(CultureInfo.InvariantCulture, $"{mode:X2} {(pid <= 0xFF ? pid.ToString("X2", CultureInfo.InvariantCulture) : pid.ToString("X4", CultureInfo.InvariantCulture))}")
+        ? string.Create(CultureInfo.InvariantCulture, $"{mode:X2} {(pid <= 0xFF ? pid.ToString("X2", CultureInfo.InvariantCulture) : pid.ToString("X4", CultureInfo.InvariantCulture))}{(SignalDefinition.ParseModule(ModuleText) is { } module ? $" → {module:X3}" : "")}")
         : "—";
+
+    /// <summary>The module typed, or null for the broadcast. False when something unreadable is typed.</summary>
+    private bool TryModule(out ushort? module)
+    {
+        module = SignalDefinition.ParseModule(ModuleText);
+        return string.IsNullOrWhiteSpace(ModuleText) || module is not null;
+    }
 
     /// <summary>The payload the last TEST returned, kept so a changed formula re-decodes it.</summary>
     private byte[]? _lastPayload;
@@ -391,13 +434,13 @@ public sealed partial class SignalEditorViewModel : ObservableObject
         }
     }
 
-    private bool CanTest() => !IsTesting && TryHex(ModeText, 0xFF, out var mode) && mode != 0 && TryHex(PidText, 0xFFFF, out _);
+    private bool CanTest() => !IsTesting && TryHex(ModeText, 0xFF, out var mode) && mode != 0 && TryHex(PidText, 0xFFFF, out _) && TryModule(out _);
 
     /// <summary>Ask the truck once, with the request as typed.</summary>
     [RelayCommand(CanExecute = nameof(CanTest))]
     private async Task TestAsync()
     {
-        if (!TryHex(ModeText, 0xFF, out var mode) || !TryHex(PidText, 0xFFFF, out var pid))
+        if (!TryHex(ModeText, 0xFF, out var mode) || !TryHex(PidText, 0xFFFF, out var pid) || !TryModule(out var module))
         {
             return;
         }
@@ -408,7 +451,7 @@ public sealed partial class SignalEditorViewModel : ObservableObject
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            var response = await _probe(new PidRequest((byte)mode, (ushort)pid, bus), timeout.Token);
+            var response = await _probe(new PidRequest((byte)mode, (ushort)pid, bus, module), timeout.Token);
 
             _lastPayload = response.IsSuccess ? response.Data : null;
             TestRaw = response.IsSuccess
@@ -416,6 +459,7 @@ public sealed partial class SignalEditorViewModel : ObservableObject
                 : response.Failure switch
                 {
                     PidFailure.NoData => $"NO DATA — nothing on {(bus is CanBus.Ms ? "MS" : "HS")}-CAN answered {RequestText}.",
+                    PidFailure.Rejected => $"REFUSED — the module is there and said: {(response.NegativeCode is { } code ? Core.Discovery.ModuleScanner.DescribeRefusal(code) : "no")}.",
                     PidFailure.BusError => "BUS ERROR — the adapter reported a problem on the bus.",
                     PidFailure.Timeout => "No reply — is the adapter connected?",
                     _ => "A reply came back that could not be read.",

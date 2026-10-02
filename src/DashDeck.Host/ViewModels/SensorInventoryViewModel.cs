@@ -35,6 +35,12 @@ public interface ISignalInventorySource
 
     /// <summary>One question to the adapter, outside the plan.</summary>
     Task<PidResponse> ProbeAsync(PidRequest request, CancellationToken ct);
+
+    /// <summary>The vehicle packs laid over the catalog — where module names come from (ADR-0035).</summary>
+    IReadOnlyList<VehiclePack> ActivePacks { get; }
+
+    /// <summary>True while the synthetic truck is answering, so a sweep's results can say so.</summary>
+    bool IsSimulated { get; }
 }
 
 /// <summary>Where a definition comes from.</summary>
@@ -64,10 +70,10 @@ public sealed partial class SignalRowViewModel(SignalDefinition definition, Sign
     /// <summary>True when the file says something the running pipeline does not have yet.</summary>
     public bool IsPending { get; } = pending;
 
-    /// <summary>The quiet second line: id, bus and the request on the wire.</summary>
+    /// <summary>The quiet second line: id, bus, the request on the wire, and the module it goes to.</summary>
     public string Detail => string.Create(
         CultureInfo.InvariantCulture,
-        $"{Definition.Id}  ·  {(Definition.Bus is CanBus.Ms ? "MS" : "HS")}  ·  {Definition.Mode:X2} {(Definition.Pid <= 0xFF ? Definition.Pid.ToString("X2", CultureInfo.InvariantCulture) : Definition.Pid.ToString("X4", CultureInfo.InvariantCulture))}");
+        $"{Definition.Id}  ·  {(Definition.Bus is CanBus.Ms ? "MS" : "HS")}  ·  {Definition.Mode:X2} {(Definition.Pid <= 0xFF ? Definition.Pid.ToString("X2", CultureInfo.InvariantCulture) : Definition.Pid.ToString("X4", CultureInfo.InvariantCulture))}{(Definition.ModuleAddress is { } module ? $"  ·  module {module:X3}" : "")}");
 
     /// <summary>A tag for anything that is not plain shipped data.</summary>
     public string OriginLabel => Origin switch
@@ -206,6 +212,8 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
         TabletSensors = sensors is null
             ? []
             : [.. sensors.Catalog.Definitions.Select(d => new TabletSensorRowViewModel(d))];
+
+        Modules = new ModuleDiscoveryViewModel(vehicle, DefineDiscovered);
 
         store.Changed += (_, _) => Rebuild();
         Rebuild();
@@ -491,6 +499,21 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
         Editor = MakeEditor(suggestion with { Id = id }, isNew: true, SignalOrigin.Yours, note);
     }
 
+    /// <summary>The module sweep and the identifier sweep (ADR-0035).</summary>
+    public ModuleDiscoveryViewModel Modules { get; }
+
+    /// <summary>Open the editor on something a sweep found.</summary>
+    private void DefineDiscovered(SignalDefinition suggestion, string note)
+    {
+        var id = suggestion.Id;
+        for (var n = 2; IdTaken(id); n++)
+        {
+            id = $"{suggestion.Id}{n}";
+        }
+
+        Editor = MakeEditor(suggestion with { Id = id }, isNew: true, SignalOrigin.Yours, note);
+    }
+
     private bool IdTaken(string id) => _rows.Any(r => string.Equals(r.Id, id, StringComparison.Ordinal));
 
     private SignalEditorViewModel MakeEditor(SignalDefinition start, bool isNew, SignalOrigin origin, string? note) =>
@@ -501,6 +524,7 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
             note,
             _vehicle.ProbeAsync,
             IdTaken,
+            address => ModuleNames.Likely(address, _vehicle.ActivePacks),
             save: definition =>
             {
                 _store.Upsert(definition);
