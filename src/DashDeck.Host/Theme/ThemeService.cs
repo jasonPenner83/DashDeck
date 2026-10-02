@@ -64,7 +64,14 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
     /// <summary>Which stage layout shows: the one this theme names, or one chosen (ADR-0037).</summary>
     public Stage.Gauges.StageLayoutService Layouts { get; }
 
-    partial void OnCurrentChanged(ThemeDefinition value) => Layouts?.ThemeChanged();
+    /// <summary>Which climate panel layout shows: the theme's, or one chosen (ADR-0040).</summary>
+    public Stage.Gauges.StageLayoutService ClimateLayouts { get; }
+
+    partial void OnCurrentChanged(ThemeDefinition value)
+    {
+        Layouts?.ThemeChanged();
+        ClimateLayouts?.ThemeChanged();
+    }
 
     [ObservableProperty]
     private bool _isNight;
@@ -114,9 +121,21 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
             stored.StageLayout,
             choice => SettingsStore.Update(s => s with { StageLayout = choice }));
 
+        // The climate panel is a layout too (ADR-0040): its own folders and canvas, the same rules.
+        ClimateLayouts = new Stage.Gauges.StageLayoutService(
+            new Stage.Gauges.StageLayoutLibrary(
+                CatalogPath.FindFolder("climate"),
+                JsonFile.InLocalAppData("climate"),
+                Stage.Gauges.LayoutCanvas.Climate,
+                Stage.Gauges.StageLayout.ClimateBuiltIns),
+            () => Current.ClimateLayout,
+            stored.ClimateLayout,
+            choice => SettingsStore.Update(s => s with { ClimateLayout = choice }));
+
         // The shipped themes and layouts as files beside yours, to read and copy from.
         Library.WriteExamples();
         Layouts.Library.WriteExamples();
+        ClimateLayouts.Library.WriteExamples();
 
         // Re-checked on load, not just on entry. A stored colour was validated against the
         // quality palette of whatever build wrote it; if a later build moves one of those
