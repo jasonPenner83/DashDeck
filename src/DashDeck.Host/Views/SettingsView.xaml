@@ -1289,7 +1289,7 @@
                                          Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
                             </StackPanel>
 
-                            <StackPanel Orientation="Horizontal">
+                            <WrapPanel>
                                 <StackPanel Style="{StaticResource EditorField}">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="ID — WHAT CARDS SUBSCRIBE TO" />
                                     <TextBox Style="{StaticResource InputField}" Width="330"
@@ -1301,12 +1301,14 @@
                                     <TextBox Style="{StaticResource InputField}" Width="230"
                                              Text="{Binding Category, UpdateSourceTrigger=PropertyChanged}" />
                                 </StackPanel>
-                            </StackPanel>
+                            </WrapPanel>
 
-                            <!-- The request, and the TEST that asks the truck. -->
+                            <!-- The request, and the TEST that asks the truck. A WrapPanel, not a row:
+                                 five fields are wider than the pane on the 912-wide tablet, and a
+                                 horizontal StackPanel pushed TEST off the right edge, out of reach. -->
                             <TextBlock Style="{StaticResource CaptionText}" Margin="0,12,0,12" Text="REQUEST" />
 
-                            <StackPanel Orientation="Horizontal">
+                            <WrapPanel>
                                 <StackPanel Style="{StaticResource EditorField}">
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="BUS" />
                                     <Button Style="{StaticResource StageLauncherButton}" MinWidth="170"
@@ -1336,7 +1338,7 @@
                                         <TextBlock Text="TEST" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                                     </Button>
                                 </StackPanel>
-                            </StackPanel>
+                            </WrapPanel>
 
                             <TextBlock Margin="2,0,0,12" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
                                        Style="{StaticResource MicroText}" Text="{Binding ModuleHint}" />

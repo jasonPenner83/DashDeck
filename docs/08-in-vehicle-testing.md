@@ -432,3 +432,18 @@ Task Manager (search the Start menu for it, or long-press the taskbar ▸ Task M
 **A failure looks like:** two DashDeck.Host in Task Manager; a second window; a dash that comes up
 with the SIM badge or amber cards while another is running; tapping the icon doing nothing for
 more than 20 seconds.
+
+## The signal editor's TEST button is on screen
+
+**You need:** the tablet, the adapter, the dash on the real adapter, parked, engine running.
+
+1. **Settings ▸ Sensors**, scroll to **MODULES**, tap **7E0 › IDENTIFIERS**, choose **F400–F4FF**
+   and **SWEEP** (or use a saved sweep).
+2. Tap the **22 F405** row (anywhere on it, or its **+ DEFINE**). **Expect:** the editor replaces
+   the list, titled for a new signal, with an orange note that the formula is a placeholder.
+3. Under **REQUEST**: **BUS**, **MODE (HEX)** `22`, **PID (HEX)** `F405`, **MODULE (HEX)** `7E0` —
+   and **TEST** on the next line down, fully visible. Before this fix it sat off the right edge.
+4. Tap **TEST**. **Expect:** the raw bytes (one byte, about `88` warm) and a decoded value below.
+5. Tap **CANCEL**. **Expect:** back to the list.
+
+**A failure looks like:** no TEST button anywhere on the editor; any field cut off at the right edge.
