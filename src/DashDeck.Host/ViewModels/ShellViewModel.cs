@@ -40,6 +40,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly DispatcherTimer _timer;
     private readonly string? _videoPath;
     private readonly Stage.UserAppStore _userApps;
+    private readonly Stage.Launcher.StageLauncherStore _launcher;
 
     [ObservableProperty]
     private string _clockText = "--:--";
@@ -215,14 +216,18 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // The user's own stage apps (ADR-0024), loaded once. Adding one raises Changed and the
         // shell rebuilds its options from the store, so a new launcher lights up without a restart.
         _userApps = new Stage.UserAppStore();
-        _userApps.Changed += (_, _) => RebuildStageOptions();
 
-        // The built-in stage names, so the settings editor can refuse a user app that would
-        // shadow one. Built from the same list with no user apps, so the two cannot drift.
-        var reservedNames = StageOption
-            .All(videoPath, clock, vehicle.Signals, Sensors, weather, Display)
-            .Select(o => o.Name)
-            .ToArray();
+        // What the launcher offers, in what order, and which get a button below the stage
+        // (ADR-0038): launcher.json if there is one that works, the built-in list otherwise. The
+        // built-in one is written out beside it to copy from. A user app being added or removed
+        // re-reads it, because the quick bar may name one; either way the buttons rebuild without
+        // touching what is on the stage.
+        _launcher = new Stage.Launcher.StageLauncherStore(
+            JsonFile.InLocalAppData("launcher.json"),
+            () => _userApps.Apps.Select(a => a.Name));
+        _launcher.WriteExample();
+        _launcher.Changed += (_, _) => RebuildStageOptions();
+        _userApps.Changed += (_, _) => _launcher.Reload();
 
         // Settings owns levelling now, so it needs the sensors (ADR-0022); it also edits the
         // user app store, and refuses names that collide with a built-in.
@@ -267,7 +272,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             Remember(atLaunch);
         }
 
-        Settings = new SettingsViewModel(theme, Display, Sensors, _userApps, reservedNames, Inventory, VehicleIdentity, Adapter);
+        Settings = new SettingsViewModel(theme, Display, Sensors, _userApps, _launcher, Inventory, VehicleIdentity, Adapter);
 
         RebuildStageOptions();
 
@@ -285,14 +290,20 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             ValueChoice.All(vehicle.Catalog, Sensors.Catalog),
             components);
 
-        // Start on whatever was asked for at launch, and otherwise on the gauges (F12/B6): a
-        // truck's idle stage wanting gauges beats a clock, and it settles the "what do we open
-        // on" question without restoring an arbitrary last occupant.
+        // Start on whatever was asked for at launch, then on what the launcher file names, and
+        // otherwise on the gauges (F12/B6): a truck's idle stage wanting gauges beats a clock, and
+        // it settles the "what do we open on" question without restoring an arbitrary last
+        // occupant. A name that is not offered falls through rather than leaving the stage empty.
+        StageOptionViewModel? Named(string? name) => name is null
+            ? null
+            : StageOptions.FirstOrDefault(o => o.IsAvailable && string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase));
+
         var opening = startOn is not null
-            ? StageOptions.FirstOrDefault(o => string.Equals(o.Name, startOn, StringComparison.OrdinalIgnoreCase))
-            : videoPath is not null
-                ? StageOptions.First(o => o.Name == "VIDEO")
-                : StageOptions.First(o => o.Name == "GAUGES");
+            ? Named(startOn)
+            : (videoPath is not null ? Named("VIDEO") : null)
+                ?? Named(_launcher.Current.StartOn)
+                ?? Named("GAUGES")
+                ?? StageOptions.FirstOrDefault(o => o.IsAvailable);
 
         if (opening is not null)
         {
@@ -453,8 +464,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         StageOptions.Clear();
 
-        foreach (var option in StageOption.All(
-            _videoPath, _clock, _vehicle.Signals, Sensors, Weather, Display, _userApps.Apps, _theme.Layouts))
+        foreach (var option in StageOption.FromLauncher(
+            _launcher.Current, _videoPath, _clock, _vehicle.Signals, Sensors, Weather, Display, _userApps.Apps, _theme.Layouts))
         {
             StageOptions.Add(new StageOptionViewModel(option));
         }
@@ -464,8 +475,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             candidate.IsCurrent = candidate.Name == currentName && current is not null;
         }
 
-        // Re-form the headed sections in the order the options appear — StageOption.All lists
-        // screens, then web, then apps, so a plain grouping preserves SCREENS / WEB / APPS.
+        // Re-form the headed sections in the order they first appear in the launcher file — the
+        // built-in one lists screens, then web, then apps, so SCREENS / WEB / APPS.
         StageGroups.Clear();
 
         foreach (var group in StageOptions.GroupBy(o => o.GroupLabel))
@@ -480,7 +491,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public ObservableCollection<StageOptionViewModel> QuickStageOptions { get; } = [];
 
     /// <summary>How many buttons fit in the launcher row beside the grid button.</summary>
-    private const int LauncherSlots = 5;
+    private const int LauncherSlots = Stage.Launcher.StageLauncher.QuickBarSlots;
 
     /// <summary>
     /// Decide which options get a button in the row.
@@ -493,13 +504,24 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// </remarks>
     private void RefreshQuickOptions()
     {
+        // The launcher file's quickBar, in its order (ADR-0038), or the first five available.
         var available = StageOptions.Where(o => o.IsAvailable).ToList();
-        var shown = available.Take(LauncherSlots).ToList();
+        var shown = _launcher.Current
+            .QuickBarFrom([.. available.Select(o => o.Name)])
+            .Select(name => available.First(o => string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
         var current = StageOptions.FirstOrDefault(o => o.IsCurrent);
 
         if (current is not null && !shown.Contains(current))
         {
-            shown[^1] = current;
+            if (shown.Count < LauncherSlots)
+            {
+                shown.Add(current);
+            }
+            else
+            {
+                shown[^1] = current;
+            }
         }
 
         QuickStageOptions.Clear();

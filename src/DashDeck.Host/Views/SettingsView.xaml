@@ -1473,23 +1473,69 @@
                                TextWrapping="Wrap" Style="{StaticResource MicroText}"
                                Text="Point the stage at a program already on this tablet — a browser, a player. It launches with your privileges and DashDeck does not sandbox it. This is a launcher, not an app store." />
 
-                    <!-- The apps that ship with DashDeck: listed for reference, not editable —
-                         their curated install paths are why they stay in code (ADR-0024). -->
-                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,22,0,0" Text="BUILT-IN" />
+                    <!-- ── STAGE LAUNCHER (ADR-0038): every stage option, in order, and the bar
+                         below the stage — a JSON file. Read-only here; the file is the editor. ── -->
+                    <StackPanel Margin="0,22,0,0" DataContext="{Binding Launcher}">
+                        <TextBlock Style="{StaticResource FieldLabel}" Text="STAGE LAUNCHER" />
 
-                    <ItemsControl Margin="0,10,0,0" ItemsSource="{Binding BuiltInApps}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
-                                    <TextBlock Text="{Binding Name}" Width="120"
-                                               FontFamily="{DynamicResource MonoFont}" FontSize="14"
-                                               Foreground="{DynamicResource TextMidBrush}" />
-                                    <TextBlock Text="{Binding Detail}" Style="{StaticResource MicroText}"
-                                               VerticalAlignment="Center" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                        <TextBlock Margin="2,8,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                                   TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                   Text="Everything the stage offers — screens, web pages, programs — in order, and which five get a button below the stage. One JSON file: rename, reorder, hide, add a page or a program, pin a stage layout to its own button." />
+
+                        <TextBlock Margin="2,14,0,0" FontFamily="{DynamicResource MonoFont}" FontSize="15"
+                                   Foreground="{DynamicResource TextHighBrush}"
+                                   Text="{Binding Source, StringFormat=USING  {0}}" />
+
+                        <ItemsControl Margin="2,8,0,0" ItemsSource="{Binding Warnings}"
+                                      Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap" Margin="0,0,0,4"
+                                               Style="{StaticResource MicroText}" Foreground="#FFE0B23C" Text="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <ItemsControl Margin="0,12,0,0" ItemsSource="{Binding Entries}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+                                        <TextBlock Text="{Binding Place}" Width="64"
+                                                   FontFamily="{DynamicResource MonoFont}" FontSize="12"
+                                                   Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding Name}" Width="130"
+                                                   FontFamily="{DynamicResource MonoFont}" FontSize="14"
+                                                   Foreground="{DynamicResource TextMidBrush}" />
+                                        <TextBlock Text="{Binding Detail}" Style="{StaticResource MicroText}" MaxWidth="440"
+                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <WrapPanel Margin="0,10,0,0">
+                            <Button Style="{StaticResource StageLauncherButton}" MinWidth="140" Margin="0,0,10,10" Command="{Binding ReloadCommand}">
+                                <TextBlock Text="RELOAD" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                            </Button>
+                            <Button Style="{StaticResource StageLauncherButton}" MinWidth="170" Margin="0,0,10,10" Command="{Binding MakeYoursCommand}"
+                                    Visibility="{Binding CanMakeYours, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="MAKE IT MINE" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                            </Button>
+                            <Button Style="{StaticResource StageLauncherButton}" MinWidth="170" Margin="0,0,10,10" Command="{Binding OpenFolderCommand}">
+                                <TextBlock Text="OPEN FOLDER" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                            </Button>
+                        </WrapPanel>
+
+                        <TextBlock Margin="2,4,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                                   TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   Text="{Binding Status}"
+                                   Visibility="{Binding Status, Converter={StaticResource EmptyToCollapsed}}" />
+
+                        <TextBlock Margin="2,6,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                                   TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                   Text="{Binding UserPath, StringFormat=Your launcher is {0}. MAKE IT MINE starts it from the built-in list. launcher.example.json beside it is that list and is kept current. Delete your file to go back to it.}" />
+                    </StackPanel>
 
                     <TextBlock Style="{StaticResource FieldLabel}" Margin="0,22,0,0" Text="YOURS" />
 

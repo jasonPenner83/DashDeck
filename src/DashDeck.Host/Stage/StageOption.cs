@@ -1,6 +1,7 @@
 ﻿using DashDeck.Abstractions;
 using DashDeck.Host.Sensors;
 using DashDeck.Host.Settings;
+using DashDeck.Host.Stage.Launcher;
 using Microsoft.Win32;
 
 namespace DashDeck.Host.Stage;
@@ -9,29 +10,31 @@ namespace DashDeck.Host.Stage;
 /// One thing that can be put on the stage, as offered by the picker.
 /// </summary>
 /// <remarks>
-/// An option is not an occupant â€” it is the <em>offer</em> of one. Nothing is constructed
+/// An option is not an occupant — it is the <em>offer</em> of one. Nothing is constructed
 /// until it is chosen, which matters because constructing the video occupant loads VLC.
 /// Unavailable options are still listed, greyed, because "Nuvio, not built yet" tells you
 /// more about where this is going than an empty row does.
 /// </remarks>
 /// <param name="Name">Short uppercase name, matching the stage chip.</param>
-/// <param name="Detail">One line under it â€” what it is, or why it is unavailable.</param>
+/// <param name="Detail">One line under it — what it is, or why it is unavailable.</param>
 /// <param name="Create">
 /// Builds the occupant, or returns <see langword="null"/> for an empty stage. A
 /// <see langword="null"/> factory means the option cannot be chosen at all.
 /// </param>
+/// <param name="Group">The picker heading, when the launcher file names one; otherwise by kind.</param>
 public sealed record StageOption(
     string Name,
     string Detail,
     Func<IStageOccupant?>? Create,
     StageKind Kind = StageKind.Screen,
-    bool AudioVisualSource = false)
+    bool AudioVisualSource = false,
+    string? Group = null)
 {
-    /// <summary>False for the placeholders â€” listed, but not choosable.</summary>
+    /// <summary>False for the placeholders — listed, but not choosable.</summary>
     public bool IsAvailable => Create is not null;
 
     /// <summary>The picker heading this option groups under.</summary>
-    public string GroupLabel => Kind switch
+    public string GroupLabel => Group ?? Kind switch
     {
         StageKind.Web => "WEB",
         StageKind.App => "APPS",
@@ -39,27 +42,32 @@ public sealed record StageOption(
     };
 
     /// <summary>
-    /// Build the list the launcher shows.
+    /// Build the list the launcher shows, from the launcher file (ADR-0038).
     /// </summary>
+    /// <remarks>
+    /// Everything that used to be listed here in code — the screens, the three web pages, NUVIO,
+    /// STREMIO and PROBE with their install paths — is an entry in <see cref="StageLauncher.BuiltIn"/>
+    /// now, and a <c>launcher.json</c> replaces it. This only turns each entry into the occupant
+    /// its type names. The order is the file's.
+    /// </remarks>
+    /// <param name="launcher">The launcher in use.</param>
     /// <param name="videoPath">
-    /// A file from <c>--video</c>, if one was given. Without it the video option still
-    /// works â€” it just asks which file when chosen.
+    /// A file from <c>--video</c>, if one was given. It wins over a VIDEO entry's own path. Without
+    /// either it still works — it asks which file when chosen.
     /// </param>
     /// <param name="clock">Injected, because nothing here reads the wall clock directly.</param>
-    /// <param name="signals">
-    /// Named-signal access, for occupants that want vehicle data. The compass is the first;
-    /// it asks the truck for a heading before it asks the tablet.
-    /// </param>
+    /// <param name="signals">Named-signal access, for occupants that want vehicle data.</param>
     /// <param name="sensors">
     /// The tablet's sensors, resolved truck-first. Passed in rather than built here because it
     /// outlives any one occupant: it holds the mount reference and the vehicle declarations.
     /// </param>
     /// <param name="userApps">
-    /// Native apps the user added through the settings UI (ADR-0024). They flow through the same
-    /// <see cref="AppStageOccupant"/> as the built-in launchers — the list is the only thing that
-    /// was ever hardcoded — and are appended after the built-ins, in the order they were added.
+    /// Native apps the user added through the settings UI (ADR-0024), placed where the file's
+    /// <c>userApps</c> entry is, or at the end.
     /// </param>
-    public static IReadOnlyList<StageOption> All(
+    /// <param name="layouts">The stage layouts, for GAUGES and any entry that pins one.</param>
+    public static IReadOnlyList<StageOption> FromLauncher(
+        StageLauncher launcher,
         string? videoPath,
         IClock clock,
         IVehicleSignals signals,
@@ -67,95 +75,139 @@ public sealed record StageOption(
         WeatherService weather,
         DisplaySettings display,
         IReadOnlyList<UserAppEntry>? userApps = null,
-        Gauges.StageLayoutService? layouts = null) =>
-    [
-        // ── SCREENS: rendered inside DashDeck, never a separate process. ──────────────────
+        Gauges.StageLayoutService? layouts = null)
+    {
+        var options = new List<StageOption>();
+        var placedUserApps = false;
+        var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        // The idle default (F12/B6): an auxiliary gauge cluster in the F-150's style, showing
-        // what the factory cluster leaves out — boost, oil temp, voltage. A truck's home
-        // screen wanting gauges is a better idle than a clock, and it means there is no
-        // arbitrary "last occupant" to restore on ignition.
-        new StageOption("GAUGES", "Your stage layout — boost, oil, volts by default", () => new GaugesStageOccupant(
-            signals, clock, layouts ?? new Gauges.StageLayoutService(new Gauges.StageLayoutLibrary(null, System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dashdeck-no-stage-layouts")), () => null, null))),
+        foreach (var entry in launcher.Offered)
+        {
+            if (entry.Type == LauncherTypes.UserApps)
+            {
+                AddUserApps(entry.GroupLabel);
+                continue;
+            }
 
-        // Time and weather, the other idle. No "nothing" option: an empty stage announcing its
-        // own emptiness was honest but useless.
-        new StageOption("CLOCK", "Time and weather", () => new ClockWeatherStageOccupant(clock, weather)),
+            if (taken.Add(entry.Name))
+            {
+                options.Add(FromEntry(entry, videoPath, clock, signals, sensors, weather, display, layouts));
+            }
+        }
 
-        // Truck first, tablet second, and it says which â€” see SensorService.
-        new StageOption("COMPASS", "Heading, attitude, G", () => new CompassStageOccupant(signals, sensors)),
+        if (!placedUserApps)
+        {
+            AddUserApps(null);
+        }
 
-        // Android Auto and CarPlay through a Carlinkit dongle (ADR-0019). The dongle is
-        // chosen and not bought, so this runs against a synthetic one and says so.
-        new StageOption("PHONE", "Android Auto Â· CarPlay", () => new PhoneLinkStageOccupant(clock),
-            AudioVisualSource: true),
+        return options;
 
-        new StageOption(
-            "VIDEO",
-            videoPath is null ? "Pick a file" : System.IO.Path.GetFileName(videoPath),
-            () => CreateVideo(videoPath),
-            AudioVisualSource: true),
+        void AddUserApps(string? group)
+        {
+            placedUserApps = true;
 
-        // ── WEB: pages in WebView2 — external services, but still inside DashDeck. ─────────
+            // The user's own apps, added through Settings (ADR-0024). A launcher whose executable
+            // has since moved still lists — its detail line says so up front, and the occupant
+            // itself says "not installed" when chosen. One that shares a name with a file entry is
+            // left out: the file is the more deliberate of the two, and Settings refuses the clash.
+            foreach (var app in userApps ?? [])
+            {
+                var name = app.Name.Trim().ToUpperInvariant();
+                if (name.Length == 0 || !taken.Add(name))
+                {
+                    continue;
+                }
 
-        // OpenStreetMap rather than Google. Google's Maps JavaScript API terms forbid
-        // in-vehicle turn-by-turn and there is no desktop SDK, so a Google map here could
-        // only ever be a picture (Q18). This is a picture too â€” but an unencumbered one,
-        // and the routing question stays open rather than being quietly violated.
-        new StageOption("MAPS", "openstreetmap.org", () => new WebStageOccupant("MAPS", MapsUrl, display), StageKind.Web),
+                options.Add(new StageOption(
+                    name,
+                    app.IsInstalled ? System.IO.Path.GetFileName(app.Path) : "not found — check the path",
+                    () => new AppStageOccupant(AppLaunchSpec.FromUser(app)),
+                    StageKind.App,
+                    AudioVisualSource: app.KeepPlaying,
+                    Group: group == "APPS" ? null : group));
+            }
+        }
+    }
 
-        // Both are web players, and both gate playback behind Widevine â€” which WebView2 does
-        // not ship. The occupant probes for it and says so rather than presenting a player
-        // that looks fine and refuses to make a sound.
-        new StageOption("SPOTIFY", "open.spotify.com", () => new WebStageOccupant("SPOTIFY", SpotifyUrl, display), StageKind.Web, AudioVisualSource: true),
+    /// <summary>One file entry as an option. The entry has already been validated by <see cref="StageLauncher.Parse"/>.</summary>
+    private static StageOption FromEntry(
+        LauncherEntry entry,
+        string? videoPath,
+        IClock clock,
+        IVehicleSignals signals,
+        SensorService sensors,
+        WeatherService weather,
+        DisplaySettings display,
+        Gauges.StageLayoutService? layouts)
+    {
+        var name = entry.Name;
+        var group = string.IsNullOrWhiteSpace(entry.Group) ? null : entry.GroupLabel;
+        var plays = entry.PlaysAudio;
 
-        new StageOption("MUSIC", "music.apple.com", () => new WebStageOccupant("MUSIC", AppleMusicUrl, display), StageKind.Web, AudioVisualSource: true),
+        StageOption Screen(string detail, Func<IStageOccupant?> create) =>
+            new(name, entry.Detail ?? detail, () => NamedOccupant.As(name, create()), StageKind.Screen, plays, group);
 
-        // ── APPS: separate Windows programs, owned and placed over the stage where that works
-        //    (ADR-0020/0021), otherwise left in their own window. The built-ins below ship with
-        //    DashDeck; the user's own are appended after them. ─────────────────────────────
+        switch (entry.Type)
+        {
+            case LauncherTypes.Gauges:
+                // The theme's layout through the shared service, or one pinned by name — TOWING.
+                var service = layouts ?? new Gauges.StageLayoutService(
+                    new Gauges.StageLayoutLibrary(null, System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dashdeck-no-stage-layouts")),
+                    () => null,
+                    null);
+                return Screen(
+                    entry.Layout is { Length: > 0 } pinned ? $"Stage layout: {pinned}" : "Your stage layout",
+                    () => new GaugesStageOccupant(
+                        signals,
+                        clock,
+                        entry.Layout is { Length: > 0 } layout ? Gauges.StageLayoutService.Pinned(service.Library, layout) : service,
+                        name));
 
-        // The real Nuvio, not the third-party web client. app.nuvio.tv answered 526 when it
-        // was wired and is not maintained by NuvioMedia; NuvioDesktop is. Listed even when it
-        // is not installed, because "not installed" says more than a missing row.
-        new StageOption(
-            AppLaunchSpec.Nuvio.Name,
-            AppLaunchSpec.Nuvio.IsInstalled ? "NuvioDesktop" : "NuvioDesktop — not installed",
-            () => new AppStageOccupant(AppLaunchSpec.Nuvio),
-            StageKind.App, AudioVisualSource: true),
+            case LauncherTypes.Clock:
+                return Screen("Time and weather", () => new ClockWeatherStageOccupant(clock, weather));
 
-        // The desktop shell rather than web.stremio.com. Same reasoning as Nuvio: the real
-        // application is better than a browser tab of it, and the stage can host one now.
-        new StageOption(
-            AppLaunchSpec.Stremio.Name,
-            AppLaunchSpec.Stremio.IsInstalled ? "Stremio desktop" : "Stremio — not installed",
-            () => new AppStageOccupant(AppLaunchSpec.Stremio),
-            StageKind.App, AudioVisualSource: true),
+            case LauncherTypes.Compass:
+                // Truck first, tablet second, and it says which — see SensorService.
+                return Screen("Heading, attitude, G", () => new CompassStageOccupant(signals, sensors));
 
-        // Development affordance: a plain Win32 window, to tell "our plumbing is wrong" from
-        // "that application will not be embedded".
-        new StageOption("PROBE", "Proves window adoption", () => new AppStageOccupant(AppLaunchSpec.Probe), StageKind.App),
+            case LauncherTypes.Phone:
+                // Android Auto and CarPlay through a Carlinkit dongle (ADR-0019), against a
+                // synthetic one until it is bought, and saying so.
+                return Screen("Android Auto · CarPlay", () => new PhoneLinkStageOccupant(clock));
 
-        // The user's own apps, added through Settings (ADR-0024). Everything above is shipped in
-        // code; everything here Jason pointed the tablet at himself. A launcher whose executable
-        // has since moved still lists — greyed by IsAvailable is not the story here, the occupant
-        // itself says "not installed" when chosen — but its detail line says so up front.
-        .. (userApps ?? []).Select(app => new StageOption(
-            app.Name.Trim().ToUpperInvariant(),
-            app.IsInstalled ? System.IO.Path.GetFileName(app.Path) : "not found — check the path",
-            () => new AppStageOccupant(AppLaunchSpec.FromUser(app)),
-            StageKind.App,
-            AudioVisualSource: app.KeepPlaying)),
-    ];
+            case LauncherTypes.Video:
+                var file = videoPath ?? entry.Path;
+                return Screen(
+                    file is null ? "Pick a file" : System.IO.Path.GetFileName(file),
+                    () => CreateVideo(file is null ? null : Environment.ExpandEnvironmentVariables(file)));
 
-    /// <summary>Display-only map. Turn-by-turn is a separate, unanswered question (Q18).</summary>
-    public const string MapsUrl = "https://www.openstreetmap.org";
+            case LauncherTypes.Web:
+                // WebView2 pages. A player that gates on Widevine probes for it and says so rather
+                // than presenting a page that looks fine and refuses to make a sound.
+                var url = entry.Url!.Trim();
+                return new StageOption(
+                    name,
+                    entry.Detail ?? new Uri(url).Host,
+                    () => new WebStageOccupant(name, url, display, entry.Zoom),
+                    StageKind.Web,
+                    plays,
+                    group);
 
-    /// <summary>Spotify's web player. Needs a login, which the WebView2 profile keeps.</summary>
-    public const string SpotifyUrl = "https://open.spotify.com";
-
-    /// <summary>Apple Music on the web. Same login story, same DRM question.</summary>
-    public const string AppleMusicUrl = "https://music.apple.com";
+            default:
+                // A separate Windows program, owned and placed over the stage where that works
+                // (ADR-0021), otherwise left in its own window. Listed even when it is not
+                // installed, because "not installed" says more than a missing row.
+                var spec = AppLaunchSpec.FromLauncher(entry);
+                var detail = entry.Detail ?? System.IO.Path.GetFileName(spec.Candidates.FirstOrDefault() ?? "");
+                return new StageOption(
+                    name,
+                    spec.IsInstalled ? detail : $"{detail} — not installed",
+                    () => new AppStageOccupant(spec),
+                    StageKind.App,
+                    plays,
+                    group);
+        }
+    }
 
     private static IStageOccupant? CreateVideo(string? videoPath)
     {

@@ -28,6 +28,21 @@ public sealed partial class StageLayoutService : ObservableObject
         Resolve(raise: false);
     }
 
+    /// <summary>
+    /// A service that always shows one layout, by file name or id — what a launcher entry with
+    /// <c>"layout": "towing"</c> uses (ADR-0038). It shares the library, so RELOAD still picks up
+    /// a hand edit, and ignores the theme and the Settings choice.
+    /// </summary>
+    public static StageLayoutService Pinned(StageLayoutLibrary library, string layout)
+    {
+        var pinned = new StageLayoutService(library, () => layout, FollowTheme);
+        pinned._pinned = true;
+        pinned.Resolve(raise: false);
+        return pinned;
+    }
+
+    private bool _pinned;
+
     public StageLayoutLibrary Library { get; }
 
     /// <summary><see cref="FollowTheme"/>, or a layout id.</summary>
@@ -89,12 +104,14 @@ public sealed partial class StageLayoutService : ObservableObject
             if (Library.FindForTheme(named) is { } themed)
             {
                 Current = themed;
-                Reason = "Following the theme.";
+                Reason = _pinned ? "Pinned by the launcher." : "Following the theme.";
             }
             else
             {
                 Current = StageLayout.BuiltIn;
-                Reason = $"The theme names '{named}', which is not in the stage folders — showing the built-in cluster.";
+                Reason = _pinned
+                    ? $"The launcher names '{named}', which is not in the stage folders — showing the built-in cluster."
+                    : $"The theme names '{named}', which is not in the stage folders — showing the built-in cluster.";
             }
         }
         else
