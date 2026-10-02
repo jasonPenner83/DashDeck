@@ -35,7 +35,7 @@ public sealed class StageLayoutLibrary
 
     public void Reload()
     {
-        var layouts = new List<StageLayout> { StageLayout.BuiltIn };
+        var layouts = new List<StageLayout>(StageLayout.BuiltIns);
         var problems = new List<LayoutLoadProblem>();
 
         layouts.AddRange(Load(ShippedFolder, LayoutOrigin.Shipped, problems));
@@ -115,6 +115,7 @@ public sealed class StageLayoutLibrary
 
             Write("README.txt", ExamplesReadme);
             Write("f150-cluster.json", BuiltInHeader + StageLayout.BuiltIn.ToJson() + Environment.NewLine);
+            Write("compass.json", CompassHeader + StageLayout.BuiltInCompassJson + Environment.NewLine);
 
             if (ShippedFolder is not null && Directory.Exists(ShippedFolder))
             {
@@ -141,6 +142,16 @@ public sealed class StageLayoutLibrary
         }
     }
 
+    private const string CompassHeader = """
+        // The built-in COMPASS screen, written out as a reference (ADR-0039). DashDeck draws it from
+        // code, so this copy is only for reading — editing it here changes nothing, and it is put
+        // back at the next launch. To make your own: copy it up one folder (into stage\), keep the
+        // name compass.json, edit it, and RELOAD STAGE LAYOUT from the three-dot menu on COMPASS.
+        // A compass.json of yours replaces this one wherever the launcher's compass entry shows it.
+        // Every field is explained in docs/writing-a-stage-layout.md.
+
+        """;
+
     private const string BuiltInHeader = """
         // The built-in F-150 cluster, written out as a reference (ADR-0037). DashDeck draws it from
         // code, so this copy is only for reading — editing it here changes nothing, and it is put
@@ -157,6 +168,7 @@ public sealed class StageLayoutLibrary
         These are the stage layouts that ship with DashDeck, kept here as references:
 
           f150-cluster.json   the built-in six-dial cluster (boost, oil, volts, intake, throttle, load)
+          compass.json        the built-in COMPASS screen (heading rose, G meter, pitch, roll, speed)
           lcars.json          the LCARS (inspired) stage, worn with the LCARS theme
 
         They are NOT loaded from this folder, and they are rewritten every time DashDeck starts,

@@ -10,6 +10,8 @@ Every layout DashDeck ships is written out to `%LOCALAPPDATA%\DashDeck\stage\exa
 time DashDeck starts:
 - `lcars.json`: the LCARS (inspired) stage, comments and all;
 - `f150-cluster.json`: the built-in six-dial cluster, which otherwise only exists in code.
+- `compass.json`: the built-in COMPASS screen (ADR-0039). Copy it up keeping the name `compass.json`
+  and it replaces the compass.
 
 That folder is for reading. Files there are not loaded, and they're put back at the next launch.
 Copy one up a folder into `stage\` to make it yours. Keeping the name `lcars.json` makes your copy
@@ -60,6 +62,8 @@ messages).
 | `text` | Fixed words | `content`, `colour`, `fontSize`, `font` (`ui` or `mono`), `align` (`left`, `center`, `right`) |
 | `clock` | The time | `content` is a [.NET time format](https://learn.microsoft.com/dotnet/standard/base-types/custom-date-and-time-format-strings) — `HH:mm`, `h:mm tt`, `ddd d MMM` — plus the `text` fields |
 | `panel` | A filled shape | `colour`, `radius`: one number for all corners, or four for top-left, top-right, bottom-right, bottom-left |
+| `compass` | A compass rose with the heading in the middle | `source.sensor` (default `attitude.heading`) and `parts` — see *The compass and the G meter* |
+| `gMeter` | A G meter: rings, a crosshair and a ball | `parts` — see *The compass and the G meter* |
 
 **An LCARS elbow** is two things: a thick panel with one big corner (`"radius": "56,0,0,0"`), and a
 black panel over its inside corner with a smaller radius (`"radius": "28,0,0,0"`). The shipped
@@ -102,6 +106,77 @@ black panel over its inside corner with a smaller radius (`"radius": "28,0,0,0"`
 - A **dot** in the top-right corner is the quality colour: green Live, blue Simulated, amber Stale,
   grey Unavailable — the same as the cards, under every theme.
 - A `source.signal` that is not in the catalog: the gauge says `UNKNOWN SIGNAL`.
+
+### A sensor instead of a signal
+
+A gauge can read a **tablet sensor** from `catalog/sensors.device.json` instead of a vehicle signal:
+
+```jsonc
+{ "id": "pitch", "style": "arc", "x": 0, "y": 0, "width": 200, "height": 200,
+  "label": "PITCH", "unit": "°", "format": "0.0", "min": -30, "max": 30,
+  "source": { "sensor": "attitude.pitch" } }
+```
+
+| Sensor | What it is |
+|---|---|
+| `attitude.heading` | Which way the truck points, 0–360° |
+| `attitude.pitch`, `attitude.roll` | Nose up/down and lean, ° — **needs the mount levelled** |
+| `motion.lateralG`, `motion.longitudinalG` | Sideways and fore-aft g — **needs the mount levelled** |
+| `location.latitude`, `location.longitude`, `location.groundSpeed` | From the phone's GPS (ADR-0027) |
+
+- **Truck first.** Each sensor names the vehicle signal that would replace it; when the truck
+  answers, that is what you see. Otherwise it is the tablet's (or the phone's).
+- **It says which.** A small line along the bottom of the gauge reads `TRUCK`, `TABLET`,
+  `PHONE · GPS`, or why there is nothing (`NOT LEVELLED`, `NO SENSOR`), in the quality colour. Turn it
+  off with `"showSource": false`.
+- `scale` and `offset` work; `minus` does not (a sensor source cannot subtract), and `rateHz` is
+  ignored — sensors cost no request budget.
+- Not both: a source is `signal` **or** `sensor`. A sensor id the catalog lacks says
+  `UNKNOWN SENSOR`.
+
+## The compass and the G meter
+
+The COMPASS screen is a layout too — the built-in `compass` (ADR-0039). To change it, copy
+`stage\examples\compass.json` up into `stage\` keeping the name, edit it, and use **RELOAD STAGE
+LAYOUT** from the three-dot menu on COMPASS. Your `compass.json` replaces the built-in wherever
+COMPASS shows it. The two elements below can go in **any** layout — a heading rose beside boost
+and volts, say.
+
+```jsonc
+{ "id": "heading", "type": "compass", "x": 31, "y": 96, "width": 320, "height": 344,
+  "parts": { "mode": "needle", "northColour": "#FF3B30" } },
+{ "id": "g", "type": "gMeter", "x": 369, "y": 150, "width": 240, "height": 312,
+  "parts": { "range": 0.5, "rings": 2 } }
+```
+
+**`compass`** — the rose fills the width (or the height, less a line for the source). With no
+usable heading the number reads `———` and the source line says why — never a confident north.
+
+| Part | What it does |
+|---|---|
+| `mode` | `rose` (default): the card turns under a fixed marker. `needle`: north stays up and a needle turns. |
+| `ringColour` | The outer ring, or `none` |
+| `cardinalTickColour`, `majorTickColour`, `minorTickColour` | N/E/S/W ticks (accent), the 45° ticks, the rest |
+| `tickStep` | Degrees between ticks, default 5 |
+| `northColour`, `letterColour`, `letterSize`, `showLetters` | The N, the other letters, their size, whether to draw them |
+| `markerColour` | The marker (rose) or needle (needle) |
+| `valueColour`, `valueSize`, `showValue` | The heading number |
+| `cardinalColour`, `showCardinal` | The NE / SW under it |
+| `showSource` | Where the heading came from, under the rose |
+
+**`gMeter`** — reads `motion.lateralG` and `motion.longitudinalG`. **The ball moves the way you
+are pushed**: braking throws it up, a right-hand bend throws it left. Until the mount is levelled
+(Settings ▸ Mount) there is no ball, only a line saying so. **RESET PEAK G** appears in the
+three-dot menu on any stage with a G meter; re-levelling resets the peak too.
+
+| Part | What it does |
+|---|---|
+| `range` | g at the outer ring, default 1 (0–10) |
+| `rings` | How many rings, default 3 (a quarter, a half and the whole range) |
+| `ringColour`, `outerRingColour`, `crossColour` | The rings and the crosshair (`none` hides it) |
+| `ballColour`, `ballSize` | The ball — by default it is the quality colour |
+| `showValue`, `valueColour`, `valueSize`, `labelColour` | The G and PEAK line under the meter |
+| `showSource` | Where the reading came from |
 
 ## Parts
 

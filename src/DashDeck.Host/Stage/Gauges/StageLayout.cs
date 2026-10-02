@@ -22,6 +22,12 @@ public enum StageElementType
 
     /// <summary>A filled shape with its own corner radii — a frame, a divider, an LCARS elbow.</summary>
     Panel,
+
+    /// <summary>A compass rose with the heading in the middle (ADR-0039). Reads a tablet sensor, truck first.</summary>
+    Compass,
+
+    /// <summary>A G meter: rings, a crosshair and a ball pushed the way the driver is (ADR-0039).</summary>
+    GMeter,
 }
 
 /// <summary>How a gauge is drawn.</summary>
@@ -44,16 +50,29 @@ public enum GaugeStyle
 }
 
 /// <summary>
-/// Where a gauge's number comes from: one signal, optionally minus another, scaled.
+/// Where a gauge's number comes from: one signal, optionally minus another, scaled — or one
+/// sensor from the sensor catalog.
 /// </summary>
 /// <remarks>
 /// Enough for the derived readings a cluster shows — boost is manifold pressure minus barometric,
 /// in psi — without a formula language. Anything cleverer is a component (ADR-0023).
+/// <para>
+/// A <see cref="Sensor"/> (ADR-0039) is read through the sensor service: the truck's value when it
+/// has one, otherwise the tablet's, and the gauge says which underneath — a fallback is named on
+/// screen, never a silent stand-in (ADR-0016). It costs no request budget of its own.
+/// </para>
 /// </remarks>
 public sealed record GaugeSource
 {
     /// <summary>The catalog signal id, e.g. <c>engine.intakeManifoldPressure</c>.</summary>
     public string Signal { get; init; } = "";
+
+    /// <summary>A sensor catalog id instead of a signal, e.g. <c>attitude.pitch</c>. Not both.</summary>
+    public string? Sensor { get; init; }
+
+    /// <summary>True when this source is a sensor rather than a signal.</summary>
+    [JsonIgnore]
+    public bool IsSensor => !string.IsNullOrWhiteSpace(Sensor);
 
     /// <summary>A second signal subtracted from the first, or null.</summary>
     public string? Minus { get; init; }
@@ -176,6 +195,47 @@ public static class GaugeParts
         ["valueSize"] = "number size in px",
         ["showLabel"] = "true/false",
         ["showValue"] = "true/false — the digital readout",
+        ["showSource"] = "true/false — for a sensor source, where the reading came from (TRUCK, the tablet sensor, NOT LEVELLED). Default true",
+    };
+
+    /// <summary>Parts the compass and G meter take (ADR-0039).</summary>
+    public static readonly IReadOnlyDictionary<StageElementType, IReadOnlyDictionary<string, string>> ByElement = new Dictionary<StageElementType, IReadOnlyDictionary<string, string>>
+    {
+        [StageElementType.Compass] = new Dictionary<string, string>
+        {
+            ["mode"] = "\"rose\" — the card turns under a fixed marker (default) — or \"needle\": north stays up and a needle points the way you are heading",
+            ["ringColour"] = "the outer ring, or \"none\"",
+            ["cardinalTickColour"] = "the N, E, S and W ticks — default the accent",
+            ["majorTickColour"] = "the NE, SE, SW and NW ticks",
+            ["minorTickColour"] = "every 5°",
+            ["tickStep"] = "degrees between ticks — default 5",
+            ["northColour"] = "the N — default the accent",
+            ["letterColour"] = "E, S and W",
+            ["letterSize"] = "size of N; the others are three-quarters of it",
+            ["showLetters"] = "true/false",
+            ["markerColour"] = "the fixed marker (rose) or the needle (needle) — default the accent",
+            ["valueColour"] = "the heading number — default the theme's headline text",
+            ["valueSize"] = "heading number size in px",
+            ["showValue"] = "true/false — the heading number",
+            ["cardinalColour"] = "the NE / SW under the number — default the accent",
+            ["showCardinal"] = "true/false",
+            ["showSource"] = "true/false — where the heading came from. Default true",
+        },
+        [StageElementType.GMeter] = new Dictionary<string, string>
+        {
+            ["range"] = "g at the outer ring — default 1",
+            ["rings"] = "how many rings — default 3 (a quarter, a half and the whole range)",
+            ["ringColour"] = "the inner rings",
+            ["outerRingColour"] = "the outer ring",
+            ["crossColour"] = "the crosshair, or \"none\"",
+            ["ballColour"] = "the ball — default the quality colour, so it reads like the dot on a gauge",
+            ["ballSize"] = "ball diameter, px",
+            ["showValue"] = "true/false — G and PEAK under the meter",
+            ["valueColour"] = "the G number",
+            ["valueSize"] = "size of G and PEAK, px",
+            ["labelColour"] = "the G and PEAK captions",
+            ["showSource"] = "true/false — where the reading came from. Default true",
+        },
     };
 
     /// <summary>Parts by style.</summary>
@@ -237,6 +297,13 @@ public static class GaugeParts
 
     public static bool Knows(GaugeStyle style, string part) =>
         Common.ContainsKey(part) || (ByStyle.TryGetValue(style, out var parts) && parts.ContainsKey(part));
+
+    /// <summary>Whether an element of this type takes this part. Gauges by style; compass and G meter by type.</summary>
+    public static bool Knows(GaugeSpec element, string part) => element.Type switch
+    {
+        StageElementType.Gauge => Knows(element.Style, part),
+        _ => ByElement.TryGetValue(element.Type, out var parts) && parts.ContainsKey(part),
+    };
 }
 
 /// <summary>Where a gauge layout came from.</summary>
@@ -285,9 +352,21 @@ public sealed record StageLayout
     [JsonIgnore]
     public string? FilePath { get; init; }
 
+    /// <summary>A built-in layout's name for itself, since it has no file: <c>default</c>, <c>compass</c>.</summary>
+    [JsonIgnore]
+    public string? BuiltInSlug { get; init; }
+
     /// <summary>The file name without extension, lower case — what a theme names (<c>"gaugeLayout": "lcars"</c>).</summary>
     [JsonIgnore]
-    public string Slug => FilePath is null ? "default" : Path.GetFileNameWithoutExtension(FilePath).ToLowerInvariant();
+    public string Slug => FilePath is null ? BuiltInSlug ?? "default" : Path.GetFileNameWithoutExtension(FilePath).ToLowerInvariant();
+
+    /// <summary>The elements that read tablet sensors — the ones a view must poll (ADR-0039).</summary>
+    [JsonIgnore]
+    public bool UsesSensors => Elements.Any(e => e.Type is StageElementType.Compass or StageElementType.GMeter || e.Source.IsSensor);
+
+    /// <summary>True when there is a G meter, whose peak the stage's menu can reset.</summary>
+    [JsonIgnore]
+    public bool HasGMeter => Elements.Any(e => e.Type is StageElementType.GMeter);
 
     /// <summary><c>builtin/default</c>, <c>shipped/lcars</c>, <c>yours/towing</c>.</summary>
     [JsonIgnore]
@@ -354,6 +433,12 @@ public sealed record StageLayout
                 : gauge.Label.Length > 0 ? gauge.Label
                 : $"{gauge.Type.ToString().ToLowerInvariant()} {i + 1}";
 
+            // A compass reads the heading unless it names another sensor.
+            if (gauge.Type is StageElementType.Compass && !gauge.Source.IsSensor && string.IsNullOrWhiteSpace(gauge.Source.Signal))
+            {
+                gauge = gauge with { Source = gauge.Source with { Sensor = "attitude.heading" } };
+            }
+
             if (Refusal(gauge) is { } refusal)
             {
                 problems.Add($"{name}: {refusal} — left out");
@@ -404,11 +489,28 @@ public sealed record StageLayout
                 return $"radius '{g.Radius}' should be one number or four, comma-separated";
             case StageElementType.Text or StageElementType.Panel:
                 return null;
+            case StageElementType.Compass when !string.IsNullOrWhiteSpace(g.Source.Signal):
+                return "a compass reads a sensor (source.sensor), not a signal";
+            case StageElementType.Compass:
+            case StageElementType.GMeter:
+                return g.Number("range", 1) is > 0 and <= 10
+                    ? null
+                    : "range must be above 0 and at most 10 g";
         }
 
-        if (string.IsNullOrWhiteSpace(g.Source.Signal))
+        if (g.Source.IsSensor && !string.IsNullOrWhiteSpace(g.Source.Signal))
         {
-            return "no source signal";
+            return "a source is a signal or a sensor, not both";
+        }
+
+        if (g.Source.IsSensor && g.Source.Minus is not null)
+        {
+            return "minus works with signals only — a sensor source cannot subtract";
+        }
+
+        if (string.IsNullOrWhiteSpace(g.Source.Signal) && !g.Source.IsSensor)
+        {
+            return "no source — give source.signal or source.sensor";
         }
 
         if (!(g.Max > g.Min))
@@ -462,19 +564,20 @@ public sealed record StageLayout
             yield return $"colour '{colour}' is not a colour (#RRGGBB or @token) — using the default";
         }
 
-        if (g.Type is not StageElementType.Gauge)
+        if (g.Type is not (StageElementType.Gauge or StageElementType.Compass or StageElementType.GMeter))
         {
             yield break;
         }
 
-        foreach (var part in g.Parts.Keys.Where(p => !GaugeParts.Knows(g.Style, p)))
+        foreach (var part in g.Parts.Keys.Where(p => !GaugeParts.Knows(g, p)))
         {
-            yield return $"'{part}' is not a part of a {g.Style.ToString().ToLowerInvariant()} gauge — ignored";
+            var what = g.Type is StageElementType.Gauge ? $"{g.Style.ToString().ToLowerInvariant()} gauge" : ElementName(g.Type);
+            yield return $"'{part}' is not a part of a {what} — ignored";
         }
 
         foreach (var (part, value) in g.Parts)
         {
-            if (part.EndsWith("Colour", StringComparison.Ordinal) || part is "face" or "needleGlow")
+            if (part.EndsWith("Colour", StringComparison.Ordinal) || part is "face" or "needleGlow" or "ringColour" or "crossColour")
             {
                 var text = value.ValueKind is JsonValueKind.String ? value.GetString()! : value.GetRawText();
                 if (!IsColour(text) && !text.Equals("none", StringComparison.OrdinalIgnoreCase))
@@ -497,6 +600,10 @@ public sealed record StageLayout
             }
         }
     }
+
+    /// <summary>How a layout file writes an element type: <c>gMeter</c>, <c>compass</c>.</summary>
+    private static string ElementName(StageElementType type) =>
+        JsonNamingPolicy.CamelCase.ConvertName(type.ToString());
 
     /// <summary>Corner radii: one number for all four, or four for top-left, top-right, bottom-right, bottom-left.</summary>
     public static double[]? ParseRadius(string text)
@@ -534,6 +641,65 @@ public sealed record StageLayout
     /// intake, throttle and load small, in the F-150's own style. SAVE AS makes it yours to edit.
     /// </summary>
     public static StageLayout BuiltIn { get; } = Parse(BuiltInJson, null, LayoutOrigin.BuiltIn);
+
+    /// <summary>
+    /// The COMPASS screen, as a layout (ADR-0039): the heading rose, the G meter, pitch and roll,
+    /// speed and outside temperature, and the phone's position — what was drawn in code before.
+    /// The launcher's <c>compass</c> entry shows it; a layout of yours called <c>compass</c> replaces it.
+    /// </summary>
+    public static StageLayout BuiltInCompass { get; } = Parse(BuiltInCompassJson, null, LayoutOrigin.BuiltIn) with { BuiltInSlug = CompassSlug };
+
+    /// <summary>What the compass layout is called, and what the launcher's <c>compass</c> entry looks for.</summary>
+    public const string CompassSlug = "compass";
+
+    /// <summary>Every layout compiled in.</summary>
+    public static IReadOnlyList<StageLayout> BuiltIns { get; } = [BuiltIn, BuiltInCompass];
+
+    /// <summary>The compass layout as text, comments and all — what <c>stage\examples\compass.json</c> holds.</summary>
+    internal const string BuiltInCompassJson = """
+    {
+      "name": "Compass",
+      "description": "Where the truck is pointing, how it is sitting and what it is doing: heading, G, pitch and roll, speed and outside air. Truck first, tablet second, and every reading says which.",
+      "author": "DashDeck",
+      "elements": [
+        // The rose. "parts" tunes it: "mode": "needle" keeps north up; every colour is a part.
+        { "id": "heading", "type": "compass", "x": 31, "y": 96, "width": 320, "height": 344,
+          "source": { "sensor": "attitude.heading" } },
+
+        // Position from the phone's GPS (ADR-0027). Any gauge can read a sensor like this.
+        { "id": "latitude", "style": "digital", "x": 31, "y": 456, "width": 160, "height": 96,
+          "label": "LATITUDE", "format": "0.0000",
+          "source": { "sensor": "location.latitude" }, "min": -90, "max": 90,
+          "parts": { "valueSize": 18, "valueColour": "@textMid" } },
+        { "id": "longitude", "style": "digital", "x": 191, "y": 456, "width": 160, "height": 96,
+          "label": "LONGITUDE", "format": "0.0000",
+          "source": { "sensor": "location.longitude" }, "min": -180, "max": 180,
+          "parts": { "valueSize": 18, "valueColour": "@textMid" } },
+
+        // The G meter. "parts": { "range": 0.5 } makes the outer ring half a g.
+        { "id": "g", "type": "gMeter", "x": 369, "y": 150, "width": 240, "height": 312 },
+
+        // Pitch and roll need the mount levelled (Settings > Mount); until then they say so.
+        { "id": "pitch", "style": "digital", "x": 627, "y": 170, "width": 127, "height": 120,
+          "label": "PITCH", "unit": "°", "format": "0.0",
+          "source": { "sensor": "attitude.pitch" }, "min": -45, "max": 45,
+          "parts": { "valueSize": 30 } },
+        { "id": "roll", "style": "digital", "x": 754, "y": 170, "width": 127, "height": 120,
+          "label": "ROLL", "unit": "°", "format": "0.0",
+          "source": { "sensor": "attitude.roll" }, "min": -45, "max": 45,
+          "parts": { "valueSize": 30 } },
+        // Speed and outside air are vehicle signals, as on any gauge.
+        { "id": "speed", "style": "digital", "x": 627, "y": 320, "width": 127, "height": 120,
+          "label": "SPEED", "unit": "km/h", "format": "0",
+          "source": { "signal": "vehicle.speed", "rateHz": 1 }, "min": 0, "max": 250,
+          "parts": { "valueSize": 30 } },
+        { "id": "outside", "style": "digital", "x": 754, "y": 320, "width": 127, "height": 120,
+          "label": "OUTSIDE", "unit": "°C", "format": "0",
+          "source": { "signal": "ambient.airTemp", "rateHz": 0.1 }, "min": -50, "max": 60,
+          "parts": { "valueSize": 30 } }
+      ]
+    }
+    """;
 
     private const string BuiltInJson = """
     {
@@ -633,6 +799,15 @@ public readonly record struct GaugeReading(double Value, SignalQuality Quality)
 
         return new((value * source.Scale) + source.Offset, quality);
     }
+
+    /// <summary>
+    /// A gauge's reading from a sensor (ADR-0039), scaled and offset like a signal. A sensor reading
+    /// that is not usable — no tablet sensor, not levelled — is no reading, never a zero.
+    /// </summary>
+    public static GaugeReading FromSensor(GaugeSource source, double value, SignalQuality quality) =>
+        double.IsNaN(value) || quality is not (SignalQuality.Live or SignalQuality.Simulated)
+            ? new(double.NaN, SignalQuality.Unavailable)
+            : new((value * source.Scale) + source.Offset, quality);
 
     /// <summary>A value worth drawing: usable, or stale with a number still in it.</summary>
     private static bool Has(SignalValue v) =>

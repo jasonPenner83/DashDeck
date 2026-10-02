@@ -47,8 +47,10 @@ public sealed class GaugeFace : Canvas
     private UIElement? _needleShape;
     private TextBlock? _value;
     private Ellipse? _dot;
+    private TextBlock? _source;
     private GaugeReading _reading = new(double.NaN, SignalQuality.Unavailable);
     private bool _unknown;
+    private string _unknownText = "UNKNOWN SIGNAL";
 
     public GaugeFace(GaugeSpec spec)
     {
@@ -60,10 +62,26 @@ public sealed class GaugeFace : Canvas
     }
 
     /// <summary>The source signal is not in the catalog: say so instead of drawing a scale for nothing.</summary>
-    public void MarkUnknown()
+    public void MarkUnknown(string text = "UNKNOWN SIGNAL")
     {
         _unknown = true;
+        _unknownText = text;
         Show(_reading);
+    }
+
+    /// <summary>
+    /// Where a sensor reading came from — TRUCK, the tablet sensor, NOT LEVELLED — written under the
+    /// gauge in the quality colour (ADR-0039). A fallback is named on screen, never silent (ADR-0016).
+    /// </summary>
+    public void ShowSource(string source)
+    {
+        if (_source is null)
+        {
+            return;
+        }
+
+        _source.Text = source;
+        _source.Foreground = _unknown ? QualityPalette.Fault : QualityPalette.For(_reading.Quality);
     }
 
     /// <summary>Draw a new reading.</summary>
@@ -81,7 +99,7 @@ public sealed class GaugeFace : Canvas
         if (_value is not null)
         {
             _value.Opacity = _dynamic.Opacity;
-            _value.Text = _unknown ? "UNKNOWN SIGNAL"
+            _value.Text = _unknown ? _unknownText
                 : !reading.HasValue ? "NO DATA"
                 : string.IsNullOrEmpty(_spec.Unit) || _spec.Style is GaugeStyle.LcarsBar
                     ? Number(reading.Value)
@@ -137,6 +155,15 @@ public sealed class GaugeFace : Canvas
         }
 
         Children.Add(_dynamic);
+
+        // A sensor source says where it answered from, along the bottom edge (ADR-0039).
+        if (_spec.Source.IsSensor && _spec.Flag("showSource", true))
+        {
+            _source = new TextBlock { FontSize = 11, Width = _spec.Width, TextAlignment = TextAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+            _source.SetResourceReference(TextBlock.FontFamilyProperty, "MonoFont");
+            Place(_source, 0, _spec.Height - 15);
+            Children.Add(_source);
+        }
 
         // The quality dot, in the top-right corner of every gauge, on top of everything.
         _dot = new Ellipse { Width = 9, Height = 9, Fill = QualityPalette.Unavailable };
@@ -625,7 +652,7 @@ public sealed class GaugeFace : Canvas
     /// Set a brush property from a layout colour. <c>@token</c> becomes a live theme reference —
     /// it changes with the theme and dims at night — and <c>#RRGGBB</c> a fixed brush.
     /// </summary>
-    private static void Paint(DependencyObject target, DependencyProperty property, string? colour, string fallback)
+    internal static void Paint(DependencyObject target, DependencyProperty property, string? colour, string fallback)
     {
         foreach (var candidate in new[] { colour, fallback })
         {
@@ -657,7 +684,7 @@ public sealed class GaugeFace : Canvas
     }
 
     /// <summary>A layout colour as a brush now, for the needle's glow, which is not a brush property.</summary>
-    private static Brush? Resolve(string colour) =>
+    internal static Brush? Resolve(string colour) =>
         colour.StartsWith('@') && ThemeTokens.TryGet(colour[1..], out var token)
             ? Application.Current?.TryFindResource(token.ResourceKey) as Brush
             : ThemeColour.TryParse(colour, out var c) ? Frozen(c) : null;

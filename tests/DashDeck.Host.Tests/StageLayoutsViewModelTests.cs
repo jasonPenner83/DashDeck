@@ -43,7 +43,7 @@ public sealed class StageLayoutsViewModelTests : IDisposable
     {
         var (vm, _) = Make("lcars");
 
-        Assert.Equal(["FOLLOW THE THEME", "F-150 CLUSTER", "LCARS STAGE"], vm.Rows.Select(r => r.Caption));
+        Assert.Equal(["FOLLOW THE THEME", "F-150 CLUSTER", "COMPASS", "LCARS STAGE"], vm.Rows.Select(r => r.Caption));
         Assert.True(vm.Rows[0].IsCurrent);
         Assert.Equal("LCARS STAGE", vm.CurrentName);
     }
