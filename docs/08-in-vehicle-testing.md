@@ -264,3 +264,34 @@ No internet needed. The adapter is optional; with it, the card borders show real
 - the theme not remembered after a restart.
 
 Take a photo of anything that looks wrong; for a theme, the screen *is* the bug report.
+
+---
+
+## Closing DashDeck by touch, and nothing left running
+
+**You need:** the tablet in its mount, touch only (no keyboard), and the adapter plugged in. Ignition
+**on**. For step 5 you'll need Task Manager. On the Surface, open it by long-pressing the Start
+button.
+
+1. Put a web app (Spotify or a map) or a native app (Nuvio/Stremio) on the stage, so there is
+   something running to clean up.
+2. Tap the **three dots** at the top right. **Expect:** the last item reads **CLOSE DASHDECK**.
+3. Tap it once. **Expect:** it changes to **TAP AGAIN TO CLOSE DASHDECK** in the accent colour, and
+   nothing closes.
+4. Wait five seconds without tapping. **Expect:** it goes back to **CLOSE DASHDECK** by itself.
+5. Tap it twice in a row. **Expect:** DashDeck closes within a couple of seconds. Then open **Task
+   Manager ▸ Processes** (or **Details**) and look for these:
+   - **no `DashDeck.Host`**;
+   - no **Microsoft Edge WebView2** processes left from it;
+   - none of the stage apps DashDeck started (Nuvio, Stremio).
+6. Start DashDeck again. **Expect:** it comes up **live** on the adapter (no SIM badge) — proof the
+   serial port was let go.
+7. Tap outside the open menu. **Expect:** it still just dismisses the menu.
+
+**A failure looks like:**
+- one tap closing the app;
+- `DashDeck.Host` still in Task Manager a minute after closing;
+- the next launch coming up simulated with the port **IN USE**.
+
+If `DashDeck.Host` lingers, wait 15 seconds: DashDeck ends itself if shutdown overruns, and writes
+why to `%LOCALAPPDATA%\DashDeck\crash.log` — send that file.
