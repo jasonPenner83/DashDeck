@@ -273,6 +273,8 @@ public static class GaugeParts
             ["labelColour"] = "the caption",
             ["labelSize"] = "caption size, px",
             ["showValue"] = "true/false — the number beside the caption",
+            ["positiveText"] = "a word before the value above zero — \"HEAT\" for a seat",
+            ["negativeText"] = "a word before the value below zero — \"COOL\" for a seat",
         },
         [StageElementType.Indicator] = new Dictionary<string, string>
         {
@@ -772,10 +774,14 @@ public sealed record StageLayout
           "label": "DRIVER", "unit": "°", "format": "0.0", "min": 15, "max": 30,
           "source": { "signal": "hvac.driverSetTemp", "rateHz": 0.5 },
           "parts": { "arcColour": "#8FDBFF", "glow": "#4FB8F0", "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
-        { "id": "driverSeat", "type": "levels", "x": 64, "y": 222, "width": 196, "height": 44,
+        // The seat heats (warm, HEAT 1–3) and cools (ice blue, COOL 1–3); the wheel heats.
+        { "id": "driverSeat", "type": "levels", "x": 44, "y": 222, "width": 150, "height": 44,
           "label": "SEAT", "min": -3, "max": 3,
           "source": { "signal": "seat.driver.climate", "rateHz": 0.2 },
-          "parts": { "steps": 3, "litColour": "#FF9A4D", "negativeColour": "#6CC8FF", "labelColour": "#8A97A4" } },
+          "parts": { "steps": 3, "litColour": "#FF9A4D", "negativeColour": "#6CC8FF", "labelColour": "#8A97A4",
+                     "positiveText": "HEAT", "negativeText": "COOL" } },
+        { "id": "wheel", "type": "indicator", "x": 206, "y": 228, "width": 78, "height": 36, "label": "WHEEL",
+          "source": { "signal": "steeringWheel.heat", "rateHz": 0.2 }, "parts": { "litColour": "#FF9A4D" } },
 
         // ── Centre ── the fan, where the air goes, and the cabin's own temperature.
         { "id": "title", "type": "text", "x": 338, "y": 30, "width": 236, "height": 22,
@@ -804,7 +810,8 @@ public sealed record StageLayout
         { "id": "passengerSeat", "type": "levels", "x": 652, "y": 222, "width": 196, "height": 44,
           "label": "SEAT", "min": -3, "max": 3,
           "source": { "signal": "seat.passenger.climate", "rateHz": 0.2 },
-          "parts": { "steps": 3, "litColour": "#FF9A4D", "negativeColour": "#6CC8FF", "labelColour": "#8A97A4" } },
+          "parts": { "steps": 3, "litColour": "#FF9A4D", "negativeColour": "#6CC8FF", "labelColour": "#8A97A4",
+                     "positiveText": "HEAT", "negativeText": "COOL" } },
 
         // ── Switches ── lit when on; dim and outlined when off; a dash when the truck has not said.
         { "id": "auto", "type": "indicator", "x": 44, "y": 310, "width": 116, "height": 48, "label": "AUTO",

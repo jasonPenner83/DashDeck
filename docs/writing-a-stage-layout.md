@@ -192,7 +192,7 @@ pick one; SAVE AS, OPEN FOLDER, edit, RELOAD. Yours live in `%LOCALAPPDATA%\Dash
 from. A theme names its own with `"climateLayout": "lcars"`.
 
 **It is read only.** It shows what the truck reports and changes nothing; a tap does nothing. The
-`hvac.*` and `seat.*.climate` signals it reads are **placeholders** until the truck's HVAC module is
+`hvac.*`, `seat.*.climate` and `steeringWheel.heat` signals it reads are **placeholders** until the truck's HVAC module is
 found — on the synthetic truck they answer (marked Simulated), on the real one every element shows a
 dash. When the real ones are found they go in the vehicle pack and the panel lights up with no change
 here.
@@ -236,7 +236,8 @@ value. No reading: `– –` and no arc.
 
 **`levels`** — `steps` cells lit in proportion to the value between `min` and `max`. **Below zero
 lights from the other end of the range in `negativeColour`**, so a seat on −3…3 with `steps: 3`
-shows heat 2 as two warm bars and cooling 1 as one cool bar. The caption is top-left; the value
+shows heat 2 as two warm bars and cooling 1 as one cool bar — and, with `positiveText` and
+`negativeText`, reads `HEAT 2` or `COOL 1`. The caption is top-left; the value
 top-right (`OFF` at zero).
 
 | Part | What it does |
@@ -246,9 +247,10 @@ top-right (`OFF` at zero).
 | `litColour`, `unlitColour`, `negativeColour` | lit, unlit, lit below zero |
 | `gap` | space between cells, px |
 | `labelColour`, `labelSize`, `showValue` | the caption and value line |
+| `positiveText`, `negativeText` | a word before the value above and below zero — `HEAT 2`, `COOL 1` for a seat |
 
 **`indicator`** — lit by, in this order: a **`bit`** of the value (`hvac.airflow` is 1 face, 2 feet,
-4 windshield, so `"bit": 1` is FEET), exactly **`equals`** a value, or at least **`onAt`** (default 1).
+4 windshield, so `"bit": 1` is FEET; `steeringWheel.heat` is 0 or 1), exactly **`equals`** a value, or at least **`onAt`** (default 1).
 Off is an outlined pill. **No reading is dimmed with a dash, never drawn as off.**
 
 | Part | What it does |

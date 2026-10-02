@@ -527,7 +527,10 @@ the adapter, **parked**, ignition **on** or engine running. No internet.
    running. DRIVER reads **21.5°** and PASSENGER **22.0°** on thin blue arcs with a bright point;
    FAN shows some bars lit; FACE or FEET is lit; the switches show A/C lit when the synthetic
    outside air is warm; OUTSIDE shows a temperature. Every element has a small **blue** dot
-   (Simulated).
+   (Simulated). Under DRIVER: **SEAT** with its bars and a **WHEEL** pill. When the synthetic
+   outside air is below 10 °C the driver's seat reads **HEAT 2** with two warm orange bars and
+   WHEEL is lit orange; above 25 °C the seat reads **COOL 1** with one ice-blue bar and WHEEL is
+   off; in between the seat reads **OFF**. The passenger seat reads **OFF**.
 3. Tap anything on the panel. **Expect:** nothing happens. It is read only.
 4. Tap **DASH**. **Expect:** the cards come back exactly as they were. Tap **CLIMATE** again: the
    panel is back.
@@ -543,11 +546,12 @@ the adapter, **parked**, ignition **on** or engine running. No internet.
 **In the truck (real adapter):**
 
 7. Tap **CLIMATE**. **Expect:** the same panel, but **every climate element shows a dash** — the
-   set temperatures read **– –** with no arc, FAN and SEAT read **–** with every bar dark, and every
-   pill is dimmed with a dash after its name. Their dots are **grey** (Unavailable). This is right:
+   set temperatures read **– –** with no arc, FAN and both SEATs read **–** with every bar dark, and
+   every pill — WHEEL included — is dimmed with a dash after its name. Their dots are **grey** (Unavailable). This is right:
    the HVAC signals are placeholders until the HVAC module is found.
 8. **OUTSIDE** shows the real outside air temperature with a **green** dot — it is a standard signal.
-9. Change the fan or temperature on the truck's own controls. **Expect:** the truck's climate works
+9. Change the fan or temperature, and turn the heated seat, cooled seat and heated wheel on and
+   off, on the truck's own controls. **Expect:** the truck's climate works
    exactly as always and the panel does not change (still dashes). DashDeck sends nothing.
 
 **A failure looks like:** a climate element showing a number on the real truck (a placeholder must

@@ -334,8 +334,7 @@ public sealed class LevelsFace : Canvas, IReadingFace
         {
             _value.Text = _unknown ? _unknownText
                 : !showing ? "–"
-                : reading.Value == 0 ? "OFF"
-                : Math.Abs(reading.Value).ToString(_spec.Format, CultureInfo.InvariantCulture);
+                : ClimateReadings.LevelText(reading.Value, _spec.Format, _spec.Text("positiveText", ""), _spec.Text("negativeText", ""));
             _value.Opacity = showing ? dim : 0.5;
         }
 

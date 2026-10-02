@@ -54,6 +54,8 @@ public sealed class ClimateLayoutTests : IDisposable
         Assert.Contains("hvac.fanSpeed", signals);
         Assert.Contains("hvac.airflow", signals);
         Assert.Contains("seat.driver.climate", signals);
+        Assert.Contains("seat.passenger.climate", signals);
+        Assert.Contains("steeringWheel.heat", signals);
         Assert.Contains("ambient.airTemp", signals);
     }
 
@@ -190,8 +192,30 @@ public sealed class ClimateLayoutTests : IDisposable
         Assert.Empty(lcars!.Problems);
         Assert.Same(LayoutCanvas.Climate, lcars.Canvas);
         Assert.Contains(lcars.Elements, e => e.Type is StageElementType.Setpoint);
+        Assert.Contains(lcars.Elements, e => e.Source.Signal == "steeringWheel.heat");
 
         var themes = new ThemeLibrary(ShippedFolder("themes"), Path.Combine(_folder, "themes"));
         Assert.Equal("lcars", themes.Find("shipped/lcars-inspired")!.ClimateLayout);
+    }
+
+    [Theory]
+    [InlineData(2, "HEAT", "COOL", "HEAT 2")]
+    [InlineData(-1, "HEAT", "COOL", "COOL 1")]
+    [InlineData(0, "HEAT", "COOL", "OFF")]
+    [InlineData(4, "", "", "4")]                 // a fan has no words
+    [InlineData(double.NaN, "HEAT", "COOL", "–")]
+    public void A_seat_says_whether_it_is_heating_or_cooling(double value, string positive, string negative, string expected)
+    {
+        Assert.Equal(expected, ClimateReadings.LevelText(value, "0", positive, negative));
+    }
+
+    [Fact]
+    public void The_glass_seats_say_heat_and_cool()
+    {
+        var seat = StageLayout.BuiltInClimate.Elements.Single(e => e.Id == "driverSeat");
+
+        Assert.Equal("HEAT", seat.Text("positiveText", ""));
+        Assert.Equal("COOL", seat.Text("negativeText", ""));
+        Assert.Empty(StageLayout.BuiltInClimate.Problems);
     }
 }

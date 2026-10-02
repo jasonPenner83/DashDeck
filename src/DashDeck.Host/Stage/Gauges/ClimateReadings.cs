@@ -51,4 +51,26 @@ public static class ClimateReadings
 
         return value >= spec.Number("onAt", 1);
     }
+
+    /// <summary>
+    /// What a levels element writes beside its caption: <c>OFF</c> at zero, otherwise the size of
+    /// the value, after <paramref name="positive"/> or <paramref name="negative"/> when the layout
+    /// names them — a seat reads <c>HEAT 2</c> or <c>COOL 1</c>, a fan just <c>4</c>.
+    /// </summary>
+    public static string LevelText(double value, string format, string positive, string negative)
+    {
+        if (double.IsNaN(value))
+        {
+            return "–";
+        }
+
+        if (value == 0)
+        {
+            return "OFF";
+        }
+
+        var size = Math.Abs(value).ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+        var word = value < 0 ? negative : positive;
+        return word.Length > 0 ? $"{word} {size}" : size;
+    }
 }

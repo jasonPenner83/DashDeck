@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **539 tests green** — 182 engine, 357 shell.
+(ADR-0010). **546 tests green** — 183 engine, 363 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -135,13 +135,14 @@ and a `compass.json` of the user's in `stage\` replaces it. `CompassView`/`Compa
 `LayoutCanvas`: the stage's 912 × 636 or the **climate panel's 912 × 390** (the two card bands), with
 the stage's engine. Four new elements work on either: **`setpoint`** (a set temperature on a thin
 glowing arc), **`levels`** (steps lit to the value; below zero in `negativeColour`, for a seat that
-heats and cools), **`indicator`** (a pill lit by a `bit`, `equals` or `onAt`; no reading is dimmed
+heats and cools — `positiveText`/`negativeText` make it read HEAT 2 / COOL 1), **`indicator`** (a pill lit by a `bit`, `equals` or `onAt`; no reading is dimmed
 with a dash, never "off") and **`glass`** (painted frost). The built-in is **Glass**; LCARS ships
 `catalog/climate/lcars.json` and names it (`"climateLayout"`); the user's live in
 `%LOCALAPPDATA%\DashDeck\climate\`, chosen in **Settings ▸ Themes ▸ CLIMATE LAYOUT** (the stage's
 block, one template). The panel is **made when CLIMATE is chosen and disposed when left**, so it
-declares signals only while visible. Its twelve `hvac.*` / `seat.*.climate` signals are
-**placeholders** (MS-CAN, mode 01 `C4`–`CF`, like TPMS): Simulated on the synthetic truck,
+declares signals only while visible. Its thirteen `hvac.*` / `seat.*.climate` / `steeringWheel.heat`
+signals are
+**placeholders** (MS-CAN, mode 01 `C4`–`D0`, like TPMS): Simulated on the synthetic truck,
 **Unavailable on the real one** until the HVAC module is found. **Nothing is sent** — control is
 Phase 3 (ADR-0006).
 
