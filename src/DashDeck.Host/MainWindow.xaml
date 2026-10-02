@@ -660,11 +660,24 @@
                             <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16" Text="SETTINGS" />
                         </Button>
 
+                        <!-- Quits DashDeck. Two taps, because on the truck this is the only way
+                             out (no keyboard, so no Escape) and one stray tap must not end the
+                             dash. Tapping outside the menu is how to dismiss it. -->
                         <Button Style="{StaticResource MenuItemButton}"
                                 Margin="0"
-                                Command="{Binding ToggleMenuCommand}">
-                            <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16"
-                                       Foreground="{DynamicResource TextMidBrush}" Text="CLOSE" />
+                                Command="{Binding CloseAppCommand}">
+                            <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16" Text="{Binding CloseCaption}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource TextMidBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsCloseArmed}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
                         </Button>
                     </StackPanel>
                 </Border>

@@ -28,13 +28,27 @@ To confirm the loader in the deployed folder without opening the shell:
 To attach the build to its GitHub Release (rollback is unzipping the previous one):
 
 ```powershell
-Compress-Archive -Path dist\DashDeck\* -DestinationPath dist\DashDeck-v0.3.0-win-x64.zip -Force
+Compress-Archive -Path dist\DashDeck\* -DestinationPath dist\DashDeck-v0.4.0-win-x64.zip -Force
 ```
 
 ## What this build contains
 
-**`v0.3.0`** — tagged 2026-10-02 on `main`. The first build that reads the real truck. It adds
-the following to `v0.1.0`:
+**`v0.4.0`** — released 2026-10-02 from `main`. It adds the following to `v0.3.0`:
+
+- **Themes** (Settings ▸ Themes, ADR-0036). A theme restyles the whole dash; tap one to wear it.
+  IMPORT, EXPORT, SAVE AS, DELETE (yours only), OPEN FOLDER and RELOAD.
+  - **LCARS (inspired)** ships in `catalog/themes/` with its Antonio font files and their licence.
+  - Your own themes are in `%LOCALAPPDATA%\DashDeck\themes\`; the choice is remembered in
+    `settings.json`, so a redeploy keeps it.
+  - Writing one by hand: [writing-a-theme](writing-a-theme.md).
+- **Settings ▸ Sensors ▸ MODULES** (ADR-0035). **SCAN FOR MODULES** finds every module on HS-CAN
+  and MS-CAN by its part number; tap one to sweep its identifiers, and **+ DEFINE** opens the signal
+  editor on one it found. Reads only; refused while moving. A signal can now name a module
+  (`"module": "726"`).
+- Two reply-parsing fixes: several modules answering the broadcast read as the first answer, not
+  garbage; a refusal from a module (`7F …`) is recognised as an answer.
+
+And from **`v0.3.0`**, the first build that reads the real truck:
 
 - **The real adapter** (ADR-0031, ADR-0034). Choose it in **Settings ▸ Vehicle ▸ OBD-II
   adapter**, from a list of **tested ports**. Each row shows the adapter's identity, its baud rate
@@ -61,8 +75,9 @@ the following to `v0.1.0`:
   - the five components in `plugins/`;
   - Settings sections for Appearance, Mount, Display, Vehicle and Diagnostics.
 
-Not in this build: **Settings ▸ Sensors ▸ MODULES** (ADR-0035) is on `develop`, waiting for the
-next release.
+Check the deploy carried the theme: the publish copies `catalog/themes/` (JSON, fonts and the
+font licence) beside the executable. If LCARS appears in Settings ▸ Themes but its lettering is wide
+and ordinary, the `.ttf` files did not make it into the folder.
 
 ## Known limits — read before deciding something is broken
 
@@ -96,6 +111,9 @@ Step-by-step walkthroughs, with what to expect and what a failure looks like, ar
 - **Settings ▸ Sensors**: the scan should list Fuel Rate and Mass Air Flow as *not supported by
   the truck*. Check TEST rpm against the tachometer.
 - **VIN lookup**: read from the truck, and decoded as a 2019 Ford F-150 with the 2.7 L.
+- **Settings ▸ Themes**: passed on the tablet 2026-10-02 (LCARS approved).
+- **Settings ▸ Sensors ▸ Modules**: **not yet walked through** — the next thing to do in the truck.
+  Close FORScan first; send the module list it finds (cover the `22 F190` row, the VIN).
 
 The `v0.1.0` checks still apply: touch gestures on glass, reach from the driver's seat, levelling,
 and day/night legibility.

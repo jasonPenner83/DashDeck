@@ -451,15 +451,66 @@ public partial class App : Application
         Current.Shutdown(0);
     }
 
+    /// <summary>
+    /// Close DashDeck — the menu's CLOSE DASHDECK, for a touch screen with no Escape key.
+    /// </summary>
+    public static void RequestClose() => Current.Shutdown(0);
+
+    /// <summary>
+    /// How long the vehicle pipeline gets to close the adapter cleanly before shutdown moves on.
+    /// </summary>
+    private static readonly TimeSpan VehicleCloseBudget = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// How long after shutdown starts the process is ended regardless. A dash that has closed its
+    /// window must not linger in Task Manager holding the serial port, whatever is stuck.
+    /// </summary>
+    private static readonly TimeSpan ExitBackstop = TimeSpan.FromSeconds(10);
+
     protected override void OnExit(ExitEventArgs e)
     {
+        // The backstop first, so nothing below can keep the process alive past it: a serial port
+        // that will not close after a yanked cable, a media player that will not stop. Background,
+        // so a clean exit simply takes it down with the process.
+        var exitCode = e.ApplicationExitCode;
+        new System.Threading.Thread(() =>
+        {
+            System.Threading.Thread.Sleep(ExitBackstop);
+            Fail("Shutdown overran; ending the process", new TimeoutException($"still running {ExitBackstop.TotalSeconds:0} s after exit began"));
+            Environment.Exit(exitCode);
+        })
+        {
+            IsBackground = true,
+            Name = "DashDeck exit backstop",
+        }.Start();
+
+        // The stage occupants go with the shell: hosted apps are killed with their job, players
+        // and browsers are disposed.
         _shell?.Dispose();
         _weather?.Dispose();
 
         if (_vehicle is not null)
         {
-            // Blocking on shutdown is acceptable; blocking anywhere else is not.
-            _vehicle.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            // Off the UI thread, with a time limit. Waiting for it *on* the UI thread deadlocked:
+            // any continuation that wanted the dispatcher waited for a dispatcher that was waiting
+            // for it, so the window closed and the process stayed in Task Manager.
+            var vehicle = _vehicle;
+
+            try
+            {
+                var closed = Task.Run(async () => await vehicle.DisposeAsync().ConfigureAwait(false))
+                    .Wait(VehicleCloseBudget);
+
+                if (!closed)
+                {
+                    Fail("Shutdown", new TimeoutException($"the vehicle pipeline did not close within {VehicleCloseBudget.TotalSeconds:0} s"));
+                }
+            }
+            catch (AggregateException ex)
+            {
+                // Closing is best effort; a failure to close is logged, never a reason to stay open.
+                Fail("Shutdown", ex.InnerException ?? ex);
+            }
         }
 
         if (_restartRequested && Environment.ProcessPath is { } exe)

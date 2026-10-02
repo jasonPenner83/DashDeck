@@ -423,21 +423,27 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     }
 
     /// <inheritdoc />
+    /// <remarks>
+    /// Every await here is <c>ConfigureAwait(false)</c>. Without it, an await that did not finish
+    /// at once tried to come back to the UI thread — which, on shutdown, is the thread blocked
+    /// waiting for this to finish. The window closed and the process never did: DashDeck stayed
+    /// in Task Manager, holding the adapter's serial port.
+    /// </remarks>
     public async ValueTask DisposeAsync()
     {
         if (_failover is not null)
         {
-            await _failover.DisposeAsync();
+            await _failover.DisposeAsync().ConfigureAwait(false);
         }
 
-        await _service.DisposeAsync();
+        await _service.DisposeAsync().ConfigureAwait(false);
 
         // The link is disposed with the pipeline when it is at the bottom of it; while it is only
         // being watched for, it is this stack's to close — the serial port must be free for the
         // next launch (App.RequestRestart).
         if (_link is not null && IsSimulated)
         {
-            await _link.DisposeAsync();
+            await _link.DisposeAsync().ConfigureAwait(false);
         }
     }
 

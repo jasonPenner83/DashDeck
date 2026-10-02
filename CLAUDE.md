@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **427 tests green** — 166 engine, 261 shell.
+(ADR-0010). **430 tests green** — 166 engine, 264 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -103,7 +103,7 @@ what the simulator taught it. One way only — once live, a lost cable is Stale,
 **Settings ▸ Vehicle lists tested ports** (identity, baud, voltage at the OBD port, or why not)
 to choose the adapter from.
 
-Six traps already hit and worth not re-learning:
+Seven traps already hit and worth not re-learning:
 
 - **`InvariantGlobalization` breaks WPF.** `Directory.Build.props` sets it for the whole
   solution, which is right for the headless engine. WPF's font stack builds a
@@ -138,6 +138,13 @@ Six traps already hit and worth not re-learning:
   card just needs to be a `Button` with a `Command`; do not add a `TouchDown` handler of its
   own. The `--tap-detail` flag drives that path without a touch screen. Still: if a gesture
   must work on glass, confirm it on glass — this trap was found there twice.
+
+- **Never wait on async work from the UI thread without `ConfigureAwait(false)` all the way
+  down.** `App.OnExit` used to block on `VehicleStack.DisposeAsync()`, whose awaits came back to
+  the dispatcher — which was the thread blocked waiting. The window closed, the process never did,
+  and it kept the serial port. Disposal now runs on the pool with a time limit, and a background
+  backstop ends the process 10 s after exit begins whatever is stuck. On the truck, **CLOSE
+  DASHDECK** in the three-dot menu (two taps) is the only way out: there is no Escape key.
 
 Also worth knowing: `MeasuredRequestsPerSecond` — the `req/s` on the status strip — is the
 adapter's measured **capability**, not the achieved load. It is not a way to check whether

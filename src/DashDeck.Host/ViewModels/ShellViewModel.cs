@@ -717,10 +717,47 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         action.Invoke();
     }
 
+    /// <summary>Two taps to close DashDeck from the menu: the only way out without a keyboard.</summary>
+    private readonly Shell.CloseConfirm _close = new(TimeSpan.FromSeconds(4));
+
+    /// <summary>What ends the app. <see cref="App.RequestClose"/>; replaceable for tests.</summary>
+    public Action ExitApplication { get; set; } = App.RequestClose;
+
+    /// <summary>The menu's last item: what it does, and that it is armed.</summary>
+    public string CloseCaption => _close.IsArmed(_clock.UtcNow) ? "TAP AGAIN TO CLOSE DASHDECK" : "CLOSE DASHDECK";
+
+    /// <summary>True while a second tap would close — drawn in the accent, so the change is seen.</summary>
+    public bool IsCloseArmed => _close.IsArmed(_clock.UtcNow);
+
+    /// <summary>
+    /// Close DashDeck — on the second tap within a few seconds.
+    /// </summary>
+    /// <remarks>
+    /// Escape closes from a keyboard; on the truck there is none, and the menu's CLOSE used to
+    /// only dismiss the menu, which tapping outside it already does.
+    /// </remarks>
+    [RelayCommand]
+    private void CloseApp()
+    {
+        var close = _close.Tap(_clock.UtcNow);
+        OnPropertyChanged(nameof(CloseCaption));
+        OnPropertyChanged(nameof(IsCloseArmed));
+
+        if (close)
+        {
+            IsMenuOpen = false;
+            ExitApplication();
+        }
+    }
+
     /// <summary>Open or close the overflow menu.</summary>
     [RelayCommand]
     private void ToggleMenu()
     {
+        _close.Disarm();
+        OnPropertyChanged(nameof(CloseCaption));
+        OnPropertyChanged(nameof(IsCloseArmed));
+
         // Re-read on the way in, because a caption can depend on state: the video occupant's
         // first item says PLAY or PAUSE, and a stale one is worse than no label.
         if (!IsMenuOpen)
@@ -969,6 +1006,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     private void Refresh()
     {
+        // An armed CLOSE left alone goes back to harmless on its own.
+        OnPropertyChanged(nameof(CloseCaption));
+        OnPropertyChanged(nameof(IsCloseArmed));
+
         // IClock, never DateTimeOffset.Now — the convention holds in the UI too, so a
         // replayed drive shows the time the drive happened rather than the time you watched it.
         ClockText = _clock.UtcNow.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture);
