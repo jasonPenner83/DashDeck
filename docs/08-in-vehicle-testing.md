@@ -466,15 +466,18 @@ Best started within a few minutes of a cold start, so temperatures are still cli
 
 1. **Settings ▸ Sensors ▸ MODULES**, tap **7E0 › IDENTIFIERS**, choose **F400–F4FF** and **SWEEP**
    (or tap the chip to show a saved sweep). **Expect:** the list of about 53.
-2. Press **WATCH** (beside SWEEP). **Expect:** an orange line *Watching N identifiers on 7E0…*, a
-   **STOP** button with `pass 1 · 22 F4… · x of N · 0 moved` beside it, and after a few seconds the
-   list replaced by rows showing *first … → now …*, *low–high*, an *A−40* line, and **MOVED ×n** or
-   **STILL** on the right. The dash goes amber while it runs — expected.
-3. Blip the throttle two or three times. **Expect:** after the next pass, rows that follow the
+2. Press **WATCH** (beside SWEEP). **Expect:** an orange line *Watching N identifiers on 7E0 — one
+   pass is about 3 s. Leave it 30 s first…*, a **STOP** button with `pass 1 · 22 F4… · x of N · 0
+   moved` beside it, and after the first pass the list replaced by rows showing *first … (number) →
+   now … (number)*, *low–high*, an *if a temperature* line, and **MOVED ×n** or **STILL** on the
+   right. The dash goes amber while it runs — expected. **Touch nothing for 30 seconds.** Rows
+   that move on their own (rpm wobble, fuel trims) show MOVED already; note them.
+3. Then blip the throttle two or three times, and leave it another 30 seconds. **Expect:** after the next pass, rows that follow the
    throttle rise to the top as **MOVED** — **22 F44A** (pedal), **22 F411** (throttle), **22 F40C**
    (rpm), **22 F404** (load). Rows that don't care stay **STILL** at the bottom.
 4. Leave it idling for a few minutes. **Expect:** **22 F405** (coolant) shows MOVED if the engine is
    still warming, with its *A−40* line reading the coolant temperature in °C — compare with the dash.
+   Two-byte rows show *÷16* instead: Ford's finer temperatures (transmission fluid) are sent that way.
 5. Press **STOP**. **Expect:** *Stopped by STOP after n passes · m of N moved*, the list stays, and
    the dash goes green again within a few seconds.
 6. Tap the top **MOVED** row. **Expect:** the signal editor, with the module and identifier filled
@@ -484,7 +487,9 @@ Best started within a few minutes of a cold start, so temperatures are still cli
    slow risers with sensible *A−40* values are oil and transmission temperature candidates; rows
    that jump with the throttle are fuel-flow candidates.
 
-**A failure looks like:** WATCH greyed out after a sweep with results; a pass taking much longer
+**A failure looks like:** every row MOVED ×1 after a single pass (the baseline must be the watch's
+own first pass, not the sweep); a two-byte value going negative shown as a huge number (FF F2 is
+−14); WATCH greyed out after a sweep with results; a pass taking much longer
 than one second per 19 identifiers; STOP not stopping within a second; the dash still amber a
 minute after STOP; WATCH starting while the truck moves (it refuses, and stops by itself if the
 truck starts moving).

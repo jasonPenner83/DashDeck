@@ -71,32 +71,60 @@ public sealed record IdentifierRowViewModel(ModuleRowViewModel Module, FoundIden
 }
 
 /// <summary>
-/// One identifier under WATCH: what it said first and now, its range, how often it changed, and
-/// its first byte less 40 — the usual way a temperature is sent.
+/// One identifier under WATCH: what it said on the watch's first pass and now, its range, how often
+/// it changed, and the reading most likely to be a temperature — the byte less 40 for one byte,
+/// the value over 16 for two.
 /// </summary>
 public sealed record WatchRowViewModel(ModuleRowViewModel Module, WatchedIdentifier Item)
 {
     public string Caption => string.Create(CultureInfo.InvariantCulture, $"22 {Item.Did:X4}");
 
-    /// <summary>MOVED ×7, or still.</summary>
-    public string Badge => Item.HasChanged
-        ? string.Create(CultureInfo.InvariantCulture, $"MOVED ×{Item.Changes}")
+    /// <summary>MOVED ×7, STILL, or NOT READ when STOP came before its first read.</summary>
+    public string Badge => !Item.HasValue ? "NOT READ"
+        : Item.HasChanged ? string.Create(CultureInfo.InvariantCulture, $"MOVED ×{Item.Changes}")
         : "STILL";
 
     public bool HasChanged => Item.HasChanged;
 
-    /// <summary>First and now in hex, then the whole value's low–high in decimal.</summary>
-    public string Detail => string.Create(
-        CultureInfo.InvariantCulture,
-        $"first {Hex(Item.First)}  →  now {Hex(Item.Current)}  ·  low–high {Item.Low}–{Item.High}{(Item.Missed ? "  ·  no answer last pass" : "")}");
+    /// <summary>First and now, in hex and as a number (signed when it looks signed), and the range.</summary>
+    public string Detail
+    {
+        get
+        {
+            if (Item.First is not { } first || Item.Current is not { } now)
+            {
+                return "not read yet — STOP came first";
+            }
 
-    /// <summary>The first byte less 40, first and now: how Ford and OBD send most temperatures, in °C.</summary>
-    public string Temperature => string.Create(
-        CultureInfo.InvariantCulture,
-        $"A−40:  {Item.First[0] - 40} → {Item.Current[0] - 40} °C");
+            var signed = Item.MaybeSigned;
+            var low = signed ? Item.SignedLow : Item.Low;
+            var high = signed ? Item.SignedHigh : Item.High;
+
+            return string.Create(
+                CultureInfo.InvariantCulture,
+                $"first {Hex(first)} ({Number(first)})  →  now {Hex(now)} ({Number(now)})  ·  {(signed ? "signed " : "")}low–high {low}–{high}{(Item.Missed ? "  ·  no answer last pass" : "")}");
+        }
+    }
+
+    /// <summary>
+    /// The reading most likely to be a temperature, first and now: one byte less 40 (how OBD and
+    /// Ford send most), or two bytes over 16 (how Ford sends finer ones, like transmission fluid).
+    /// Empty for anything else.
+    /// </summary>
+    public string Temperature => (Item.First, Item.Current) switch
+    {
+        ({ Length: 1 } first, { Length: 1 } now) =>
+            string.Create(CultureInfo.InvariantCulture, $"if a temperature, A−40:  {first[0] - 40} → {now[0] - 40} °C"),
+        ({ Length: 2 } first, { Length: 2 } now) =>
+            string.Create(CultureInfo.InvariantCulture, $"if a temperature, ÷16:  {WatchedIdentifier.ValueOf(first) / 16.0:0.0} → {WatchedIdentifier.ValueOf(now) / 16.0:0.0} °C"),
+        _ => "",
+    };
 
     /// <summary>The identifier as the sweep would show it, with its latest bytes — for DEFINE.</summary>
-    public IdentifierRowViewModel AsIdentifier => new(Module, new FoundIdentifier(Item.Did, Item.Current, null));
+    public IdentifierRowViewModel AsIdentifier => new(Module, new FoundIdentifier(Item.Did, Item.Current ?? [], null));
+
+    private string Number(byte[] data) => (Item.MaybeSigned ? WatchedIdentifier.SignedValueOf(data) : WatchedIdentifier.ValueOf(data))
+        .ToString(CultureInfo.InvariantCulture);
 
     private static string Hex(byte[] data) =>
         string.Join(' ', data.Select(b => b.ToString("X2", CultureInfo.InvariantCulture)));
@@ -482,7 +510,7 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
         ClearWatch();
         WatchStatus = string.Create(
             CultureInfo.CurrentCulture,
-            $"Watching {watch.Items.Count} identifiers on {module.AddressText}. Now do one thing — blip the throttle, or let it idle and warm — and see what moves. STOP when done.");
+            $"Watching {watch.Items.Count} identifiers on {module.AddressText} — one pass is about {watch.PassTime().TotalSeconds:0} s. Leave it 30 s first, to see what moves by itself. Then do one thing — blip the throttle, or let it warm — and leave it another 30 s. STOP when done.");
 
         var stoppedBy = "STOP";
 
@@ -510,9 +538,13 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
             End();
         }
 
-        WatchStatus = string.Create(
-            CultureInfo.CurrentCulture,
-            $"Stopped by {stoppedBy} after {watch.Passes} pass{(watch.Passes == 1 ? "" : "es")}  ·  {watch.ChangedCount} of {watch.Items.Count} moved{(_vehicle.IsSimulated ? "  ·  SIMULATED" : "")}. Tap one to DEFINE and TEST it.");
+        WatchStatus = watch.Passes < 2
+            ? string.Create(
+                CultureInfo.CurrentCulture,
+                $"Stopped by {stoppedBy} after {watch.Passes} pass{(watch.Passes == 1 ? "" : "es")} — too soon to tell. Something can only move between two passes; leave it at least 30 s.")
+            : string.Create(
+                CultureInfo.CurrentCulture,
+                $"Stopped by {stoppedBy} after {watch.Passes} passes  ·  {watch.ChangedCount} of {watch.Items.Count} moved while watched{(_vehicle.IsSimulated ? "  ·  SIMULATED" : "")}. Tap one to DEFINE and TEST it.");
     }
 
     /// <summary>Redraw the watch list, most-moved first. Once a pass, so rows do not jump about mid-pass.</summary>
@@ -550,7 +582,7 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(IsIdle))]
     private void DefineWatched(WatchRowViewModel? row)
     {
-        if (row is not null && !IsSweeping)
+        if (row is not null && !IsSweeping && row.Item.HasValue)
         {
             Define(row.AsIdentifier);
         }
