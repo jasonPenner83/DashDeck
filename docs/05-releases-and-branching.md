@@ -64,6 +64,39 @@ installer and no tooling is worth more than it looks.
 
 Release notes say what changed from the driver's seat, not what changed in the code.
 
+### Cutting a release, in this order
+
+The order matters. Getting it wrong on 2026-10-02 left three releases tagged one commit behind
+their code, and v0.5.0's release pointing at v0.4.1.
+
+1. **Merge the release PR** (`develop` → `main`) with **Create a merge commit**, not squash.
+   Nothing gets tagged until this is done.
+2. **Build from the merged `main`:**
+   ```powershell
+   git switch main; git pull
+   powershell -ExecutionPolicy Bypass -File publish.ps1 -Shortcut
+   Compress-Archive -Path dist\DashDeck\* -DestinationPath DashDeck-vX.Y.Z-win-x64.zip -Force
+   ```
+   Check the build is the right one before attaching it. Open whatever this release added: if it
+   isn't there, the merge in step 1 hasn't happened yet.
+3. **Releases → Draft a new release.**
+   - Type `vX.Y.Z` in **Choose a tag** and pick **Create new tag … on publish**.
+   - Set **Target** to `main`, which now *is* the merge commit.
+   - Use the full three-part version: `v0.5.0`, not `v0.5` or `0.0.5`.
+4. Paste the notes, **attach the zip**, tick **Set as the latest release**, and click
+   **Publish release**, not Save draft.
+5. **Check:**
+   - On the Releases page, the release shows its tag, the zip, and **Latest**.
+   - `git ls-remote --tags origin` shows the new tag on the merge commit (`git log -1 origin/main`).
+
+**Never delete a tag that has a release on it.** GitHub deletes the release with it. To fix a
+wrong tag, create the right one on the right commit, then **edit** the release to choose it. A tag
+pushed from git is fine:
+```powershell
+git tag -a vX.Y.Z <commit> -m "DashDeck vX.Y.Z"
+git push origin vX.Y.Z
+```
+
 ## CI
 
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs on every push and pull
