@@ -43,6 +43,7 @@ issues go through [SECURITY.md](SECURITY.md), not public issues.
 | [**Writing a component**](docs/writing-a-component.md) | The practical guide: build, deploy and verify one |
 | [Component SDK](docs/03-component-sdk.md) | The contract and the reasoning behind it |
 | [Open questions](docs/04-open-questions.md) | What is still undecided |
+| [Hardware bring-up](docs/07-bringup.md) | Getting the OBDLink EX talking, on a desk and in the truck |
 | [Development setup](docs/06-development-setup.md) | What to install, how to run it, conventions |
 | [Releases & branching](docs/05-releases-and-branching.md) | `main`/`develop`, versioning, how a build reaches the truck |
 | [Deploy notes](docs/deploy-notes.md) | What is in the tablet build now, and what to test in the truck |

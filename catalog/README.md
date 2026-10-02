@@ -12,10 +12,48 @@ discovering one must cost a config edit rather than a code change.
 | File | Contents |
 |---|---|
 | `signals.obd2-standard.json` | Legislated OBD-II mode 01 PIDs. Should work on any modern vehicle, not just the F-150. |
+| `vehicles/*.json` | **Vehicle signal packs** (ADR-0033): a manufacturer's own signals for one kind of vehicle, laid over the standard set when the decoded VIN matches. |
 
-Ford-specific definitions will land in a `signals.ford-f150-2019.json` once they are
-discovered on the truck. Keeping them in a separate file matters: the standard set is
-known-good and should not be churned by the trial and error of PID discovery.
+Manufacturer definitions — Ford's mode 22 PIDs — go in the pack for the vehicle they were
+confirmed on, never in the standard file. Keeping them apart matters: the standard set is
+known-good and should not be churned by the trial and error of PID discovery, and a Ford PID
+means nothing to somebody else's truck.
+
+## Vehicle packs (ADR-0033)
+
+```jsonc
+{
+  "name": "Ford F-150 2.7 EcoBoost (2018–2020)",
+  "match": {                      // every field given must match the decoded vehicle
+    "make": "Ford",               // required — a pack with no make would fit everything
+    "model": "F-150",             // case, spaces and dashes ignored: F150 = F-150
+    "yearMin": 2018,
+    "yearMax": 2020,
+    "displacementLitres": 2.7     // to a tenth of a litre
+  },
+  "signals": [ /* definitions, in the format below */ ]
+}
+```
+
+The order at launch is **standard → matching pack → your own overlay**. Which vehicle it is comes
+from **Settings ▸ Vehicle**: the VIN, read from the truck or typed, decoded once by NHTSA and
+cached. A pack holds only signals confirmed on a real vehicle with TEST — an empty pack is
+correct; a guessed PID is not.
+
+## Your own signals (ADR-0032)
+
+Signals found on the truck, and corrections to shipped ones, are made on the tablet in
+**Settings ▸ Sensors** — never by editing these files there. They are written to
+`%LOCALAPPDATA%\DashDeck\signals.user.json`, in exactly this format, and laid over the shipped
+catalog at launch: a user definition with a shipped `id` replaces it, a new `id` adds one. A
+deploy never touches that file. The merged catalog is validated as one; if it is invalid the
+whole overlay is dropped, the shipped catalog runs alone, and the Sensors section says why.
+
+The same section has **SCAN THE TRUCK**, which asks the supported-PID bitmaps (mode 01 PIDs `00`,
+`20`, `40` …) and lists what the truck supports that no file defines, and what a file defines that
+the truck does not support; and **TEST**, which sends one request and shows the raw bytes and what
+the formula makes of them before anything is saved. Once a user definition has proved itself on
+the truck, promote it by copying it into the right file here.
 
 ## Fields
 

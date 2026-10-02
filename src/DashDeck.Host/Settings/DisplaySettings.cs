@@ -67,6 +67,26 @@ public sealed partial class DisplaySettings : ObservableObject
     [NotifyPropertyChangedFor(nameof(FuelTankGallons))]
     private double _fuelTankLitres = 136;
 
+    /// <summary>
+    /// The OBD-II adapter's COM port. Empty runs the synthetic truck. Applied at next launch.
+    /// </summary>
+    /// <remarks>
+    /// Saved on every keystroke rather than on focus loss, unlike the tank size beside it.
+    /// A tank size needs focus loss because half-typed digits are a different number; a
+    /// port name does not, and the field is one people type and then immediately relaunch —
+    /// losing it that way costs more than the extra writes.
+    /// </remarks>
+    [ObservableProperty]
+    private string _adapterSerialPort = "";
+
+    /// <summary>The rate the adapter last answered at; zero when none has been seen (ADR-0034).</summary>
+    [ObservableProperty]
+    private int _adapterBaudRate;
+
+    /// <summary>What the adapter last said it was; how it is recognised on a renumbered port.</summary>
+    [ObservableProperty]
+    private string _adapterIdentity = "";
+
     public DisplaySettings()
     {
         var stored = SettingsStore.Load();
@@ -77,6 +97,9 @@ public sealed partial class DisplaySettings : ObservableObject
         GpsTransport = stored.GpsTransport;
         GpsSerialPort = stored.GpsSerialPort;
         FuelTankLitres = stored.FuelTankLitres;
+        AdapterSerialPort = stored.AdapterSerialPort;
+        AdapterBaudRate = stored.AdapterBaudRate;
+        AdapterIdentity = stored.AdapterIdentity;
         _loaded = true;
     }
 
@@ -169,5 +192,56 @@ public sealed partial class DisplaySettings : ObservableObject
         }
 
         SettingsStore.Update(stored => stored with { FuelTankLitres = value });
+    }
+
+    partial void OnAdapterSerialPortChanged(string value)
+    {
+        if (!_loaded)
+        {
+            return;
+        }
+
+        SettingsStore.Update(stored => stored with { AdapterSerialPort = value });
+    }
+
+    partial void OnAdapterBaudRateChanged(int value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { AdapterBaudRate = value });
+        }
+    }
+
+    partial void OnAdapterIdentityChanged(string value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { AdapterIdentity = value });
+        }
+    }
+
+    /// <summary>
+    /// Ports DashDeck itself uses for something other than the OBD-II adapter — the phone's
+    /// Bluetooth GPS — which the adapter search and the port test must never open (ADR-0034).
+    /// </summary>
+    public IReadOnlyCollection<string> ReservedSerialPorts =>
+        GpsEnabled
+        && string.Equals(GpsTransport, "Bluetooth", StringComparison.OrdinalIgnoreCase)
+        && !string.IsNullOrWhiteSpace(GpsSerialPort)
+            ? [GpsSerialPort.Trim()]
+            : [];
+
+    /// <summary>Serial ports the OS can see, for the adapter picker.</summary>
+    public static IReadOnlyList<string> AvailableSerialPorts()
+    {
+        try
+        {
+            return DashDeck.Vehicle.SerialPortTransport.AvailablePorts();
+        }
+        catch (Exception)
+        {
+            // Enumerating ports is not worth failing a settings screen over.
+            return [];
+        }
     }
 }

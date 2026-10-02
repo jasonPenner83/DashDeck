@@ -4,7 +4,7 @@ Working memory for this repo. Read this first; it is kept current deliberately.
 
 ## What this project is
 
-A Windows infotainment app for Jason's **2019 Ford F-150**, running on a **Surface Pro 7
+A Windows infotainment app for Jason's **2019 Ford F-150 (2.7 L EcoBoost)**, running on a **Surface Pro 7
 (Intel, 912 x 1368 portrait)** mounted in **portrait**, carried in and out of the truck. It reads vehicle data
 over an OBD-II adapter and presents it through **pluggable components**.
 
@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **196 tests green** — 54 engine, 142 shell.
+(ADR-0010). **358 tests green** — 133 engine, 225 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -46,8 +46,20 @@ budget, and their footer says where they answered from rather than an allocated 
 so the card editor's picker is **searchable and grouped by function**; the synthetic truck
 answers the new PIDs so the extra options are live. Cards flow into rows and rows into pages
 that snap sideways; **only the visible page declares signals.** Settings is **split into a rail
-of sections** (Appearance, Mount, Display, Diagnostics); it and the card editor are full-screen
-views that take all six bands and hide the stage, which keeps running (Q17).
+of sections** (Appearance, Mount, Display, Vehicle, Sensors, Apps, Diagnostics); it and the card
+editor are full-screen views that take all six bands and hide the stage, which keeps running (Q17).
+**Settings ▸ Sensors** (ADR-0032) lists every vehicle signal and tablet sensor with what the
+truck has said about each — without ever declaring demand — **scans** the supported-PID bitmaps
+to find what the truck supports and the catalog lacks (and the reverse), and **edits**
+definitions with a **TEST** that asks the truck before saving. Edits go to a user overlay,
+`%LOCALAPPDATA%\DashDeck\signals.user.json`, laid over the shipped catalog at the next launch
+(RESTART NOW is in the section); the shipped files are never written on the tablet.
+**Settings ▸ Vehicle** (ADR-0033) says *which* vehicle this is, so nothing hard-codes it: the
+VIN is **read from the truck** (mode 09) or typed, **decoded once by NHTSA vPIC** and cached in
+`%LOCALAPPDATA%\DashDeck\vehicle.json`, and every decoded field is correctable by hand. It fills
+`VehicleProfile` (year, make, model, engine — `apiVersion 1.2`, **never the VIN**) and picks a
+**vehicle signal pack** from `catalog/vehicles/` to lay over the standard set
+(standard → pack → your overlay). The F-150 2.7 pack is empty until TEST confirms Ford PIDs.
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
@@ -59,7 +71,15 @@ calibration, not a driving control. The status strip is a quick-info bar (weathe
 clock); diagnostics moved to Settings. It **watches the adapter link** and shows an
 `ADAPTER LOST — RECONNECTING` banner in the Stale amber when the transport is not connected —
 sampled on the clock beat, not a worker-thread event — so the strip stops claiming a live
-truck while the cards go Stale around it.
+truck while the cards go Stale around it. **The link heals itself** (ADR-0034):
+`AdapterLinkTransport` finds the baud rate again if the adapter resets, follows the adapter to a
+new COM number (matched by its `ATI` identity; the phone-GPS port is never opened), and paces its
+retries; `ElmAdapter` **re-configures the adapter after every reconnect**. A dash that started
+simulated because the adapter wasn't there **goes live by itself when it answers**: a
+`SwitchableTransport` swaps under the running pipeline, readings turn Live, and polling forgets
+what the simulator taught it. One way only — once live, a lost cable is Stale, never simulated.
+**Settings ▸ Vehicle lists tested ports** (identity, baud, voltage at the OBD port, or why not)
+to choose the adapter from.
 
 Six traps already hit and worth not re-learning:
 
@@ -155,7 +175,9 @@ The **OBDLink EX** adapter, wired USB (ADR-0007), was **ordered 2026-09-29, due 
 (genuine, sold by OBD Solutions). The **Carlinkit CPC200** for Android Auto and CarPlay
 (ADR-0019) is chosen and not bought. Both are built against synthetic transports behind a
 seam, so neither is blocking. First bring-up with the EX: a real `UsbSerialTransport`, then
-measure the request ceiling (Q12) and what the Gateway Module passes on MS-CAN (Q5).
+measure the request ceiling (Q12) and what the Gateway Module passes on MS-CAN (Q5). Then
+**Settings ▸ Sensors ▸ SCAN THE TRUCK** asks which standard PIDs it supports from the tablet,
+and **TEST** is the loop for trying Ford mode 22 PIDs (R2, Q13) from the driver's seat.
 
 ## Things that are easy to get wrong here
 
@@ -224,7 +246,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Twenty-nine exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Thirty-four exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -234,7 +256,13 @@ from the UI, the rule that an occupant lives as long as it is the stage occupant
 persistent audio/video source that keeps playing behind a silent occupant, and the phone's GPS
 as a third source (`PHONE`) behind a transport seam — over Bluetooth by default (an in-box
 virtual COM port, no driver) or the network, and a `VehicleProfile` on the component context
-(fuel tank size, set in Settings ▸ Vehicle) that made the first additive `apiVersion` bump to 1.1.
+(fuel tank size, set in Settings ▸ Vehicle) that made the first additive `apiVersion` bump to 1.1,
+and finding and defining signals from Settings ▸ Sensors — a supported-PID scan, a TEST, and a
+user overlay catalog that the shipped one never absorbs by accident, and which vehicle this is —
+a VIN read from the truck or typed, decoded once and cached, filling `VehicleProfile`
+(`apiVersion 1.2`) and choosing a vehicle signal pack, and an adapter link that heals itself —
+re-configured after reconnects, rate and port found again — with a simulated start that goes
+live when the adapter answers, chosen from a list of tested ports.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.
@@ -246,6 +274,14 @@ code.
 - Open questions go in [`docs/04-open-questions.md`](docs/04-open-questions.md) rather
   than being silently resolved.
 - When a decision gets made, write the ADR in the same change that implements it.
+- **Every new feature comes with an in-vehicle test walkthrough, and Jason gets walked through
+  it.** Anything that touches the vehicle, the adapter, or the screen in the cab is not done
+  when the tests pass on the synthetic truck. Add a section to
+  [`docs/08-in-vehicle-testing.md`](docs/08-in-vehicle-testing.md) in the same change, and copy
+  it into the PR under *How to test in the truck*. It gives what is needed (ignition off, on or
+  running; internet; parked), numbered steps with what Jason should **expect to see**, and what a
+  failure looks like. When reporting the work, walk him through it step by step — not "untested
+  on hardware", but how to test it.
 
 
 

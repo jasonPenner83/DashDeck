@@ -40,12 +40,53 @@ public sealed class VehicleService : IAsyncDisposable
     public VehicleStateBus Bus { get; }
 
     /// <summary>Signals the vehicle answered at least once. Populated as polling proceeds.</summary>
-    public IReadOnlySet<string> SupportedSignals => _supported;
+    /// <remarks>A snapshot: the set itself is written by the polling worker.</remarks>
+    public IReadOnlySet<string> SupportedSignals
+    {
+        get
+        {
+            lock (_statusLock)
+            {
+                return _supported.ToHashSet(StringComparer.Ordinal);
+            }
+        }
+    }
 
     private readonly HashSet<string> _supported = new(StringComparer.Ordinal);
 
     /// <summary>Signals the vehicle explicitly refused, so the plan can stop asking.</summary>
     private readonly HashSet<string> _unsupported = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Guards the two sets above. The worker is still their only writer; the lock exists for
+    /// the settings inventory, which reads them from the UI thread.
+    /// </summary>
+    private readonly Lock _statusLock = new();
+
+    /// <summary>What polling has learned about one signal, for the settings inventory to show.</summary>
+    public SignalPollStatus StatusOf(string signalId)
+    {
+        lock (_statusLock)
+        {
+            return _supported.Contains(signalId) ? SignalPollStatus.Answered
+                : _unsupported.Contains(signalId) ? SignalPollStatus.Retired
+                : _lastPolled.ContainsKey(signalId) ? SignalPollStatus.Asked
+                : SignalPollStatus.NotAsked;
+        }
+    }
+
+    /// <summary>
+    /// Ask the adapter one question, outside the polling plan.
+    /// </summary>
+    /// <remarks>
+    /// For discovery from Settings (ADR-0032): a supported-PID scan, or a TEST of a definition
+    /// before it is saved. It goes through the same adapter as the plan, whose own gate
+    /// serialises it between polls, so it can never interleave on the wire. It is a handful of
+    /// requests a person asks for by hand — not polling, and nothing here repeats it — so it
+    /// does not take a share of the arbiter's budget; the plan simply waits one exchange.
+    /// </remarks>
+    public Task<PidResponse> ProbeAsync(PidRequest request, CancellationToken ct) =>
+        _adapter.RequestAsync(request, ct);
 
     /// <summary>
     /// Consecutive <c>NO DATA</c> answers per signal, cleared by any successful decode.
@@ -80,6 +121,11 @@ public sealed class VehicleService : IAsyncDisposable
     {
         while (!ct.IsCancellationRequested)
         {
+            if (_resetRequested)
+            {
+                ApplyReset();
+            }
+
             var entry = NextDue(out var waitFor);
 
             if (entry is null)
@@ -96,9 +142,32 @@ public sealed class VehicleService : IAsyncDisposable
                 continue;
             }
 
-            await PollAsync(entry, ct).ConfigureAwait(false);
+            try
+            {
+                await PollAsync(entry, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // This loop is the only thing that ever asks the truck anything. If it ends, the
+                // dash goes Stale for good and a reconnected cable is never noticed — which is
+                // exactly what a stray exception from a pulled USB device did (ADR-0034). So it
+                // never ends on an error: note it, pause a moment, and carry on.
+                LastPollError = $"{ex.GetType().Name}: {ex.Message}";
+
+                try
+                {
+                    await Task.Delay(250, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+            }
         }
     }
+
+    /// <summary>The last unexpected error a poll hit, kept for diagnostics; the loop carries on regardless.</summary>
+    public string? LastPollError { get; private set; }
 
     /// <summary>
     /// Shortest interval worth sleeping for. Below this, timer granularity costs more than
@@ -130,13 +199,19 @@ public sealed class VehicleService : IAsyncDisposable
 
         foreach (var entry in plan.Entries)
         {
-            if (entry.RateHz <= 0 || _unsupported.Contains(entry.Signal.Id))
+            DateTimeOffset last;
+
+            lock (_statusLock)
             {
-                continue;
+                if (entry.RateHz <= 0 || _unsupported.Contains(entry.Signal.Id))
+                {
+                    continue;
+                }
+
+                last = _lastPolled.GetValueOrDefault(entry.Signal.Id, DateTimeOffset.MinValue);
             }
 
             var interval = entry.IntervalSeconds;
-            var last = _lastPolled.GetValueOrDefault(entry.Signal.Id, DateTimeOffset.MinValue);
 
             if (last == DateTimeOffset.MinValue)
             {
@@ -229,7 +304,16 @@ public sealed class VehicleService : IAsyncDisposable
         var spec = definition.ToRequest();
         var request = new PidRequest(spec.Mode, spec.Pid, spec.Bus);
 
-        _lastPolled[definition.Id] = _clock.UtcNow;
+        lock (_statusLock)
+        {
+            _lastPolled[definition.Id] = _clock.UtcNow;
+        }
+
+        // Taken before the request, not after the reply: during a switch from the simulator to
+        // the truck (ADR-0034) a reply may come from either side of it, and only a quality
+        // decided before asking guarantees a simulated reply is never stamped Live — the worst
+        // case is the reverse, a real value labelled Simulated for one poll.
+        var quality = Quality;
 
         PidResponse response;
         var started = Stopwatch.GetTimestamp();
@@ -271,7 +355,11 @@ public sealed class VehicleService : IAsyncDisposable
             return;
         }
 
-        _supported.Add(definition.Id);
+        lock (_statusLock)
+        {
+            _supported.Add(definition.Id);
+        }
+
         _consecutiveNoData.Remove(definition.Id);
 
         Bus.Publish(new SignalValue(
@@ -279,7 +367,7 @@ public sealed class VehicleService : IAsyncDisposable
             decoded.Value,
             definition.Decode.Unit,
             response.TimestampUtc,
-            Quality));
+            quality));
     }
 
     /// <summary>
@@ -301,9 +389,12 @@ public sealed class VehicleService : IAsyncDisposable
     /// </remarks>
     private void RecordNoData(SignalDefinition definition)
     {
-        if (_supported.Contains(definition.Id))
+        lock (_statusLock)
         {
-            return;
+            if (_supported.Contains(definition.Id))
+            {
+                return;
+            }
         }
 
         var refusals = _consecutiveNoData.GetValueOrDefault(definition.Id) + 1;
@@ -316,7 +407,11 @@ public sealed class VehicleService : IAsyncDisposable
 
         // Never answered, and asked repeatedly. On a budget this tight, polling a signal
         // that will never reply is spending real capacity on nothing.
-        _unsupported.Add(definition.Id);
+        lock (_statusLock)
+        {
+            _unsupported.Add(definition.Id);
+        }
+
         Bus.Publish(SignalValue.Missing(definition.Id, definition.Decode.Unit));
     }
 
@@ -324,7 +419,44 @@ public sealed class VehicleService : IAsyncDisposable
     /// Quality stamped on published readings. Simulated sources say so, so mock data can
     /// never be mistaken for a truck on screen (ADR-0005).
     /// </summary>
-    public SignalQuality Quality { get; set; } = SignalQuality.Live;
+    public SignalQuality Quality
+    {
+        get => _quality;
+        set => _quality = value;
+    }
+
+    // Written by whoever switches the link (ADR-0034), read by the polling worker.
+    private volatile SignalQuality _quality = SignalQuality.Live;
+
+    /// <summary>
+    /// Forget everything polling has learned: which signals answered, which were retired, the
+    /// measured service time.
+    /// </summary>
+    /// <remarks>
+    /// For a switch from the simulator to the truck (ADR-0034). What the synthetic ECU answered
+    /// says nothing about the real one, and a signal the simulator never implemented must not
+    /// stay retired on a truck that has it. Applied by the polling worker at the top of its next
+    /// loop, because the dictionaries it clears are the worker's own.
+    /// </remarks>
+    public void ResetLearning() => _resetRequested = true;
+
+    private volatile bool _resetRequested;
+
+    private void ApplyReset()
+    {
+        _resetRequested = false;
+
+        lock (_statusLock)
+        {
+            _supported.Clear();
+            _unsupported.Clear();
+            _lastPolled.Clear();
+        }
+
+        _consecutiveNoData.Clear();
+        _meanServiceSeconds = 0;
+        Arbiter.BudgetHz = _adapter.Capabilities?.MaxRequestsPerSecond ?? Arbiter.BudgetHz;
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -345,4 +477,20 @@ public sealed class VehicleService : IAsyncDisposable
         _stopping.Dispose();
         await _adapter.DisposeAsync().ConfigureAwait(false);
     }
+}
+
+/// <summary>What the polling loop knows about one signal.</summary>
+public enum SignalPollStatus
+{
+    /// <summary>Nothing has asked for it since launch, so the truck has not been asked either.</summary>
+    NotAsked,
+
+    /// <summary>Asked, and no reading has decoded yet.</summary>
+    Asked,
+
+    /// <summary>The vehicle has answered it with an in-range value at least once.</summary>
+    Answered,
+
+    /// <summary>Refused repeatedly without ever answering, and no longer polled.</summary>
+    Retired,
 }

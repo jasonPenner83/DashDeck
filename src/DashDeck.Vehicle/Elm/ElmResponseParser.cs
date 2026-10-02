@@ -122,9 +122,9 @@ public static class ElmResponseParser
     /// </summary>
     /// <remarks>
     /// The single place that decides what is payload and what is framing. Two things get
-    /// dropped: ISO-TP frame indices (<c>0:</c>, <c>1:</c>) on multi-line responses, and an
-    /// 11-bit CAN header (three hex digits, e.g. <c>7E8</c>) when <c>ATH1</c> is on. Both
-    /// only ever appear at the start of a line.
+    /// dropped: ISO-TP frame indices (<c>0:</c>, <c>1:</c>, spaced or glued to the data) on
+    /// multi-line responses, and an 11-bit CAN header (three hex digits, e.g. <c>7E8</c>) when
+    /// <c>ATH1</c> is on. Both only ever appear at the start of a line.
     /// </remarks>
     private static List<byte>? Tokenize(string line)
     {
@@ -134,6 +134,15 @@ public static class ElmResponseParser
         for (var index = 0; index < tokens.Length; index++)
         {
             var token = tokens[index];
+
+            // With spaces off (ATS0, which ElmAdapter sets) a frame index is glued to its data:
+            // "0:490201314654". Nothing used it until the VIN, the first multi-frame reply, and
+            // the whole line read as unparseable (ADR-0033). Peel the index off and carry on.
+            if (index == 0 && token.Length > 2 && token[1] == ':' && Uri.IsHexDigit(token[0]))
+            {
+                token = token[2..];
+            }
+
             var text = token.TrimEnd(':');
 
             if (text.Length == 0)

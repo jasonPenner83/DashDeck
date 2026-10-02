@@ -180,3 +180,29 @@ the property that made 3/6 the video size on the Pro 9 survives the change.
 > numbers. They remain valid for layout, hierarchy and the design system; only the
 > absolute pixel values are stale.
 
+## Answerable now that the adapter exists
+
+Q4 (fuel-rate PID support) and Q12 (the real throughput ceiling) are no longer research
+questions — the bring-up tool measures both. See
+[`07-bringup.md`](07-bringup.md). Stage 1 runs on a desk with no vehicle; stage 2 in the
+truck produces the numbers, and the capture it records lets later work be developed
+against real truck data with no truck present.
+
+## Closed by bring-up, 2026-10-01
+
+Measured on the truck with an OBDLink EX (STN2232 v5.12.4) over USB. Capture and full
+report in `captures/bringup-20261001-193733.*`.
+
+| # | Question | Answer |
+|---|---|---|
+| ~~Q4~~ | Does this truck support the fuel-rate PID `0x5E`? | **No — and it does not support MAF `0x10` either**, which was the stated fallback. Both inputs to fuel flow are absent. Resolved by [ADR-0030](decisions/ADR-0030-fuel-flow-without-maf.md): speed-density from MAP, IAT, RPM and lambda, with tank calibration promoted from refinement to requirement. |
+| ~~Q12~~ | What is the real sustained request ceiling over USB? | **~19 requests/second** — mean 52.5 ms round trip, min 47.8 ms, p95 71.4 ms, 0 of 60 failed. Note FORScan's "15 ms min delay" is its inter-command gap, not a round trip; the vehicle's response time dominates. Risk R1 therefore stands: USB bought far less than hoped, and high-rate gauges need **request batching**, not a faster link. |
+| ~~Q5~~ | How much does the Gateway Module filter at the OBD-II port? | Not restrictive for our purposes. HS-CAN answers fully and the adapter accepts the MS-CAN switch, so no behind-dash tap is needed. Ford body PIDs on MS-CAN still need discovering — they are not advertised in the standard support bitmaps. |
+
+### Opened by bring-up
+
+| # | Question | Notes |
+|---|----------|-------|
+| Q13 | Which Ford mode 22 PIDs carry fuel flow, oil temperature and transmission temperature? | FORScan reads all three, so they exist. `PidRequest` already formats 16-bit mode 22 commands, so only the PID numbers are missing. Recovering fuel flow directly would make ADR-0030's speed-density estimate a fallback rather than the primary path, and transmission temperature is the most valuable gauge on a truck that tows. **The next hardware-side task.** |
+| Q14 | Can several PIDs be batched into one request? | The single highest-leverage performance question. ELM/STN accepts multiple PIDs in one mode 01 message, returning several values per round trip. At 52 ms per round trip, batching six signals into one request would turn ~19 requests/second into roughly 100 values/second and change what the dashboard can show. Needs an adapter and arbiter change, and verification on the truck. |
+| Q15 | What is this truck's engine displacement and learned VE correction? | Inputs to ADR-0030's speed-density calculation. Belong on the vehicle profile (ADR-0029), not hard-coded. **Displacement answered 2026-10-01 → [ADR-0033](decisions/ADR-0033-vin-lookup-and-vehicle-packs.md):** it comes from the VIN (`VehicleProfile.EngineDisplacementLitres`) — 2.7 L on this truck, not the 3.5 earlier comments assumed. The VE correction is still open. |

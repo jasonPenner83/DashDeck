@@ -36,9 +36,43 @@ public partial class App : Application
         // where quality transitions actually happen and the shell has to render them.
         var drive = PositionalArg(e.Args) ?? "cold-start-city";
 
+        // The adapter, if one is configured in Settings -> Vehicle. A --port argument wins,
+        // so a real adapter can be tried without changing stored settings. Empty means the
+        // synthetic truck, which is the right default for a tablet that spends most of its
+        // life away from the truck (ADR-0005).
+        var stored = Settings.SettingsStore.Load();
+        var adapterPort = ArgValue(e.Args, "--port") ?? stored.AdapterSerialPort;
+
+        // How to find it (ADR-0034): the rate and identity it answered with last time go first,
+        // so a launch in the truck connects on the first try, and a renumbered port is recognised.
+        // The phone's Bluetooth GPS port is never opened in the search.
+        DashDeck.Vehicle.AdapterLinkOptions? adapter = DashDeck.Vehicle.Diagnostics.AdapterSelection.TryResolvePort(adapterPort, out var port)
+            ? new DashDeck.Vehicle.AdapterLinkOptions
+            {
+                PreferredPort = port,
+                KnownBaudRate = stored.AdapterBaudRate > 0 ? stored.AdapterBaudRate : null,
+                KnownIdentity = string.IsNullOrWhiteSpace(stored.AdapterIdentity) ? null : stored.AdapterIdentity,
+                ReservedPorts = stored.GpsEnabled
+                    && string.Equals(stored.GpsTransport, "Bluetooth", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(stored.GpsSerialPort)
+                        ? [stored.GpsSerialPort.Trim()]
+                        : [],
+            }
+            : null;
+
+        // Which vehicle this is, decoded from its VIN and cached (ADR-0033). It picks the vehicle
+        // signal pack and fills the component profile; unknown is fine — the standard set runs.
+        var identity = new Settings.VehicleIdentityStore().Identity;
+
         try
         {
-            _vehicle = await VehicleStack.StartSyntheticAsync(drive, CancellationToken.None);
+            // The vehicle's pack and the user's own signals (ADR-0032), read once at launch like
+            // every other choice that shapes the pipeline. A bad file is reported, never fatal.
+            _vehicle = await VehicleStack.StartAsync(
+                adapter,
+                drive,
+                new CatalogSources(identity, new Settings.UserSignalStore().Definitions),
+                CancellationToken.None);
         }
         catch (Exception ex)
         {
@@ -152,7 +186,9 @@ public partial class App : Application
         // The truck's own facts, read from settings at launch and lent to every component
         // (ADR-0029). A snapshot: a tank does not change size while you drive, so a change in
         // Settings applies on the next start, like the GPS transport.
-        var vehicle = new VehicleProfile { FuelTankLitres = Settings.SettingsStore.Load().FuelTankLitres };
+        // What the vehicle is joined it in apiVersion 1.2 (ADR-0033) — everything decoded from the
+        // VIN except the VIN itself, which no component needs.
+        var vehicle = identity.ToProfile(Settings.SettingsStore.Load().FuelTankLitres);
 
         var componentHost = new Components.ComponentHost(
             _vehicle.Signals, SystemClock.Instance, Components.PluginPath.FindRoot() ?? "plugins", vehicle);
@@ -385,6 +421,24 @@ public partial class App : Application
         }
     }
 
+    /// <summary>Set by <see cref="RequestRestart"/>; acted on in <see cref="OnExit"/>.</summary>
+    private static bool _restartRequested;
+
+    /// <summary>
+    /// Close and start again, with the same arguments — how a change that applies at the next
+    /// launch, like a new signal definition (ADR-0032), is applied without leaving the truck.
+    /// </summary>
+    /// <remarks>
+    /// The new process is started from <see cref="OnExit"/>, <em>after</em> the vehicle stack has
+    /// been disposed, not here. On the truck the adapter is a serial port only one process can
+    /// hold, and a successor started first would find it still open and come up with no truck.
+    /// </remarks>
+    public static void RequestRestart()
+    {
+        _restartRequested = true;
+        Current.Shutdown(0);
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
         _shell?.Dispose();
@@ -394,6 +448,25 @@ public partial class App : Application
         {
             // Blocking on shutdown is acceptable; blocking anywhere else is not.
             _vehicle.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+
+        if (_restartRequested && Environment.ProcessPath is { } exe)
+        {
+            var start = new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = false };
+
+            foreach (var arg in Environment.GetCommandLineArgs().Skip(1))
+            {
+                start.ArgumentList.Add(arg);
+            }
+
+            try
+            {
+                System.Diagnostics.Process.Start(start);
+            }
+            catch (Exception ex)
+            {
+                Fail("Could not restart", ex);
+            }
         }
 
         base.OnExit(e);

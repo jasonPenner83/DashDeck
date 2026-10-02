@@ -37,4 +37,24 @@ public static class CatalogPath
 
         return null;
     }
+
+    /// <summary>Walk up from the binary looking for the folder <c>catalog/<paramref name="folderName"/></c>.</summary>
+    public static string? FindFolder(string folderName)
+    {
+        var dir = AppContext.BaseDirectory;
+
+        for (var i = 0; i < 8 && dir is not null; i++)
+        {
+            var candidate = IoPath.Combine(dir, "catalog", folderName);
+
+            if (System.IO.Directory.Exists(candidate))
+            {
+                return candidate;
+            }
+
+            dir = IoPath.GetDirectoryName(dir.TrimEnd(IoPath.DirectorySeparatorChar));
+        }
+
+        return null;
+    }
 }
