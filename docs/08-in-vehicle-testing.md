@@ -432,3 +432,29 @@ Task Manager (search the Start menu for it, or long-press the taskbar ▸ Task M
 **A failure looks like:** two DashDeck.Host in Task Manager; a second window; a dash that comes up
 with the SIM badge or amber cards while another is running; tapping the icon doing nothing for
 more than 20 seconds.
+
+## Module scans and sweeps are kept across a restart
+
+**You need:** the truck, the adapter, the dash on the real adapter (no SIM badge), **parked**,
+ignition on (engine running for live values). About six minutes.
+
+1. **Settings ▸ Sensors ▸ MODULES ▸ SCAN FOR MODULES.** **Expect:** the same list as before
+   (7E0, 7D0, 726, 736, 723, 746 on HS-CAN).
+2. Tap **7E0 › IDENTIFIERS**, choose **F400–F4FF**, press **SWEEP**. **Expect:** about 53 answered.
+   The 7E0 row now ends **swept F400–F4FF**.
+3. Close DashDeck (three-dot ▸ **CLOSE DASHDECK** twice) and start it again. Go back to Settings ▸
+   Sensors. **Expect:** the module list is already there, its status starting
+   **SAVED SCAN, 2 Oct 15:18** (your date and time), with 7E0 still saying **swept F400–F4FF**.
+4. Tap **7E0 › IDENTIFIERS**. **Expect:** the F100–F1FF chip is chosen and the status says it
+   **has not been swept on 7E0**. Tap **F400–F4FF**. **Expect:** the same rows as step 2, with the
+   status starting **SAVED SWEEP, …**. Nothing was asked of the truck: the dash stays green.
+5. Press **SWEEP** again on F400–F4FF. **Expect:** it runs, and the status loses **SAVED** — the
+   saved sweep is replaced by the new one.
+6. At a desk without the truck (SIM badge showing), scan and sweep. **Expect:** the status says
+   **not saved**, and back in the truck your real results are still there.
+
+**A failure looks like:** an empty module list after a restart; a saved sweep shown under the
+wrong module or range; the synthetic truck's modules (SYNTH part numbers) showing in the truck.
+
+The results are in `%LOCALAPPDATA%\DashDeck\discovery.json`. It can hold the VIN, if the
+F100–F1FF range of 7E0 was swept, so don't post that file publicly.
