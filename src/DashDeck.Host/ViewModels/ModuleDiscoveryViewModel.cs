@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashDeck.Abstractions;
@@ -164,18 +165,22 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
     private readonly Action<SignalDefinition, string> _define;
     private readonly DiscoveryStore? _store;
     private readonly IClock _clock;
+    private readonly Action<string>? _openFolder;
     private CancellationTokenSource? _running;
 
     /// <param name="vehicle">The running pipeline.</param>
     /// <param name="define">Open the signal editor on a suggested definition, with a note.</param>
     /// <param name="store">Where results are kept across launches, or null to keep nothing.</param>
     /// <param name="clock">For when a scan or sweep ran.</param>
+    /// <param name="openFolder">Show a folder in Explorer — where WATCH recordings go.</param>
     public ModuleDiscoveryViewModel(
         ISignalInventorySource vehicle,
         Action<SignalDefinition, string> define,
         DiscoveryStore? store = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        Action<string>? openFolder = null)
     {
+        _openFolder = openFolder;
         _vehicle = vehicle;
         _define = define;
         _store = store;
@@ -235,6 +240,30 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
 
     /// <summary>True while there are watch results to show.</summary>
     public bool HasWatch => Watching.Count > 0;
+
+    /// <summary>
+    /// Where WATCH recordings are written — <c>%LOCALAPPDATA%\DashDeck\watch\</c>, beside the saved
+    /// scans — or null when nothing is kept (a store-less test).
+    /// </summary>
+    public string? WatchFolder => _store is null ? null : Path.Combine(Path.GetDirectoryName(_store.Path) ?? "", "watch");
+
+    /// <summary>The last WATCH recording, or empty.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasWatchFile))]
+    private string _lastWatchFile = "";
+
+    public bool HasWatchFile => LastWatchFile.Length > 0;
+
+    /// <summary>Show the recordings folder in Explorer, to copy a CSV off the tablet.</summary>
+    [RelayCommand]
+    private void OpenWatchFolder()
+    {
+        if (WatchFolder is { } folder)
+        {
+            Directory.CreateDirectory(folder);
+            _openFolder?.Invoke(folder);
+        }
+    }
 
     public bool IsIdle => !IsSweeping;
 
@@ -508,6 +537,10 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
         var watch = new IdentifierWatch(Identifiers.Select(i => i.Found));
         using var cts = Begin();
         ClearWatch();
+
+        // Recorded as it runs, a line per pass, so a STOP — or a crash — keeps everything so far.
+        var started = _clock.UtcNow;
+        var recording = StartRecording(module, watch, started);
         WatchStatus = string.Create(
             CultureInfo.CurrentCulture,
             $"Watching {watch.Items.Count} identifiers on {module.AddressText} — one pass is about {watch.PassTime().TotalSeconds:0} s. Leave it 30 s first, to see what moves by itself. Then do one thing — blip the throttle, or let it warm — and leave it another 30 s. STOP when done.");
@@ -520,6 +553,12 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
             {
                 var finished = await watch.PassAsync(_vehicle.ProbeAsync, module.Bus, module.Address, WatchReporter(watch), cts.Token);
                 ShowWatch(module, watch);
+
+                if (finished && recording is not null)
+                {
+                    var rpm = await ReadRpmAsync(cts.Token);
+                    recording = Append(recording, watch.CsvRow(_clock.UtcNow - started, rpm));
+                }
 
                 if (!finished)
                 {
@@ -545,6 +584,71 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
             : string.Create(
                 CultureInfo.CurrentCulture,
                 $"Stopped by {stoppedBy} after {watch.Passes} passes  ·  {watch.ChangedCount} of {watch.Items.Count} moved while watched{(_vehicle.IsSimulated ? "  ·  SIMULATED" : "")}. Tap one to DEFINE and TEST it.");
+
+        LastWatchFile = recording ?? "";
+        if (recording is not null)
+        {
+            WatchStatus += $"  Recorded to {Path.GetFileName(recording)} — OPEN FOLDER to copy it.";
+        }
+    }
+
+    /// <summary>
+    /// Start a recording: <c>watch-7E0-1000-1FFF-20261002-173012.csv</c>, header first. Null, and
+    /// the watch carries on unrecorded, when there is nowhere to write.
+    /// </summary>
+    private string? StartRecording(ModuleRowViewModel module, IdentifierWatch watch, DateTimeOffset started)
+    {
+        if (WatchFolder is not { } folder)
+        {
+            return null;
+        }
+
+        var name = string.Create(
+            CultureInfo.InvariantCulture,
+            $"watch-{module.AddressText}-{FromText}-{ToText}-{started.ToLocalTime():yyyyMMdd-HHmmss}{(_vehicle.IsSimulated ? "-simulated" : "")}.csv");
+
+        try
+        {
+            Directory.CreateDirectory(folder);
+            var path = Path.Combine(folder, name);
+            File.WriteAllText(path, watch.CsvHeader() + Environment.NewLine);
+            return path;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Add a line to the recording; stop recording (not watching) if the file goes away.</summary>
+    private static string? Append(string path, string line)
+    {
+        try
+        {
+            File.AppendAllText(path, line + Environment.NewLine);
+            return path;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Engine rpm, asked once a pass so the recording can be matched to a FORScan log — most of
+    /// what is worth finding moves with it. Null when the truck does not answer.
+    /// </summary>
+    private async Task<double?> ReadRpmAsync(CancellationToken ct)
+    {
+        try
+        {
+            var reply = await _vehicle.ProbeAsync(new PidRequest(0x01, 0x0C, CanBus.Hs), ct);
+            return reply.IsSuccess && reply.Data.Length >= 2 ? ((reply.Data[0] * 256) + reply.Data[1]) / 4.0 : null;
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
     }
 
     /// <summary>Redraw the watch list, most-moved first. Once a pass, so rows do not jump about mid-pass.</summary>

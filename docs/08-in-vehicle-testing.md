@@ -493,3 +493,23 @@ own first pass, not the sweep); a two-byte value going negative shown as a huge 
 than one second per 19 identifiers; STOP not stopping within a second; the dash still amber a
 minute after STOP; WATCH starting while the truck moves (it refuses, and stops by itself if the
 truck starts moving).
+
+## WATCH recordings — a CSV to share instead of a photo
+
+**You need:** the truck, the adapter, the dash on the real adapter, **parked**, engine **running**.
+
+1. **Settings ▸ Sensors ▸ MODULES ▸ 7E0 › IDENTIFIERS**, tap **1000–1FFF** (the saved sweep).
+2. Press **WATCH**. Idle **30 s**, hold **2,000 rpm** steady **30 s** (in Park, foot on the brake),
+   idle **30 s**, then **STOP**.
+3. **Expect:** the status ends *Recorded to watch-7E0-1000-1FFF-<date>-<time>.csv — OPEN FOLDER to
+   copy it*, and an **OPEN FOLDER** button appears.
+4. Press **OPEN FOLDER**. **Expect:** Explorer on `…\AppData\Local\DashDeck\watch` with the CSV in
+   it. Open it in Notepad: the first line is `time_ms,rpm,22 1004 (2B),…`, then one line per pass
+   — about 30 lines for 90 seconds — with rpm near 670, then near 2,000, then back.
+5. Copy the CSV to wherever you send files from (OneDrive, email, a USB stick) and attach it.
+
+The file holds only numbers the engine computer answered — no VIN or part numbers (long text
+answers are never watched). **A failure looks like:** no *Recorded to* line after STOP; an empty
+or header-only file after several passes; the rpm column blank throughout with the engine
+running.
+

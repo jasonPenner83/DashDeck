@@ -1151,6 +1151,13 @@
                                                Text="{Binding WatchStatus}"
                                                Visibility="{Binding WatchStatus, Converter={StaticResource EmptyToCollapsed}}" />
 
+                                    <Button Style="{StaticResource StageLauncherButton}" MinWidth="170" Margin="0,8,0,0"
+                                            HorizontalAlignment="Left"
+                                            Command="{Binding OpenWatchFolderCommand}"
+                                            Visibility="{Binding HasWatchFile, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="OPEN FOLDER" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                                    </Button>
+
                                     <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
                                                 Visibility="{Binding IsSweeping, Converter={StaticResource BoolToVis}}">
                                         <Button Style="{StaticResource StageLauncherButton}" MinWidth="120"
