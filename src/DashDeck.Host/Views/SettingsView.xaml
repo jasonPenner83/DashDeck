@@ -1181,7 +1181,8 @@
                                                             <TextBlock Margin="0,3,0,0" Style="{StaticResource MicroText}"
                                                                        TextTrimming="CharacterEllipsis" Text="{Binding Detail}" />
                                                             <TextBlock Margin="0,2,0,0" Style="{StaticResource MicroText}"
-                                                                       Text="{Binding Temperature}" />
+                                                                       Text="{Binding Temperature}"
+                                                                       Visibility="{Binding Temperature, Converter={StaticResource EmptyToCollapsed}}" />
                                                         </StackPanel>
                                                         <TextBlock Grid.Column="1" Text="{Binding Badge}" VerticalAlignment="Center" Margin="12,0,0,0"
                                                                    FontFamily="{DynamicResource MonoFont}" FontSize="13"

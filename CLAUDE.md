@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **503 tests green** — 166 engine, 337 shell.
+(ADR-0010). **514 tests green** — 175 engine, 339 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -68,8 +68,11 @@ last module scan and the latest sweep of each module and range — and shown aga
 **SAVED**; the synthetic truck's are never saved. The file can hold the VIN (7E0's F190), so it stays
 on the tablet.
 **WATCH** re-asks the identifiers a sweep found, round and round until STOP, and ranks them by how
-often they changed (`IdentifierWatch`): do one thing to the truck — blip the throttle, let it warm —
-and what moves with it rises to the top, with an `A−40` reading beside each for temperatures. It is
+often they changed **since the watch's own first pass** — never against the sweep, which may be old
+(the first version did, and every row read MOVED ×1) (`IdentifierWatch`): leave it 30 s, then do one
+thing to the truck — blip the throttle, let it warm — and what moves with it rises to the top. Beside
+each, the likely temperature: one byte less 40, or two bytes over 16 (Ford's finer ones); a two-byte
+value with its top bit set is shown signed. It is
 a sweep that does not end, so it is refused while moving and stops by itself if the truck moves.
 **Settings ▸ Vehicle** (ADR-0033) says *which* vehicle this is, so nothing hard-codes it: the
 VIN is **read from the truck** (mode 09) or typed, **decoded once by NHTSA vPIC** and cached in

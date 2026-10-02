@@ -588,16 +588,54 @@ public sealed class SensorInventoryTests : IDisposable
         Assert.True(modules.HasWatch);
         Assert.Equal(["22 4002", "22 4001"], modules.Watching.Select(w => w.Caption));
         Assert.Equal("MOVED ×1", modules.Watching[0].Badge);
-        Assert.Contains("first 00 50  →  now 00 58", modules.Watching[0].Detail, StringComparison.Ordinal);
+        Assert.Contains("first 00 50 (80)  →  now 00 58 (88)", modules.Watching[0].Detail, StringComparison.Ordinal);
+        Assert.Equal("if a temperature, ÷16:  5.0 → 5.5 °C", modules.Watching[0].Temperature);
         Assert.Equal("STILL", modules.Watching[1].Badge);
-        Assert.Equal("A−40:  8 → 8 °C", modules.Watching[1].Temperature);
-        Assert.StartsWith("Stopped by STOP", modules.WatchStatus, StringComparison.Ordinal);
-        Assert.Contains("1 of 2 moved", modules.WatchStatus, StringComparison.Ordinal);
+        Assert.Equal("if a temperature, A−40:  8 → 8 °C", modules.Watching[1].Temperature);
+        Assert.StartsWith("Stopped by STOP after 4 passes", modules.WatchStatus, StringComparison.Ordinal);
+        Assert.Contains("1 of 2 moved while watched", modules.WatchStatus, StringComparison.Ordinal);
 
         // Then DEFINE the mover: the editor, on its module, ready to TEST.
         modules.DefineWatchedCommand.Execute(modules.Watching[0]);
         Assert.Equal("726", inventory.Editor!.ModuleText);
         Assert.Equal("22 4002 → 726", inventory.Editor.RequestText);
+    }
+
+    /// <summary>
+    /// What happened in the truck: STOP before the first pass ended. Nothing has moved yet, the
+    /// status says it is too soon, and the unread rows say so.
+    /// </summary>
+    [Fact]
+    public async Task Stopping_inside_the_first_pass_says_it_is_too_soon_to_tell()
+    {
+        var vehicle = new FakeVehicle(Shipped()) { IsSimulated = true };
+        vehicle.ModuleAnswers[(0x726, 0x4001)] = [0x30];
+        vehicle.ModuleAnswers[(0x726, 0x4002)] = [0x00, 0x50];
+
+        var modules = new SensorInventoryViewModel(vehicle, new UserSignalStore(FilePath)).Modules;
+        modules.ApplyModules(TwoModules());
+        modules.SelectCommand.Execute(modules.Found[1]);
+        modules.FromText = "4000";
+        modules.ToText = "400F";
+        await modules.SweepCommand.ExecuteAsync(null);
+
+        // The sweep saw 00 50; the truck has moved on since. That is not movement while watched.
+        vehicle.ModuleAnswers[(0x726, 0x4001)] = [0x31];
+        vehicle.Asked.Clear();
+        vehicle.OnAsk = _ =>
+        {
+            if (vehicle.Asked.Count == 1)
+            {
+                modules.StopCommand.Execute(null);
+            }
+        };
+
+        await modules.WatchCommand.ExecuteAsync(null);
+
+        Assert.Contains("too soon to tell", modules.WatchStatus, StringComparison.Ordinal);
+        Assert.Equal(["STILL", "NOT READ"], modules.Watching.Select(w => w.Badge));
+        Assert.Equal("not read yet — STOP came first", modules.Watching[1].Detail);
+        Assert.Equal("", modules.Watching[1].Temperature);
     }
 
     [Fact]
