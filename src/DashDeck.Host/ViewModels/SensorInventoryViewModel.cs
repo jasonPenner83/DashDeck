@@ -199,7 +199,8 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
         SensorService? sensors = null,
         Action? restart = null,
         DiscoveryStore? discovery = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        Action<string>? openFolder = null)
     {
         _vehicle = vehicle;
         _store = store;
@@ -217,7 +218,7 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
 
         // Scans and sweeps are kept across launches (discovery.json), so a restart does not cost
         // another minute parked to see what the truck already said.
-        Modules = new ModuleDiscoveryViewModel(vehicle, DefineDiscovered, discovery, clock);
+        Modules = new ModuleDiscoveryViewModel(vehicle, DefineDiscovered, discovery, clock, openFolder);
 
         store.Changed += (_, _) => Rebuild();
         Rebuild();

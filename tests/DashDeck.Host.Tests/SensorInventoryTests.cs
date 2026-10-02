@@ -638,6 +638,41 @@ public sealed class SensorInventoryTests : IDisposable
         Assert.Equal("", modules.Watching[1].Temperature);
     }
 
+    /// <summary>A watch is recorded as it runs — a CSV with rpm, to lay beside a FORScan log.</summary>
+    [Fact]
+    public async Task Watch_records_every_pass_with_rpm_to_a_csv()
+    {
+        var vehicle = new FakeVehicle(Shipped());
+        vehicle.Answers[0x0C] = [0x0A, 0x80];
+        vehicle.ModuleAnswers[(0x7E0, 0x1E3A)] = [0x00, 0x62];
+
+        var modules = new SensorInventoryViewModel(vehicle, new UserSignalStore(FilePath), discovery: new DiscoveryStore(DiscoveryPath), clock: At).Modules;
+        modules.ApplyModules(TwoModules());
+        modules.SelectCommand.Execute(modules.Found[0]);
+        modules.FromText = "1E30";
+        modules.ToText = "1E3F";
+        await modules.SweepCommand.ExecuteAsync(null);
+
+        var rpmAsks = 0;
+        vehicle.OnAsk = r =>
+        {
+            if (r.Pid == 0x0C && ++rpmAsks == 2)
+            {
+                modules.StopCommand.Execute(null);
+            }
+        };
+
+        await modules.WatchCommand.ExecuteAsync(null);
+
+        Assert.True(modules.HasWatchFile);
+        Assert.StartsWith(Path.Combine(_dir, "watch", "watch-7E0-1E30-1E3F-"), modules.LastWatchFile, StringComparison.Ordinal);
+        Assert.Contains("Recorded to", modules.WatchStatus, StringComparison.Ordinal);
+
+        var lines = File.ReadAllLines(modules.LastWatchFile);
+        Assert.Equal("time_ms,rpm,22 1E3A (2B)", lines[0]);
+        Assert.Equal(["0,672,98", "0,672,98"], lines[1..]);
+    }
+
     [Fact]
     public void The_editor_refuses_a_reply_address_as_a_module()
     {

@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using DashDeck.Abstractions;
 using DashDeck.Vehicle;
 
@@ -172,6 +174,44 @@ public sealed class IdentifierWatch
     /// <summary>Record one read of one identifier: its bytes, or null for no answer.</summary>
     public void Record(ushort did, byte[]? data) =>
         _items.Find(i => i.Did == did)?.Record(data);
+
+    // ── The recording ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The first line of a watch recording: time, engine rpm, then one column per identifier with
+    /// its length — <c>22 1E1C (2B)</c> — so a reader knows how to split the number.
+    /// </summary>
+    /// <remarks>
+    /// A file rather than a photo: a photo is the top rows at one moment, this is every pass of
+    /// every identifier, which can be laid beside a FORScan log and matched by time and rpm.
+    /// Comma-separated, invariant culture, so it opens the same in any spreadsheet.
+    /// </remarks>
+    public string CsvHeader() =>
+        "time_ms,rpm," + string.Join(',', _items.Select(i => string.Create(CultureInfo.InvariantCulture, $"22 {i.Did:X4} ({i.Length}B)")));
+
+    /// <summary>
+    /// One pass as a line: milliseconds since the watch started, engine rpm (blank when the truck
+    /// did not answer), then each identifier's latest answer as one unsigned whole number — blank
+    /// when it gave none this pass. Signed and scaled readings are the reader's to derive.
+    /// </summary>
+    public string CsvRow(TimeSpan sinceStart, double? rpm)
+    {
+        var line = new StringBuilder();
+        line.Append(((long)sinceStart.TotalMilliseconds).ToString(CultureInfo.InvariantCulture));
+        line.Append(',');
+        line.Append(rpm is { } r ? r.ToString("0", CultureInfo.InvariantCulture) : "");
+
+        foreach (var item in _items)
+        {
+            line.Append(',');
+            if (!item.Missed && item.Current is { } now)
+            {
+                line.Append(WatchedIdentifier.ValueOf(now).ToString(CultureInfo.InvariantCulture));
+            }
+        }
+
+        return line.ToString();
+    }
 
     /// <summary>
     /// Ask every watched identifier once. Returns false when it was stopped part-way.

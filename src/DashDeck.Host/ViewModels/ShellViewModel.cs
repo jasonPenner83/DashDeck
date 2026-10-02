@@ -233,7 +233,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // user app store, and refuses names that collide with a built-in.
         // The Sensors section (ADR-0032) reads the running pipeline and edits the user's own
         // signal file, which the next launch lays over the shipped catalog.
-        Inventory = new SensorInventoryViewModel(vehicle, new UserSignalStore(), Sensors, App.RequestRestart, new DiscoveryStore(), clock);
+        Inventory = new SensorInventoryViewModel(vehicle, new UserSignalStore(), Sensors, App.RequestRestart, new DiscoveryStore(), clock, folder => new ThemeDialogs().OpenFolder(folder));
 
         // Which vehicle this is (ADR-0033): read from the truck or typed, decoded once by NHTSA,
         // cached, and applied at the next launch like the rest of the Vehicle section.

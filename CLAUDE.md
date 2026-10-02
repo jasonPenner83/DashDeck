@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **514 tests green** — 175 engine, 339 shell.
+(ADR-0010). **516 tests green** — 176 engine, 340 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -72,7 +72,9 @@ often they changed **since the watch's own first pass** — never against the sw
 (the first version did, and every row read MOVED ×1) (`IdentifierWatch`): leave it 30 s, then do one
 thing to the truck — blip the throttle, let it warm — and what moves with it rises to the top. Beside
 each, the likely temperature: one byte less 40, or two bytes over 16 (Ford's finer ones); a two-byte
-value with its top bit set is shown signed. It is
+value with its top bit set is shown signed. Every watch is **recorded as it runs** to
+`%LOCALAPPDATA%\DashDeck\watch\watch-<module>-<range>-<time>.csv` — a line per pass with engine rpm,
+each identifier as one unsigned number — to lay beside a FORScan log; OPEN FOLDER after STOP. It is
 a sweep that does not end, so it is refused while moving and stops by itself if the truck moves.
 **Settings ▸ Vehicle** (ADR-0033) says *which* vehicle this is, so nothing hard-codes it: the
 VIN is **read from the truck** (mode 09) or typed, **decoded once by NHTSA vPIC** and cached in

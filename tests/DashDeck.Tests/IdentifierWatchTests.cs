@@ -164,4 +164,19 @@ public class IdentifierWatchTests
         Assert.False(await watch.PassAsync(Answer, CanBus.Hs, 0x7E0, null, cts.Token));
         Assert.Equal(0, watch.Passes);
     }
+
+    [Fact]
+    public void A_recording_has_a_column_per_identifier_and_a_row_per_pass()
+    {
+        var watch = Watch(new FoundIdentifier(0x1817, [0x02, 0xA1], null), new FoundIdentifier(0x1E3A, [0x62], null));
+
+        Assert.Equal("time_ms,rpm,22 1817 (2B),22 1E3A (1B)", watch.CsvHeader());
+
+        watch.Record(0x1817, [0x06, 0x7C]);
+        watch.Record(0x1E3A, null);
+        Assert.Equal("4210,1660,1660,", watch.CsvRow(TimeSpan.FromMilliseconds(4210.7), 1660.4));
+
+        watch.Record(0x1E3A, [0x62]);
+        Assert.Equal("8400,,1660,98", watch.CsvRow(TimeSpan.FromMilliseconds(8400), null));
+    }
 }
