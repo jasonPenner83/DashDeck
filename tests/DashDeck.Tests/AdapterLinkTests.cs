@@ -358,6 +358,27 @@ public class AdapterLinkTests
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
+    [Fact]
+    public async Task A_paused_link_does_not_search_until_resumed()
+    {
+        var bench = new Bench();
+        bench.Ports["COM3"] = new Device();
+
+        await using var link = Link(bench);
+        var pause = await link.PauseAsync(CancellationToken.None);
+
+        var search = link.TryLocateAsync(CancellationToken.None);
+        await Task.Delay(50);
+
+        Assert.False(search.IsCompleted);
+        Assert.Empty(bench.Opened);       // the port test has it to itself
+
+        pause.Dispose();
+        pause.Dispose();                   // twice is harmless
+
+        Assert.NotNull(await search);
+    }
+
     // ── Testing ports ─────────────────────────────────────────────────────────
 
     [Fact]

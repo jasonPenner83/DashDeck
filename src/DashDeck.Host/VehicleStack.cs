@@ -54,6 +54,34 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// <summary>The real adapter, while the dash is reading it; null while simulated.</summary>
     public AdapterLocation? LiveAdapter => IsSimulated ? null : _link?.Current;
 
+    /// <summary>
+    /// Pause DashDeck's own search for the adapter while the ports are tested, so the two never
+    /// open the same port at once and the test never reports DashDeck itself as "another program".
+    /// </summary>
+    /// <remarks>
+    /// Nothing to pause when there is no link, or when it is live and connected — the test leaves
+    /// the connected port alone. While it is searching or reconnecting, the link waits; polling
+    /// waits with it, which costs nothing, since readings are stale until it answers anyway.
+    /// </remarks>
+    public async Task<IDisposable> PauseSearchAsync(CancellationToken ct)
+    {
+        if (_link is not { } link || (!IsSimulated && link.State == TransportState.Connected))
+        {
+            return NoPause.Instance;
+        }
+
+        return await link.PauseAsync(ct);
+    }
+
+    private sealed class NoPause : IDisposable
+    {
+        public static readonly NoPause Instance = new();
+
+        public void Dispose()
+        {
+        }
+    }
+
     /// <summary>Why the link last failed — found nothing, dropped, wrong rate — or null.</summary>
     public string? LinkProblem => _link?.LastProblem;
 
