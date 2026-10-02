@@ -27,7 +27,7 @@ namespace DashDeck.Host.Stage.Gauges;
 /// night dimming live; colours written as <c>#RRGGBB</c> are exactly that, day and night.
 /// </para>
 /// </remarks>
-public sealed class GaugeFace : Canvas
+public sealed class GaugeFace : Canvas, IReadingFace
 {
     // The F-150 cluster's own colours — the dial's defaults. Ice-blue on matte black.
     private const string FordNeedle = "#B9F1F7";

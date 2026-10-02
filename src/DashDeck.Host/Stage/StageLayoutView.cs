@@ -13,8 +13,9 @@ using DashDeck.Host.Theme;
 namespace DashDeck.Host.Stage;
 
 /// <summary>
-/// Draws a <see cref="StageLayout"/> on the stage (ADR-0037): every element at its position on a
-/// 912 × 636 canvas, scaled to whatever the stage really is.
+/// Draws a <see cref="StageLayout"/> (ADR-0037): every element at its position on the layout's
+/// canvas — the stage's 912 × 636, or the climate panel's 912 × 390 (ADR-0040) — scaled to
+/// whatever the region really is.
 /// </summary>
 /// <remarks>
 /// Owns the signal declarations for the gauges it draws, so a gauge costs request budget only while
@@ -94,6 +95,8 @@ public sealed class StageLayoutView : UserControl, IDisposable
     {
         Release();
         _canvas.Children.Clear();
+        _canvas.Width = layout.Canvas.Width;
+        _canvas.Height = layout.Canvas.Height;
 
         Paint(_canvas, Panel.BackgroundProperty, layout.Background, "@canvas");
 
@@ -101,8 +104,11 @@ public sealed class StageLayoutView : UserControl, IDisposable
         {
             var visual = element.Type switch
             {
-                StageElementType.Gauge when element.Source.IsSensor => SensorGauge(element),
-                StageElementType.Gauge => Gauge(element),
+                StageElementType.Gauge or StageElementType.Setpoint or StageElementType.Levels or StageElementType.Indicator
+                    when element.Source.IsSensor => SensorGauge(element, FaceFor(element)),
+                StageElementType.Gauge or StageElementType.Setpoint or StageElementType.Levels or StageElementType.Indicator
+                    => Gauge(element, FaceFor(element)),
+                StageElementType.Glass => new GlassFace(element),
                 StageElementType.Text => Text(element, element.Content),
                 StageElementType.Clock => Clock(element),
                 StageElementType.Compass => Compass(element),
@@ -124,6 +130,15 @@ public sealed class StageLayoutView : UserControl, IDisposable
         }
     }
 
+    /// <summary>The face that draws a reading element: a gauge, or a climate setpoint, levels or indicator.</summary>
+    private static IReadingFace FaceFor(GaugeSpec spec) => spec.Type switch
+    {
+        StageElementType.Setpoint => new SetpointFace(spec),
+        StageElementType.Levels => new LevelsFace(spec),
+        StageElementType.Indicator => new IndicatorFace(spec),
+        _ => new GaugeFace(spec),
+    };
+
     private void ReadSensors()
     {
         foreach (var read in _sensorReaders)
@@ -137,9 +152,8 @@ public sealed class StageLayoutView : UserControl, IDisposable
         _sensors?.Read(id) ?? SensorReading.None("NO SENSORS");
 
     /// <summary>A gauge whose source is a sensor (ADR-0039): truck first, tablet second, and it says which.</summary>
-    private FrameworkElement SensorGauge(GaugeSpec spec)
+    private FrameworkElement SensorGauge(GaugeSpec spec, IReadingFace face)
     {
-        var face = new GaugeFace(spec);
         var id = spec.Source.Sensor!.Trim();
 
         if (_sensors is not null && !_sensors.Catalog.TryGet(id, out _))
@@ -147,7 +161,7 @@ public sealed class StageLayoutView : UserControl, IDisposable
             face.MarkUnknown("UNKNOWN SENSOR");
             face.ShowSource(id);
             _gauges.Add((spec, () => new GaugeReading(double.NaN, SignalQuality.Unavailable)));
-            return face;
+            return (FrameworkElement)face;
         }
 
         var last = new GaugeReading(double.NaN, SignalQuality.Unavailable);
@@ -160,7 +174,7 @@ public sealed class StageLayoutView : UserControl, IDisposable
             face.ShowSource(reading.Source);
         });
 
-        return face;
+        return (FrameworkElement)face;
     }
 
     /// <summary>A compass rose (ADR-0039), eased toward each new heading as a vector so it never swings through south.</summary>
@@ -238,18 +252,17 @@ public sealed class StageLayoutView : UserControl, IDisposable
         public double Peak { get; set; }
     }
 
-    private FrameworkElement Gauge(GaugeSpec spec)
+    private FrameworkElement Gauge(GaugeSpec spec, IReadingFace face)
     {
-        var face = new GaugeFace(spec);
         var primary = Observe(spec.Source.Signal, spec.Source.RateHz);
         var minus = spec.Source.Minus is { } m ? Observe(m, Math.Max(0.2, spec.Source.RateHz / 4)) : null;
 
         if (primary is null || (spec.Source.Minus is not null && minus is null && spec.Source.MinusFallback is null))
         {
             // Not in the catalog. The gauge says so rather than drawing a scale for nothing.
-            face.MarkUnknown();
+            face.MarkUnknown("UNKNOWN SIGNAL");
             _gauges.Add((spec, () => new GaugeReading(double.NaN, SignalQuality.Unavailable)));
-            return face;
+            return (FrameworkElement)face;
         }
 
         GaugeReading Read() => GaugeReading.Compute(spec.Source, primary.Current, minus?.Current);
@@ -264,7 +277,7 @@ public sealed class StageLayoutView : UserControl, IDisposable
 
         _gauges.Add((spec, Read));
         face.Show(Read());
-        return face;
+        return (FrameworkElement)face;
     }
 
     /// <summary>Declare one signal for as long as this layout is up, or null for one the catalog lacks.</summary>

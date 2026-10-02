@@ -138,4 +138,60 @@ public sealed class ClimateLayoutTests : IDisposable
         Assert.Contains("climate panel folders", service.Reason, StringComparison.Ordinal);
         Assert.Contains("Glass", service.Reason, StringComparison.Ordinal);
     }
+
+    [Theory]
+    [InlineData(4, 0, 7, 7, 4, false)]      // fan at 4 of 7
+    [InlineData(0, 0, 7, 7, 0, false)]      // fan off
+    [InlineData(9, 0, 7, 7, 7, false)]      // past the top is the top, never more
+    [InlineData(2, -3, 3, 3, 2, false)]     // seat heat 2
+    [InlineData(-1, -3, 3, 3, 1, true)]     // seat cooling 1: the negative colour
+    [InlineData(-3, -3, 3, 3, 3, true)]
+    [InlineData(double.NaN, 0, 7, 7, 0, false)] // no reading lights nothing
+    public void Levels_light_steps_up_to_the_value_and_below_zero_on_the_other_side(
+        double value, double min, double max, int steps, int lit, bool negative)
+    {
+        Assert.Equal((lit, negative), ClimateReadings.Lit(value, min, max, steps));
+    }
+
+    [Fact]
+    public void An_indicator_is_on_by_bit_by_equals_or_at_onAt()
+    {
+        var layout = Climate("""
+            { "id": "plain", "type": "indicator", "x": 0, "y": 0, "width": 80, "height": 40, "source": { "signal": "hvac.auto" } },
+            { "id": "feet", "type": "indicator", "x": 0, "y": 0, "width": 80, "height": 40, "source": { "signal": "hvac.airflow" }, "parts": { "bit": 1 } },
+            { "id": "mode", "type": "indicator", "x": 0, "y": 0, "width": 80, "height": 40, "source": { "signal": "hvac.airflow" }, "parts": { "equals": 4 } }
+            """);
+        var plain = layout.Elements[0];
+        var feet = layout.Elements[1];
+        var mode = layout.Elements[2];
+
+        Assert.True(ClimateReadings.IsOn(plain, 1));
+        Assert.False(ClimateReadings.IsOn(plain, 0));
+        Assert.False(ClimateReadings.IsOn(plain, double.NaN));
+
+        Assert.True(ClimateReadings.IsOn(feet, 3));   // face + feet
+        Assert.False(ClimateReadings.IsOn(feet, 5));  // face + glass
+
+        Assert.True(ClimateReadings.IsOn(mode, 4));
+        Assert.False(ClimateReadings.IsOn(mode, 5));
+    }
+
+    private static string ShippedFolder(string name, [System.Runtime.CompilerServices.CallerFilePath] string here = "") =>
+        Path.Combine(Path.GetDirectoryName(here)!, "..", "..", "catalog", name);
+
+    [Fact]
+    public void The_shipped_lcars_climate_panel_reads_cleanly_and_the_lcars_theme_names_it()
+    {
+        var library = new StageLayoutLibrary(ShippedFolder("climate"), Path.Combine(_folder, "yours"), LayoutCanvas.Climate, StageLayout.ClimateBuiltIns);
+
+        Assert.Empty(library.Problems);
+        var lcars = library.FindForTheme("lcars");
+        Assert.NotNull(lcars);
+        Assert.Empty(lcars!.Problems);
+        Assert.Same(LayoutCanvas.Climate, lcars.Canvas);
+        Assert.Contains(lcars.Elements, e => e.Type is StageElementType.Setpoint);
+
+        var themes = new ThemeLibrary(ShippedFolder("themes"), Path.Combine(_folder, "themes"));
+        Assert.Equal("lcars", themes.Find("shipped/lcars-inspired")!.ClimateLayout);
+    }
 }

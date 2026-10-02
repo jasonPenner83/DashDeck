@@ -396,11 +396,40 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// True for destinations that exist in the nav but have nothing behind them yet.
     /// </summary>
     /// <remarks>
-    /// Stereo and Climate are drawn because the nav is the destination list (B3) and an
-    /// empty strip would say less. Both are parked — Climate in particular cannot simply be
-    /// built, since C3 forbids taking over the factory HVAC (Q14).
+    /// Stereo is drawn because the nav is the destination list (B3) and an empty strip would
+    /// say less. Climate was parked here too until ADR-0040 gave it a read-only panel.
     /// </remarks>
-    public bool IsDestinationUnbuilt => IsStereoActive || IsClimateActive;
+    public bool IsDestinationUnbuilt => IsStereoActive;
+
+    /// <summary>
+    /// The climate panel (ADR-0040), drawn from the climate layout in the region the cards use —
+    /// or null whenever CLIMATE is not the destination.
+    /// </summary>
+    /// <remarks>
+    /// Made when CLIMATE is chosen and disposed when it is left, so its signals are declared only
+    /// while it is on screen — the same rule as a card page (ADR-0015). Read only: it shows what
+    /// the truck reports and sends nothing (ADR-0006).
+    /// </remarks>
+    [ObservableProperty]
+    private FrameworkElement? _climateContent;
+
+    partial void OnActiveDestinationChanged(string value) => SyncClimate();
+
+    private void SyncClimate()
+    {
+        if (IsClimateActive && ClimateContent is null)
+        {
+            ClimateContent = new StageLayoutView(_theme.ClimateLayouts, _vehicle.Signals, _clock, Sensors);
+        }
+        else if (!IsClimateActive && ClimateContent is StageLayoutView climate)
+        {
+            ClimateContent = null;
+            climate.Dispose();
+        }
+    }
+
+    /// <summary>What the climate panel is showing, for <c>--shot</c>, or null when it is not open.</summary>
+    public string? DescribeClimate() => (ClimateContent as StageLayoutView)?.Describe();
 
     /// <summary>
     /// Switch what sits below the stage.
@@ -1024,6 +1053,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // not the shell. Both slots go: a backgrounded source is still ours to close.
         _screen?.Dispose();
         _source?.Dispose();
+        (ClimateContent as IDisposable)?.Dispose();
     }
 
     private void Refresh()

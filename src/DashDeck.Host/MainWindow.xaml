@@ -425,6 +425,12 @@
                     <ContentControl Grid.Row="1" Content="{Binding Dashboard.ComponentDetail}" />
                 </Grid>
 
+                <!-- The climate panel (ADR-0040): a layout file drawn where the cards are,
+                     made only while CLIMATE is chosen. Read only — it shows, never sets. -->
+                <ContentControl Grid.Row="1"
+                                Content="{Binding ClimateContent}"
+                                Visibility="{Binding IsClimateActive, Converter={StaticResource BoolToVis}}" />
+
                 <!-- Drawn in the nav because the nav is the destination list (B3), but
                      nothing is behind them yet. Saying so beats a blank region. -->
                 <StackPanel Grid.Row="1"
