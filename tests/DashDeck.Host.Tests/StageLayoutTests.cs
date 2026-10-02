@@ -203,7 +203,7 @@ public sealed class StageLayoutTests : IDisposable
 
         var library = new StageLayoutLibrary(null, yours);
 
-        Assert.Equal("builtin/default", Assert.Single(library.Layouts).Id);
+        Assert.Equal(["builtin/default", "builtin/compass"], library.Layouts.Select(l => l.Id));
         Assert.Equal("broken.json", Assert.Single(library.Problems).File);
     }
 

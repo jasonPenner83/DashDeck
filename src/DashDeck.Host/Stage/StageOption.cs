@@ -150,25 +150,29 @@ public sealed record StageOption(
         switch (entry.Type)
         {
             case LauncherTypes.Gauges:
-                // The theme's layout through the shared service, or one pinned by name — TOWING.
+            case LauncherTypes.Compass:
+                // A stage layout (ADR-0037). GAUGES shows the theme's through the shared service;
+                // COMPASS shows the compass layout (ADR-0039) — yours if you saved a compass.json,
+                // the built-in otherwise; either can pin another by name, as TOWING does.
                 var service = layouts ?? new Gauges.StageLayoutService(
                     new Gauges.StageLayoutLibrary(null, System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dashdeck-no-stage-layouts")),
                     () => null,
                     null);
+                var pinned = entry.Layout is { Length: > 0 } named ? named
+                    : entry.Type == LauncherTypes.Compass ? Gauges.StageLayout.CompassSlug
+                    : null;
                 return Screen(
-                    entry.Layout is { Length: > 0 } pinned ? $"Stage layout: {pinned}" : "Your stage layout",
+                    entry.Type == LauncherTypes.Compass && entry.Layout is null ? "Heading, attitude, G"
+                        : pinned is not null ? $"Stage layout: {pinned}" : "Your stage layout",
                     () => new GaugesStageOccupant(
                         signals,
                         clock,
-                        entry.Layout is { Length: > 0 } layout ? Gauges.StageLayoutService.Pinned(service.Library, layout) : service,
-                        name));
+                        pinned is not null ? Gauges.StageLayoutService.Pinned(service.Library, pinned) : service,
+                        name,
+                        sensors));
 
             case LauncherTypes.Clock:
                 return Screen("Time and weather", () => new ClockWeatherStageOccupant(clock, weather));
-
-            case LauncherTypes.Compass:
-                // Truck first, tablet second, and it says which — see SensorService.
-                return Screen("Heading, attitude, G", () => new CompassStageOccupant(signals, sensors));
 
             case LauncherTypes.Phone:
                 // Android Auto and CarPlay through a Carlinkit dongle (ADR-0019), against a

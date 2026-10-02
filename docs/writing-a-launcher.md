@@ -58,7 +58,7 @@ These work on every entry:
 |---|---|---|
 | `gauges` | A stage layout (`docs/writing-a-stage-layout.md`). | `layout` — a layout's file name (`lcars`, `towing`) or id. Left out: the theme's layout, or the one chosen in Settings ▸ Themes ▸ STAGE LAYOUT. With it, this button always shows that layout, whatever the theme. |
 | `clock` | Time and weather. | — |
-| `compass` | Heading, attitude, G — truck first, tablet second. | — |
+| `compass` | Heading, attitude, G — the `compass` stage layout (ADR-0039): yours if you saved a `compass.json` in `stage\`, the built-in otherwise. | `layout` — show a different stage layout under this name. To change what the compass screen draws, see *The compass and the G meter* in [writing-a-stage-layout.md](writing-a-stage-layout.md). |
 | `phone` | Android Auto and CarPlay through the dongle (ADR-0019). | — |
 | `video` | A video file, played by VLC. | `path` — the file. Left out or missing: it asks when chosen. |
 | `web` | A web page in WebView2. | `url` — `https://…` (or `http://`). `zoom` — 0.25 to 5 (1 is 100 %). Left out: Settings ▸ Display ▸ web scale decides. |

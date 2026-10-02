@@ -27,7 +27,10 @@ public static class LauncherTypes
     /// <summary>Time and weather.</summary>
     public const string Clock = "clock";
 
-    /// <summary>Heading, attitude and G — truck first, tablet second.</summary>
+    /// <summary>
+    /// Heading, attitude and G — the <c>compass</c> stage layout (ADR-0039): yours if you saved a
+    /// <c>compass.json</c>, the built-in otherwise, or another named by <c>layout</c>.
+    /// </summary>
     public const string Compass = "compass";
 
     /// <summary>Android Auto and CarPlay through the dongle (ADR-0019).</summary>
