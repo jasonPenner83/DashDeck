@@ -77,6 +77,20 @@ public sealed record UserSettings
     /// </remarks>
     [JsonPropertyName("adapterSerialPort")]
     public string AdapterSerialPort { get; init; } = "";
+
+    /// <summary>
+    /// The baud rate the adapter last answered at, tried first next time (ADR-0034). Zero when
+    /// none has been seen. Saves the dash working through every rate on every launch.
+    /// </summary>
+    [JsonPropertyName("adapterBaudRate")]
+    public int AdapterBaudRate { get; init; }
+
+    /// <summary>
+    /// What the adapter last said it was (its <c>ATI</c> reply). How it is recognised on another
+    /// port when Windows renumbers it (ADR-0034). Empty when none has been seen.
+    /// </summary>
+    [JsonPropertyName("adapterIdentity")]
+    public string AdapterIdentity { get; init; } = "";
 }
 
 /// <summary>

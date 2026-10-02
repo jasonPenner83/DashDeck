@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **333 tests green** — 118 engine, 215 shell.
+(ADR-0010). **354 tests green** — 130 engine, 224 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -71,7 +71,15 @@ calibration, not a driving control. The status strip is a quick-info bar (weathe
 clock); diagnostics moved to Settings. It **watches the adapter link** and shows an
 `ADAPTER LOST — RECONNECTING` banner in the Stale amber when the transport is not connected —
 sampled on the clock beat, not a worker-thread event — so the strip stops claiming a live
-truck while the cards go Stale around it.
+truck while the cards go Stale around it. **The link heals itself** (ADR-0034):
+`AdapterLinkTransport` finds the baud rate again if the adapter resets, follows the adapter to a
+new COM number (matched by its `ATI` identity; the phone-GPS port is never opened), and paces its
+retries; `ElmAdapter` **re-configures the adapter after every reconnect**. A dash that started
+simulated because the adapter wasn't there **goes live by itself when it answers**: a
+`SwitchableTransport` swaps under the running pipeline, readings turn Live, and polling forgets
+what the simulator taught it. One way only — once live, a lost cable is Stale, never simulated.
+**Settings ▸ Vehicle lists tested ports** (identity, baud, voltage at the OBD port, or why not)
+to choose the adapter from.
 
 Six traps already hit and worth not re-learning:
 
@@ -238,7 +246,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Thirty-three exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Thirty-four exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -252,7 +260,9 @@ virtual COM port, no driver) or the network, and a `VehicleProfile` on the compo
 and finding and defining signals from Settings ▸ Sensors — a supported-PID scan, a TEST, and a
 user overlay catalog that the shipped one never absorbs by accident, and which vehicle this is —
 a VIN read from the truck or typed, decoded once and cached, filling `VehicleProfile`
-(`apiVersion 1.2`) and choosing a vehicle signal pack.
+(`apiVersion 1.2`) and choosing a vehicle signal pack, and an adapter link that heals itself —
+re-configured after reconnects, rate and port found again — with a simulated start that goes
+live when the adapter answers, chosen from a list of tested ports.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

@@ -79,6 +79,14 @@ public sealed partial class DisplaySettings : ObservableObject
     [ObservableProperty]
     private string _adapterSerialPort = "";
 
+    /// <summary>The rate the adapter last answered at; zero when none has been seen (ADR-0034).</summary>
+    [ObservableProperty]
+    private int _adapterBaudRate;
+
+    /// <summary>What the adapter last said it was; how it is recognised on a renumbered port.</summary>
+    [ObservableProperty]
+    private string _adapterIdentity = "";
+
     public DisplaySettings()
     {
         var stored = SettingsStore.Load();
@@ -90,6 +98,8 @@ public sealed partial class DisplaySettings : ObservableObject
         GpsSerialPort = stored.GpsSerialPort;
         FuelTankLitres = stored.FuelTankLitres;
         AdapterSerialPort = stored.AdapterSerialPort;
+        AdapterBaudRate = stored.AdapterBaudRate;
+        AdapterIdentity = stored.AdapterIdentity;
         _loaded = true;
     }
 
@@ -193,6 +203,33 @@ public sealed partial class DisplaySettings : ObservableObject
 
         SettingsStore.Update(stored => stored with { AdapterSerialPort = value });
     }
+
+    partial void OnAdapterBaudRateChanged(int value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { AdapterBaudRate = value });
+        }
+    }
+
+    partial void OnAdapterIdentityChanged(string value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { AdapterIdentity = value });
+        }
+    }
+
+    /// <summary>
+    /// Ports DashDeck itself uses for something other than the OBD-II adapter — the phone's
+    /// Bluetooth GPS — which the adapter search and the port test must never open (ADR-0034).
+    /// </summary>
+    public IReadOnlyCollection<string> ReservedSerialPorts =>
+        GpsEnabled
+        && string.Equals(GpsTransport, "Bluetooth", StringComparison.OrdinalIgnoreCase)
+        && !string.IsNullOrWhiteSpace(GpsSerialPort)
+            ? [GpsSerialPort.Trim()]
+            : [];
 
     /// <summary>Serial ports the OS can see, for the adapter picker.</summary>
     public static IReadOnlyList<string> AvailableSerialPorts()

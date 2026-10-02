@@ -40,7 +40,25 @@ public partial class App : Application
         // so a real adapter can be tried without changing stored settings. Empty means the
         // synthetic truck, which is the right default for a tablet that spends most of its
         // life away from the truck (ADR-0005).
-        var adapterPort = ArgValue(e.Args, "--port") ?? Settings.SettingsStore.Load().AdapterSerialPort;
+        var stored = Settings.SettingsStore.Load();
+        var adapterPort = ArgValue(e.Args, "--port") ?? stored.AdapterSerialPort;
+
+        // How to find it (ADR-0034): the rate and identity it answered with last time go first,
+        // so a launch in the truck connects on the first try, and a renumbered port is recognised.
+        // The phone's Bluetooth GPS port is never opened in the search.
+        DashDeck.Vehicle.AdapterLinkOptions? adapter = DashDeck.Vehicle.Diagnostics.AdapterSelection.TryResolvePort(adapterPort, out var port)
+            ? new DashDeck.Vehicle.AdapterLinkOptions
+            {
+                PreferredPort = port,
+                KnownBaudRate = stored.AdapterBaudRate > 0 ? stored.AdapterBaudRate : null,
+                KnownIdentity = string.IsNullOrWhiteSpace(stored.AdapterIdentity) ? null : stored.AdapterIdentity,
+                ReservedPorts = stored.GpsEnabled
+                    && string.Equals(stored.GpsTransport, "Bluetooth", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(stored.GpsSerialPort)
+                        ? [stored.GpsSerialPort.Trim()]
+                        : [],
+            }
+            : null;
 
         // Which vehicle this is, decoded from its VIN and cached (ADR-0033). It picks the vehicle
         // signal pack and fills the component profile; unknown is fine — the standard set runs.
@@ -51,7 +69,7 @@ public partial class App : Application
             // The vehicle's pack and the user's own signals (ADR-0032), read once at launch like
             // every other choice that shapes the pipeline. A bad file is reported, never fatal.
             _vehicle = await VehicleStack.StartAsync(
-                adapterPort,
+                adapter,
                 drive,
                 new CatalogSources(identity, new Settings.UserSignalStore().Definitions),
                 CancellationToken.None);

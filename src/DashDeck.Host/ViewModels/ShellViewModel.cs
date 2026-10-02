@@ -75,8 +75,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// Whether the numbers on screen are simulated. The SIM badge binds to this.
     /// </summary>
     /// <remarks>
-    /// Cannot change after launch — the transport is chosen once — so a plain getter is
-    /// enough and no change notification is needed.
+    /// Changes at most once, from true to false, when the adapter answers after a simulated
+    /// start (ADR-0034) — re-announced on the clock beat with the rest of the strip.
     /// </remarks>
     public bool IsSimulated => _vehicle.IsSimulated;
 
@@ -102,7 +102,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// that is recorded but never surfaced is not a diagnostic.
     /// </remarks>
     public string AdapterFallbackText =>
-        HasAdapterFallback ? $"ADAPTER NOT FOUND — SHOWING SIMULATED DATA · {_vehicle.FallbackReason}" : string.Empty;
+        HasAdapterFallback ? $"ADAPTER NOT CONNECTED — SHOWING SIMULATED DATA · {_vehicle.FallbackReason}" : string.Empty;
 
     /// <summary>What the banner says. A fault is not the same as a pulled cable.</summary>
     public string LinkStatusText => LinkState is TransportState.Faulted
@@ -243,7 +243,31 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             vehicle.PackProblem,
             App.RequestRestart);
 
-        Settings = new SettingsViewModel(theme, Display, Sensors, _userApps, reservedNames, Inventory, VehicleIdentity);
+        // The adapter and the tested-ports list (ADR-0034). Choosing a port while simulated is
+        // watched for at once; the dash goes live when it answers, with no restart.
+        Adapter = new AdapterPortsViewModel(
+            vehicle,
+            new SerialPortProbe(),
+            clock,
+            () => Display.AdapterSerialPort,
+            port => Display.AdapterSerialPort = port,
+            () => Display.ReservedSerialPorts,
+            () => Display.AdapterBaudRate > 0 ? Display.AdapterBaudRate : null,
+            App.RequestRestart);
+
+        // Remember what the adapter answered with — the rate, the identity, and the port if
+        // Windows moved it — so the next launch connects first time. Raised on the vehicle
+        // worker, so marshalled: the settings are bound to the screen.
+        var dispatcher = Dispatcher.CurrentDispatcher;
+        vehicle.AdapterFound += found => dispatcher.BeginInvoke(() => Remember(found));
+
+        // Found at launch, before anything could subscribe.
+        if (vehicle.LiveAdapter is { } atLaunch)
+        {
+            Remember(atLaunch);
+        }
+
+        Settings = new SettingsViewModel(theme, Display, Sensors, _userApps, reservedNames, Inventory, VehicleIdentity, Adapter);
 
         RebuildStageOptions();
 
@@ -327,6 +351,21 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>Appearance and, in time, the rest.</summary>
     public SettingsViewModel Settings { get; }
+
+    /// <summary>Keep what the adapter answered with, for the next launch (ADR-0034).</summary>
+    private void Remember(AdapterLocation found)
+    {
+        Display.AdapterBaudRate = found.BaudRate;
+        Display.AdapterIdentity = found.Identity;
+
+        if (found.Moved)
+        {
+            Display.AdapterSerialPort = found.Port;
+        }
+    }
+
+    /// <summary>The adapter and its tested ports, for Settings ▸ Vehicle.</summary>
+    private AdapterPortsViewModel Adapter { get; }
 
     /// <summary>Which vehicle this is, for Settings ▸ Vehicle.</summary>
     private VehicleIdentityViewModel VehicleIdentity { get; }
@@ -966,6 +1005,18 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // The banner the mockups have and the shell never showed. Sampled here, on the UI
         // thread, so nothing has to marshal a worker-thread event onto it.
         LinkState = _vehicle.LinkState;
+
+        // Simulated → live can happen at any moment now (ADR-0034); the badge and the fallback
+        // notice follow on the same beat.
+        OnPropertyChanged(nameof(IsSimulated));
+        OnPropertyChanged(nameof(AdapterFallbackReason));
+        OnPropertyChanged(nameof(HasAdapterFallback));
+        OnPropertyChanged(nameof(AdapterFallbackText));
+
+        if (IsSettingsActive && Settings.IsVehicle)
+        {
+            Adapter.Refresh();
+        }
     }
 }
 

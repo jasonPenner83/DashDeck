@@ -2,6 +2,7 @@
 using DashDeck.Core;
 using DashDeck.Core.Catalog;
 using DashDeck.Core.Identity;
+using DashDeck.Core.Link;
 using DashDeck.Simulator;
 using DashDeck.Vehicle;
 using DashDeck.Vehicle.Diagnostics;
@@ -23,25 +24,47 @@ namespace DashDeck.Host;
 /// just another consumer of the state bus, which is the property that lets a real adapter
 /// replace the bottom layer later without anything above it changing (ADR-0003).
 /// </remarks>
-public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventorySource
+public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventorySource, ViewModels.IAdapterStatus
 {
     private readonly VehicleService _service;
-    private readonly IVehicleTransport _transport;
+    private readonly SwitchableTransport _switchable;
+    private readonly IReadOnlyCollection<string> _reservedPorts;
+    private AdapterLinkTransport? _link;
+    private AdapterFailover? _failover;
 
     private VehicleStack(
         VehicleService service,
-        IVehicleTransport transport,
-        SyntheticTransport? synthetic,
+        SwitchableTransport switchable,
         string driveName,
         LoadedCatalog loaded,
-        string? fallbackReason = null)
+        AdapterLinkTransport? link,
+        IReadOnlyCollection<string> reservedPorts)
     {
         _service = service;
-        _transport = transport;
-        Synthetic = synthetic;
+        _switchable = switchable;
         DriveName = driveName;
         Loaded = loaded;
-        FallbackReason = fallbackReason;
+        _reservedPorts = reservedPorts;
+        Adopt(link);
+    }
+
+    /// <summary>Raised on the vehicle worker's thread whenever the adapter is found (ADR-0034).</summary>
+    public event Action<AdapterLocation>? AdapterFound;
+
+    /// <summary>The real adapter, while the dash is reading it; null while simulated.</summary>
+    public AdapterLocation? LiveAdapter => IsSimulated ? null : _link?.Current;
+
+    /// <summary>The port being watched for an adapter while simulated, or null when none is chosen.</summary>
+    public string? WatchedPort => IsSimulated && _failover is { IsWatching: true } ? _link?.PreferredPort : null;
+
+    private void Adopt(AdapterLinkTransport? link)
+    {
+        _link = link;
+
+        if (link is not null)
+        {
+            link.Located += location => AdapterFound?.Invoke(location);
+        }
     }
 
     /// <summary>How the running catalog was put together: standard, vehicle packs, your overlay.</summary>
@@ -90,7 +113,11 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// unplug/replug diagnostics it backs only exist in simulation — a real truck has no
     /// "pretend the cable came out" button, and no exact fuel figure to compare against.
     /// </remarks>
-    public SyntheticTransport? Synthetic { get; }
+    /// <remarks>
+    /// Not fixed at launch any more: the dash starts on the simulator and moves to the truck when
+    /// the adapter answers (ADR-0034), and from then on this is null.
+    /// </remarks>
+    public SyntheticTransport? Synthetic => _switchable.Current as SyntheticTransport;
 
     /// <summary>
     /// True when the numbers on screen come from the simulator rather than a vehicle.
@@ -103,13 +130,15 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     public bool IsSimulated => Synthetic is not null;
 
     /// <summary>
-    /// Why the real adapter was not used, when one was configured and did not come up.
-    /// Null when nothing was configured, or when the adapter is working.
+    /// Why the real adapter is not being read, when one is chosen and has not answered — and
+    /// that it is being watched for. Null when none is chosen, or once the dash is live.
     /// </summary>
-    public string? FallbackReason { get; }
+    public string? FallbackReason => IsSimulated && _link is { } link && _failover is { IsWatching: true }
+        ? $"{link.LastProblem ?? $"looking for the adapter on {link.PreferredPort}"} — switches to live when it answers"
+        : null;
 
     /// <summary>What the stack is actually talking to, for the status strip.</summary>
-    public string TransportDescription => _transport.Description;
+    public string TransportDescription => _switchable.Description;
 
     /// <summary>
     /// Where the link to the adapter currently is, for the status strip to render.
@@ -121,7 +150,7 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// error (see <see cref="DashDeck.Vehicle.TransportState"/>): the strip shows it, the
     /// pipeline recovers on its own, and nothing above here needs a restart (constraint C5).
     /// </remarks>
-    public TransportState LinkState => _transport.State;
+    public TransportState LinkState => _switchable.State;
 
     /// <summary>
     /// The loaded catalog, so the card editor can offer what actually exists.
@@ -164,103 +193,146 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// <param name="driveName">Which scripted drive to run.</param>
     /// <param name="sources">The vehicle and the user's overlay; read once, at launch.</param>
     /// <param name="cancellationToken">Cancels start-up.</param>
-    public static async Task<VehicleStack> StartSyntheticAsync(
+    public static Task<VehicleStack> StartSyntheticAsync(
         string driveName,
         CatalogSources sources,
-        CancellationToken cancellationToken)
-    {
-        var drive = Drives.ByName(driveName);
-        var loaded = LoadCatalog(sources);
-        var catalog = loaded.Catalog;
-        var synthetic = new SyntheticTransport(new SimulatedF150(drive));
-
-        var service = new VehicleService(new ElmAdapter(synthetic), catalog)
-        {
-            Quality = SignalQuality.Simulated,
-        };
-
-        await service.StartAsync(cancellationToken);
-        return new VehicleStack(service, synthetic, synthetic, drive.Name, loaded);
-    }
+        CancellationToken cancellationToken) =>
+        StartAsync(adapter: null, driveName, sources, cancellationToken);
 
     /// <summary>
-    /// Start against a real OBD-II adapter on a serial port.
+    /// How long launch waits for the chosen adapter before coming up simulated and watching
+    /// for it instead. Only the chosen port is tried in that time; the others are the watcher's.
     /// </summary>
-    /// <remarks>
-    /// The baud rate is negotiated rather than assumed: the OBDLink EX ships at 115200 but
-    /// its STN chip reaches 2 Mbps and other software raises it, and opening at the wrong
-    /// rate does not fail — it returns mojibake that reads as a broken adapter.
-    /// <para>
-    /// Everything above the transport is identical to the synthetic path. That is the
-    /// property ADR-0003 was for, and this method existing at ten lines is the evidence it
-    /// held.
-    /// </para>
-    /// </remarks>
-    public static async Task<VehicleStack> StartLiveAsync(
-        string portName,
-        CatalogSources sources,
-        CancellationToken cancellationToken)
-    {
-        var loaded = LoadCatalog(sources);
-        var catalog = loaded.Catalog;
-
-        var (baud, _) = await BaudNegotiator.FindAsync(
-            rate => new SerialPortTransport(portName, rate) { ResponseTimeout = TimeSpan.FromSeconds(2) },
-            ct: cancellationToken);
-
-        var transport = new SerialPortTransport(portName, baud);
-        var service = new VehicleService(new ElmAdapter(transport), catalog)
-        {
-            Quality = SignalQuality.Live,
-        };
-
-        await service.StartAsync(cancellationToken);
-        return new VehicleStack(service, transport, synthetic: null, $"{portName} @ {baud}", loaded);
-    }
+    public static readonly TimeSpan StartupBudget = TimeSpan.FromSeconds(12);
 
     /// <summary>
-    /// Start the stack the way the app does: the configured adapter if there is one, the
-    /// synthetic truck otherwise.
+    /// Start the stack the way the app does: the chosen adapter if it answers, the synthetic
+    /// truck otherwise — and, when an adapter is chosen but silent, keep watching for it.
     /// </summary>
     /// <remarks>
-    /// Falling back rather than failing is deliberate. Most of this app's life is spent on
-    /// a desk with no vehicle attached (ADR-0005), and a dash that comes up dead there
+    /// Falling back rather than failing is deliberate (ADR-0031). Most of this app's life is
+    /// spent on a desk with no vehicle attached (ADR-0005), and a dash that comes up dead there
     /// would be worse than one that comes up simulated and says so. The honesty is carried
     /// by <see cref="IsSimulated"/> and by every value's <see cref="SignalQuality"/>, not by
     /// refusing to run.
     /// <para>
-    /// A configured port that does not come up is reported in <see cref="FallbackReason"/>
-    /// rather than swallowed: silently simulating when you expected real data is exactly
-    /// the confusion the quality flags exist to prevent.
+    /// What changed (ADR-0034) is that falling back is no longer final. The tablet starts in the
+    /// house and is carried to the truck; the bottom of the pipeline is a
+    /// <see cref="SwitchableTransport"/>, and an <see cref="AdapterFailover"/> keeps looking —
+    /// the chosen port, then the others for the same adapter — and moves the dash to it,
+    /// without a restart, the moment it answers.
     /// </para>
     /// </remarks>
+    /// <param name="adapter">Which adapter to use, or null for the simulator alone.</param>
+    /// <param name="driveName">The scripted drive the simulator runs meanwhile.</param>
+    /// <param name="sources">The vehicle and the user's overlay; read once, at launch.</param>
+    /// <param name="cancellationToken">Cancels start-up.</param>
     public static async Task<VehicleStack> StartAsync(
-        string? adapterPort,
+        AdapterLinkOptions? adapter,
         string driveName,
         CatalogSources sources,
         CancellationToken cancellationToken)
     {
-        if (!AdapterSelection.TryResolvePort(adapterPort, out var port))
+        var loaded = LoadCatalog(sources);
+        var drive = Drives.ByName(driveName);
+        var reserved = adapter?.ReservedPorts ?? [];
+
+        AdapterLinkTransport? link = null;
+        AdapterLocation? found = null;
+
+        if (adapter is not null)
         {
-            return await StartSyntheticAsync(driveName, sources, cancellationToken);
+            link = AdapterLinkTransport.ForSerialPorts(adapter);
+
+            using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            budget.CancelAfter(StartupBudget);
+
+            try
+            {
+                found = await link.TryLocateAsync(budget.Token, relocate: false);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // Out of start-up time. The watcher carries on from here.
+            }
         }
 
-        try
-        {
-            return await StartLiveAsync(port, sources, cancellationToken);
-        }
-        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or TimeoutException)
-        {
-            var fallback = await StartSyntheticAsync(driveName, sources, cancellationToken);
+        IVehicleTransport bottom = found is not null
+            ? link!
+            : new SyntheticTransport(new SimulatedF150(drive));
 
-            return new VehicleStack(
-                fallback._service,
-                fallback._transport,
-                fallback.Synthetic,
-                fallback.DriveName,
-                fallback.Loaded,
-                $"{port}: {ex.Message}");
+        var switchable = new SwitchableTransport(bottom);
+        var service = new VehicleService(new ElmAdapter(switchable), loaded.Catalog)
+        {
+            Quality = found is not null ? SignalQuality.Live : SignalQuality.Simulated,
+        };
+
+        await service.StartAsync(cancellationToken);
+
+        var stack = new VehicleStack(service, switchable, drive.Name, loaded, link, reserved);
+
+        if (found is not null)
+        {
+            stack.AdapterFound?.Invoke(found);
         }
+        else if (link is not null)
+        {
+            stack.Watch();
+        }
+
+        return stack;
+    }
+
+    /// <summary>Start (or restart) looking for the adapter in the background.</summary>
+    private void Watch()
+    {
+        var link = _link!;
+
+        _failover ??= new AdapterFailover(
+            _service,
+            _switchable,
+            async ct => await link.TryLocateAsync(ct).ConfigureAwait(false) is not null ? link : null);
+
+        _failover.Start();
+    }
+
+    /// <summary>
+    /// Use a different adapter port — from the tested-ports list in Settings ▸ Vehicle.
+    /// </summary>
+    /// <returns>
+    /// Whether it applies now: while simulated, the new port is watched for at once and the dash
+    /// goes live when it answers; once live on another port, it takes a restart.
+    /// </returns>
+    public AdapterChoice UseAdapterPort(string? port)
+    {
+        if (!IsSimulated)
+        {
+            return string.Equals(port, _link?.Current?.Port, StringComparison.OrdinalIgnoreCase)
+                ? AdapterChoice.AlreadyConnected
+                : AdapterChoice.NextLaunch;
+        }
+
+        if (!AdapterSelection.TryResolvePort(port, out var chosen))
+        {
+            _ = _failover?.StopAsync();
+            return AdapterChoice.Simulator;
+        }
+
+        if (_link is null)
+        {
+            Adopt(AdapterLinkTransport.ForSerialPorts(new AdapterLinkOptions
+            {
+                PreferredPort = chosen,
+                ReservedPorts = _reservedPorts,
+            }));
+        }
+        else
+        {
+            _link.Prefer(chosen);
+        }
+
+        Watch();
+        return AdapterChoice.Watching;
     }
 
     /// <summary>
@@ -317,7 +389,23 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     }
 
     /// <inheritdoc />
-    public ValueTask DisposeAsync() => _service.DisposeAsync();
+    public async ValueTask DisposeAsync()
+    {
+        if (_failover is not null)
+        {
+            await _failover.DisposeAsync();
+        }
+
+        await _service.DisposeAsync();
+
+        // The link is disposed with the pipeline when it is at the bottom of it; while it is only
+        // being watched for, it is this stack's to close — the serial port must be free for the
+        // next launch (App.RequestRestart).
+        if (_link is not null && IsSimulated)
+        {
+            await _link.DisposeAsync();
+        }
+    }
 
     /// <summary>
     /// Walk up from the binary looking for the signal catalog.
@@ -350,3 +438,19 @@ public sealed record LoadedCatalog(
     IReadOnlyList<VehiclePack> ActivePacks,
     IReadOnlyList<VehiclePack> AvailablePacks,
     string? PackProblem);
+
+/// <summary>What choosing an adapter port did.</summary>
+public enum AdapterChoice
+{
+    /// <summary>Simulated now; watching the port, and live when the adapter answers.</summary>
+    Watching,
+
+    /// <summary>That port is the one being read already.</summary>
+    AlreadyConnected,
+
+    /// <summary>Live on another port; the change applies at the next launch.</summary>
+    NextLaunch,
+
+    /// <summary>No adapter: the simulator, and nothing watched.</summary>
+    Simulator,
+}

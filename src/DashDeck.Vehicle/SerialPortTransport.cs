@@ -65,7 +65,23 @@ public sealed class SerialPortTransport : IVehicleTransport
     /// <summary>Serial ports visible to the OS. On Windows these are <c>COMn</c>.</summary>
     public static IReadOnlyList<string> AvailablePorts() => SerialPort.GetPortNames();
 
-    public Task ConnectAsync(CancellationToken ct)
+    /// <summary>
+    /// How long to wait for the OS to open the port.
+    /// </summary>
+    /// <remarks>
+    /// Usually instant. A Bluetooth virtual COM port is the exception: opening the outgoing one
+    /// makes Windows try to reach the paired device, and that can block for many seconds — long
+    /// enough to stall a port test or a reconnect if nothing bounds it (ADR-0034).
+    /// </remarks>
+    public TimeSpan OpenTimeout { get; set; } = TimeSpan.FromSeconds(4);
+
+    /// <summary>The port this transport opens.</summary>
+    public string PortName => _portName;
+
+    /// <summary>The rate it opens at.</summary>
+    public int BaudRate => _baudRate;
+
+    public async Task ConnectAsync(CancellationToken ct)
     {
         State = TransportState.Connecting;
 
@@ -73,7 +89,7 @@ public sealed class SerialPortTransport : IVehicleTransport
         {
             _port?.Dispose();
 
-            _port = new SerialPort(_portName, _baudRate, Parity.None, 8, StopBits.One)
+            var port = new SerialPort(_portName, _baudRate, Parity.None, 8, StopBits.One)
             {
                 // Some adapters hold their interpreter in reset until these assert.
                 DtrEnable = true,
@@ -84,16 +100,34 @@ public sealed class SerialPortTransport : IVehicleTransport
                 NewLine = "\r",
             };
 
-            _port.Open();
-            _port.DiscardInBuffer();
-            _port.DiscardOutBuffer();
+            _port = port;
+
+            // SerialPort.Open is synchronous and can block (see OpenTimeout), so it is bounded.
+            // On a timeout the open is abandoned; disposing the port releases it if it lands late.
+            try
+            {
+                await Task.Run(port.Open, ct).WaitAsync(OpenTimeout, ct).ConfigureAwait(false);
+            }
+            catch (TimeoutException ex)
+            {
+                port.Dispose();
+                _port = null;
+                throw new IOException($"{_portName} did not open within {OpenTimeout.TotalSeconds:0} s.", ex);
+            }
+
+            port.DiscardInBuffer();
+            port.DiscardOutBuffer();
 
             State = TransportState.Connected;
-            return Task.CompletedTask;
         }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or ArgumentException)
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or ArgumentException or InvalidOperationException)
         {
             State = TransportState.Faulted;
+
+            if (ex is IOException { InnerException: TimeoutException })
+            {
+                throw;
+            }
 
             throw new IOException(
                 $"Could not open {_portName}. Check the adapter is plugged in, the FTDI driver " +
