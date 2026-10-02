@@ -84,6 +84,135 @@ public sealed class ThemeLibrary
         return themes.OrderBy(t => t.Name, StringComparer.OrdinalIgnoreCase);
     }
 
+    // ── Examples ──────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// The reference copies: <c>themes\examples\</c> beside your themes. Not loaded — only files
+    /// directly in <see cref="UserFolder"/> are themes.
+    /// </summary>
+    public string ExamplesFolder => Path.Combine(UserFolder, "examples");
+
+    /// <summary>
+    /// Write every theme DashDeck ships into <see cref="ExamplesFolder"/>, to read and copy from:
+    /// the shipped files exactly as they are, with the font files and licences beside them, and the
+    /// built-in DashDeck look written out with <em>every</em> token set — the full vocabulary with
+    /// its default values, in one file.
+    /// </summary>
+    /// <remarks>
+    /// Rewritten whenever they differ from the running build, so an edit there is lost — the README
+    /// says to copy one up a folder first. Never throws.
+    /// </remarks>
+    /// <returns>Why they could not be written, or null.</returns>
+    public string? WriteExamples()
+    {
+        try
+        {
+            Directory.CreateDirectory(ExamplesFolder);
+
+            WriteText("README.txt", ExamplesReadme);
+            WriteText("dashdeck.json", BuiltInHeader + EveryToken().ToJson() + Environment.NewLine);
+
+            if (ShippedFolder is not null && Directory.Exists(ShippedFolder))
+            {
+                foreach (var path in Directory.EnumerateFiles(ShippedFolder))
+                {
+                    var extension = Path.GetExtension(path);
+                    if (extension.Equals(".json", StringComparison.OrdinalIgnoreCase) ||
+                        extension.Equals(".txt", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteText(Path.GetFileName(path), File.ReadAllText(path));
+                    }
+                    else if (FontExtensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+                    {
+                        var target = Path.Combine(ExamplesFolder, Path.GetFileName(path));
+                        if (!File.Exists(target) || new FileInfo(target).Length != new FileInfo(path).Length)
+                        {
+                            File.Copy(path, target, overwrite: true);
+                        }
+                    }
+                }
+            }
+
+            return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return ex.Message;
+        }
+
+        void WriteText(string name, string content)
+        {
+            var target = Path.Combine(ExamplesFolder, name);
+            if (!File.Exists(target) || File.ReadAllText(target) != content)
+            {
+                File.WriteAllText(target, content);
+            }
+        }
+    }
+
+    /// <summary>The DashDeck look with every token written out, day and night, as a theme file.</summary>
+    private static ThemeDefinition EveryToken()
+    {
+        var day = ThemeResolver.Resolve(ThemeDefinition.BuiltIn, night: false);
+        var night = ThemeResolver.Resolve(ThemeDefinition.BuiltIn, night: true);
+        var tokens = new Dictionary<string, string>(StringComparer.Ordinal);
+        var nights = new Dictionary<string, string>(StringComparer.Ordinal);
+
+        foreach (var token in ThemeTokens.All)
+        {
+            tokens[token.Key] = token.Kind switch
+            {
+                TokenKind.Colour => day.Colour(token.Key).ToString(),
+                TokenKind.Number => day.Number(token.Key).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                _ => day.Fonts[token.Key],
+            };
+
+            // Night values wherever dimming the day value would not give the same colour — the
+            // hand-tuned surfaces and text, and tokens that follow another — so a copy of this file
+            // looks the same after dark.
+            if (token.Kind is TokenKind.Colour &&
+                night.Colour(token.Key) != day.Colour(token.Key).Dim(ThemeTokens.Factor(token.Night)))
+            {
+                nights[token.Key] = night.Colour(token.Key).ToString();
+            }
+        }
+
+        return ThemeDefinition.BuiltIn with { Name = "DashDeck (every token)", Tokens = tokens, Night = nights };
+    }
+
+    private const string BuiltInHeader = """
+        // The built-in DashDeck look, written out with EVERY token set to its default (ADR-0036).
+        // DashDeck draws this theme from code, so this copy is only a reference: the whole vocabulary
+        // in one file. Editing it here changes nothing, and it is put back at the next launch.
+        // To make your own: copy it up one folder (into themes\), rename it, change what you like,
+        // and press RELOAD in Settings ▸ Themes. Anything you delete falls back to the default.
+        // Every token is explained in docs/writing-a-theme.md.
+
+        """;
+
+    private const string ExamplesReadme = """
+        DashDeck theme examples
+        =======================
+
+        These are the themes that ship with DashDeck, kept here as references:
+
+          dashdeck.json           the built-in DashDeck look, with every token written out
+          lcars-inspired.json     the LCARS (inspired) theme
+          Antonio-*.ttf           the font the LCARS theme uses, and OFL-Antonio.txt, its licence
+
+        They are NOT loaded from this folder, and they are rewritten every time DashDeck starts,
+        so any change made here is lost. To use one as a starting point:
+
+          1. Copy the .json - and any .ttf files it lists under "fontFiles" - up one folder,
+             into  ...\DashDeck	hemes          2. Change its "name" so you can tell it apart in the list.
+          3. Edit it in Notepad and save.
+          4. In DashDeck: Settings > Themes > RELOAD, then tap it to wear it.
+
+        Problems with the file are listed at the top of Settings > Themes. A bad value costs that
+        one token; it never stops the dash starting.
+
+        """;
+
     // ── Changing the user's folder ────────────────────────────────────────────
 
     /// <summary>

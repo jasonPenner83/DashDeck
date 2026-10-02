@@ -289,6 +289,7 @@ public sealed partial class ThemesViewModel : ObservableObject
     private void OpenFolder()
     {
         Directory.CreateDirectory(UserFolder);
+        _host.Library.WriteExamples();
         _dialogs.OpenFolder(UserFolder);
     }
 

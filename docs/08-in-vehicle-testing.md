@@ -221,6 +221,9 @@ silence there would be news.
 **daylight** and, if you can, one after dark (or set **Settings ▸ Appearance ▸ NIGHT** to fake it).
 No internet needed. The adapter is optional; with it, the card borders show real Live green.
 
+0. (At a desk is fine.) **Settings ▸ Themes ▸ OPEN FOLDER**. **Expect:** an **examples** folder
+   holding `dashdeck.json` (every token written out), `lcars-inspired.json`, the Antonio `.ttf`
+   files, `OFL-Antonio.txt` and `README.txt`.
 1. Open **Settings ▸ Themes**. **Expect:** a list of **DASHDECK** (built in, marked **WEARING**)
    and **LCARS (INSPIRED)** (shipped), each with five colour swatches, and a token list below.
 2. Tap **LCARS (INSPIRED)**. **Expect**, within a second and without a restart:
@@ -295,3 +298,58 @@ button.
 
 If `DashDeck.Host` lingers, wait 15 seconds: DashDeck ends itself if shutdown overruns, and writes
 why to `%LOCALAPPDATA%\DashDeck\crash.log` — send that file.
+
+---
+
+## The stage as a file — gauges, LCARS stage, and editing your own (ADR-0037)
+
+**You need:** the tablet in its mount, the adapter plugged in, parked. Ignition **running** for steps
+2–4 (so boost, throttle and load move). For step 7, Notepad.
+
+1. Put **GAUGES** on the stage with the **DashDeck** theme worn. **Expect:** the familiar cluster —
+   boost and oil temperature large, volts, intake, throttle and load small, in the same places as
+   before.
+2. Look at **OIL TEMP**. **Expect:** **no needle**, and **NO DATA** under the caption. This truck
+   doesn't report oil temperature; the old cluster wrongly parked the needle on 40 °C. Its corner
+   dot is grey.
+3. Look at the other five. **Expect:** needles moving with the engine (blip the throttle: BOOST,
+   THROTTLE and LOAD respond), and a **green** dot in each gauge's top-right corner. Volts should
+   read about 14 V running.
+4. **Settings ▸ Themes** → tap **LCARS (INSPIRED)**, then back to the stage. **Expect:** the stage
+   changes too:
+   - a black screen framed by lavender and peach elbows and bars;
+   - **ENGINE STATUS** and the time across the top;
+   - six segmented bars, BOOST to LOAD, each with a coloured end cap showing its name and number.
+
+   Blip the throttle and the THROTTLE and BOOST bars should light further. OIL °C says NO DATA with
+   no lit segments.
+5. **Settings ▸ Themes ▸ STAGE LAYOUT**. **Expect:** **SHOWING LCARS (INSPIRED) STAGE**, *Following
+   the theme*, and the list with **FOLLOW THE THEME** marked **CHOSEN**. Tap **F-150 CLUSTER**,
+   go back to the stage. **Expect:** the dials again, still under the LCARS theme's colours. Tap
+   **FOLLOW THE THEME** to go back.
+6. Press **OPEN FOLDER**. **Expect:** an **examples** folder containing `lcars.json`,
+   `f150-cluster.json` and `README.txt`. Open `lcars.json`: it's the LCARS stage with its comments.
+   Close it without saving.
+   Then, under **EDIT YOUR OWN COPY OF THE ONE SHOWING**, type `lcars`, press **SAVE AS**. **Expect:** a
+   row **LCARS (INSPIRED) STAGE (MINE)** marked **YOURS**, and the stage unchanged.
+7. Press **OPEN FOLDER**, open `lcars.json` in Notepad. Find `"title"` and change
+   `"ENGINE STATUS"` to `"MY TRUCK"`. Find the `"boost"` gauge and change `"segments": 24` to
+   `"segments": 12`. Save. On the stage, open the three-dot menu and tap **RELOAD STAGE LAYOUT**.
+   **Expect:** **MY TRUCK** across the top, and the BOOST bar with 12 fatter segments.
+8. Break it on purpose: in Notepad change the boost gauge's `"max": 25` to `"max": -20`, save,
+   **RELOAD STAGE LAYOUT**. **Expect:** the BOOST bar is gone, everything else still drawn, and in
+   **Settings ▸ Themes ▸ STAGE LAYOUT** an amber line: `boost: max (-20) must be above min (-15) —
+   left out`. Put it back to `25`.
+9. Clean up: on the **LCARS (INSPIRED) STAGE (MINE)** row press **DELETE**. **Expect:** the shipped
+   LCARS stage is back.
+
+**A failure looks like:**
+- a gauge needle or bar showing a value for OIL TEMP;
+- a dot that isn't green while the engine runs and the adapter is live;
+- the stage not changing with the theme;
+- RELOAD not picking up an edit;
+- a bad file blanking the whole stage instead of leaving out one element;
+- the dash going stale while the stage shows gauges. Each gauge declares its own rate, so check
+  the dash cards stay green.
+
+Photograph anything that looks wrong. For a layout bug, also send the `.json` you were editing.

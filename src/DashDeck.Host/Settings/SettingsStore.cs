@@ -20,6 +20,10 @@ public sealed record UserSettings
     [JsonPropertyName("themeId")]
     public string ThemeId { get; init; } = "builtin/dashdeck";
 
+    /// <summary>The stage layout (ADR-0037): <c>theme</c> to follow the theme, or a layout id.</summary>
+    [JsonPropertyName("stageLayout")]
+    public string StageLayout { get; init; } = "theme";
+
     /// <summary>A preset's name, or <c>CUSTOM</c>.</summary>
     [JsonPropertyName("accentName")]
     public string AccentName { get; init; } = "EMBER";
