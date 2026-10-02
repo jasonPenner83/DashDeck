@@ -19,7 +19,7 @@
                     Command="{Binding DataContext.ChooseCommand,
                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                     CommandParameter="{Binding}">
-                <TextBlock FontFamily="{StaticResource MonoFont}"
+                <TextBlock FontFamily="{DynamicResource MonoFont}"
                            FontSize="15"
                            Text="{Binding Caption}" />
             </Button>
@@ -33,7 +33,7 @@
                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                     CommandParameter="{Binding}">
                 <StackPanel HorizontalAlignment="Left">
-                    <TextBlock FontFamily="{StaticResource MonoFont}"
+                    <TextBlock FontFamily="{DynamicResource MonoFont}"
                                FontSize="14"
                                TextTrimming="CharacterEllipsis"
                                Text="{Binding Caption}" />
@@ -73,17 +73,17 @@
                     Style="{StaticResource StageLauncherButton}"
                     Margin="10,0,0,0"
                     Command="{Binding DoneCommand}">
-                <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="15" Text="DONE" />
+                <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="15" Text="DONE" />
             </Button>
 
             <Button DockPanel.Dock="Right"
                     Style="{StaticResource StageLauncherButton}"
                     Command="{Binding RemoveCommand}">
-                <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="15" Text="DELETE" />
+                <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="15" Text="DELETE" />
             </Button>
 
             <TextBlock VerticalAlignment="Center"
-                       FontFamily="{StaticResource UiFont}"
+                       FontFamily="{DynamicResource UiFont}"
                        FontSize="26"
                        Foreground="{DynamicResource TextHighBrush}"
                        Text="EDIT CARD" />

@@ -26,10 +26,31 @@
     <SolidColorBrush x:Key="AccentBrush" Color="#FF7A1A" />
     <SolidColorBrush x:Key="AccentWashBrush" Color="#14FF7A1A" />
     <SolidColorBrush x:Key="OnAccentBrush" Color="#140A02" />
+    <SolidColorBrush x:Key="SelectedTextBrush" Color="#FF7A1A" />
+
+    <!--
+        Where things sit (ADR-0036). Each defaults to a token above, so the DashDeck look is
+        unchanged; a theme can set them on their own. ThemeService replaces every one of these
+        at runtime, which is why they are reached by DynamicResource and never StaticResource.
+    -->
+    <SolidColorBrush x:Key="CaptionBrush" Color="#6B665E" />
+    <SolidColorBrush x:Key="StripBackgroundBrush" Color="#0D0C0B" />
+    <SolidColorBrush x:Key="NavBackgroundBrush" Color="#0D0C0B" />
+    <SolidColorBrush x:Key="NavTextBrush" Color="#A5A096" />
+    <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="Transparent" />
+    <SolidColorBrush x:Key="ButtonBorderBrush" Color="#3A3630" />
+    <SolidColorBrush x:Key="ButtonTextBrush" Color="#A5A096" />
+
+    <!-- Shape. A button radius of half its 56 height makes a pill. -->
+    <CornerRadius x:Key="ButtonRadius">14</CornerRadius>
+    <CornerRadius x:Key="CardRadius">14</CornerRadius>
+    <CornerRadius x:Key="PanelRadius">12</CornerRadius>
+    <Thickness x:Key="BorderWidth">1</Thickness>
 
     <!--
         Archivo and IBM Plex Mono are both OFL and get embedded in the packaged build.
         Until then WPF falls back to the second name, which is why it is listed.
+        A theme can replace both (ADR-0036), so every use is a DynamicResource.
     -->
     <FontFamily x:Key="UiFont">Archivo, Segoe UI</FontFamily>
     <FontFamily x:Key="MonoFont">IBM Plex Mono, Consolas</FontFamily>
@@ -37,9 +58,9 @@
     <!-- Small uppercase caption. WPF has no letter-spacing, so these read tighter than the
          mockups until a custom run is written; tracked as a P0.5 polish item. -->
     <Style x:Key="CaptionText" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+        <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
         <Setter Property="FontSize" Value="12" />
-        <Setter Property="Foreground" Value="{DynamicResource TextLowBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource CaptionBrush}" />
     </Style>
 
     <Style x:Key="MicroText" TargetType="TextBlock" BasedOn="{StaticResource CaptionText}">
@@ -52,20 +73,20 @@
          for the value beside its unit. At 30 the worst realistic pair — "25.6" and "L/100km" —
          fits without the unit clipping. -->
     <Style x:Key="ValueText" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+        <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
         <Setter Property="FontSize" Value="30" />
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Foreground" Value="{DynamicResource TextHighBrush}" />
     </Style>
 
     <Style x:Key="UnitText" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+        <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="Foreground" Value="{DynamicResource TextMidBrush}" />
     </Style>
 
     <Style x:Key="StatusText" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+        <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
         <Setter Property="FontSize" Value="15" />
         <Setter Property="Foreground" Value="{DynamicResource TextMidBrush}" />
         <Setter Property="VerticalAlignment" Value="Center" />
@@ -80,16 +101,16 @@
         <Setter Property="Height" Value="56" />
         <Setter Property="MinWidth" Value="104" />
         <Setter Property="Margin" Value="0,0,10,0" />
-        <Setter Property="Foreground" Value="{DynamicResource TextMidBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Chrome"
-                            Background="Transparent"
-                            BorderBrush="{DynamicResource HairlineStrongBrush}"
-                            BorderThickness="1"
-                            CornerRadius="14"
+                            Background="{DynamicResource ButtonBackgroundBrush}"
+                            BorderBrush="{DynamicResource ButtonBorderBrush}"
+                            BorderThickness="{DynamicResource BorderWidth}"
+                            CornerRadius="{DynamicResource ButtonRadius}"
                             Padding="16,0,16,0">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
@@ -97,7 +118,7 @@
                         <DataTrigger Binding="{Binding IsCurrent}" Value="True">
                             <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource AccentWashBrush}" />
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource SelectedTextBrush}" />
                         </DataTrigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
@@ -120,7 +141,7 @@
         <Setter Property="Height" Value="56" />
         <Setter Property="Padding" Value="16,0,16,0" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
-        <Setter Property="FontFamily" Value="{StaticResource MonoFont}" />
+        <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
         <Setter Property="FontSize" Value="18" />
         <Setter Property="Foreground" Value="{DynamicResource TextHighBrush}" />
         <Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}" />
@@ -131,8 +152,8 @@
                     <Border x:Name="Chrome"
                             Background="{DynamicResource RaisedBrush}"
                             BorderBrush="{DynamicResource HairlineStrongBrush}"
-                            BorderThickness="1"
-                            CornerRadius="14">
+                            BorderThickness="{DynamicResource BorderWidth}"
+                            CornerRadius="{DynamicResource ButtonRadius}">
                         <ScrollViewer x:Name="PART_ContentHost"
                                       Margin="{TemplateBinding Padding}"
                                       VerticalAlignment="Center"
@@ -159,7 +180,7 @@
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource HairlineBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="CornerRadius" Value="{DynamicResource CardRadius}" />
         <Setter Property="Padding" Value="14,10,14,10" />
     </Style>
 
@@ -173,7 +194,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="14"
+                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="{DynamicResource CardRadius}"
                             BorderThickness="2" BorderBrush="Transparent" />
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
@@ -195,7 +216,7 @@
         <Setter Property="Width" Value="40" />
         <Setter Property="Height" Value="40" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FontFamily" Value="{StaticResource UiFont}" />
+        <Setter Property="FontFamily" Value="{DynamicResource UiFont}" />
         <Setter Property="FontSize" Value="18" />
         <Setter Property="Foreground" Value="{DynamicResource TextHighBrush}" />
         <Setter Property="Template">
@@ -229,20 +250,20 @@
                             Background="Transparent"
                             BorderBrush="{DynamicResource HairlineStrongBrush}"
                             BorderThickness="2"
-                            CornerRadius="14">
+                            CornerRadius="{DynamicResource CardRadius}">
                         <Border.Style>
                             <Style TargetType="Border" />
                         </Border.Style>
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                             <TextBlock x:Name="Plus" Text="+"
                                        HorizontalAlignment="Center"
-                                       FontFamily="{StaticResource UiFont}"
+                                       FontFamily="{DynamicResource UiFont}"
                                        FontSize="40"
                                        Foreground="{DynamicResource TextLowBrush}" />
                             <TextBlock x:Name="Caption" Text="ADD CARD"
                                        Margin="0,4,0,0"
                                        HorizontalAlignment="Center"
-                                       FontFamily="{StaticResource MonoFont}"
+                                       FontFamily="{DynamicResource MonoFont}"
                                        FontSize="12"
                                        Foreground="{DynamicResource TextLowBrush}" />
                         </StackPanel>
@@ -310,15 +331,15 @@
         <Setter Property="MinWidth" Value="96" />
         <Setter Property="Margin" Value="0,0,10,10" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="Foreground" Value="{DynamicResource TextMidBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource ButtonTextBrush}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Chrome"
-                            Background="Transparent"
-                            BorderBrush="{DynamicResource HairlineStrongBrush}"
-                            BorderThickness="1"
-                            CornerRadius="14"
+                            Background="{DynamicResource ButtonBackgroundBrush}"
+                            BorderBrush="{DynamicResource ButtonBorderBrush}"
+                            BorderThickness="{DynamicResource BorderWidth}"
+                            CornerRadius="{DynamicResource ButtonRadius}"
                             Padding="16,0,16,0">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
@@ -326,7 +347,7 @@
                         <DataTrigger Binding="{Binding IsSelected}" Value="True">
                             <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource AccentWashBrush}" />
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource SelectedTextBrush}" />
                         </DataTrigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
@@ -356,7 +377,7 @@
                             Background="Transparent"
                             BorderBrush="Transparent"
                             BorderThickness="1"
-                            CornerRadius="14">
+                            CornerRadius="{DynamicResource ButtonRadius}">
                         <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                             <Ellipse x:Name="D1" Width="4" Height="4" Margin="0,2,0,2" Fill="{DynamicResource TextMidBrush}" />
                             <Ellipse x:Name="D2" Width="4" Height="4" Margin="0,2,0,2" Fill="{DynamicResource TextMidBrush}" />
@@ -389,8 +410,8 @@
                     <Border x:Name="Chrome"
                             Background="{DynamicResource RaisedBrush}"
                             BorderBrush="{DynamicResource HairlineStrongBrush}"
-                            BorderThickness="1"
-                            CornerRadius="14"
+                            BorderThickness="{DynamicResource BorderWidth}"
+                            CornerRadius="{DynamicResource ButtonRadius}"
                             Padding="22,0,22,0">
                         <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
                     </Border>

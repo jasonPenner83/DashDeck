@@ -15,6 +15,12 @@ again whenever a `PackageReference` is added.
 | [System.IO.Ports](https://github.com/dotnet/runtime) | Vehicle transports | MIT |
 | .NET runtime (self-contained publish) | Everything | MIT |
 
+### Fonts
+
+| Font | Used by | License |
+|---|---|---|
+| [Antonio](https://github.com/googlefonts/antonioFont) (Regular, Bold) — `catalog/themes/` | The *LCARS (inspired)* theme (ADR-0036) | SIL Open Font License 1.1 — text in `catalog/themes/OFL-Antonio.txt`, shipped beside the font |
+
 ## Test-only
 
 | Package | License |

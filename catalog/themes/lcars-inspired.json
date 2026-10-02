@@ -1,0 +1,49 @@
+// A fan homage to the LCARS look of Star Trek: The Next Generation — black screen, pill-shaped
+// buttons in peach, lavender and periwinkle, condensed capital lettering (ADR-0036).
+//
+// Inspired by, not affiliated with or endorsed by Paramount. No Star Trek artwork, logos or
+// proprietary fonts are used: the lettering is Antonio, an open-licence font (SIL OFL 1.1, see
+// OFL-Antonio.txt beside this file) that fan LCARS projects commonly use.
+//
+// The accent is a red-leaning LCARS orange rather than the classic #FF9900: that one sits within
+// 7° of the Stale amber, and a selected button must never be mistaken for a stale reading. The
+// four quality colours are not themeable (ADR-0013) — a stale value looks stale here too.
+{
+  "name": "LCARS (inspired)",
+  "description": "Black, pill-shaped buttons in peach and lavender, condensed capitals. A fan homage; not affiliated with Paramount.",
+  "author": "DashDeck",
+  "fontFiles": [ "Antonio-Regular.ttf", "Antonio-Bold.ttf" ],
+  "tokens": {
+    "canvas": "#000000",
+    "surface": "#07070C",
+    "raised": "#14141F",
+    "hairline": "#2A2A40",
+    "hairlineStrong": "#3D3D5C",
+
+    "textHigh": "#F2E6D9",
+    "textMid": "#FFCC99",
+    "textLow": "#CC99CC",
+    "textFaint": "#9999CC",
+
+    "accent": "#FF7722",
+    "accentWash": 1,
+    "selectedText": "#000000",
+    "onAccent": "#000000",
+
+    "caption": "#FF9966",
+    "stripBackground": "#000000",
+    "navBackground": "#000000",
+    "navText": "#CC99CC",
+    "buttonBackground": "#9999CC",
+    "buttonBorder": "#9999CC",
+    "buttonText": "#000000",
+
+    "buttonRadius": 28,
+    "cardRadius": 22,
+    "panelRadius": 28,
+    "borderWidth": 2,
+
+    "uiFont": "Antonio, Segoe UI",
+    "monoFont": "Antonio, Consolas"
+  }
+}

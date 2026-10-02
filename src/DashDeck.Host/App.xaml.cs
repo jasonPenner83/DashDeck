@@ -175,9 +175,21 @@ public partial class App : Application
             }
         }
 
-        if (previewMode is not null || previewAccent is not null)
+        // --theme-name <id|name> wears a theme without remembering it (ADR-0036), for a screenshot:
+        // "--theme-name lcars" or "--theme-name shipped/lcars-inspired".
+        Theme.ThemeDefinition? previewTheme = null;
+
+        if (ArgValue(e.Args, "--theme-name") is { } wanted)
         {
-            _theme.Preview(previewMode, previewAccent);
+            previewTheme = _theme.Library.Find(wanted)
+                ?? _theme.Library.Themes.FirstOrDefault(t =>
+                    t.Name.StartsWith(wanted, StringComparison.OrdinalIgnoreCase) ||
+                    t.Id.Contains(wanted, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (previewMode is not null || previewAccent is not null || previewTheme is not null)
+        {
+            _theme.Preview(previewMode, previewAccent, previewTheme);
         }
 
         // The component host, loaded once at startup. A component's widget can now sit on the

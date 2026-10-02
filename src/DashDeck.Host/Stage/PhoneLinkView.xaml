@@ -18,7 +18,7 @@
 
         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="640">
             <TextBlock HorizontalAlignment="Center"
-                       FontFamily="{StaticResource UiFont}"
+                       FontFamily="{DynamicResource UiFont}"
                        FontSize="34"
                        FontWeight="Bold"
                        Foreground="{DynamicResource TextHighBrush}"

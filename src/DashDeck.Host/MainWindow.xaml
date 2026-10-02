@@ -38,6 +38,7 @@
 
             <!-- Status strip -->
             <Border Grid.Row="0"
+                    Background="{DynamicResource StripBackgroundBrush}"
                     BorderBrush="{DynamicResource HairlineBrush}"
                     BorderThickness="0,0,0,1">
                 <!--
@@ -49,7 +50,7 @@
                 -->
                 <Grid Margin="31,0,16,0">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
-                        <TextBlock FontFamily="{StaticResource UiFont}"
+                        <TextBlock FontFamily="{DynamicResource UiFont}"
                                    FontSize="26"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center"
@@ -80,11 +81,11 @@
                                             BorderThickness="1">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="▶"
-                                                       FontFamily="{StaticResource UiFont}" FontSize="10"
+                                                       FontFamily="{DynamicResource UiFont}" FontSize="10"
                                                        VerticalAlignment="Center"
                                                        Foreground="{DynamicResource AccentBrush}" />
                                             <TextBlock Text="{Binding HiddenOccupantName}" Margin="7,0,0,0"
-                                                       FontFamily="{StaticResource MonoFont}" FontSize="11"
+                                                       FontFamily="{DynamicResource MonoFont}" FontSize="11"
                                                        VerticalAlignment="Center"
                                                        Foreground="{DynamicResource TextMidBrush}" />
                                         </StackPanel>
@@ -111,14 +112,14 @@
                                 BorderThickness="1"
                                 BorderBrush="#8DA6FF"
                                 Visibility="{Binding IsSimulated, Converter={StaticResource BoolToVis}}">
-                            <TextBlock FontFamily="{StaticResource MonoFont}"
+                            <TextBlock FontFamily="{DynamicResource MonoFont}"
                                        FontSize="11"
                                        Foreground="#8DA6FF"
                                        Text="SIM" />
                         </Border>
 
                         <TextBlock Margin="18,0,0,0"
-                                   FontFamily="{StaticResource UiFont}"
+                                   FontFamily="{DynamicResource UiFont}"
                                    FontSize="24"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center"
@@ -150,7 +151,7 @@
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Visibility="{Binding IsAdapterLost, Converter={StaticResource BoolToVis}}">
-                        <TextBlock FontFamily="{StaticResource MonoFont}"
+                        <TextBlock FontFamily="{DynamicResource MonoFont}"
                                    FontSize="13"
                                    FontWeight="SemiBold"
                                    Foreground="#E0B23C"
@@ -170,7 +171,7 @@
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Visibility="{Binding HasAdapterFallback, Converter={StaticResource BoolToVis}}">
-                        <TextBlock FontFamily="{StaticResource MonoFont}"
+                        <TextBlock FontFamily="{DynamicResource MonoFont}"
                                    FontSize="13"
                                    FontWeight="SemiBold"
                                    Foreground="#E0B23C"
@@ -249,7 +250,7 @@
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}">
                                                 <TextBlock Text="{Binding Name}"
-                                                           FontFamily="{StaticResource MonoFont}"
+                                                           FontFamily="{DynamicResource MonoFont}"
                                                            FontSize="13"
                                                            HorizontalAlignment="Center"
                                                            VerticalAlignment="Center" />
@@ -278,13 +279,13 @@
                                     VerticalAlignment="Center" HorizontalAlignment="Center"
                                     Visibility="{Binding StageIsEmpty, Converter={StaticResource BoolToVis}}">
                         <TextBlock Margin="0,14,0,0"
-                                   FontFamily="{StaticResource UiFont}"
+                                   FontFamily="{DynamicResource UiFont}"
                                    FontSize="24"
                                    HorizontalAlignment="Center"
                                    Foreground="{DynamicResource TextLowBrush}"
                                    Text="No stage occupant" />
                         <TextBlock Margin="0,10,0,0"
-                                   FontFamily="{StaticResource MonoFont}"
+                                   FontFamily="{DynamicResource MonoFont}"
                                    FontSize="13"
                                    HorizontalAlignment="Center"
                                    Foreground="{DynamicResource TextFaintBrush}"
@@ -363,7 +364,7 @@
                                                                     </ControlTemplate>
                                                                 </Button.Template>
                                                                 <StackPanel>
-                                                                    <TextBlock FontFamily="{StaticResource UiFont}"
+                                                                    <TextBlock FontFamily="{DynamicResource UiFont}"
                                                                                FontSize="24" FontWeight="SemiBold"
                                                                                Foreground="{DynamicResource TextHighBrush}"
                                                                                Text="{Binding Name}" />
@@ -431,7 +432,7 @@
                             Visibility="{Binding IsDestinationUnbuilt, Converter={StaticResource BoolToVis}}">
                     <TextBlock Text="{Binding ActiveDestination}"
                                HorizontalAlignment="Center"
-                               FontFamily="{StaticResource UiFont}"
+                               FontFamily="{DynamicResource UiFont}"
                                FontSize="24"
                                Foreground="{DynamicResource TextLowBrush}" />
                     <TextBlock Margin="0,10,0,0"
@@ -455,6 +456,7 @@
             <!-- Navigation. Switches only what sits below the stage (B2/B3): the
                  stage keeps running, so choosing Settings does not stop the music. -->
             <Border Grid.Row="2"
+                    Background="{DynamicResource NavBackgroundBrush}"
                     BorderBrush="{DynamicResource HairlineBrush}"
                     BorderThickness="0,1,0,0"
                     Visibility="{Binding IsNavVisible, Converter={StaticResource BoolToVis}}">
@@ -475,19 +477,19 @@
                                         BorderBrush="Transparent" BorderThickness="0,3,0,0">
                                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                         <Path x:Name="Glyph" Data="M3,3 H21 V12 H3 Z M3,15 H10 V21 H3 Z M14,15 H21 V21 H14 Z"
-                                              Stroke="{DynamicResource TextMidBrush}" StrokeThickness="1.75"
+                                              Stroke="{DynamicResource NavTextBrush}" StrokeThickness="1.75"
                                               Width="26" Height="26" Stretch="Uniform" HorizontalAlignment="Center" />
                                         <TextBlock x:Name="Label" Margin="0,7,0,0" HorizontalAlignment="Center"
-                                                   FontFamily="{StaticResource MonoFont}" FontSize="12"
-                                                   Foreground="{DynamicResource TextMidBrush}" Text="DASH" />
+                                                   FontFamily="{DynamicResource MonoFont}" FontSize="12"
+                                                   Foreground="{DynamicResource NavTextBrush}" Text="DASH" />
                                     </StackPanel>
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <DataTrigger Binding="{Binding IsDashActive}" Value="True">
                                         <Setter TargetName="Cell" Property="Background" Value="{DynamicResource AccentWashBrush}" />
                                         <Setter TargetName="Cell" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                        <Setter TargetName="Glyph" Property="Stroke" Value="{DynamicResource AccentBrush}" />
-                                        <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                        <Setter TargetName="Glyph" Property="Stroke" Value="{DynamicResource SelectedTextBrush}" />
+                                        <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource SelectedTextBrush}" />
                                     </DataTrigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -501,19 +503,19 @@
                                         BorderBrush="Transparent" BorderThickness="0,3,0,0">
                                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                         <Path x:Name="Glyph" Data="M12,3 A9,9 0 1 1 11.99,3 Z M12,9.5 A2.5,2.5 0 1 1 11.99,9.5 Z"
-                                              Stroke="{DynamicResource TextMidBrush}" StrokeThickness="1.75"
+                                              Stroke="{DynamicResource NavTextBrush}" StrokeThickness="1.75"
                                               Width="26" Height="26" Stretch="Uniform" HorizontalAlignment="Center" />
                                         <TextBlock x:Name="Label" Margin="0,7,0,0" HorizontalAlignment="Center"
-                                                   FontFamily="{StaticResource MonoFont}" FontSize="12"
-                                                   Foreground="{DynamicResource TextMidBrush}" Text="STEREO" />
+                                                   FontFamily="{DynamicResource MonoFont}" FontSize="12"
+                                                   Foreground="{DynamicResource NavTextBrush}" Text="STEREO" />
                                     </StackPanel>
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <DataTrigger Binding="{Binding IsStereoActive}" Value="True">
                                         <Setter TargetName="Cell" Property="Background" Value="{DynamicResource AccentWashBrush}" />
                                         <Setter TargetName="Cell" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                        <Setter TargetName="Glyph" Property="Stroke" Value="{DynamicResource AccentBrush}" />
-                                        <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                        <Setter TargetName="Glyph" Property="Stroke" Value="{DynamicResource SelectedTextBrush}" />
+                                        <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource SelectedTextBrush}" />
                                     </DataTrigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -527,19 +529,19 @@
                                         BorderBrush="Transparent" BorderThickness="0,3,0,0">
                                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                         <Path x:Name="Glyph" Data="M3,8 C5,6 7,6 9,8 C11,10 13,10 15,8 C17,6 19,6 21,8 M3,13 C5,11 7,11 9,13 C11,15 13,15 15,13 C17,11 19,11 21,13 M3,18 C5,16 7,16 9,18 C11,20 13,20 15,18 C17,16 19,16 21,18"
-                                              Stroke="{DynamicResource TextMidBrush}" StrokeThickness="1.75"
+                                              Stroke="{DynamicResource NavTextBrush}" StrokeThickness="1.75"
                                               Width="26" Height="26" Stretch="Uniform" HorizontalAlignment="Center" />
                                         <TextBlock x:Name="Label" Margin="0,7,0,0" HorizontalAlignment="Center"
-                                                   FontFamily="{StaticResource MonoFont}" FontSize="12"
-                                                   Foreground="{DynamicResource TextMidBrush}" Text="CLIMATE" />
+                                                   FontFamily="{DynamicResource MonoFont}" FontSize="12"
+                                                   Foreground="{DynamicResource NavTextBrush}" Text="CLIMATE" />
                                     </StackPanel>
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <DataTrigger Binding="{Binding IsClimateActive}" Value="True">
                                         <Setter TargetName="Cell" Property="Background" Value="{DynamicResource AccentWashBrush}" />
                                         <Setter TargetName="Cell" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                                        <Setter TargetName="Glyph" Property="Stroke" Value="{DynamicResource AccentBrush}" />
-                                        <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                        <Setter TargetName="Glyph" Property="Stroke" Value="{DynamicResource SelectedTextBrush}" />
+                                        <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource SelectedTextBrush}" />
                                     </DataTrigger>
                                 </ControlTemplate.Triggers>
                             </ControlTemplate>
@@ -566,12 +568,12 @@
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Style="{StaticResource StageLauncherButton}"
                                 Command="{Binding Dashboard.AddCardCommand}">
-                            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="15" Text="+ ADD CARD" />
+                            <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="15" Text="+ ADD CARD" />
                         </Button>
 
                         <Button Style="{StaticResource StageLauncherButton}"
                                 Command="{Binding Dashboard.ResetToDefaultsCommand}">
-                            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="15" Text="RESET" />
+                            <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="15" Text="RESET" />
                         </Button>
                     </StackPanel>
 
@@ -590,7 +592,7 @@
                             HorizontalAlignment="Right" VerticalAlignment="Center"
                             Margin="10,0,0,0"
                             Command="{Binding Dashboard.ToggleEditCommand}">
-                        <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="15" Text="DONE" />
+                        <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="15" Text="DONE" />
                     </Button>
                 </Grid>
             </Border>
@@ -635,7 +637,7 @@
                                             Command="{Binding DataContext.RunStageActionCommand,
                                                       RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}">
-                                        <TextBlock FontFamily="{StaticResource MonoFont}"
+                                        <TextBlock FontFamily="{DynamicResource MonoFont}"
                                                    FontSize="16"
                                                    Text="{Binding Caption}" />
                                     </Button>
@@ -650,18 +652,18 @@
 
                         <Button Style="{StaticResource MenuItemButton}"
                                 Command="{Binding EditDashCommand}">
-                            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="16" Text="MODIFY WIDGETS" />
+                            <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16" Text="MODIFY WIDGETS" />
                         </Button>
 
                         <Button Style="{StaticResource MenuItemButton}"
                                 Command="{Binding OpenSettingsCommand}">
-                            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="16" Text="SETTINGS" />
+                            <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16" Text="SETTINGS" />
                         </Button>
 
                         <Button Style="{StaticResource MenuItemButton}"
                                 Margin="0"
                                 Command="{Binding ToggleMenuCommand}">
-                            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="16"
+                            <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16"
                                        Foreground="{DynamicResource TextMidBrush}" Text="CLOSE" />
                         </Button>
                     </StackPanel>

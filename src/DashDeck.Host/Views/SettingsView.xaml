@@ -16,17 +16,20 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Chrome" Background="Transparent" CornerRadius="12" Padding="18,0,0,0">
+                        <Border x:Name="Chrome" Background="Transparent" CornerRadius="{DynamicResource PanelRadius}" Padding="18,0,0,0">
                             <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Left" />
                         </Border>
+                        <!-- Hover first, so the selected fill wins over it: a tap leaves the pointer
+                             "over" the tab, and with a solid fill (a theme's accentWash of 1) the
+                             hover colour would hide the selected tab's dark lettering. -->
                         <ControlTemplate.Triggers>
-                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource AccentWashBrush}" />
-                                <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
-                            </DataTrigger>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource SurfaceBrush}" />
                             </Trigger>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource AccentWashBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource SelectedTextBrush}" />
+                            </DataTrigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -44,7 +47,7 @@
                         <Border x:Name="Chrome"
                                 Background="{DynamicResource SurfaceBrush}"
                                 BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1"
-                                CornerRadius="12" Padding="14,9,14,9" MinHeight="56">
+                                CornerRadius="{DynamicResource PanelRadius}" Padding="14,9,14,9" MinHeight="56">
                             <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Stretch" />
                         </Border>
                         <ControlTemplate.Triggers>
@@ -88,7 +91,7 @@
                                           RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                 CommandParameter="{Binding}">
                             <TextBlock Text="{Binding Name}"
-                                       FontFamily="{StaticResource MonoFont}"
+                                       FontFamily="{DynamicResource MonoFont}"
                                        FontSize="15" />
                         </Button>
                     </DataTemplate>
@@ -119,7 +122,7 @@
                                         CommandParameter="{Binding}">
                                     <StackPanel>
                                         <TextBlock Text="{Binding Label}"
-                                                   FontFamily="{StaticResource MonoFont}"
+                                                   FontFamily="{DynamicResource MonoFont}"
                                                    FontSize="14"
                                                    HorizontalAlignment="Center" />
                                         <TextBlock Text="{Binding Detail}"
@@ -159,7 +162,7 @@
                                         <TextBlock Text="{Binding Label}"
                                                    Margin="12,0,0,0"
                                                    VerticalAlignment="Center"
-                                                   FontFamily="{StaticResource MonoFont}"
+                                                   FontFamily="{DynamicResource MonoFont}"
                                                    FontSize="13" />
                                     </StackPanel>
                                 </Button>
@@ -186,7 +189,7 @@
                                 Height="56" MinWidth="130"
                                 Margin="12,0,0,0"
                                 Command="{Binding ApplyCustomAccentCommand}">
-                            <TextBlock Text="USE IT" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                            <TextBlock Text="USE IT" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                         </Button>
                     </StackPanel>
 
@@ -218,6 +221,162 @@
                 </StackPanel>
             </ScrollViewer>
 
+            <!-- ── THEMES (ADR-0036) ──────────────────────────────────────── -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          Visibility="{Binding IsThemes, Converter={StaticResource BoolToVis}}">
+                <StackPanel Margin="31,26,31,24" DataContext="{Binding Themes}">
+                    <TextBlock Style="{StaticResource CaptionText}" Text="THEMES" />
+
+                    <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                               TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                               Text="A theme is a file of named tokens — colours, fonts, corners — like a Home Assistant theme. Anything it leaves out stays the DashDeck look. Day and night still apply on top, and the Live, Stale, Unavailable and Simulated colours never change, whatever the theme." />
+
+                    <TextBlock Margin="2,16,0,0" FontFamily="{DynamicResource MonoFont}" FontSize="15"
+                               Foreground="{DynamicResource TextHighBrush}"
+                               Text="{Binding CurrentName, StringFormat=WEARING  {0}}" />
+
+                    <!-- Never silent: a value it could not use, text that will be hard to read, an accent refused. -->
+                    <ItemsControl Margin="2,8,0,0" ItemsSource="{Binding Warnings}"
+                                  Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVis}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap" Margin="0,0,0,4"
+                                           Style="{StaticResource MicroText}" Foreground="#FFE0B23C" Text="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- The list. Tap a theme to wear it. -->
+                    <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding Themes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Button Grid.Column="0" Style="{StaticResource SensorRowButton}" Margin="0"
+                                            Command="{Binding DataContext.WearCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- The theme at a glance: canvas, surface, accent, button, caption. -->
+                                            <ItemsControl Grid.Column="0" ItemsSource="{Binding Swatches}" VerticalAlignment="Center" Margin="0,0,14,0">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border Width="16" Height="34" Margin="0,0,3,0" CornerRadius="4"
+                                                                Background="{Binding}"
+                                                                BorderBrush="{DynamicResource HairlineStrongBrush}" BorderThickness="1" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Caption}" TextTrimming="CharacterEllipsis"
+                                                           FontFamily="{DynamicResource MonoFont}" FontSize="14"
+                                                           Foreground="{DynamicResource TextHighBrush}" />
+                                                <TextBlock Margin="0,3,0,0" Style="{StaticResource MicroText}"
+                                                           TextTrimming="CharacterEllipsis" Text="{Binding Detail}" />
+                                                <TextBlock Margin="0,3,0,0" Style="{StaticResource MicroText}" TextWrapping="Wrap"
+                                                           Text="{Binding Description}"
+                                                           Visibility="{Binding Description, Converter={StaticResource EmptyToCollapsed}}" />
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="2" Text="WEARING" VerticalAlignment="Center" Margin="12,0,0,0"
+                                                       FontFamily="{DynamicResource MonoFont}" FontSize="13"
+                                                       Foreground="{DynamicResource AccentBrush}"
+                                                       Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVis}}" />
+                                        </Grid>
+                                    </Button>
+
+                                    <Button Grid.Column="1" Style="{StaticResource StageLauncherButton}" MinWidth="110" Margin="8,0,0,0"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding DataContext.DeleteCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}"
+                                            Visibility="{Binding CanDelete, Converter={StaticResource BoolToVis}}">
+                                        <TextBlock Text="DELETE" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                                    </Button>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Bring one in, send one out, reload after a hand edit. -->
+                    <WrapPanel Margin="0,10,0,0">
+                        <Button Style="{StaticResource StageLauncherButton}" MinWidth="140" Margin="0,0,10,10" Command="{Binding ImportCommand}">
+                            <TextBlock Text="IMPORT…" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                        </Button>
+                        <Button Style="{StaticResource StageLauncherButton}" MinWidth="140" Margin="0,0,10,10" Command="{Binding ExportCommand}">
+                            <TextBlock Text="EXPORT…" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                        </Button>
+                        <Button Style="{StaticResource StageLauncherButton}" MinWidth="140" Margin="0,0,10,10" Command="{Binding ReloadCommand}">
+                            <TextBlock Text="RELOAD" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                        </Button>
+                        <Button Style="{StaticResource StageLauncherButton}" MinWidth="170" Margin="0,0,10,10" Command="{Binding OpenFolderCommand}">
+                            <TextBlock Text="OPEN FOLDER" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                        </Button>
+                    </WrapPanel>
+
+                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,14,0,0" Text="START YOUR OWN FROM THIS ONE" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBox Style="{StaticResource InputField}" Width="330"
+                                 Text="{Binding SaveAsName, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Style="{StaticResource StageLauncherButton}" MinWidth="140" Margin="10,0,0,0" Command="{Binding SaveAsCommand}">
+                            <TextBlock Text="SAVE AS" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                        </Button>
+                    </StackPanel>
+
+                    <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                               TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                               Foreground="{DynamicResource AccentBrush}"
+                               Text="{Binding Status}"
+                               Visibility="{Binding Status, Converter={StaticResource EmptyToCollapsed}}" />
+
+                    <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                               TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                               Text="{Binding UserFolder, StringFormat=Your themes are kept in {0}. Edit one in Notepad and press RELOAD to see it.}" />
+
+                    <!-- The reference for editing a file by hand. -->
+                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,26,0,0" Text="TOKENS — WHAT A THEME FILE CAN SET" />
+                    <ItemsControl ItemsSource="{Binding Tokens}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="22" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" Width="14" Height="14" CornerRadius="3" VerticalAlignment="Top" Margin="0,3,0,0"
+                                            Background="{Binding Swatch}"
+                                            BorderBrush="{DynamicResource HairlineStrongBrush}" BorderThickness="1"
+                                            Visibility="{Binding Swatch, Converter={StaticResource EmptyToCollapsed}}" />
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Text="{Binding Key}" FontFamily="{DynamicResource MonoFont}" FontSize="14"
+                                                   Foreground="{DynamicResource TextHighBrush}" />
+                                        <TextBlock Margin="0,2,0,0" Style="{StaticResource MicroText}" TextWrapping="Wrap" Text="{Binding Detail}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2" Margin="12,0,0,0" Text="{Binding Value}"
+                                               FontFamily="{DynamicResource MonoFont}" FontSize="13"
+                                               Foreground="{DynamicResource TextMidBrush}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+
             <!-- ── MOUNT ──────────────────────────────────────────────────── -->
             <ScrollViewer VerticalScrollBarVisibility="Auto"
                           Visibility="{Binding IsMount, Converter={StaticResource BoolToVis}}">
@@ -229,7 +388,7 @@
                                 Height="56" MinWidth="240"
                                 Command="{Binding LevelCommand}">
                             <TextBlock Text="{Binding LevelCaption}"
-                                       FontFamily="{StaticResource MonoFont}"
+                                       FontFamily="{DynamicResource MonoFont}"
                                        FontSize="14" />
                         </Button>
                     </StackPanel>
@@ -268,7 +427,7 @@
                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                         CommandParameter="{Binding}">
                                     <TextBlock Text="{Binding Label}"
-                                               FontFamily="{StaticResource MonoFont}"
+                                               FontFamily="{DynamicResource MonoFont}"
                                                FontSize="15" />
                                 </Button>
                             </DataTemplate>
@@ -288,7 +447,7 @@
                             Height="52" MinWidth="330" Margin="0,14,0,0"
                             HorizontalAlignment="Left"
                             Command="{Binding ToggleKeepStageAudioCommand}">
-                        <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="14">
+                        <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="14">
                             <Run Text="KEEP PLAYING WHEN YOU SWITCH —" />
                             <Run Text="{Binding KeepStageAudioLabel, Mode=OneWay}" FontWeight="Bold" />
                         </TextBlock>
@@ -307,7 +466,7 @@
                         <Button Style="{StaticResource StageLauncherButton}"
                                 Height="52" MinWidth="180"
                                 Command="{Binding ToggleGpsCommand}">
-                            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="14">
+                            <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="14">
                                 <Run Text="USE PHONE GPS —" />
                                 <Run Text="{Binding GpsEnabledLabel, Mode=OneWay}" FontWeight="Bold" />
                             </TextBlock>
@@ -315,7 +474,7 @@
                         <Button Style="{StaticResource StageLauncherButton}"
                                 Height="52" MinWidth="180" Margin="14,0,0,0"
                                 Command="{Binding ToggleGpsTransportCommand}">
-                            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="14">
+                            <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="14">
                                 <Run Text="VIA —" />
                                 <Run Text="{Binding GpsTransportLabel, Mode=OneWay}" FontWeight="Bold" />
                             </TextBlock>
@@ -338,7 +497,7 @@
                                                           RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                 CommandParameter="{Binding}">
                                             <TextBlock Text="{Binding Name}"
-                                                       FontFamily="{StaticResource MonoFont}" FontSize="14" />
+                                                       FontFamily="{DynamicResource MonoFont}" FontSize="14" />
                                         </Button>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -346,7 +505,7 @@
                             <Button Style="{StaticResource StageLauncherButton}"
                                     Height="56" MinWidth="110" VerticalAlignment="Top"
                                     Command="{Binding RefreshSerialPortsCommand}">
-                                <TextBlock Text="REFRESH" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                <TextBlock Text="REFRESH" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                             </Button>
                         </StackPanel>
                     </StackPanel>
@@ -388,11 +547,11 @@
                                      Text="{Binding Vehicle.VinText, UpdateSourceTrigger=PropertyChanged}" />
                             <Button Style="{StaticResource StageLauncherButton}" MinWidth="130" Margin="12,0,0,0"
                                     Command="{Binding Vehicle.ReadFromTruckCommand}">
-                                <TextBlock Text="READ FROM TRUCK" FontFamily="{StaticResource MonoFont}" FontSize="12" />
+                                <TextBlock Text="READ FROM TRUCK" FontFamily="{DynamicResource MonoFont}" FontSize="12" />
                             </Button>
                             <Button Style="{StaticResource StageLauncherButton}" MinWidth="100" Margin="0"
                                     Command="{Binding Vehicle.LookUpCommand}">
-                                <TextBlock Text="LOOK UP" FontFamily="{StaticResource MonoFont}" FontSize="12" />
+                                <TextBlock Text="LOOK UP" FontFamily="{DynamicResource MonoFont}" FontSize="12" />
                             </Button>
                         </StackPanel>
                     </StackPanel>
@@ -427,12 +586,12 @@
                     </TextBlock>
 
                     <!-- What it decoded to, every field correctable by hand. -->
-                    <Border Margin="0,16,0,0" Padding="16,14,16,6" CornerRadius="12"
+                    <Border Margin="0,16,0,0" Padding="16,14,16,6" CornerRadius="{DynamicResource PanelRadius}"
                             Background="{DynamicResource SurfaceBrush}"
                             BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1">
                         <StackPanel>
                             <TextBlock Text="{Binding Vehicle.Summary}" TextWrapping="Wrap"
-                                       FontFamily="{StaticResource MonoFont}" FontSize="15"
+                                       FontFamily="{DynamicResource MonoFont}" FontSize="15"
                                        Foreground="{DynamicResource TextHighBrush}" />
                             <TextBlock Margin="0,4,0,12" Style="{StaticResource MicroText}" Text="{Binding Vehicle.SourceText}"
                                        Visibility="{Binding Vehicle.SourceText, Converter={StaticResource EmptyToCollapsed}}" />
@@ -481,11 +640,11 @@
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                 <Button Style="{StaticResource StageLauncherButton}" MinWidth="200"
                                         Command="{Binding Vehicle.CycleTurboCommand}">
-                                    <TextBlock Text="{Binding Vehicle.TurboLabel}" FontFamily="{StaticResource MonoFont}" FontSize="12" />
+                                    <TextBlock Text="{Binding Vehicle.TurboLabel}" FontFamily="{DynamicResource MonoFont}" FontSize="12" />
                                 </Button>
                                 <Button Style="{StaticResource StageLauncherButton}" MinWidth="120"
                                         Command="{Binding Vehicle.ForgetCommand}">
-                                    <TextBlock Text="FORGET" FontFamily="{StaticResource MonoFont}" FontSize="12" />
+                                    <TextBlock Text="FORGET" FontFamily="{DynamicResource MonoFont}" FontSize="12" />
                                 </Button>
                             </StackPanel>
 
@@ -506,7 +665,7 @@
                                Text="{Binding Vehicle.PackProblem, StringFormat=A signal pack was left out: {0}}"
                                Visibility="{Binding Vehicle.PackProblem, Converter={StaticResource EmptyToCollapsed}}" />
 
-                    <Border Margin="0,12,0,0" Padding="16,12,12,12" CornerRadius="12"
+                    <Border Margin="0,12,0,0" Padding="16,12,12,12" CornerRadius="{DynamicResource PanelRadius}"
                             Background="{DynamicResource AccentWashBrush}"
                             BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
                             Visibility="{Binding Vehicle.RestartNeeded, Converter={StaticResource BoolToVis}}">
@@ -521,7 +680,7 @@
                             <Button Grid.Column="1" Style="{StaticResource StageLauncherButton}" Height="48" Margin="12,0,0,0"
                                     Command="{Binding Vehicle.RestartCommand}"
                                     Visibility="{Binding Vehicle.CanRestart, Converter={StaticResource BoolToVis}}">
-                                <TextBlock Text="RESTART NOW" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                <TextBlock Text="RESTART NOW" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                             </Button>
                         </Grid>
                     </Border>
@@ -552,7 +711,7 @@
                         <Ellipse Width="10" Height="10" VerticalAlignment="Center"
                                  Fill="{Binding Adapter.StatusQuality, Converter={StaticResource QualityBrushToken}}" />
                         <TextBlock Margin="10,0,0,0" MaxWidth="590" TextWrapping="Wrap" VerticalAlignment="Center"
-                                   FontFamily="{StaticResource MonoFont}" FontSize="13"
+                                   FontFamily="{DynamicResource MonoFont}" FontSize="13"
                                    Foreground="{DynamicResource TextHighBrush}"
                                    Text="{Binding Adapter.StatusText}" />
                     </StackPanel>
@@ -560,11 +719,11 @@
                     <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                         <Button Style="{StaticResource StageLauncherButton}" MinWidth="150"
                                 Command="{Binding Adapter.TestPortsCommand}">
-                            <TextBlock Text="TEST PORTS" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                            <TextBlock Text="TEST PORTS" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                         </Button>
                         <Button Style="{StaticResource StageLauncherButton}" MinWidth="170"
                                 Command="{Binding Adapter.UseSimulatorCommand}">
-                            <TextBlock Text="USE SIMULATOR" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                            <TextBlock Text="USE SIMULATOR" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                         </Button>
                     </StackPanel>
 
@@ -587,7 +746,7 @@
                                                         <Border x:Name="Chrome"
                                                                 Background="{DynamicResource SurfaceBrush}"
                                                                 BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1"
-                                                                CornerRadius="12" Padding="14,9,14,9" MinHeight="58">
+                                                                CornerRadius="{DynamicResource PanelRadius}" Padding="14,9,14,9" MinHeight="58">
                                                             <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Stretch" />
                                                         </Border>
                                                         <ControlTemplate.Triggers>
@@ -611,7 +770,7 @@
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="{Binding Port}" VerticalAlignment="Center"
-                                                   FontFamily="{StaticResource MonoFont}" FontSize="16"
+                                                   FontFamily="{DynamicResource MonoFont}" FontSize="16"
                                                    Foreground="{DynamicResource TextHighBrush}" />
                                         <TextBlock Grid.Column="1" Text="{Binding Detail}" VerticalAlignment="Center"
                                                    TextWrapping="Wrap" Margin="0,0,12,0"
@@ -620,7 +779,7 @@
                                             <Ellipse Width="9" Height="9" VerticalAlignment="Center"
                                                      Fill="{Binding Quality, Converter={StaticResource QualityBrushToken}}" />
                                             <TextBlock Text="{Binding Label}" Margin="8,0,0,0" VerticalAlignment="Center"
-                                                       FontFamily="{StaticResource MonoFont}" FontSize="12"
+                                                       FontFamily="{DynamicResource MonoFont}" FontSize="12"
                                                        Foreground="{Binding Quality, Converter={StaticResource ValueBrushToken}}" />
                                         </StackPanel>
                                     </Grid>
@@ -637,7 +796,7 @@
                     <Button Style="{StaticResource StageLauncherButton}" Height="48" Margin="0,10,0,0"
                             HorizontalAlignment="Left" Command="{Binding Adapter.RestartCommand}"
                             Visibility="{Binding Adapter.ShowRestart, Converter={StaticResource BoolToVis}}">
-                        <TextBlock Text="RESTART NOW" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                        <TextBlock Text="RESTART NOW" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                     </Button>
 
                     <TextBlock Margin="2,12,0,0" MaxWidth="620" HorizontalAlignment="Left"
@@ -667,7 +826,7 @@
                                        Text="{Binding Problem}"
                                        Visibility="{Binding Problem, Converter={StaticResource EmptyToCollapsed}}" />
 
-                            <Border Margin="0,16,0,0" Padding="16,12,12,12" CornerRadius="12"
+                            <Border Margin="0,16,0,0" Padding="16,12,12,12" CornerRadius="{DynamicResource PanelRadius}"
                                     Background="{DynamicResource AccentWashBrush}"
                                     BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
                                     Visibility="{Binding RestartNeeded, Converter={StaticResource BoolToVis}}">
@@ -684,7 +843,7 @@
                                             Height="48" Margin="12,0,0,0"
                                             Command="{Binding RestartCommand}"
                                             Visibility="{Binding CanRestart, Converter={StaticResource BoolToVis}}">
-                                        <TextBlock Text="RESTART NOW" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                        <TextBlock Text="RESTART NOW" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                                     </Button>
                                 </Grid>
                             </Border>
@@ -695,11 +854,11 @@
                             <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                 <Button Style="{StaticResource StageLauncherButton}" MinWidth="170"
                                         Command="{Binding ScanCommand}">
-                                    <TextBlock Text="SCAN THE TRUCK" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                    <TextBlock Text="SCAN THE TRUCK" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                                 </Button>
                                 <Button Style="{StaticResource StageLauncherButton}" MinWidth="170"
                                         Command="{Binding NewCommand}">
-                                    <TextBlock Text="+ NEW SIGNAL" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                    <TextBlock Text="+ NEW SIGNAL" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                                 </Button>
                             </StackPanel>
 
@@ -724,12 +883,12 @@
                                                     </Grid.ColumnDefinitions>
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding Caption}" TextTrimming="CharacterEllipsis"
-                                                                   FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                                                   FontFamily="{DynamicResource MonoFont}" FontSize="14"
                                                                    Foreground="{DynamicResource TextHighBrush}" />
                                                         <TextBlock Margin="0,3,0,0" Style="{StaticResource MicroText}" Text="{Binding Detail}" />
                                                     </StackPanel>
                                                     <TextBlock Grid.Column="1" Text="+ ADD" VerticalAlignment="Center" Margin="12,0,0,0"
-                                                               FontFamily="{StaticResource MonoFont}" FontSize="13"
+                                                               FontFamily="{DynamicResource MonoFont}" FontSize="13"
                                                                Foreground="{DynamicResource AccentBrush}" />
                                                 </Grid>
                                             </Button>
@@ -748,7 +907,7 @@
                                                     CommandParameter="{Binding}">
                                                 <StackPanel>
                                                     <TextBlock Text="{Binding Caption}" TextTrimming="CharacterEllipsis"
-                                                               FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                                               FontFamily="{DynamicResource MonoFont}" FontSize="14"
                                                                Foreground="{DynamicResource TextMidBrush}" />
                                                     <TextBlock Margin="0,3,0,0" Style="{StaticResource MicroText}" Text="{Binding Detail}" />
                                                 </StackPanel>
@@ -769,12 +928,12 @@
                                 <StackPanel Orientation="Horizontal">
                                     <Button Style="{StaticResource StageLauncherButton}" MinWidth="200"
                                             Command="{Binding ScanModulesCommand}">
-                                        <TextBlock Text="SCAN FOR MODULES" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                        <TextBlock Text="SCAN FOR MODULES" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                                     </Button>
                                     <Button Style="{StaticResource StageLauncherButton}" MinWidth="120"
                                             Command="{Binding StopCommand}"
                                             Visibility="{Binding IsSweeping, Converter={StaticResource BoolToVis}}">
-                                        <TextBlock Text="STOP" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                        <TextBlock Text="STOP" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                                     </Button>
                                 </StackPanel>
 
@@ -809,7 +968,7 @@
                                                     </Grid.ColumnDefinitions>
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding Caption}" TextTrimming="CharacterEllipsis"
-                                                                   FontFamily="{StaticResource MonoFont}" FontSize="14">
+                                                                   FontFamily="{DynamicResource MonoFont}" FontSize="14">
                                                             <TextBlock.Style>
                                                                 <Style TargetType="TextBlock">
                                                                     <Setter Property="Foreground" Value="{DynamicResource TextHighBrush}" />
@@ -825,7 +984,7 @@
                                                                    TextTrimming="CharacterEllipsis" Text="{Binding Detail}" />
                                                     </StackPanel>
                                                     <TextBlock Grid.Column="1" Text="IDENTIFIERS ›" VerticalAlignment="Center" Margin="12,0,0,0"
-                                                               FontFamily="{StaticResource MonoFont}" FontSize="13"
+                                                               FontFamily="{DynamicResource MonoFont}" FontSize="13"
                                                                Foreground="{DynamicResource AccentBrush}" />
                                                 </Grid>
                                             </Button>
@@ -847,7 +1006,7 @@
                                                         Command="{Binding DataContext.SelectRangeCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}">
-                                                    <TextBlock Text="{Binding Label}" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                                    <TextBlock Text="{Binding Label}" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                                                 </Button>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -868,7 +1027,7 @@
                                             <TextBlock Style="{StaticResource FieldLabel}" Text=" " />
                                             <Button Style="{StaticResource StageLauncherButton}" MinWidth="130"
                                                     Command="{Binding SweepCommand}">
-                                                <TextBlock Text="SWEEP" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                                <TextBlock Text="SWEEP" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                                             </Button>
                                         </StackPanel>
                                     </StackPanel>
@@ -898,13 +1057,13 @@
                                                         </Grid.ColumnDefinitions>
                                                         <StackPanel>
                                                             <TextBlock Text="{Binding Caption}"
-                                                                       FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                                                       FontFamily="{DynamicResource MonoFont}" FontSize="14"
                                                                        Foreground="{DynamicResource TextHighBrush}" />
                                                             <TextBlock Margin="0,3,0,0" Style="{StaticResource MicroText}"
                                                                        TextTrimming="CharacterEllipsis" Text="{Binding Detail}" />
                                                         </StackPanel>
                                                         <TextBlock Grid.Column="1" Text="+ DEFINE" VerticalAlignment="Center" Margin="12,0,0,0"
-                                                                   FontFamily="{StaticResource MonoFont}" FontSize="13"
+                                                                   FontFamily="{DynamicResource MonoFont}" FontSize="13"
                                                                    Foreground="{DynamicResource AccentBrush}"
                                                                    Visibility="{Binding CanDefine, Converter={StaticResource BoolToVis}}" />
                                                     </Grid>
@@ -943,7 +1102,7 @@
                                                                 <StackPanel>
                                                                     <StackPanel Orientation="Horizontal">
                                                                         <TextBlock Text="{Binding Caption}" TextTrimming="CharacterEllipsis"
-                                                                                   FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                                                                   FontFamily="{DynamicResource MonoFont}" FontSize="14"
                                                                                    Foreground="{DynamicResource TextHighBrush}" />
                                                                         <TextBlock Text="{Binding OriginLabel}" Margin="10,0,0,0"
                                                                                    VerticalAlignment="Center"
@@ -959,7 +1118,7 @@
                                                                              Fill="{Binding Quality, Converter={StaticResource QualityBrushToken}}" />
                                                                     <TextBlock Text="{Binding StatusText}" Margin="8,0,0,0"
                                                                                VerticalAlignment="Center"
-                                                                               FontFamily="{StaticResource MonoFont}" FontSize="13"
+                                                                               FontFamily="{DynamicResource MonoFont}" FontSize="13"
                                                                                Foreground="{Binding Quality, Converter={StaticResource ValueBrushToken}}" />
                                                                 </StackPanel>
                                                             </Grid>
@@ -983,7 +1142,7 @@
                                         <DataTemplate>
                                             <Border Background="{DynamicResource SurfaceBrush}"
                                                     BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1"
-                                                    CornerRadius="12" Padding="14,9,14,9" Margin="0,0,0,8" MinHeight="56">
+                                                    CornerRadius="{DynamicResource PanelRadius}" Padding="14,9,14,9" Margin="0,0,0,8" MinHeight="56">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="*" />
@@ -991,7 +1150,7 @@
                                                     </Grid.ColumnDefinitions>
                                                     <StackPanel VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding Caption}"
-                                                                   FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                                                   FontFamily="{DynamicResource MonoFont}" FontSize="14"
                                                                    Foreground="{DynamicResource TextHighBrush}" />
                                                         <TextBlock Margin="0,3,0,0" Style="{StaticResource MicroText}"
                                                                    TextTrimming="CharacterEllipsis" Text="{Binding Detail}" />
@@ -1002,7 +1161,7 @@
                                                                  Fill="{Binding Quality, Converter={StaticResource QualityBrushToken}}" />
                                                         <TextBlock Text="{Binding StatusText}" Margin="8,0,0,0"
                                                                    VerticalAlignment="Center"
-                                                                   FontFamily="{StaticResource MonoFont}" FontSize="13"
+                                                                   FontFamily="{DynamicResource MonoFont}" FontSize="13"
                                                                    Foreground="{Binding Quality, Converter={StaticResource ValueBrushToken}}" />
                                                     </StackPanel>
                                                 </Grid>
@@ -1058,7 +1217,7 @@
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="BUS" />
                                     <Button Style="{StaticResource StageLauncherButton}" MinWidth="170"
                                             Command="{Binding ToggleBusCommand}">
-                                        <TextBlock Text="{Binding BusLabel}" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                        <TextBlock Text="{Binding BusLabel}" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                                     </Button>
                                 </StackPanel>
                                 <StackPanel Style="{StaticResource EditorField}">
@@ -1080,7 +1239,7 @@
                                     <TextBlock Style="{StaticResource FieldLabel}" Text=" " />
                                     <Button Style="{StaticResource StageLauncherButton}" MinWidth="110"
                                             Command="{Binding TestCommand}">
-                                        <TextBlock Text="TEST" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                        <TextBlock Text="TEST" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                                     </Button>
                                 </StackPanel>
                             </StackPanel>
@@ -1088,12 +1247,12 @@
                             <TextBlock Margin="2,0,0,12" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
                                        Style="{StaticResource MicroText}" Text="{Binding ModuleHint}" />
 
-                            <Border Padding="14,10,14,10" CornerRadius="12" Margin="0,0,0,14"
+                            <Border Padding="14,10,14,10" CornerRadius="{DynamicResource PanelRadius}" Margin="0,0,0,14"
                                     Background="{DynamicResource SurfaceBrush}"
                                     BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1"
                                     Visibility="{Binding HasTested, Converter={StaticResource BoolToVis}}">
                                 <StackPanel>
-                                    <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="15" TextWrapping="Wrap"
+                                    <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="15" TextWrapping="Wrap"
                                                Foreground="{DynamicResource TextHighBrush}">
                                         <Run Text="{Binding RequestText, Mode=OneWay}" Foreground="{DynamicResource TextLowBrush}" />
                                         <Run Text="→" Foreground="{DynamicResource TextLowBrush}" />
@@ -1126,7 +1285,7 @@
                                                         Command="{Binding DataContext.SetByteLengthCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}">
-                                                    <TextBlock Text="{Binding Label}" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                                    <TextBlock Text="{Binding Label}" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                                                 </Button>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -1139,7 +1298,7 @@
                                     <TextBlock Style="{StaticResource FieldLabel}" Text="SIGN" />
                                     <Button Style="{StaticResource StageLauncherButton}" MinWidth="130"
                                             Command="{Binding ToggleSignedCommand}">
-                                        <TextBlock Text="{Binding SignedLabel}" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                        <TextBlock Text="{Binding SignedLabel}" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                                     </Button>
                                 </StackPanel>
                                 <StackPanel Style="{StaticResource EditorField}">
@@ -1190,16 +1349,16 @@
                             <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                                 <Button Style="{StaticResource StageLauncherButton}" MinWidth="120"
                                         Command="{Binding SaveCommand}">
-                                    <TextBlock Text="SAVE" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                    <TextBlock Text="SAVE" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                                 </Button>
                                 <Button Style="{StaticResource StageLauncherButton}" MinWidth="120"
                                         Command="{Binding CancelCommand}">
-                                    <TextBlock Text="CANCEL" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                    <TextBlock Text="CANCEL" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                                 </Button>
                                 <Button Style="{StaticResource StageLauncherButton}" MinWidth="120"
                                         Command="{Binding RemoveCommand}"
                                         Visibility="{Binding CanRemove, Converter={StaticResource BoolToVis}}">
-                                    <TextBlock Text="{Binding RemoveCaption}" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                    <TextBlock Text="{Binding RemoveCaption}" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                                 </Button>
                             </StackPanel>
 
@@ -1229,7 +1388,7 @@
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
                                     <TextBlock Text="{Binding Name}" Width="120"
-                                               FontFamily="{StaticResource MonoFont}" FontSize="14"
+                                               FontFamily="{DynamicResource MonoFont}" FontSize="14"
                                                Foreground="{DynamicResource TextMidBrush}" />
                                     <TextBlock Text="{Binding Detail}" Style="{StaticResource MicroText}"
                                                VerticalAlignment="Center" />
@@ -1250,14 +1409,14 @@
                         <Button Style="{StaticResource StageLauncherButton}"
                                 Height="56" MinWidth="118" Margin="12,0,0,0"
                                 Command="{Binding BrowseCommand}">
-                            <TextBlock Text="BROWSE…" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                            <TextBlock Text="BROWSE…" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                         </Button>
                         <TextBox Style="{StaticResource InputField}" Width="200" Margin="12,0,0,0"
                                  Text="{Binding NewAppArguments, UpdateSourceTrigger=PropertyChanged}" />
                         <Button Style="{StaticResource StageLauncherButton}"
                                 Height="56" MinWidth="90" Margin="12,0,0,0"
                                 Command="{Binding AddAppCommand}">
-                            <TextBlock Text="ADD" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                            <TextBlock Text="ADD" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                         </Button>
                     </StackPanel>
 
@@ -1268,7 +1427,7 @@
                             HorizontalAlignment="Left"
                             Command="{Binding ToggleNewAppKeepPlayingCommand}">
                         <TextBlock Text="{Binding NewAppKeepPlayingLabel}"
-                                   FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                                   FontFamily="{DynamicResource MonoFont}" FontSize="13" />
                     </Button>
 
                     <TextBlock Margin="2,12,0,0" MaxWidth="620" HorizontalAlignment="Left"
@@ -1286,7 +1445,7 @@
                             <DataTemplate>
                                 <Border Background="{DynamicResource SurfaceBrush}"
                                         BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1"
-                                        CornerRadius="12" Padding="14,10,10,10" Margin="0,0,0,10">
+                                        CornerRadius="{DynamicResource PanelRadius}" Padding="14,10,10,10" Margin="0,0,0,10">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
@@ -1296,7 +1455,7 @@
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="{Binding Name}"
-                                                           FontFamily="{StaticResource MonoFont}" FontSize="15"
+                                                           FontFamily="{DynamicResource MonoFont}" FontSize="15"
                                                            Foreground="{DynamicResource TextHighBrush}" />
                                                 <TextBlock Text="▶ keeps playing" Margin="10,0,0,0"
                                                            VerticalAlignment="Center"

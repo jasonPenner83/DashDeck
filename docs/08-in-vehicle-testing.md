@@ -212,3 +212,55 @@ step 3 but not required. **Close FORScan before starting** — the adapter can o
 If MS-CAN finds nothing at all, check **Settings ▸ Vehicle**'s adapter line still lists MS-CAN as
 reachable, and note it — the 2026-10-01 bring-up found the adapter accepts the MS-CAN switch, so
 silence there would be news.
+
+---
+
+## Settings ▸ Themes — wearing a theme in the cab (ADR-0036)
+
+**You need:** the tablet in its mount. Ignition **on** or **running**, parked. Do one pass in
+**daylight** and, if you can, one after dark (or set **Settings ▸ Appearance ▸ NIGHT** to fake it).
+No internet needed. The adapter is optional; with it, the card borders show real Live green.
+
+1. Open **Settings ▸ Themes**. **Expect:** a list of **DASHDECK** (built in, marked **WEARING**)
+   and **LCARS (INSPIRED)** (shipped), each with five colour swatches, and a token list below.
+2. Tap **LCARS (INSPIRED)**. **Expect**, within a second and without a restart:
+   - a black screen;
+   - **pill-shaped** buttons in periwinkle with black lettering;
+   - **tall, narrow capital lettering** (the Antonio font);
+   - the selected settings tab filled **orange** with black lettering.
+
+   If the lettering looks like ordinary wide Windows text instead, the font didn't load — note it.
+3. Go to the dash. **Expect:**
+   - **The nav bar**: black, with lavender labels; the current destination is filled orange with
+     black lettering.
+   - **The cards**: black, with rounder corners and peach captions.
+   - **The card borders keep their quality colours**: green for Live, blue for Simulated, amber
+     for Stale.
+   - **Values** are still the same off-white.
+4. Glance test from the driver's seat, in daylight. Can you read a card value, a caption and the nav
+   labels at a glance? Is the peach caption text too faint in sun? Note anything you had to squint at.
+5. Touch test: switch dash pages, open the stage launcher, change the stage, open and close a card's
+   detail. **Expect:** every pill button responds to a finger as before.
+6. Night: **Settings ▸ Appearance ▸ NIGHT** (or wait for dark on AUTO). **Expect:** the LCARS
+   colours dim — orange and lavender get darker, the screen stops being the brightest thing in the
+   cab — and stay readable. Set it back to AUTO.
+7. Pull the adapter's USB (if connected). **Expect:** the **ADAPTER LOST — RECONNECTING** banner is
+   still the amber it always is, not an LCARS colour. Plug it back in.
+8. Quit DashDeck and start it again. **Expect:** it comes up already in LCARS — the choice is
+   remembered.
+9. Back in **Settings ▸ Themes**: type `My LCARS` under **START YOUR OWN FROM THIS ONE**, press
+   **SAVE AS**. **Expect:** a **MY LCARS** row marked **YOURS** and **WEARING**. Press **DELETE** on
+   it. **Expect:** it's gone and the dash is back to the DashDeck look. Tap **DASHDECK** to make
+   sure the default is back exactly as it was.
+
+**A failure looks like:**
+- the dash not changing when a theme is tapped, or only part of it changing (for example, buttons
+  still square);
+- wide, ordinary lettering under LCARS (the font did not load);
+- a quality colour that changed with the theme (a card border, the SIM badge, the ADAPTER LOST
+  banner);
+- text you can't read in daylight or at night;
+- a selected button or tab whose lettering disappears into its fill;
+- the theme not remembered after a restart.
+
+Take a photo of anything that looks wrong; for a theme, the screen *is* the bug report.

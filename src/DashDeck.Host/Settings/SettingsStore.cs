@@ -16,6 +16,10 @@ public sealed record UserSettings
     [JsonPropertyName("themeMode")]
     public string ThemeMode { get; init; } = "Auto";
 
+    /// <summary>The theme being worn (ADR-0036): <c>builtin/dashdeck</c>, <c>shipped/…</c> or <c>yours/…</c>.</summary>
+    [JsonPropertyName("themeId")]
+    public string ThemeId { get; init; } = "builtin/dashdeck";
+
     /// <summary>A preset's name, or <c>CUSTOM</c>.</summary>
     [JsonPropertyName("accentName")]
     public string AccentName { get; init; } = "EMBER";
