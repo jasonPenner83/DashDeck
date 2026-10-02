@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **395 tests green** — 166 engine, 229 shell.
+(ADR-0010). **427 tests green** — 166 engine, 261 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -47,7 +47,7 @@ budget, and their footer says where they answered from rather than an allocated 
 so the card editor's picker is **searchable and grouped by function**; the synthetic truck
 answers the new PIDs so the extra options are live. Cards flow into rows and rows into pages
 that snap sideways; **only the visible page declares signals.** Settings is **split into a rail
-of sections** (Appearance, Mount, Display, Vehicle, Sensors, Apps, Diagnostics); it and the card
+of sections** (Appearance, Themes, Mount, Display, Vehicle, Sensors, Apps, Diagnostics); it and the card
 editor are full-screen views that take all six bands and hide the stage, which keeps running (Q17).
 **Settings ▸ Sensors** (ADR-0032) lists every vehicle signal and tablet sensor with what the
 truck has said about each — without ever declaring demand — **scans** the supported-PID bitmaps
@@ -69,6 +69,19 @@ VIN is **read from the truck** (mode 09) or typed, **decoded once by NHTSA vPIC*
 `VehicleProfile` (year, make, model, engine — `apiVersion 1.2`, **never the VIN**) and picks a
 **vehicle signal pack** from `catalog/vehicles/` to lay over the standard set
 (standard → pack → your overlay). The F-150 2.7 pack is empty until TEST confirms Ford PIDs.
+
+**Themes are files of named tokens** (ADR-0036), modelled on Home Assistant's: 26 tokens —
+surface and text ramps, accent and how solidly a selection is filled, captions, strip, nav and
+button colours, button/card/panel radii, border width, the two fonts — each defaulting to the
+DashDeck look (the built-in theme is pixel-identical to before). Shipped themes sit in
+`catalog/themes/` with any font files they carry; the user's in `%LOCALAPPDATA%\DashDeck\themes\`.
+**Settings ▸ Themes** wears one on a tap, IMPORTs, EXPORTs, SAVEs AS, DELETEs yours, and RELOADs
+after a hand edit; [`docs/writing-a-theme.md`](docs/writing-a-theme.md) is the reference. Night is
+derived by dimming; a bad value costs one token and a warning, never the dash. **The quality
+colours are not tokens**, and a theme's accent passes the same check a hand-picked one does.
+*LCARS (inspired)* ships first, lettered in Antonio (OFL). **Fonts, radii and border width are
+`DynamicResource` now, like colours** — a view that reaches `UiFont` by `StaticResource` will not
+follow the theme.
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
@@ -275,7 +288,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Thirty-five exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Thirty-six exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -292,7 +305,8 @@ a VIN read from the truck or typed, decoded once and cached, filling `VehiclePro
 (`apiVersion 1.2`) and choosing a vehicle signal pack, and an adapter link that heals itself —
 re-configured after reconnects, rate and port found again — with a simulated start that goes
 live when the adapter answers, chosen from a list of tested ports, and asking modules by
-address — a module sweep, an identifier sweep, and signals that name their module.
+address — a module sweep, an identifier sweep, and signals that name their module, and
+themes as files of named tokens chosen in Settings, with the quality colours still out of reach.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

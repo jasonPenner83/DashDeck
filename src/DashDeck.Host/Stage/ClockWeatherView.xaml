@@ -20,7 +20,7 @@
         <Grid Grid.Row="0" VerticalAlignment="Center">
             <StackPanel HorizontalAlignment="Left" VerticalAlignment="Center">
                 <TextBlock Text="{Binding TimeText}"
-                           FontFamily="{StaticResource UiFont}"
+                           FontFamily="{DynamicResource UiFont}"
                            FontSize="150"
                            FontWeight="Bold"
                            Foreground="{DynamicResource TextHighBrush}"
@@ -28,7 +28,7 @@
                            LineStackingStrategy="BlockLineHeight" />
                 <TextBlock Text="{Binding DateText}"
                            Margin="6,10,0,0"
-                           FontFamily="{StaticResource UiFont}"
+                           FontFamily="{DynamicResource UiFont}"
                            FontSize="22"
                            Foreground="{DynamicResource TextMidBrush}" />
             </StackPanel>
@@ -48,7 +48,7 @@
                      baseline, so the degree sign sits against the digits instead of
                      floating above them. -->
                 <TextBlock HorizontalAlignment="Right"
-                           FontFamily="{StaticResource UiFont}"
+                           FontFamily="{DynamicResource UiFont}"
                            Foreground="{DynamicResource TextHighBrush}">
                     <Run Text="{Binding TemperatureText, Mode=OneWay}"
                          FontSize="86"
@@ -60,7 +60,7 @@
 
                 <TextBlock Text="{Binding ConditionText}"
                            HorizontalAlignment="Right"
-                           FontFamily="{StaticResource UiFont}"
+                           FontFamily="{DynamicResource UiFont}"
                            FontSize="24"
                            Foreground="{DynamicResource TextMidBrush}" />
 
@@ -110,14 +110,14 @@
 
                             <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                                 <TextBlock Text="{Binding High}"
-                                           FontFamily="{StaticResource UiFont}"
+                                           FontFamily="{DynamicResource UiFont}"
                                            FontSize="34"
                                            FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextHighBrush}" />
                                 <TextBlock Text="{Binding Low}"
                                            Margin="12,0,0,4"
                                            VerticalAlignment="Bottom"
-                                           FontFamily="{StaticResource UiFont}"
+                                           FontFamily="{DynamicResource UiFont}"
                                            FontSize="22"
                                            Foreground="{DynamicResource TextLowBrush}" />
                             </StackPanel>

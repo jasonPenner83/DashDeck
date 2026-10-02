@@ -16,6 +16,8 @@
       has nothing above it to walk to.
     -->
     <Content Include="..\..\catalog\**\*.json" Link="catalog\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Themes carry their own fonts and the fonts' licences (ADR-0036). -->
+    <Content Include="..\..\catalog\themes\*.ttf;..\..\catalog\themes\*.otf;..\..\catalog\themes\*.txt" Link="catalog\themes\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

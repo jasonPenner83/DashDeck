@@ -18,7 +18,7 @@ including the reasoning that later turns out to be wrong.
 | [0010](ADR-0010-abstractions-has-no-ui-dependency.md) | `DashDeck.Abstractions` carries no UI dependency | Accepted |
 | [0011](ADR-0011-view-contract-and-mvvm.md) | Component = widget + optional full-screen; MVVM in the shell only | Accepted |
 | [0012](ADR-0012-widgets-and-applets.md) | Declarative widgets and sandboxed web applets for third parties (supersedes 0002 in part) | Accepted |
-| [0013](ADR-0013-theming.md) | Bounded theming: day/night, one curated accent, quality colours fixed | Accepted |
+| [0013](ADR-0013-theming.md) | Bounded theming: day/night, one curated accent, quality colours fixed | Accepted; "three things" superseded by 0036 |
 | [0014](ADR-0014-custom-accents.md) | Custom accents, allowed by validation rather than curation (supersedes one clause of 0013); settings persist in `%LOCALAPPDATA%` | Accepted |
 | [0015](ADR-0015-arranged-dashboard.md) | The dash is a user-arranged list of cards, flowed into pages; only the visible page declares signals | Accepted |
 | [0016](ADR-0016-vehicle-first-heading.md) | Vehicle data first, device sensors as a declared and visible fallback | Accepted |
@@ -41,3 +41,4 @@ including the reasoning that later turns out to be wrong.
 | [0033](ADR-0033-vin-lookup-and-vehicle-packs.md) | Which vehicle this is: the VIN read from the truck or typed, decoded once by NHTSA vPIC and cached; year/make/model/engine on `VehicleProfile` (`apiVersion` 1.2, never the VIN); vehicle signal packs in `catalog/vehicles/` matched to it | Accepted |
 | [0034](ADR-0034-resilient-adapter-link.md) | A self-healing adapter link (rate and port found again, adapter re-configured after a reconnect, paced retries); a simulated start goes live when the adapter answers, without a restart; Settings ▸ Vehicle lists tested ports to choose from (amends 0031) | Accepted |
 | [0035](ADR-0035-module-discovery.md) | Asking modules by address: requests and catalog signals can name a module (`"module": "726"`); Settings ▸ Sensors sweeps every address on both buses for modules and a module's identifiers a range at a time, reads only, parked; module names come from vehicle packs | Accepted |
+| [0036](ADR-0036-token-themes.md) | Themes as files of named tokens (colours, fonts, radii) like Home Assistant's, chosen, imported, exported and reloaded in Settings ▸ Themes; night derived by dimming; quality colours still fixed and accents still checked; *LCARS (inspired)* ships first (supersedes ADR-0013's "three things") | Accepted |
