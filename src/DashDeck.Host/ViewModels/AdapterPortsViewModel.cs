@@ -22,6 +22,9 @@ public interface IAdapterStatus
     /// <summary>Why the chosen adapter is not being read, while it is watched for.</summary>
     string? FallbackReason { get; }
 
+    /// <summary>Why the link last failed — dropped, not found, wrong rate — or null.</summary>
+    string? LinkProblem { get; }
+
     AdapterChoice UseAdapterPort(string? port);
 }
 
@@ -177,7 +180,8 @@ public sealed partial class AdapterPortsViewModel : ObservableObject
         else if (!_status.IsSimulated)
         {
             // Live, but the cable is out or the adapter is resetting: the link is finding it again.
-            StatusText = "LIVE — the adapter dropped; reconnecting by itself. Readings are stale until it answers.";
+            StatusText = "LIVE — the adapter dropped; reconnecting by itself. Readings are stale until it answers."
+                + (_status.LinkProblem is { } problem ? $" Last: {problem}." : "");
             StatusQuality = SignalQuality.Stale;
         }
         else if (_status.WatchedPort is not null)

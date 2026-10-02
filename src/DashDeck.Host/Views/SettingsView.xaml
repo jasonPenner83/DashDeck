@@ -642,7 +642,7 @@
 
                     <TextBlock Margin="2,12,0,0" MaxWidth="620" HorizontalAlignment="Left"
                                TextWrapping="Wrap" Style="{StaticResource MicroText}"
-                               Text="Testing opens each port briefly and asks what is on it — adapter commands only; nothing is sent to the vehicle. A port FORScan is holding shows as in use; close it to test. The voltage is read at the OBD-II port: near zero on a desk, about 12 V with the ignition off, 14 V running. Once chosen, DashDeck keeps the link alive by itself: it switches from simulated to live when the adapter answers, reconnects when the cable is knocked, finds the baud rate again if the adapter resets, and follows the adapter if Windows gives it a new COM number." />
+                               Text="Testing opens each port briefly and asks what is on it — adapter commands only; nothing is sent to the vehicle. A port something else is holding shows as IN USE: close FORScan, or unplug the adapter's USB for 10 seconds to free it. The voltage is read at the OBD-II port: near zero on a desk, about 12 V with the ignition off, 14 V running. Once chosen, DashDeck keeps the link alive by itself: it switches from simulated to live when the adapter answers, reconnects when the cable is knocked, finds the baud rate again if the adapter resets, and follows the adapter if Windows gives it a new COM number. What the link does is logged to %LOCALAPPDATA%\DashDeck\adapter.log." />
 </StackPanel>
             </ScrollViewer>
 

@@ -161,9 +161,11 @@ public sealed class SerialPortTransport : IVehicleTransport
 
             return await ReadToPromptAsync(port, ct).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException or TimeoutException)
         {
-            // The cable was pulled, or the tablet slept. Normal, not exceptional.
+            // The cable was pulled, or the tablet slept. Normal, not exceptional. A yanked USB
+            // serial device surfaces as any of these — access denied and object-disposed as often
+            // as a plain I/O error — and every one of them means the same thing (ADR-0034).
             State = TransportState.Disconnected;
             throw new IOException($"{_portName} dropped mid-exchange.", ex);
         }
@@ -227,23 +229,39 @@ public sealed class SerialPortTransport : IVehicleTransport
         throw new IOException($"Could not reopen {_portName} after {delays.Length} attempts.");
     }
 
+    /// <remarks>
+    /// <b>Never throws.</b> Closing a port whose USB device has been pulled out throws — access
+    /// denied, object disposed, I/O — depending on the driver and the moment. This used to catch
+    /// only the I/O case, and the others escaped from a disconnect, through the link, and stopped
+    /// the polling loop for good: the cable went back in and nothing ever asked again. Found in
+    /// the truck (ADR-0034).
+    /// </remarks>
     public ValueTask DisposeAsync()
     {
+        var port = _port;
+        _port = null;
+
         try
         {
-            if (_port is { IsOpen: true })
+            if (port is { IsOpen: true })
             {
-                _port.Close();
+                port.Close();
             }
-
-            _port?.Dispose();
         }
-        catch (IOException)
+        catch (Exception)
         {
             // Nothing useful to do while tearing down a port that is already gone.
         }
 
-        _port = null;
+        try
+        {
+            port?.Dispose();
+        }
+        catch (Exception)
+        {
+            // Likewise.
+        }
+
         State = TransportState.Disconnected;
         return ValueTask.CompletedTask;
     }

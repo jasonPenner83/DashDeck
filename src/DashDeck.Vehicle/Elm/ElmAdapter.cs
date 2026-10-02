@@ -186,11 +186,13 @@ public sealed class ElmAdapter : IVehicleAdapter
         {
             throw;
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // A dropped cable mid-request is routine, not exceptional. The transport
             // reconnects on its own; this request simply has no answer — and whatever the
             // adapter was configured as may not survive the reconnect, so configure again.
+            // Any exception, not only IOException: a pulled USB device has surfaced as access
+            // denied and object disposed too, and one of those escaping used to end polling.
             if (_initialized)
             {
                 _needsConfigure = true;

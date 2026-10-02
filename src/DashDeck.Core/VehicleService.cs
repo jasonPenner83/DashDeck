@@ -142,9 +142,32 @@ public sealed class VehicleService : IAsyncDisposable
                 continue;
             }
 
-            await PollAsync(entry, ct).ConfigureAwait(false);
+            try
+            {
+                await PollAsync(entry, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // This loop is the only thing that ever asks the truck anything. If it ends, the
+                // dash goes Stale for good and a reconnected cable is never noticed — which is
+                // exactly what a stray exception from a pulled USB device did (ADR-0034). So it
+                // never ends on an error: note it, pause a moment, and carry on.
+                LastPollError = $"{ex.GetType().Name}: {ex.Message}";
+
+                try
+                {
+                    await Task.Delay(250, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+            }
         }
     }
+
+    /// <summary>The last unexpected error a poll hit, kept for diagnostics; the loop carries on regardless.</summary>
+    public string? LastPollError { get; private set; }
 
     /// <summary>
     /// Shortest interval worth sleeping for. Below this, timer granularity costs more than

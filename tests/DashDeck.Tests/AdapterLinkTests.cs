@@ -28,6 +28,12 @@ public class AdapterLinkTests
         public bool InUse { get; set; }
 
         public bool Present { get; set; } = true;
+
+        /// <summary>
+        /// Behave the way a yanked USB serial device does in .NET on Windows: access denied on
+        /// the next read, and again on closing — not the IOException a pipe "should" throw.
+        /// </summary>
+        public bool HostileRemoval { get; set; }
     }
 
     private sealed class Bench
@@ -80,6 +86,12 @@ public class AdapterLinkTests
             {
                 State = TransportState.Disconnected;
                 StateChanged?.Invoke(State);
+
+                if (bench.Ports.TryGetValue(port, out var gone) && gone.HostileRemoval)
+                {
+                    throw new UnauthorizedAccessException($"Access to the port '{port}' is denied.");
+                }
+
                 throw new IOException($"{port} gone");
             }
 
@@ -104,6 +116,12 @@ public class AdapterLinkTests
         public ValueTask DisposeAsync()
         {
             State = TransportState.Disconnected;
+
+            if (bench.Ports.TryGetValue(port, out var device) && device is { Present: false, HostileRemoval: true })
+            {
+                throw new UnauthorizedAccessException($"Access to the port '{port}' is denied.");
+            }
+
             return ValueTask.CompletedTask;
         }
     }
@@ -197,7 +215,7 @@ public class AdapterLinkTests
         await using var link = Link(bench);
 
         Assert.Null(await link.TryLocateAsync(CancellationToken.None));
-        Assert.Contains("in use by another program", link.LastProblem, StringComparison.Ordinal);
+        Assert.Contains("held open by something else", link.LastProblem, StringComparison.Ordinal);
         Assert.Single(bench.Opened);   // no point trying other rates on a port that won't open
     }
 
@@ -271,6 +289,73 @@ public class AdapterLinkTests
         Assert.Equal(2, adapter.ConfigureCount);
         Assert.Contains("ATSP6", bench.Commands);
         Assert.Contains("ATS0", bench.Commands);
+    }
+
+    [Fact]
+    public async Task A_pulled_usb_device_that_throws_access_denied_still_reconnects()
+    {
+        // The truck, 2026-10-02: pulling the USB cable made the port throw access denied on the
+        // next read and again on close. Only IOException was expected, so the exception escaped
+        // and polling stopped for good — the cable went back in and nothing ever asked again.
+        var bench = new Bench();
+        var device = bench.Ports["COM3"] = new Device { HostileRemoval = true };
+        var clock = new ManualClock();
+        var logged = new List<string>();
+
+        var link = Link(bench, clock: clock);
+        link.Logged += logged.Add;
+        await using var adapter = new ElmAdapter(link);
+        await adapter.InitializeAsync(CancellationToken.None);
+
+        device.Present = false;
+        var lost = await adapter.RequestAsync(new PidRequest(0x01, 0x0D, CanBus.Hs), CancellationToken.None);
+        Assert.Equal(PidFailure.Timeout, lost.Failure);   // a failed request, not an exception
+
+        device.Present = true;
+        clock.UtcNow += AdapterLinkTransport.Backoff[^1];
+
+        var back = await adapter.RequestAsync(new PidRequest(0x01, 0x0D, CanBus.Hs), CancellationToken.None);
+        var again = await adapter.RequestAsync(new PidRequest(0x01, 0x0D, CanBus.Hs), CancellationToken.None);
+
+        Assert.True(back.IsSuccess || again.IsSuccess);
+        Assert.Contains(logged, l => l.Contains("UnauthorizedAccessException", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Polling_survives_an_adapter_that_throws_something_unexpected()
+    {
+        var adapter = new ThrowingAdapter(throwsFirst: 5);
+        await using var service = new VehicleService(adapter, TestCatalog.Load());
+        await service.StartAsync(TestCancellation.Token);
+        using var speed = service.Bus.Require("vehicle.speed", SignalPriority.High, 20);
+
+        await WaitUntilAsync(() => service.Bus.Current("vehicle.speed").IsUsable);
+
+        Assert.Equal(60, service.Bus.Current("vehicle.speed").Value);
+        Assert.Contains("InvalidOperationException", service.LastPollError, StringComparison.Ordinal);
+    }
+
+    /// <summary>An adapter that throws for its first few requests, then answers speed 60.</summary>
+    private sealed class ThrowingAdapter(int throwsFirst) : IVehicleAdapter
+    {
+        private int _requests;
+
+        public AdapterCapabilities? Capabilities { get; private set; }
+
+        public Task InitializeAsync(CancellationToken ct)
+        {
+            Capabilities = new AdapterCapabilities("fake", new HashSet<CanBus> { CanBus.Hs, CanBus.Ms }, true, 50);
+            return Task.CompletedTask;
+        }
+
+        public Task<PidResponse> RequestAsync(PidRequest request, CancellationToken ct) =>
+            Interlocked.Increment(ref _requests) <= throwsFirst
+                ? throw new InvalidOperationException("the port is closed")
+                : Task.FromResult(request.Pid == 0x0D
+                    ? PidResponse.Ok(request, [0x3C], DateTimeOffset.UtcNow)
+                    : PidResponse.Failed(request, PidFailure.NoData, DateTimeOffset.UtcNow));
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 
     // ── Testing ports ─────────────────────────────────────────────────────────
