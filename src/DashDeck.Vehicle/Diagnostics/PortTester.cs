@@ -74,7 +74,7 @@ public static class PortTester
                 catch (IOException ex)
                 {
                     return ex.InnerException is UnauthorizedAccessException
-                        ? new PortTestResult(port, PortTestOutcome.InUse, null, null, null, "In use by another program — close FORScan or OBDwiz to test it.")
+                        ? new PortTestResult(port, PortTestOutcome.InUse, null, null, null, "Held open by another program. Close FORScan or OBDwiz, or unplug the adapter's USB for 10 s to free it.")
                         : new PortTestResult(port, PortTestOutcome.Unavailable, null, null, null,
                             ex.InnerException is TimeoutException ? "Didn't open in time — a Bluetooth port, perhaps." : "Couldn't be opened.");
                 }
@@ -104,7 +104,7 @@ public static class PortTester
 
                     return new PortTestResult(port, PortTestOutcome.Adapter, identity, rate, voltage, detail);
                 }
-                catch (IOException)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     // Dropped at this rate; the next may do better.
                 }

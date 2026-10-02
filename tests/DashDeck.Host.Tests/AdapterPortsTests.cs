@@ -22,6 +22,8 @@ public sealed class AdapterPortsTests
 
         public string? FallbackReason { get; set; }
 
+        public string? LinkProblem { get; set; }
+
         public List<string?> Chosen { get; } = [];
 
         public AdapterChoice UseAdapterPort(string? port)

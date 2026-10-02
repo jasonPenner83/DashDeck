@@ -121,6 +121,14 @@ public sealed class AdapterLinkTransport : IVehicleTransport
 
     public event Action<TransportState>? StateChanged;
 
+    /// <summary>
+    /// One line per thing the link did — found, dropped and why, failed to find and why — for a
+    /// log a person can read after a test in the truck (ADR-0034).
+    /// </summary>
+    public event Action<string>? Logged;
+
+    private void Log(string line) => Logged?.Invoke(line);
+
     /// <summary>Raised each time the adapter is found — on a port, at a rate, with an identity.</summary>
     public event Action<AdapterLocation>? Located;
 
@@ -217,6 +225,7 @@ public sealed class AdapterLinkTransport : IVehicleTransport
         }
 
         LastProblem = preferredProblem;
+        Log($"not found: {LastProblem}");
         State = TransportState.Disconnected;
         return null;
     }
@@ -239,7 +248,7 @@ public sealed class AdapterLinkTransport : IVehicleTransport
             {
                 await transport.ConnectAsync(ct).ConfigureAwait(false);
             }
-            catch (IOException ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 await transport.DisposeAsync().ConfigureAwait(false);
 
@@ -269,6 +278,7 @@ public sealed class AdapterLinkTransport : IVehicleTransport
                     LastProblem = null;
                     _failedAttempts = 0;
                     State = TransportState.Connected;
+                    Log($"found {identity} on {port} @ {rate} baud{(moved ? " (moved)" : "")}");
                     Located?.Invoke(Current);
                     return (Current, null);
                 }
@@ -280,7 +290,7 @@ public sealed class AdapterLinkTransport : IVehicleTransport
                     return (null, $"{port} has a different adapter ({identity})");
                 }
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 // A drop mid-handshake: try the next rate.
             }
@@ -309,9 +319,9 @@ public sealed class AdapterLinkTransport : IVehicleTransport
         .Replace("\n", " ", StringComparison.Ordinal)
         .Trim();
 
-    private static string Describe(string port, IOException ex) => ex.InnerException switch
+    private static string Describe(string port, Exception ex) => (ex.InnerException ?? ex) switch
     {
-        UnauthorizedAccessException => $"{port} is in use by another program (FORScan?)",
+        UnauthorizedAccessException => $"{port} is held open by something else — unplug the adapter's USB for 10 s to free it",
         TimeoutException => $"{port} did not open in time",
         _ => $"{port} could not be opened",
     };
@@ -344,19 +354,23 @@ public sealed class AdapterLinkTransport : IVehicleTransport
             {
                 reply = await inner.ExchangeAsync(command, ct).ConfigureAwait(false);
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                // Pulled, slept, or reset. Look again on the very next request.
+                // Pulled, slept, or reset — whatever the driver called it. Look again on the very
+                // next request. Always an IOException upward: that is the one "the link dropped"
+                // the adapter above handles.
                 LastProblem = $"{Current?.Port ?? _options.PreferredPort} dropped";
+                Log($"dropped: {ex.GetType().Name}: {ex.Message}");
                 await DropAsync().ConfigureAwait(false);
                 _nextAttempt = DateTimeOffset.MinValue;
-                throw;
+                throw ex as IOException ?? new IOException(LastProblem, ex);
             }
 
             if (!BaudNegotiator.IsMostlyPrintable(reply))
             {
                 // The adapter reset to another rate under us. Find the rate again next request.
                 LastProblem = $"{Current?.Port ?? _options.PreferredPort} answered at the wrong rate — finding it again";
+                Log(LastProblem);
                 await DropAsync().ConfigureAwait(false);
                 _nextAttempt = DateTimeOffset.MinValue;
                 throw new IOException(LastProblem);
@@ -384,7 +398,16 @@ public sealed class AdapterLinkTransport : IVehicleTransport
         {
             inner.StateChanged -= OnInnerStateChanged;
             _inner = null;
-            await inner.DisposeAsync().ConfigureAwait(false);
+
+            try
+            {
+                await inner.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // A port that is gone may refuse to close. It must never stop the link reconnecting.
+                Log($"closing the old port: {ex.GetType().Name}: {ex.Message}");
+            }
         }
 
         Current = null;

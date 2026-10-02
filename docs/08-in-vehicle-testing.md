@@ -22,7 +22,10 @@ here, and the person who built it has walked the owner through it.
 - **Note the ignition state** for each step: **off**, **on** (engine off, dash lit), or
   **running**.
 - **When something doesn't match**, write down the step number and what you saw, and take a phone
-  photo of the screen. "Step 4: said NO DATA instead of a VIN" is enough to start from.
+  photo of the screen. "Step 4: said NO DATA instead of a VIN" is enough to start from. For
+  anything about the adapter connection, also send `%LOCALAPPDATA%\DashDeck\adapter.log`: it
+  records each time the adapter was found, each drop and the error behind it, and why each
+  attempt to find it again failed.
 
 Each walkthrough lists what you need, the steps with what you should see, and what a failure
 looks like.
@@ -144,3 +147,8 @@ than the 2.7; or the vehicle being forgotten after a restart.
 - values green, but RPM far from the tachometer;
 - the app freezing while ports are tested;
 - any port other than the adapter's being chosen automatically.
+
+If step 7 fails, **don't restart yet.** Open **Settings ▸ Vehicle**: the status line ends with
+`Last: …`, saying what the link last ran into. Photograph it, then send `adapter.log`. The first
+run of step 7, on 2026-10-02, found that a pulled USB device throws "access denied" rather than
+an I/O error, and that stopped polling for good. Fixed in the change that added this paragraph.

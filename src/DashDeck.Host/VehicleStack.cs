@@ -54,6 +54,9 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// <summary>The real adapter, while the dash is reading it; null while simulated.</summary>
     public AdapterLocation? LiveAdapter => IsSimulated ? null : _link?.Current;
 
+    /// <summary>Why the link last failed — found nothing, dropped, wrong rate — or null.</summary>
+    public string? LinkProblem => _link?.LastProblem;
+
     /// <summary>The port being watched for an adapter while simulated, or null when none is chosen.</summary>
     public string? WatchedPort => IsSimulated && _failover is { IsWatching: true } ? _link?.PreferredPort : null;
 
@@ -64,6 +67,9 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         if (link is not null)
         {
             link.Located += location => AdapterFound?.Invoke(location);
+
+            // Everything the link does, in a file a person can read after a test in the truck.
+            link.Logged += AdapterLog.Append;
         }
     }
 
