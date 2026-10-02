@@ -18,10 +18,21 @@ public partial class App : Application
     private ShellViewModel? _shell;
     private Theme.ThemeService? _theme;
     private Stage.WeatherService? _weather;
+    private Shell.SingleInstance? _instance;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // One DashDeck at a time, before anything opens the adapter: the serial port can only be
+        // held once, and a second tap on the icon during a slow start used to make a second dash
+        // on no truck. Another one running is brought forward instead.
+        _instance = Shell.SingleInstance.Claim();
+        if (_instance is null)
+        {
+            Shutdown(0);
+            return;
+        }
 
         // Never fail silently. A dash that vanishes tells you nothing; one that leaves a
         // log can be diagnosed later, from the passenger seat or the kitchen table.
@@ -512,6 +523,10 @@ public partial class App : Application
                 Fail("Shutdown", ex.InnerException ?? ex);
             }
         }
+
+        // The port is closed (or abandoned to the backstop): let a successor in. Released before the
+        // restart below starts one, so RESTART NOW never waits on itself.
+        _instance?.Release();
 
         if (_restartRequested && Environment.ProcessPath is { } exe)
         {

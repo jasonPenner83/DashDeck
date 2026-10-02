@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **474 tests green** — 166 engine, 308 shell.
+(ADR-0010). **480 tests green** — 166 engine, 314 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -129,7 +129,7 @@ what the simulator taught it. One way only — once live, a lost cable is Stale,
 **Settings ▸ Vehicle lists tested ports** (identity, baud, voltage at the OBD port, or why not)
 to choose the adapter from.
 
-Seven traps already hit and worth not re-learning:
+Eight traps already hit and worth not re-learning:
 
 - **`InvariantGlobalization` breaks WPF.** `Directory.Build.props` sets it for the whole
   solution, which is right for the headless engine. WPF's font stack builds a
@@ -171,6 +171,13 @@ Seven traps already hit and worth not re-learning:
   and it kept the serial port. Disposal now runs on the pool with a time limit, and a background
   backstop ends the process 10 s after exit begins whatever is stuck. On the truck, **CLOSE
   DASHDECK** in the three-dot menu (two taps) is the only way out: there is no Escape key.
+
+- **A second tap on the icon made a second dash.** DashDeck takes a few seconds to find the
+  adapter before its window appears, so on a touch screen the first tap looks like it did nothing.
+  The second copy could not open the serial port and ran on no truck. `SingleInstance` now holds a
+  `Local\` named mutex from launch until the vehicle stack has closed the port; a newcomer brings the
+  running dash forward, or waits (up to 20 s, `InstanceGate`) for one that is starting or closing.
+  RESTART NOW releases it before starting its successor.
 
 Also worth knowing: `MeasuredRequestsPerSecond` — the `req/s` on the status strip — is the
 adapter's measured **capability**, not the achieved load. It is not a way to check whether

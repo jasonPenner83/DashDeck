@@ -410,3 +410,25 @@ truck. Internet for the web page in step 6. Notepad.
 - a program entry that is installed reading *not installed*.
 
 Photograph anything that looks wrong and send the `launcher.json` you were editing.
+
+## One DashDeck at a time
+
+**You need:** the tablet, the adapter plugged in. Ignition on, so you can see the dash is live.
+Task Manager (search the Start menu for it, or long-press the taskbar ▸ Task Manager).
+
+1. Close every DashDeck: three-dot ▸ **CLOSE DASHDECK** twice. In Task Manager, end any
+   **DashDeck.Host** still listed. **Expect:** none left.
+2. Tap the DashDeck icon **three times quickly**. **Expect:** one window, after the usual few
+   seconds, with live (green) cards. In Task Manager, **one** DashDeck.Host. The extra copies wait,
+   see the first window appear, bring it forward and close themselves.
+3. With DashDeck open, switch to another app (Notepad), then tap the DashDeck icon again.
+   **Expect:** the same dash comes to the front, still live, nothing restarted — a video or a
+   page on the stage carries on. Still one in Task Manager.
+4. Settings ▸ Sensors (or Vehicle) ▸ **RESTART NOW**, if it's showing. **Expect:** the window
+   closes and one new one opens within about ten seconds, live. One in Task Manager.
+5. Three-dot ▸ **CLOSE DASHDECK** twice, then tap the icon straight away. **Expect:** a new dash
+   within about ten seconds — it waits for the old one to let go of the adapter — and live cards.
+
+**A failure looks like:** two DashDeck.Host in Task Manager; a second window; a dash that comes up
+with the SIM badge or amber cards while another is running; tapping the icon doing nothing for
+more than 20 seconds.
