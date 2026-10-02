@@ -7,6 +7,11 @@
 // Empty on purpose. A guessed PID that happens to answer decodes into a plausible wrong number,
 // which is the one failure this project refuses. Add a definition here only with the TEST
 // reading that proved it, and the reading it was checked against, in the commit message.
+//
+// "modules" names what usually lives at each address on Ford trucks of this generation, so the
+// module sweep (ADR-0035) can label what it finds. Labels only — the sweep finds modules by
+// asking, the screen calls these "likely", and a wrong one mislabels a row, nothing more.
+// Correct them against FORScan's module list when the truck disagrees.
 {
   "name": "Ford F-150 2.7 EcoBoost (2018–2020)",
   "match": {
@@ -15,6 +20,26 @@
     "yearMin": 2018,
     "yearMax": 2020,
     "displacementLitres": 2.7
+  },
+  "modules": {
+    "7E0": "PCM — powertrain control",
+    "7E1": "TCM — transmission control",
+    "760": "ABS — anti-lock brakes",
+    "730": "PSCM — power steering",
+    "737": "RCM — restraints (airbags)",
+    "720": "IPC — instrument cluster",
+    "726": "BCM — body control",
+    "716": "GWM — gateway",
+    "724": "SCCM — steering column",
+    "727": "ACM — audio",
+    "7D0": "APIM — SYNC",
+    "733": "HVAC — climate control",
+    "736": "PAM — parking aid",
+    "740": "DDM — driver door",
+    "741": "PDM — passenger door",
+    "706": "IPMA — front camera",
+    "764": "CCM — cruise radar",
+    "701": "GPSM — GPS"
   },
   "signals": []
 }

@@ -53,6 +53,13 @@ public static class ElmResponseParser
             return PidResponse.Failed(request, PidFailure.Malformed, at);
         }
 
+        // A negative response: 7F, the mode asked, and why not. The module is there — which is
+        // all a module sweep needs to know — and has declined this one request (ADR-0035).
+        if (bytes.Count >= 3 && bytes[0] == NegativeResponse && bytes[1] == request.Mode)
+        {
+            return PidResponse.Refused(request, bytes[2], at);
+        }
+
         // A positive response echoes mode + 0x40, then the PID, then the payload.
         var expectedMode = (byte)(request.Mode + 0x40);
         var pidLength = request.Pid <= 0xFF ? 1 : 2;
@@ -78,14 +85,29 @@ public static class ElmResponseParser
             : PidResponse.Ok(request, payload, at);
     }
 
+    private const byte NegativeResponse = 0x7F;
+
+    /// <summary>The negative response code that means "busy — the real answer follows".</summary>
+    private const byte ResponsePending = 0x78;
+
     /// <summary>
     /// Pull hex byte pairs out of adapter output, discarding echo, prompts, status lines,
     /// ISO-TP frame indices and CAN headers.
     /// </summary>
+    /// <remarks>
+    /// Two cases join lines differently. Lines carrying ISO-TP frame indices are one reply
+    /// split across frames, and are concatenated. Lines without are each a whole single-frame
+    /// reply, and more than one means more than one module answered the broadcast — the PCM
+    /// and the TCM both answer mode 01 PID 00 on many trucks. Concatenating those used to read
+    /// as one long malformed reply; the first is taken instead. Asking one module by address
+    /// (ADR-0035) is how to hear a particular one.
+    /// </remarks>
     private static List<byte>? ExtractBytes(string upper, PidRequest request)
     {
         var echo = request.ToCommand();
         var result = new List<byte>();
+        var replies = 0;
+        var framed = false;
 
         foreach (var rawLine in upper.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
         {
@@ -99,13 +121,35 @@ public static class ElmResponseParser
                 continue;
             }
 
-            var tokens = Tokenize(line);
+            var tokens = Tokenize(line, out var isFrame);
             if (tokens is null)
             {
                 // A line we cannot read at all is a parse failure, not something to skip:
                 // silently ignoring it would turn corrupt data into plausible data.
                 return null;
             }
+
+            // "Response pending": the module is busy and the real answer is the next line.
+            if (tokens is [NegativeResponse, _, ResponsePending])
+            {
+                continue;
+            }
+
+            if (tokens.Count == 0)
+            {
+                // A multi-frame byte count ("014") is all framing.
+                continue;
+            }
+
+            framed |= isFrame;
+
+            if (!framed && replies > 0)
+            {
+                // A second complete reply from another module. Keep the first.
+                continue;
+            }
+
+            replies++;
 
             // Frame indices and CAN headers are stripped in Tokenize, which is the single
             // place that decides what is payload and what is framing. Doing it again here
@@ -126,8 +170,9 @@ public static class ElmResponseParser
     /// multi-line responses, and an 11-bit CAN header (three hex digits, e.g. <c>7E8</c>) when
     /// <c>ATH1</c> is on. Both only ever appear at the start of a line.
     /// </remarks>
-    private static List<byte>? Tokenize(string line)
+    private static List<byte>? Tokenize(string line, out bool isFrame)
     {
+        isFrame = false;
         var bytes = new List<byte>();
         var tokens = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
@@ -141,6 +186,7 @@ public static class ElmResponseParser
             if (index == 0 && token.Length > 2 && token[1] == ':' && Uri.IsHexDigit(token[0]))
             {
                 token = token[2..];
+                isFrame = true;
             }
 
             var text = token.TrimEnd(':');
@@ -153,6 +199,7 @@ public static class ElmResponseParser
             // An ISO-TP frame index such as "0:" leaves a single digit behind.
             if (text.Length == 1 && token.EndsWith(':'))
             {
+                isFrame = true;
                 continue;
             }
 

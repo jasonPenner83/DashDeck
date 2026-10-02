@@ -77,6 +77,16 @@ public sealed record VehiclePack
 
     public IReadOnlyList<SignalDefinition> Signals { get; init; } = [];
 
+    /// <summary>
+    /// What the modules at each address are likely to be — <c>"726": "BCM — body control"</c>
+    /// — so a module sweep can put a name beside an address (ADR-0035).
+    /// </summary>
+    /// <remarks>
+    /// Labels, not data the dash acts on: the sweep finds modules by asking, and a wrong name
+    /// here mislabels a row in Settings, nothing more. The screen says "likely" all the same.
+    /// </remarks>
+    public IReadOnlyDictionary<string, string> Modules { get; init; } = new Dictionary<string, string>();
+
     /// <summary>The file it came from, for error messages.</summary>
     public string? FileName { get; init; }
 }
@@ -119,6 +129,9 @@ public static class VehiclePacks
         }
 
         var problems = pack.Signals.SelectMany(SignalCatalog.Check).ToList();
+        problems.AddRange(pack.Modules.Keys
+            .Where(k => SignalDefinition.ParseModule(k) is null)
+            .Select(k => $"modules: '{k}' is not a module address (700–7F7, 8s digit clear)"));
         problems.AddRange(pack.Signals
             .GroupBy(d => d.Id, StringComparer.Ordinal)
             .Where(g => g.Count() > 1)
@@ -179,5 +192,36 @@ public static class VehiclePacks
         }
 
         return catalog;
+    }
+}
+
+/// <summary>Names for the addresses a module sweep finds (ADR-0035).</summary>
+public static class ModuleNames
+{
+    /// <summary>
+    /// The two addresses ISO 15765-4 itself gives meaning to: the first and second emissions
+    /// ECUs, which on nearly every vehicle are the engine and the transmission.
+    /// </summary>
+    private static readonly Dictionary<ushort, string> Standard = new()
+    {
+        [0x7E0] = "Engine — emissions ECU #1",
+        [0x7E1] = "Transmission — emissions ECU #2",
+    };
+
+    /// <summary>A likely name for the module at an address, from the matching packs, or null.</summary>
+    public static string? Likely(ushort address, IEnumerable<VehiclePack> packs)
+    {
+        foreach (var pack in packs)
+        {
+            foreach (var (key, name) in pack.Modules)
+            {
+                if (SignalDefinition.ParseModule(key) == address)
+                {
+                    return name;
+                }
+            }
+        }
+
+        return Standard.GetValueOrDefault(address);
     }
 }

@@ -302,7 +302,7 @@ public sealed class VehicleService : IAsyncDisposable
     {
         var definition = entry.Signal;
         var spec = definition.ToRequest();
-        var request = new PidRequest(spec.Mode, spec.Pid, spec.Bus);
+        var request = new PidRequest(spec.Mode, spec.Pid, spec.Bus, spec.Module);
 
         lock (_statusLock)
         {
@@ -332,14 +332,17 @@ public sealed class VehicleService : IAsyncDisposable
         // in sends the measured ceiling to absurd heights at the exact moment nothing is
         // getting through. Q12 reads its answer off this number, so it may only ever
         // describe the adapter replying.
-        if (response.IsSuccess || response.Failure == PidFailure.NoData)
+        if (response.IsSuccess || response.Failure is PidFailure.NoData or PidFailure.Rejected)
         {
             RecordServiceTime(Stopwatch.GetElapsedTime(started));
         }
 
         if (!response.IsSuccess)
         {
-            if (response.Failure == PidFailure.NoData)
+            // A negative response from an addressed module (ADR-0035) is the same news as NO DATA
+            // from the broadcast — this is not something it will give — and earns the same
+            // patience, because "conditions not correct" with the engine off is not forever.
+            if (response.Failure is PidFailure.NoData or PidFailure.Rejected)
             {
                 RecordNoData(definition);
             }

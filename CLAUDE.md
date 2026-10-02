@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **358 tests green** — 133 engine, 225 shell.
+(ADR-0010). **395 tests green** — 166 engine, 229 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -54,6 +54,14 @@ to find what the truck supports and the catalog lacks (and the reverse), and **e
 definitions with a **TEST** that asks the truck before saving. Edits go to a user overlay,
 `%LOCALAPPDATA%\DashDeck\signals.user.json`, laid over the shipped catalog at the next launch
 (RESTART NOW is in the section); the shipped files are never written on the tablet.
+Its **MODULES** block (ADR-0035) finds the rest of the truck the way FORScan does: the broadcast
+(`7DF`) only reaches the engine computer, so it asks **every module address** (`700`–`7F7`, 8s bit
+clear) on both buses for its part number (`22 F113`), then sweeps a chosen module's
+**identifiers** a range at a time — reads only, refused while moving. A request and a catalog
+signal can now **name a module** (`"module": "726"`); `ElmAdapter` sets `ATSH`/`ATCRA`/flow control
+only when the module changes and restores the broadcast after. The parser reads negative
+responses as `Rejected` with a code, and takes the first of several broadcast answers rather than
+gluing them into garbage. Module names come from the vehicle pack and are shown as *likely*.
 **Settings ▸ Vehicle** (ADR-0033) says *which* vehicle this is, so nothing hard-codes it: the
 VIN is **read from the truck** (mode 09) or typed, **decoded once by NHTSA vPIC** and cached in
 `%LOCALAPPDATA%\DashDeck\vehicle.json`, and every decoded field is correctable by hand. It fills
@@ -177,7 +185,8 @@ The **OBDLink EX** adapter, wired USB (ADR-0007), was **ordered 2026-09-29, due 
 seam, so neither is blocking. First bring-up with the EX: a real `UsbSerialTransport`, then
 measure the request ceiling (Q12) and what the Gateway Module passes on MS-CAN (Q5). Then
 **Settings ▸ Sensors ▸ SCAN THE TRUCK** asks which standard PIDs it supports from the tablet,
-and **TEST** is the loop for trying Ford mode 22 PIDs (R2, Q13) from the driver's seat.
+and **TEST** is the loop for trying Ford mode 22 PIDs (R2, Q13) from the driver's seat —
+found with **SCAN FOR MODULES** and a module's **identifier sweep** (ADR-0035).
 
 ## Things that are easy to get wrong here
 
@@ -246,7 +255,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Thirty-four exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Thirty-five exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -262,7 +271,8 @@ user overlay catalog that the shipped one never absorbs by accident, and which v
 a VIN read from the truck or typed, decoded once and cached, filling `VehicleProfile`
 (`apiVersion 1.2`) and choosing a vehicle signal pack, and an adapter link that heals itself —
 re-configured after reconnects, rate and port found again — with a simulated start that goes
-live when the adapter answers, chosen from a list of tested ports.
+live when the adapter answers, chosen from a list of tested ports, and asking modules by
+address — a module sweep, an identifier sweep, and signals that name their module.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.
