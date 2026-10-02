@@ -274,6 +274,14 @@ code.
 - Open questions go in [`docs/04-open-questions.md`](docs/04-open-questions.md) rather
   than being silently resolved.
 - When a decision gets made, write the ADR in the same change that implements it.
+- **Every new feature comes with an in-vehicle test walkthrough, and Jason gets walked through
+  it.** Anything that touches the vehicle, the adapter, or the screen in the cab is not done
+  when the tests pass on the synthetic truck. Add a section to
+  [`docs/08-in-vehicle-testing.md`](docs/08-in-vehicle-testing.md) in the same change, and copy
+  it into the PR under *How to test in the truck*. It gives what is needed (ignition off, on or
+  running; internet; parked), numbered steps with what Jason should **expect to see**, and what a
+  failure looks like. When reporting the work, walk him through it step by step — not "untested
+  on hardware", but how to test it.
 
 
 

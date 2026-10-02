@@ -73,6 +73,11 @@ These are the reasons a PR gets sent back. The full list, with context, is in `C
    component host → shell. No layer reaches past its neighbour.
 10. **Portrait-first, glove-friendly.** Driving controls live in the bottom third. If a
     gesture must work on glass, say how you tested it on glass.
+11. **Say how to test it in the truck.** A feature that touches the vehicle, the adapter or the
+    screen in the cab adds a walkthrough to
+    [docs/08-in-vehicle-testing.md](docs/08-in-vehicle-testing.md): what you need, numbered steps
+    with what you should see, and what a failure looks like. Passing on the synthetic truck is
+    not the same as working in the cab.
 
 ## Writing a component
 
