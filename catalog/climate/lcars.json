@@ -1,0 +1,83 @@
+// The LCARS (inspired) climate panel (ADR-0040) — worn with the LCARS (inspired) theme, which names
+// it with "climateLayout": "lcars". A fan homage; not affiliated with Paramount.
+//
+// The climate panel is 912 × 390 — the two bands where the cards are. Drawn in order, later on top:
+// the frame, the black cut-outs that make the elbows, the text, then the readings.
+//
+// READ ONLY. It shows what the truck reports and changes nothing (ADR-0006). The hvac.* signals are
+// placeholders until the truck's HVAC module is found: on the truck they read a dash.
+//
+// Edit it by hand: Settings ▸ Themes ▸ CLIMATE LAYOUT, SAVE AS makes your own copy in
+// %LOCALAPPDATA%\DashDeck\climate\ — save it as "lcars" and it replaces this one for the theme.
+{
+  "name": "LCARS (inspired) climate",
+  "description": "Environmental control, LCARS fashion: both set temperatures, the fan as a row of blocks, airflow, seats and switches inside a frame of elbows. Comes with the LCARS (inspired) theme.",
+  "author": "DashDeck",
+  "background": "#000000",
+  "elements": [
+    // ── The frame ────────────────────────────────────────────────────────────────────────
+    { "type": "panel", "id": "top-elbow",    "x": 0,   "y": 0,   "width": 200, "height": 60,  "colour": "#9999CC", "radius": "40,0,0,0" },
+    { "type": "panel", "id": "top-bar",      "x": 206, "y": 0,   "width": 706, "height": 18,  "colour": "#FF9966", "radius": "0,9,9,0" },
+    { "type": "panel", "id": "left-bar",     "x": 0,   "y": 66,  "width": 100, "height": 258, "colour": "#9999CC" },
+    { "type": "panel", "id": "bottom-elbow", "x": 0,   "y": 330, "width": 200, "height": 60,  "colour": "#CC99CC", "radius": "0,0,0,40" },
+    { "type": "panel", "id": "bottom-bar",   "x": 206, "y": 372, "width": 706, "height": 18,  "colour": "#CC99CC", "radius": "0,9,9,0" },
+
+    // The inside curves of the elbows.
+    { "type": "panel", "id": "top-cut",    "x": 100, "y": 18,  "width": 100, "height": 42, "colour": "#000000", "radius": "22,0,0,0" },
+    { "type": "panel", "id": "bottom-cut", "x": 100, "y": 330, "width": 100, "height": 42, "colour": "#000000", "radius": "0,0,0,22" },
+
+    // Block captions on the left bar, black on blue.
+    { "type": "text", "id": "code-1", "x": 6, "y": 72,  "width": 88, "height": 24, "content": "ENV 03", "colour": "#000000", "fontSize": 16, "align": "right" },
+    { "type": "text", "id": "code-2", "x": 6, "y": 296, "width": 88, "height": 24, "content": "HVAC",   "colour": "#000000", "fontSize": 16, "align": "right" },
+
+    { "type": "text", "id": "title", "x": 214, "y": 24, "width": 460, "height": 36, "content": "ENVIRONMENTAL", "colour": "#FF9966", "fontSize": 26, "font": "ui" },
+
+    // ── Zones ────────────────────────────────────────────────────────────────────────────
+    { "id": "driver", "type": "setpoint", "x": 116, "y": 60, "width": 220, "height": 196,
+      "label": "DRIVER", "unit": "°", "format": "0.0", "min": 15, "max": 30,
+      "source": { "signal": "hvac.driverSetTemp", "rateHz": 0.5 },
+      "parts": { "arcColour": "#FF9966", "trackColour": "#1A1A2A", "thickness": 8, "glow": "none", "valueColour": "#FFCC99", "labelColour": "#CC99CC" } },
+    { "id": "passenger", "type": "setpoint", "x": 680, "y": 60, "width": 220, "height": 196,
+      "label": "PASSENGER", "unit": "°", "format": "0.0", "min": 15, "max": 30,
+      "source": { "signal": "hvac.passengerSetTemp", "rateHz": 0.5 },
+      "parts": { "arcColour": "#FF9966", "trackColour": "#1A1A2A", "thickness": 8, "glow": "none", "valueColour": "#FFCC99", "labelColour": "#CC99CC" } },
+
+    { "id": "driverSeat", "type": "levels", "x": 136, "y": 262, "width": 180, "height": 40,
+      "label": "SEAT", "min": -3, "max": 3, "source": { "signal": "seat.driver.climate", "rateHz": 0.2 },
+      "parts": { "steps": 3, "litColour": "#FF9966", "negativeColour": "#9999CC", "unlitColour": "#1A1A2A", "labelColour": "#CC99CC" } },
+    { "id": "passengerSeat", "type": "levels", "x": 700, "y": 262, "width": 180, "height": 40,
+      "label": "SEAT", "min": -3, "max": 3, "source": { "signal": "seat.passenger.climate", "rateHz": 0.2 },
+      "parts": { "steps": 3, "litColour": "#FF9966", "negativeColour": "#9999CC", "unlitColour": "#1A1A2A", "labelColour": "#CC99CC" } },
+
+    // ── Fan and air ──────────────────────────────────────────────────────────────────────
+    { "id": "fan", "type": "levels", "x": 350, "y": 70, "width": 316, "height": 64,
+      "label": "FAN", "min": 0, "max": 7, "source": { "signal": "hvac.fanSpeed", "rateHz": 0.5 },
+      "parts": { "steps": 7, "litColour": "#FF9966", "unlitColour": "#1A1A2A", "labelColour": "#CC99CC", "gap": 5 } },
+    { "id": "face", "type": "indicator", "x": 350, "y": 146, "width": 100, "height": 36, "label": "FACE",
+      "source": { "signal": "hvac.airflow", "rateHz": 0.5 }, "parts": { "bit": 0, "litColour": "#CC99CC", "litText": "#000000", "unlitColour": "#9999CC" } },
+    { "id": "feet", "type": "indicator", "x": 458, "y": 146, "width": 100, "height": 36, "label": "FEET",
+      "source": { "signal": "hvac.airflow", "rateHz": 0.5 }, "parts": { "bit": 1, "litColour": "#CC99CC", "litText": "#000000", "unlitColour": "#9999CC" } },
+    { "id": "glassAir", "type": "indicator", "x": 566, "y": 146, "width": 100, "height": 36, "label": "GLASS",
+      "source": { "signal": "hvac.airflow", "rateHz": 0.5 }, "parts": { "bit": 2, "litColour": "#CC99CC", "litText": "#000000", "unlitColour": "#9999CC" } },
+    { "id": "cabin", "style": "digital", "x": 350, "y": 192, "width": 316, "height": 64,
+      "label": "CABIN", "unit": "°C", "format": "0.0", "min": -40, "max": 80,
+      "source": { "signal": "hvac.cabinTemp", "rateHz": 0.5 },
+      "parts": { "valueSize": 26, "valueColour": "#FFCC99", "labelColour": "#CC99CC" } },
+
+    // ── Switches ─────────────────────────────────────────────────────────────────────────
+    { "id": "auto", "type": "indicator", "x": 214, "y": 318, "width": 96, "height": 44, "label": "AUTO",
+      "source": { "signal": "hvac.auto", "rateHz": 0.5 }, "parts": { "litColour": "#FF9966", "litText": "#000000", "unlitColour": "#9999CC" } },
+    { "id": "ac", "type": "indicator", "x": 318, "y": 318, "width": 96, "height": 44, "label": "A/C",
+      "source": { "signal": "hvac.airConditioning", "rateHz": 0.5 }, "parts": { "litColour": "#FF9966", "litText": "#000000", "unlitColour": "#9999CC" } },
+    { "id": "recirc", "type": "indicator", "x": 422, "y": 318, "width": 116, "height": 44, "label": "RECIRC",
+      "source": { "signal": "hvac.recirculate", "rateHz": 0.5 }, "parts": { "litColour": "#FF9966", "litText": "#000000", "unlitColour": "#9999CC" } },
+    { "id": "frontDefrost", "type": "indicator", "x": 546, "y": 318, "width": 116, "height": 44, "label": "DEFROST",
+      "source": { "signal": "hvac.frontDefrost", "rateHz": 0.5 }, "parts": { "litColour": "#CC6666", "litText": "#000000", "unlitColour": "#9999CC" } },
+    { "id": "rearDefrost", "type": "indicator", "x": 670, "y": 318, "width": 116, "height": 44, "label": "REAR DEF",
+      "source": { "signal": "hvac.rearDefrost", "rateHz": 0.5 }, "parts": { "litColour": "#CC6666", "litText": "#000000", "unlitColour": "#9999CC" } },
+    { "id": "outside", "style": "digital", "x": 794, "y": 304, "width": 110, "height": 64,
+      "label": "OUTSIDE", "unit": "°C", "format": "0", "min": -50, "max": 60,
+      "source": { "signal": "ambient.airTemp", "rateHz": 0.1 },
+      "parts": { "valueSize": 20, "valueColour": "#FFCC99", "labelColour": "#CC99CC" } }
+  ]
+}

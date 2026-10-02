@@ -452,5 +452,149 @@
     "defaultRateHz": 0.2,
     "min": 0,
     "max": 60
+  },
+
+  // ── Climate (MS-CAN) ──────────────────────────────────────────────────────
+  // NOT standard OBD-II, and NOT discovered yet (ADR-0040). Like the tyres above, the
+  // mode/PID here (0x01, 0xC4-0xCF) are SIMULATION PLACEHOLDERS so the synthetic truck can
+  // drive the climate panel — values come back flagged Simulated and can never be mistaken
+  // for real. The truck's HVAC module has not been found (the module scan reached nothing on
+  // MS-CAN), so on a real truck these read Unavailable and the panel shows a dash, never a
+  // guess. When the real identifiers are found — the identifier sweep and WATCH, with a module
+  // address — each is a config edit here or in the vehicle pack. READ ONLY: DashDeck does not
+  // change the truck's climate until Phase 3 (ADR-0006).
+  // Encodings: set temperatures 0.5 °C a count; cabin 0.5 °C a count from −40; fan 0-7;
+  // switches 0/1; airflow bits 1 face, 2 feet, 4 windshield; seats signed, −3 cool to +3 heat.
+  {
+    "id": "hvac.driverSetTemp",
+    "name": "Climate — Driver Set Temperature",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 196,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.5, "offset": 0, "unit": "°C" },
+    "defaultRateHz": 0.5,
+    "min": 10,
+    "max": 35
+  },
+  {
+    "id": "hvac.passengerSetTemp",
+    "name": "Climate — Passenger Set Temperature",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 197,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.5, "offset": 0, "unit": "°C" },
+    "defaultRateHz": 0.5,
+    "min": 10,
+    "max": 35
+  },
+  {
+    "id": "hvac.cabinTemp",
+    "name": "Climate — Cabin Temperature",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 198,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.5, "offset": -40, "unit": "°C" },
+    "defaultRateHz": 0.5,
+    "min": -40,
+    "max": 80
+  },
+  {
+    "id": "hvac.fanSpeed",
+    "name": "Climate — Fan Speed",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 199,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 7
+  },
+  {
+    "id": "hvac.airConditioning",
+    "name": "Climate — A/C",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 200,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 1
+  },
+  {
+    "id": "hvac.auto",
+    "name": "Climate — AUTO",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 201,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 1
+  },
+  {
+    "id": "hvac.recirculate",
+    "name": "Climate — Recirculation",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 202,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 1
+  },
+  {
+    "id": "hvac.frontDefrost",
+    "name": "Climate — Front Defrost",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 203,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 1
+  },
+  {
+    "id": "hvac.rearDefrost",
+    "name": "Climate — Rear Defrost",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 204,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 1
+  },
+  {
+    "id": "hvac.airflow",
+    "name": "Climate — Airflow (bits: 1 face, 2 feet, 4 windshield)",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 205,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 7
+  },
+  {
+    "id": "seat.driver.climate",
+    "name": "Seat — Driver Heat/Cool",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 206,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": true, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.2,
+    "min": -3,
+    "max": 3
+  },
+  {
+    "id": "seat.passenger.climate",
+    "name": "Seat — Passenger Heat/Cool",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 207,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": true, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.2,
+    "min": -3,
+    "max": 3
   }
 ]

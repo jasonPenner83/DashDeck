@@ -51,6 +51,12 @@ public sealed record ThemeDefinition
     /// </summary>
     public string StageLayout { get; init; } = "";
 
+    /// <summary>
+    /// The climate panel layout that comes with the theme (ADR-0040), by file name, or empty for
+    /// the built-in Glass panel.
+    /// </summary>
+    public string ClimateLayout { get; init; } = "";
+
     /// <summary>Font files beside the theme file, carried with it.</summary>
     public IReadOnlyList<string> FontFiles { get; init; } = [];
 
@@ -127,6 +133,7 @@ public sealed record ThemeDefinition
                 Description = Text(root, "description")?.Trim() ?? "",
                 Author = Text(root, "author")?.Trim() ?? "",
                 StageLayout = Text(root, "stageLayout")?.Trim() ?? "",
+                ClimateLayout = Text(root, "climateLayout")?.Trim() ?? "",
                 FontFiles = Strings(root, "fontFiles"),
                 Tokens = Values(root, "tokens"),
                 Night = Values(root, "night"),
@@ -164,6 +171,11 @@ public sealed record ThemeDefinition
             if (StageLayout.Length > 0)
             {
                 writer.WriteString("stageLayout", StageLayout);
+            }
+
+            if (ClimateLayout.Length > 0)
+            {
+                writer.WriteString("climateLayout", ClimateLayout);
             }
 
             if (FontFiles.Count > 0)

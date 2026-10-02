@@ -64,6 +64,10 @@ messages).
 | `panel` | A filled shape | `colour`, `radius`: one number for all corners, or four for top-left, top-right, bottom-right, bottom-left |
 | `compass` | A compass rose with the heading in the middle | `source.sensor` (default `attitude.heading`) and `parts` — see *The compass and the G meter* |
 | `gMeter` | A G meter: rings, a crosshair and a ball | `parts` — see *The compass and the G meter* |
+| `setpoint` | A set temperature, large, on a thin arc | `source`, `min`, `max`, `label`, `unit`, `format`, `parts` — see *The climate panel* |
+| `levels` | A row of steps lit up to the value | the same — see *The climate panel* |
+| `indicator` | A pill that lights when its signal is on | `source`, `label`, `parts` — see *The climate panel* |
+| `glass` | A frosted glass panel | `radius`, `parts` — see *The climate panel* |
 
 **An LCARS elbow** is two things: a thick panel with one big corner (`"radius": "56,0,0,0"`), and a
 black panel over its inside corner with a smaller radius (`"radius": "28,0,0,0"`). The shipped
@@ -177,6 +181,82 @@ three-dot menu on any stage with a G meter; re-levelling resets the peak too.
 | `ballColour`, `ballSize` | The ball — by default it is the quality colour |
 | `showValue`, `valueColour`, `valueSize`, `labelColour` | The G and PEAK line under the meter |
 | `showSource` | Where the reading came from |
+
+## The climate panel
+
+**CLIMATE** in the bottom bar shows a **climate layout** in place of the cards (ADR-0040). It is the
+same format as a stage layout, on a canvas **912 wide and 390 tall** — the two bands where the cards
+are — and is chosen in **Settings ▸ Themes ▸ CLIMATE LAYOUT**, the same way: follow the theme, or
+pick one; SAVE AS, OPEN FOLDER, edit, RELOAD. Yours live in `%LOCALAPPDATA%\DashDeck\climate\`;
+`climate\examples\` has the built-in **Glass** panel (`glass.json`) and the shipped LCARS one to copy
+from. A theme names its own with `"climateLayout": "lcars"`.
+
+**It is read only.** It shows what the truck reports and changes nothing; a tap does nothing. The
+`hvac.*` and `seat.*.climate` signals it reads are **placeholders** until the truck's HVAC module is
+found — on the synthetic truck they answer (marked Simulated), on the real one every element shows a
+dash. When the real ones are found they go in the vehicle pack and the panel lights up with no change
+here.
+
+Any element works on either canvas — a coolant gauge on the climate panel, a setpoint on the stage.
+These four were made for it:
+
+```jsonc
+{ "type": "glass", "x": 24, "y": 16, "width": 276, "height": 262, "radius": "30" },
+{ "id": "driver", "type": "setpoint", "x": 44, "y": 28, "width": 236, "height": 192,
+  "label": "DRIVER", "unit": "°", "format": "0.0", "min": 15, "max": 30,
+  "source": { "signal": "hvac.driverSetTemp", "rateHz": 0.5 } },
+{ "id": "seat", "type": "levels", "x": 64, "y": 222, "width": 196, "height": 44,
+  "label": "SEAT", "min": -3, "max": 3, "source": { "signal": "seat.driver.climate" },
+  "parts": { "steps": 3, "litColour": "#FF9A4D", "negativeColour": "#6CC8FF" } },
+{ "id": "feet", "type": "indicator", "x": 419, "y": 150, "width": 74, "height": 38, "label": "FEET",
+  "source": { "signal": "hvac.airflow" }, "parts": { "bit": 1 } }
+```
+
+**`glass`** — painted frost: a tint brighter at the top, a sheen, a hairline edge, a soft shadow.
+Put it first; what comes after sits on it. It reads best on a near-black `background`.
+
+| Part | What it does |
+|---|---|
+| `tint` | the glass colour — default a cool white |
+| `opacity` | how much of the tint shows, 0–1 — default 0.07 |
+| `sheen` | the brighter band across the top, 0–1 — default 0.10; 0 for none |
+| `edge` | the outline colour, or `none` — default a faint white |
+| `shadow` | the shadow under it, 0–1 — default 0.45; 0 for none |
+
+**`setpoint`** — the number in the middle of an arc over `min`–`max`, with a bright point at the
+value. No reading: `– –` and no arc.
+
+| Part | What it does |
+|---|---|
+| `arcColour`, `trackColour` | the arc up to the value, and the rest |
+| `thickness`, `sweep` | arc thickness (default 4) and the degrees it covers (default 240) |
+| `glow` | a glow round the arc and point: a colour, or `none` |
+| `valueColour`, `valueSize`, `labelColour`, `labelSize` | the number and the caption |
+| `showArc` | true/false |
+
+**`levels`** — `steps` cells lit in proportion to the value between `min` and `max`. **Below zero
+lights from the other end of the range in `negativeColour`**, so a seat on −3…3 with `steps: 3`
+shows heat 2 as two warm bars and cooling 1 as one cool bar. The caption is top-left; the value
+top-right (`OFF` at zero).
+
+| Part | What it does |
+|---|---|
+| `steps` | how many cells, 1–20 — default 7 |
+| `shape` | `bars` (rising, default) or `dots` |
+| `litColour`, `unlitColour`, `negativeColour` | lit, unlit, lit below zero |
+| `gap` | space between cells, px |
+| `labelColour`, `labelSize`, `showValue` | the caption and value line |
+
+**`indicator`** — lit by, in this order: a **`bit`** of the value (`hvac.airflow` is 1 face, 2 feet,
+4 windshield, so `"bit": 1` is FEET), exactly **`equals`** a value, or at least **`onAt`** (default 1).
+Off is an outlined pill. **No reading is dimmed with a dash, never drawn as off.**
+
+| Part | What it does |
+|---|---|
+| `onAt`, `equals`, `bit` | when it is lit |
+| `litColour`, `litText` | the fill and text when lit |
+| `unlitColour` | text and outline when off |
+| `radius`, `fontSize` | corner radius (default a pill), text size |
 
 ## Parts
 

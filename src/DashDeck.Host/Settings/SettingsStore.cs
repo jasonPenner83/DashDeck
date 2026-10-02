@@ -24,6 +24,10 @@ public sealed record UserSettings
     [JsonPropertyName("stageLayout")]
     public string StageLayout { get; init; } = "theme";
 
+    /// <summary>The climate panel layout (ADR-0040): <c>theme</c> to follow the theme, or a layout id.</summary>
+    [JsonPropertyName("climateLayout")]
+    public string ClimateLayout { get; init; } = "theme";
+
     /// <summary>A preset's name, or <c>CUSTOM</c>.</summary>
     [JsonPropertyName("accentName")]
     public string AccentName { get; init; } = "EMBER";

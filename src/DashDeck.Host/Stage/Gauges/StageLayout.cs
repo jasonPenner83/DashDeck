@@ -28,6 +28,34 @@ public enum StageElementType
 
     /// <summary>A G meter: rings, a crosshair and a ball pushed the way the driver is (ADR-0039).</summary>
     GMeter,
+
+    /// <summary>
+    /// A set temperature drawn large, with a thin arc showing where it sits in its range — the
+    /// climate panel's zone readout (ADR-0040). Reads a signal; any range works.
+    /// </summary>
+    Setpoint,
+
+    /// <summary>A row of steps lit up to the value — fan speed, seat heat or cooling (ADR-0040).</summary>
+    Levels,
+
+    /// <summary>A pill that lights when its signal is on — A/C, AUTO, RECIRC, a defroster (ADR-0040).</summary>
+    Indicator,
+
+    /// <summary>A frosted glass panel: a translucent tint, a sheen across the top, a soft shadow (ADR-0040).</summary>
+    Glass,
+}
+
+/// <summary>
+/// The surface a layout is drawn on, in its own pixels (ADR-0040): the stage, or the climate panel
+/// in the two bands below it. Positions are in these, and the canvas is scaled to the real region.
+/// </summary>
+public sealed record LayoutCanvas(string Name, double Width, double Height)
+{
+    /// <summary>The stage: four bands less the launcher bar.</summary>
+    public static LayoutCanvas Stage { get; } = new("stage", 912, 636);
+
+    /// <summary>The climate panel: the two bands where the cards are.</summary>
+    public static LayoutCanvas Climate { get; } = new("climate panel", 912, 390);
 }
 
 /// <summary>How a gauge is drawn.</summary>
@@ -221,6 +249,50 @@ public static class GaugeParts
             ["showCardinal"] = "true/false",
             ["showSource"] = "true/false — where the heading came from. Default true",
         },
+        [StageElementType.Setpoint] = new Dictionary<string, string>
+        {
+            ["arcColour"] = "the arc to the value — default the accent",
+            ["trackColour"] = "the rest of the arc",
+            ["thickness"] = "arc thickness, px — default 4",
+            ["sweep"] = "degrees the arc covers — default 240",
+            ["glow"] = "a soft glow round the arc: a colour, or \"none\"",
+            ["valueColour"] = "the number — default the theme's headline text",
+            ["valueSize"] = "number size, px",
+            ["labelColour"] = "the caption",
+            ["labelSize"] = "caption size, px",
+            ["showArc"] = "true/false",
+        },
+        [StageElementType.Levels] = new Dictionary<string, string>
+        {
+            ["steps"] = "how many steps — default 7",
+            ["shape"] = "\"bars\" (rising, default) or \"dots\"",
+            ["litColour"] = "lit steps — default the accent",
+            ["unlitColour"] = "unlit steps",
+            ["negativeColour"] = "lit steps when the value is below zero — seat cooling, say. Default an ice blue",
+            ["gap"] = "space between steps, px",
+            ["labelColour"] = "the caption",
+            ["labelSize"] = "caption size, px",
+            ["showValue"] = "true/false — the number beside the caption",
+        },
+        [StageElementType.Indicator] = new Dictionary<string, string>
+        {
+            ["onAt"] = "lit when the value is at least this — default 1",
+            ["equals"] = "lit only when the value is exactly this (an airflow setting, say)",
+            ["bit"] = "lit when this bit of the value is set — 0 for the lowest",
+            ["litColour"] = "fill when lit — default the accent",
+            ["litText"] = "text when lit — default dark on the accent",
+            ["unlitColour"] = "text and outline when off",
+            ["radius"] = "corner radius, px — default half the height (a pill)",
+            ["fontSize"] = "text size, px",
+        },
+        [StageElementType.Glass] = new Dictionary<string, string>
+        {
+            ["tint"] = "the glass colour — default a cool white",
+            ["opacity"] = "how much of the tint shows, 0–1 — default 0.07",
+            ["sheen"] = "the brighter band across the top, 0–1 — default 0.10; 0 for none",
+            ["edge"] = "the outline colour, or \"none\" — default a faint white",
+            ["shadow"] = "the soft shadow under it, 0–1 — default 0.45; 0 for none",
+        },
         [StageElementType.GMeter] = new Dictionary<string, string>
         {
             ["range"] = "g at the outer ring — default 1",
@@ -324,6 +396,10 @@ public enum LayoutOrigin
 /// </remarks>
 public sealed record StageLayout
 {
+    /// <summary>The surface it is drawn on — the stage, or the climate panel (ADR-0040).</summary>
+    [JsonIgnore]
+    public LayoutCanvas Canvas { get; init; } = LayoutCanvas.Stage;
+
     /// <summary>The stage's size in its own pixels. Positions are in these.</summary>
     public const double StageWidth = 912;
 
@@ -400,8 +476,10 @@ public sealed record StageLayout
     /// <see cref="Problems"/>; the rest still load.
     /// </summary>
     /// <exception cref="InvalidDataException">Not JSON, no name, or not a layout at all.</exception>
-    public static StageLayout Parse(string json, string? filePath = null, LayoutOrigin origin = LayoutOrigin.Yours)
+    /// <param name="canvas">What it is drawn on — the stage unless said. Positions are checked against it.</param>
+    public static StageLayout Parse(string json, string? filePath = null, LayoutOrigin origin = LayoutOrigin.Yours, LayoutCanvas? canvas = null)
     {
+        canvas ??= LayoutCanvas.Stage;
         StageLayout? layout;
         try
         {
@@ -445,7 +523,7 @@ public sealed record StageLayout
                 continue;
             }
 
-            problems.AddRange(Warnings(gauge).Select(w => $"{name}: {w}"));
+            problems.AddRange(Warnings(gauge, canvas).Select(w => $"{name}: {w}"));
             kept.Add(gauge);
         }
 
@@ -456,6 +534,7 @@ public sealed record StageLayout
             Problems = problems,
             FilePath = filePath,
             Origin = origin,
+            Canvas = canvas,
         };
     }
 
@@ -485,10 +564,12 @@ public sealed record StageLayout
                 }
 
                 return null;
-            case StageElementType.Panel when ParseRadius(g.Radius) is null:
+            case StageElementType.Panel or StageElementType.Glass when ParseRadius(g.Radius) is null:
                 return $"radius '{g.Radius}' should be one number or four, comma-separated";
-            case StageElementType.Text or StageElementType.Panel:
+            case StageElementType.Text or StageElementType.Panel or StageElementType.Glass:
                 return null;
+            case StageElementType.Levels when g.Number("steps", 7) is < 1 or > 20:
+                return "steps must be 1 to 20";
             case StageElementType.Compass when !string.IsNullOrWhiteSpace(g.Source.Signal):
                 return "a compass reads a sensor (source.sensor), not a signal";
             case StageElementType.Compass:
@@ -551,12 +632,12 @@ public sealed record StageLayout
     }
 
     /// <summary>Things worth fixing in a gauge that is still drawn.</summary>
-    private static IEnumerable<string> Warnings(GaugeSpec g)
+    private static IEnumerable<string> Warnings(GaugeSpec g, LayoutCanvas canvas)
     {
-        if (g.X < 0 || g.Y < 0 || g.X + g.Width > StageWidth + 0.5 || g.Y + g.Height > StageHeight + 0.5)
+        if (g.X < 0 || g.Y < 0 || g.X + g.Width > canvas.Width + 0.5 || g.Y + g.Height > canvas.Height + 0.5)
         {
             yield return string.Create(CultureInfo.InvariantCulture,
-                $"reaches outside the {StageWidth} × {StageHeight} stage and will be cut off");
+                $"reaches outside the {canvas.Width} × {canvas.Height} {canvas.Name} and will be cut off");
         }
 
         if (g.Colour is { } colour && !IsColour(colour))
@@ -564,7 +645,7 @@ public sealed record StageLayout
             yield return $"colour '{colour}' is not a colour (#RRGGBB or @token) — using the default";
         }
 
-        if (g.Type is not (StageElementType.Gauge or StageElementType.Compass or StageElementType.GMeter))
+        if (g.Type is StageElementType.Text or StageElementType.Clock or StageElementType.Panel)
         {
             yield break;
         }
@@ -577,7 +658,7 @@ public sealed record StageLayout
 
         foreach (var (part, value) in g.Parts)
         {
-            if (part.EndsWith("Colour", StringComparison.Ordinal) || part is "face" or "needleGlow" or "ringColour" or "crossColour")
+            if (part.EndsWith("Colour", StringComparison.Ordinal) || part is "face" or "needleGlow" or "ringColour" or "crossColour" or "tint" or "edge" or "glow" or "litText")
             {
                 var text = value.ValueKind is JsonValueKind.String ? value.GetString()! : value.GetRawText();
                 if (!IsColour(text) && !text.Equals("none", StringComparison.OrdinalIgnoreCase))
@@ -654,6 +735,96 @@ public sealed record StageLayout
 
     /// <summary>Every layout compiled in.</summary>
     public static IReadOnlyList<StageLayout> BuiltIns { get; } = [BuiltIn, BuiltInCompass];
+
+    /// <summary>
+    /// The climate panel (ADR-0040): three frosted glass zones — driver, the fan and airflow,
+    /// passenger — over a bar of switches, in the two bands where the cards are. Read only: it
+    /// shows what the truck reports and changes nothing. A climate layout of yours called
+    /// <c>glass</c>, or the one a theme names, replaces it.
+    /// </summary>
+    public static StageLayout BuiltInClimate { get; } =
+        Parse(BuiltInClimateJson, null, LayoutOrigin.BuiltIn, LayoutCanvas.Climate) with { BuiltInSlug = ClimateSlug };
+
+    /// <summary>What the built-in climate layout is called.</summary>
+    public const string ClimateSlug = "glass";
+
+    /// <summary>The climate layouts compiled in.</summary>
+    public static IReadOnlyList<StageLayout> ClimateBuiltIns { get; } = [BuiltInClimate];
+
+    /// <summary>The climate layout as text, comments and all — what <c>climate\examples\glass.json</c> holds.</summary>
+    internal const string BuiltInClimateJson = """
+    {
+      "name": "Glass",
+      "description": "Frosted glass zones for driver and passenger, the fan and airflow between them, and the switches below. Shows what the truck reports; changes nothing.",
+      "author": "DashDeck",
+      // Deep and nearly black, so the glass reads as glass.
+      "background": "#05080C",
+      "elements": [
+        // ── The glass ── a tint, a sheen across the top, a soft shadow. Elements after it sit on it.
+        { "id": "driverGlass", "type": "glass", "x": 24, "y": 16, "width": 276, "height": 262, "radius": "30" },
+        { "id": "centreGlass", "type": "glass", "x": 318, "y": 16, "width": 276, "height": 262, "radius": "30" },
+        { "id": "passengerGlass", "type": "glass", "x": 612, "y": 16, "width": 276, "height": 262, "radius": "30" },
+        { "id": "switchGlass", "type": "glass", "x": 24, "y": 294, "width": 864, "height": 80, "radius": "26",
+          "parts": { "opacity": 0.05 } },
+
+        // ── Driver ── the set temperature large, on an arc across 15–30 °C, and the seat below.
+        { "id": "driver", "type": "setpoint", "x": 44, "y": 28, "width": 236, "height": 192,
+          "label": "DRIVER", "unit": "°", "format": "0.0", "min": 15, "max": 30,
+          "source": { "signal": "hvac.driverSetTemp", "rateHz": 0.5 },
+          "parts": { "arcColour": "#8FDBFF", "glow": "#4FB8F0", "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
+        { "id": "driverSeat", "type": "levels", "x": 64, "y": 222, "width": 196, "height": 44,
+          "label": "SEAT", "min": -3, "max": 3,
+          "source": { "signal": "seat.driver.climate", "rateHz": 0.2 },
+          "parts": { "steps": 3, "litColour": "#FF9A4D", "negativeColour": "#6CC8FF", "labelColour": "#8A97A4" } },
+
+        // ── Centre ── the fan, where the air goes, and the cabin's own temperature.
+        { "id": "title", "type": "text", "x": 338, "y": 30, "width": 236, "height": 22,
+          "content": "CLIMATE", "fontSize": 13, "align": "center", "colour": "#8A97A4" },
+        { "id": "fan", "type": "levels", "x": 344, "y": 60, "width": 224, "height": 76,
+          "label": "FAN", "min": 0, "max": 7,
+          "source": { "signal": "hvac.fanSpeed", "rateHz": 0.5 },
+          "parts": { "steps": 7, "litColour": "#8FDBFF", "labelColour": "#8A97A4" } },
+        // Airflow is one signal of bits: 1 face, 2 feet, 4 windshield.
+        { "id": "face", "type": "indicator", "x": 338, "y": 150, "width": 74, "height": 38, "label": "FACE",
+          "source": { "signal": "hvac.airflow", "rateHz": 0.5 }, "parts": { "bit": 0, "litColour": "#8FDBFF" } },
+        { "id": "feet", "type": "indicator", "x": 419, "y": 150, "width": 74, "height": 38, "label": "FEET",
+          "source": { "signal": "hvac.airflow", "rateHz": 0.5 }, "parts": { "bit": 1, "litColour": "#8FDBFF" } },
+        { "id": "glassAir", "type": "indicator", "x": 500, "y": 150, "width": 74, "height": 38, "label": "GLASS",
+          "source": { "signal": "hvac.airflow", "rateHz": 0.5 }, "parts": { "bit": 2, "litColour": "#8FDBFF" } },
+        { "id": "cabin", "style": "digital", "x": 338, "y": 196, "width": 236, "height": 72,
+          "label": "CABIN", "unit": "°C", "format": "0.0", "min": -40, "max": 80,
+          "source": { "signal": "hvac.cabinTemp", "rateHz": 0.5 },
+          "parts": { "valueSize": 26, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
+
+        // ── Passenger ──
+        { "id": "passenger", "type": "setpoint", "x": 632, "y": 28, "width": 236, "height": 192,
+          "label": "PASSENGER", "unit": "°", "format": "0.0", "min": 15, "max": 30,
+          "source": { "signal": "hvac.passengerSetTemp", "rateHz": 0.5 },
+          "parts": { "arcColour": "#8FDBFF", "glow": "#4FB8F0", "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
+        { "id": "passengerSeat", "type": "levels", "x": 652, "y": 222, "width": 196, "height": 44,
+          "label": "SEAT", "min": -3, "max": 3,
+          "source": { "signal": "seat.passenger.climate", "rateHz": 0.2 },
+          "parts": { "steps": 3, "litColour": "#FF9A4D", "negativeColour": "#6CC8FF", "labelColour": "#8A97A4" } },
+
+        // ── Switches ── lit when on; dim and outlined when off; a dash when the truck has not said.
+        { "id": "auto", "type": "indicator", "x": 44, "y": 310, "width": 116, "height": 48, "label": "AUTO",
+          "source": { "signal": "hvac.auto", "rateHz": 0.5 }, "parts": { "litColour": "#8FDBFF" } },
+        { "id": "ac", "type": "indicator", "x": 172, "y": 310, "width": 116, "height": 48, "label": "A/C",
+          "source": { "signal": "hvac.airConditioning", "rateHz": 0.5 }, "parts": { "litColour": "#8FDBFF" } },
+        { "id": "recirc", "type": "indicator", "x": 300, "y": 310, "width": 116, "height": 48, "label": "RECIRC",
+          "source": { "signal": "hvac.recirculate", "rateHz": 0.5 }, "parts": { "litColour": "#8FDBFF" } },
+        { "id": "frontDefrost", "type": "indicator", "x": 428, "y": 310, "width": 136, "height": 48, "label": "DEFROST",
+          "source": { "signal": "hvac.frontDefrost", "rateHz": 0.5 }, "parts": { "litColour": "#FF9A4D" } },
+        { "id": "rearDefrost", "type": "indicator", "x": 576, "y": 310, "width": 136, "height": 48, "label": "REAR DEF",
+          "source": { "signal": "hvac.rearDefrost", "rateHz": 0.5 }, "parts": { "litColour": "#FF9A4D" } },
+        // Outside air is a standard signal: it reads on the real truck today.
+        { "id": "outside", "style": "digital", "x": 728, "y": 300, "width": 150, "height": 68,
+          "label": "OUTSIDE", "unit": "°C", "format": "0", "min": -50, "max": 60,
+          "source": { "signal": "ambient.airTemp", "rateHz": 0.1 },
+          "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } }
+      ]
+    }
+    """;
 
     /// <summary>The compass layout as text, comments and all — what <c>stage\examples\compass.json</c> holds.</summary>
     internal const string BuiltInCompassJson = """

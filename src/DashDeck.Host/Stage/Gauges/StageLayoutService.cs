@@ -51,7 +51,7 @@ public sealed partial class StageLayoutService : ObservableObject
 
     /// <summary>The layout the stage shows.</summary>
     [ObservableProperty]
-    private StageLayout _current = StageLayout.BuiltIn;
+    private StageLayout _current = StageLayout.BuiltIn;  // replaced by Library.Default in the constructor
 
     /// <summary>Why it is this one, in words: "Following the theme", "Chosen", or why the wanted one is missing.</summary>
     [ObservableProperty]
@@ -95,8 +95,8 @@ public sealed partial class StageLayoutService : ObservableObject
             }
             else
             {
-                Current = StageLayout.BuiltIn;
-                Reason = $"The chosen layout '{Choice}' is gone — showing the built-in cluster.";
+                Current = Library.Default;
+                Reason = $"The chosen layout '{Choice}' is gone — showing the built-in {Library.Default.Name}.";
             }
         }
         else if (_themeLayout() is { Length: > 0 } named)
@@ -108,15 +108,15 @@ public sealed partial class StageLayoutService : ObservableObject
             }
             else
             {
-                Current = StageLayout.BuiltIn;
+                Current = Library.Default;
                 Reason = _pinned
-                    ? $"The launcher names '{named}', which is not in the stage folders — showing the built-in cluster."
-                    : $"The theme names '{named}', which is not in the stage folders — showing the built-in cluster.";
+                    ? $"The launcher names '{named}', which is not in the {Library.Canvas.Name} folders — showing the built-in {Library.Default.Name}."
+                    : $"The theme names '{named}', which is not in the {Library.Canvas.Name} folders — showing the built-in {Library.Default.Name}.";
             }
         }
         else
         {
-            Current = StageLayout.BuiltIn;
+            Current = Library.Default;
             Reason = "Following the theme, which names no layout of its own.";
         }
 

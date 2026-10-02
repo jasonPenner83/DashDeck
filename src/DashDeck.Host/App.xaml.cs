@@ -347,7 +347,8 @@ public partial class App : Application
                 // render, so record what the player says it is doing beside the image.
                 if (_shell?.DescribeStage() is { } state)
                 {
-                    System.IO.File.WriteAllText(shotPath + ".txt", state);
+                    var climate = _shell.DescribeClimate() is { } c ? $"{Environment.NewLine}climate: {c}" : "";
+                    System.IO.File.WriteAllText(shotPath + ".txt", state + climate);
                 }
 
                 Shutdown();

@@ -390,18 +390,34 @@ public sealed class SyntheticTransport : IVehicleTransport
     };
 
     /// <summary>
-    /// MS-CAN body-module PIDs. Only the per-wheel TPMS placeholders, for now (see catalog).
+    /// MS-CAN body-module PIDs: the per-wheel TPMS placeholders, and the climate ones (ADR-0040).
     /// </summary>
     /// <remarks>
     /// 0.25 psi per count, with a touch of jitter so the readout is never suspiciously still.
     /// The rear left comes back low on purpose, so the overhead view has a corner to light.
     /// </remarks>
+    private static byte HalfDegree(double celsius) => (byte)Math.Clamp(Math.Round(celsius * 2), 0, 255);
+
     private byte[]? EncodeMsPid(byte pid) => pid switch
     {
         0xC0 => [Psi(_truck.Jitter(_truck.TirePsiFrontLeft, 0.1))],
         0xC1 => [Psi(_truck.Jitter(_truck.TirePsiFrontRight, 0.1))],
         0xC2 => [Psi(_truck.Jitter(_truck.TirePsiRearLeft, 0.1))],
         0xC3 => [Psi(_truck.Jitter(_truck.TirePsiRearRight, 0.1))],
+
+        // Climate placeholders (ADR-0040; see the catalog for each encoding).
+        0xC4 => [HalfDegree(_truck.DriverSetTempC)],
+        0xC5 => [HalfDegree(_truck.PassengerSetTempC)],
+        0xC6 => [(byte)Math.Clamp(Math.Round((_truck.CabinTempC + 40) * 2), 0, 255)],
+        0xC7 => [(byte)_truck.FanSpeed],
+        0xC8 => [_truck.AirConditioning ? (byte)1 : (byte)0],
+        0xC9 => [_truck.AutoMode ? (byte)1 : (byte)0],
+        0xCA => [_truck.Recirculate ? (byte)1 : (byte)0],
+        0xCB => [_truck.FrontDefrost ? (byte)1 : (byte)0],
+        0xCC => [_truck.RearDefrost ? (byte)1 : (byte)0],
+        0xCD => [(byte)_truck.Airflow],
+        0xCE => [unchecked((byte)(sbyte)_truck.DriverSeat)],
+        0xCF => [unchecked((byte)(sbyte)_truck.PassengerSeat)],
         _ => null,
     };
 
