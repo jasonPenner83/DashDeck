@@ -72,9 +72,13 @@ public sealed class SensorInventoryTests : IDisposable
         public SignalPollStatus StatusOf(string signalId) =>
             Statuses.GetValueOrDefault(signalId, SignalPollStatus.NotAsked);
 
+        /// <summary>Called on every request — how a test changes the truck, or presses STOP, mid-watch.</summary>
+        public Action<PidRequest>? OnAsk { get; set; }
+
         public Task<PidResponse> ProbeAsync(PidRequest request, CancellationToken ct)
         {
             Asked.Add(request);
+            OnAsk?.Invoke(request);
 
             if (request.Header is { } module)
             {
@@ -542,6 +546,58 @@ public sealed class SensorInventoryTests : IDisposable
         Assert.Contains("not saved", modules.SweepStatus, StringComparison.Ordinal);
         Assert.Empty(new DiscoveryStore(DiscoveryPath).SweptRanges(CanBus.Ms, 0x726));
         Assert.Null(new DiscoveryStore(DiscoveryPath).LoadModules());
+    }
+
+    /// <summary>WATCH: the identifier that moves while something is done to the truck floats to the top.</summary>
+    [Fact]
+    public async Task Watch_re_asks_what_the_sweep_found_and_puts_what_moved_first()
+    {
+        var vehicle = new FakeVehicle(Shipped()) { IsSimulated = true };
+        vehicle.ModuleAnswers[(0x726, 0x4001)] = [0x30];
+        vehicle.ModuleAnswers[(0x726, 0x4002)] = [0x00, 0x50];
+
+        var inventory = new SensorInventoryViewModel(vehicle, new UserSignalStore(FilePath));
+        var modules = inventory.Modules;
+        modules.ApplyModules(TwoModules());
+        modules.SelectCommand.Execute(modules.Found[1]);
+        modules.FromText = "4000";
+        modules.ToText = "400F";
+        Assert.False(modules.WatchCommand.CanExecute(null));
+
+        await modules.SweepCommand.ExecuteAsync(null);
+        Assert.True(modules.WatchCommand.CanExecute(null));
+
+        // Mid-watch: the second identifier starts moving, then STOP is pressed.
+        vehicle.Asked.Clear();
+        vehicle.OnAsk = r =>
+        {
+            if (vehicle.Asked.Count == 3)
+            {
+                vehicle.ModuleAnswers[(0x726, 0x4002)] = [0x00, 0x58];
+            }
+
+            if (vehicle.Asked.Count == 8)
+            {
+                modules.StopCommand.Execute(null);
+            }
+        };
+
+        await modules.WatchCommand.ExecuteAsync(null);
+
+        Assert.All(vehicle.Asked, r => Assert.Equal(new PidRequest(0x22, r.Pid, CanBus.Ms, 0x726), r));
+        Assert.True(modules.HasWatch);
+        Assert.Equal(["22 4002", "22 4001"], modules.Watching.Select(w => w.Caption));
+        Assert.Equal("MOVED ×1", modules.Watching[0].Badge);
+        Assert.Contains("first 00 50  →  now 00 58", modules.Watching[0].Detail, StringComparison.Ordinal);
+        Assert.Equal("STILL", modules.Watching[1].Badge);
+        Assert.Equal("A−40:  8 → 8 °C", modules.Watching[1].Temperature);
+        Assert.StartsWith("Stopped by STOP", modules.WatchStatus, StringComparison.Ordinal);
+        Assert.Contains("1 of 2 moved", modules.WatchStatus, StringComparison.Ordinal);
+
+        // Then DEFINE the mover: the editor, on its module, ready to TEST.
+        modules.DefineWatchedCommand.Execute(modules.Watching[0]);
+        Assert.Equal("726", inventory.Editor!.ModuleText);
+        Assert.Equal("22 4002 → 726", inventory.Editor.RequestText);
     }
 
     [Fact]

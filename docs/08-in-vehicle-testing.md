@@ -458,3 +458,33 @@ wrong module or range; the synthetic truck's modules (SYNTH part numbers) showin
 
 The results are in `%LOCALAPPDATA%\DashDeck\discovery.json`. It can hold the VIN, if the
 F100–F1FF range of 7E0 was swept, so don't post that file publicly.
+
+## WATCH — finding which identifiers move
+
+**You need:** the truck, the adapter, the dash on the real adapter, **parked**, engine **running**.
+Best started within a few minutes of a cold start, so temperatures are still climbing. Ten minutes.
+
+1. **Settings ▸ Sensors ▸ MODULES**, tap **7E0 › IDENTIFIERS**, choose **F400–F4FF** and **SWEEP**
+   (or tap the chip to show a saved sweep). **Expect:** the list of about 53.
+2. Press **WATCH** (beside SWEEP). **Expect:** an orange line *Watching N identifiers on 7E0…*, a
+   **STOP** button with `pass 1 · 22 F4… · x of N · 0 moved` beside it, and after a few seconds the
+   list replaced by rows showing *first … → now …*, *low–high*, an *A−40* line, and **MOVED ×n** or
+   **STILL** on the right. The dash goes amber while it runs — expected.
+3. Blip the throttle two or three times. **Expect:** after the next pass, rows that follow the
+   throttle rise to the top as **MOVED** — **22 F44A** (pedal), **22 F411** (throttle), **22 F40C**
+   (rpm), **22 F404** (load). Rows that don't care stay **STILL** at the bottom.
+4. Leave it idling for a few minutes. **Expect:** **22 F405** (coolant) shows MOVED if the engine is
+   still warming, with its *A−40* line reading the coolant temperature in °C — compare with the dash.
+5. Press **STOP**. **Expect:** *Stopped by STOP after n passes · m of N moved*, the list stays, and
+   the dash goes green again within a few seconds.
+6. Tap the top **MOVED** row. **Expect:** the signal editor, with the module and identifier filled
+   in and **TEST** visible. **CANCEL** back.
+7. Now the real hunt: sweep **1000–1FFF** on 7E0 (about four minutes), then **WATCH** it right after
+   a cold start and blip the throttle now and then. Photograph the top rows after ten minutes:
+   slow risers with sensible *A−40* values are oil and transmission temperature candidates; rows
+   that jump with the throttle are fuel-flow candidates.
+
+**A failure looks like:** WATCH greyed out after a sweep with results; a pass taking much longer
+than one second per 19 identifiers; STOP not stopping within a second; the dash still amber a
+minute after STOP; WATCH starting while the truck moves (it refuses, and stops by itself if the
+truck starts moving).

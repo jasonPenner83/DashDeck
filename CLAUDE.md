@@ -67,6 +67,10 @@ Scans and sweeps of the **real** truck are **kept** in `%LOCALAPPDATA%\DashDeck\
 last module scan and the latest sweep of each module and range — and shown again at launch marked
 **SAVED**; the synthetic truck's are never saved. The file can hold the VIN (7E0's F190), so it stays
 on the tablet.
+**WATCH** re-asks the identifiers a sweep found, round and round until STOP, and ranks them by how
+often they changed (`IdentifierWatch`): do one thing to the truck — blip the throttle, let it warm —
+and what moves with it rises to the top, with an `A−40` reading beside each for temperatures. It is
+a sweep that does not end, so it is refused while moving and stops by itself if the truck moves.
 **Settings ▸ Vehicle** (ADR-0033) says *which* vehicle this is, so nothing hard-codes it: the
 VIN is **read from the truck** (mode 09) or typed, **decoded once by NHTSA vPIC** and cached in
 `%LOCALAPPDATA%\DashDeck\vehicle.json`, and every decoded field is correctable by hand. It fills

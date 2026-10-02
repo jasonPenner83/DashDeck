@@ -70,6 +70,38 @@ public sealed record IdentifierRowViewModel(ModuleRowViewModel Module, FoundIden
     public bool CanDefine => Found.RefusalCode is null && Found.Data.Length is > 0 and <= 4;
 }
 
+/// <summary>
+/// One identifier under WATCH: what it said first and now, its range, how often it changed, and
+/// its first byte less 40 — the usual way a temperature is sent.
+/// </summary>
+public sealed record WatchRowViewModel(ModuleRowViewModel Module, WatchedIdentifier Item)
+{
+    public string Caption => string.Create(CultureInfo.InvariantCulture, $"22 {Item.Did:X4}");
+
+    /// <summary>MOVED ×7, or still.</summary>
+    public string Badge => Item.HasChanged
+        ? string.Create(CultureInfo.InvariantCulture, $"MOVED ×{Item.Changes}")
+        : "STILL";
+
+    public bool HasChanged => Item.HasChanged;
+
+    /// <summary>First and now in hex, then the whole value's low–high in decimal.</summary>
+    public string Detail => string.Create(
+        CultureInfo.InvariantCulture,
+        $"first {Hex(Item.First)}  →  now {Hex(Item.Current)}  ·  low–high {Item.Low}–{Item.High}{(Item.Missed ? "  ·  no answer last pass" : "")}");
+
+    /// <summary>The first byte less 40, first and now: how Ford and OBD send most temperatures, in °C.</summary>
+    public string Temperature => string.Create(
+        CultureInfo.InvariantCulture,
+        $"A−40:  {Item.First[0] - 40} → {Item.Current[0] - 40} °C");
+
+    /// <summary>The identifier as the sweep would show it, with its latest bytes — for DEFINE.</summary>
+    public IdentifierRowViewModel AsIdentifier => new(Module, new FoundIdentifier(Item.Did, Item.Current, null));
+
+    private static string Hex(byte[] data) =>
+        string.Join(' ', data.Select(b => b.ToString("X2", CultureInfo.InvariantCulture)));
+}
+
 /// <summary>A preset identifier range, chosen with a chip.</summary>
 public sealed partial class DidRangeOption(string label, ushort first, ushort last) : ObservableObject
 {
@@ -162,9 +194,19 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
     private double _progress;
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(ScanModulesCommand), nameof(SweepCommand), nameof(StopCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ScanModulesCommand), nameof(SweepCommand), nameof(StopCommand), nameof(WatchCommand), nameof(DefineWatchedCommand))]
     [NotifyPropertyChangedFor(nameof(IsIdle))]
     private bool _isSweeping;
+
+    /// <summary>What WATCH is seeing, most-moved first. Empty when not watching.</summary>
+    public ObservableCollection<WatchRowViewModel> Watching { get; } = [];
+
+    /// <summary>Where the watch has got to, or what it found.</summary>
+    [ObservableProperty]
+    private string _watchStatus = "";
+
+    /// <summary>True while there are watch results to show.</summary>
+    public bool HasWatch => Watching.Count > 0;
 
     public bool IsIdle => !IsSweeping;
 
@@ -175,7 +217,7 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
     /// <summary>The module identifiers are swept on.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSelection), nameof(SelectionCaption))]
-    [NotifyCanExecuteChangedFor(nameof(SweepCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SweepCommand), nameof(WatchCommand))]
     private ModuleRowViewModel? _selected;
 
     public bool HasSelection => Selected is not null;
@@ -234,6 +276,7 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
 
         if (Selected != module)
         {
+            ClearWatch();
             Identifiers.Clear();
             SweepStatus = "Pick a range and sweep it. A module answers every identifier it is asked — with a value or a no — so a range costs one exchange each.";
         }
@@ -260,7 +303,9 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
         else
         {
             Identifiers.Clear();
+            ClearWatch();
             SweepStatus = string.Create(CultureInfo.CurrentCulture, $"{first:X4}–{last:X4} has not been swept on {module.AddressText}. SWEEP asks it.");
+            WatchCommand.NotifyCanExecuteChanged();
         }
     }
 
@@ -385,12 +430,15 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
     /// <summary>Show an identifier sweep's results — a fresh one, or a saved one with when it ran.</summary>
     internal void ApplyIdentifiers(ModuleRowViewModel module, DidSweepResult result, DateTimeOffset? savedUtc = null)
     {
+        ClearWatch();
         Identifiers.Clear();
 
         foreach (var found in result.Found)
         {
             Identifiers.Add(new IdentifierRowViewModel(module, found));
         }
+
+        WatchCommand.NotifyCanExecuteChanged();
 
         var answered = result.Found.Count(f => f.RefusalCode is null);
         var declined = result.Found.Count - answered;
@@ -402,6 +450,111 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
 
     [RelayCommand(CanExecute = nameof(IsSweeping))]
     private void Stop() => _running?.Cancel();
+
+    private bool CanWatch() => !IsSweeping && Selected is not null && Identifiers.Any(i => i.CanDefine);
+
+    /// <summary>
+    /// Ask the identifiers shown — the ones that answered with a number — over and over, until STOP,
+    /// and keep the ones that move at the top.
+    /// </summary>
+    /// <remarks>
+    /// The way through a haystack: start it, do one thing to the truck — blip the throttle, or let
+    /// it idle while it warms — and see what moved with it. Each pass asks only what the sweep found,
+    /// so a hundred identifiers is about five seconds a pass. It is a sweep that does not end, so it
+    /// is refused while moving like one, and stops by itself if the truck starts moving.
+    /// </remarks>
+    [RelayCommand(CanExecute = nameof(CanWatch))]
+    private async Task WatchAsync()
+    {
+        if (Selected is not { } module)
+        {
+            return;
+        }
+
+        if (await RefuseIfMovingAsync() is { } refusal)
+        {
+            WatchStatus = refusal;
+            return;
+        }
+
+        var watch = new IdentifierWatch(Identifiers.Select(i => i.Found));
+        using var cts = Begin();
+        ClearWatch();
+        WatchStatus = string.Create(
+            CultureInfo.CurrentCulture,
+            $"Watching {watch.Items.Count} identifiers on {module.AddressText}. Now do one thing — blip the throttle, or let it idle and warm — and see what moves. STOP when done.");
+
+        var stoppedBy = "STOP";
+
+        try
+        {
+            while (!cts.IsCancellationRequested)
+            {
+                var finished = await watch.PassAsync(_vehicle.ProbeAsync, module.Bus, module.Address, WatchReporter(watch), cts.Token);
+                ShowWatch(module, watch);
+
+                if (!finished)
+                {
+                    break;
+                }
+
+                if (await RefuseIfMovingAsync() is not null)
+                {
+                    stoppedBy = "the truck moving";
+                    break;
+                }
+            }
+        }
+        finally
+        {
+            End();
+        }
+
+        WatchStatus = string.Create(
+            CultureInfo.CurrentCulture,
+            $"Stopped by {stoppedBy} after {watch.Passes} pass{(watch.Passes == 1 ? "" : "es")}  ·  {watch.ChangedCount} of {watch.Items.Count} moved{(_vehicle.IsSimulated ? "  ·  SIMULATED" : "")}. Tap one to DEFINE and TEST it.");
+    }
+
+    /// <summary>Redraw the watch list, most-moved first. Once a pass, so rows do not jump about mid-pass.</summary>
+    private void ShowWatch(ModuleRowViewModel module, IdentifierWatch watch)
+    {
+        Watching.Clear();
+        foreach (var item in watch.Ranked())
+        {
+            Watching.Add(new WatchRowViewModel(module, item));
+        }
+
+        OnPropertyChanged(nameof(HasWatch));
+    }
+
+    private void ClearWatch()
+    {
+        if (Watching.Count == 0 && WatchStatus.Length == 0)
+        {
+            return;
+        }
+
+        Watching.Clear();
+        WatchStatus = "";
+        OnPropertyChanged(nameof(HasWatch));
+    }
+
+    /// <summary>Progress for a watch: which pass, where in it, and how many have moved.</summary>
+    private Progress<SweepProgress> WatchReporter(IdentifierWatch watch) => new(p =>
+    {
+        Progress = p.Total == 0 ? 0 : (double)p.Done / p.Total;
+        ProgressText = string.Create(CultureInfo.CurrentCulture, $"pass {watch.Passes + 1}  ·  {p.Current}  ·  {p.Done} of {p.Total}  ·  {p.Found} moved");
+    });
+
+    /// <summary>DEFINE from a watch row: the editor, with the latest bytes, ready to TEST. After STOP.</summary>
+    [RelayCommand(CanExecute = nameof(IsIdle))]
+    private void DefineWatched(WatchRowViewModel? row)
+    {
+        if (row is not null && !IsSweeping)
+        {
+            Define(row.AsIdentifier);
+        }
+    }
 
     /// <summary>Open the editor on an identifier, with its module, bus and length filled in.</summary>
     [RelayCommand]
