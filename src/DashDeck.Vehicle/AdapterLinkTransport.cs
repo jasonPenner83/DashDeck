@@ -414,6 +414,46 @@ public sealed class AdapterLinkTransport : IVehicleTransport
         State = TransportState.Disconnected;
     }
 
+    /// <summary>
+    /// Hold the link still — no search, no reconnect, no exchange — until the returned handle is
+    /// disposed.
+    /// </summary>
+    /// <remarks>
+    /// For the port test in Settings ▸ Vehicle. Both open serial ports, and a port can only be
+    /// open once: when the background search and the test reached the same port together, one of
+    /// them lost with "access denied" and reported the port as held by another program — DashDeck
+    /// blaming FORScan for itself (found in the truck, 2026-10-02). Waits for an attempt already
+    /// under way to finish first.
+    /// </remarks>
+    public async Task<IDisposable> PauseAsync(CancellationToken ct)
+    {
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        Log("paused for a port test");
+        return new Release(this);
+    }
+
+    private sealed class Release(AdapterLinkTransport link) : IDisposable
+    {
+        private int _released;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) != 0)
+            {
+                return;
+            }
+
+            try
+            {
+                link._gate.Release();
+            }
+            catch (ObjectDisposedException)
+            {
+                // The link closed while paused; nothing left to resume.
+            }
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         await DropAsync().ConfigureAwait(false);

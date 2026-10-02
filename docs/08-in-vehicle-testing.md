@@ -141,12 +141,21 @@ than the 2.7; or the vehicle being forgotten after a restart.
    comes up live, and **Settings ▸ Vehicle** says **found it on a new port**, with the new COM
    number highlighted. If Windows kept the same COM number, this step proves nothing — note that.
 
+**E — Testing ports while DashDeck is looking for the adapter** (ignition **on**)
+
+9. Unplug the adapter's USB from the Surface, then quit and relaunch DashDeck. It comes up
+   simulated and starts looking. Plug the cable back in, and **straight away** open
+   **Settings ▸ Vehicle** and press **TEST PORTS**. **Expect:** the summary briefly reads
+   *Testing… (pausing DashDeck's own search first)*, then the adapter's row reads **ADAPTER** —
+   **not IN USE**. Within a few seconds of the test finishing, the dash goes live.
+
 **A failure looks like:**
 - the SIM badge never going after plugging in (step 5);
 - **ADAPTER LOST** not clearing within about 30 s of plugging back in (step 7);
 - values green, but RPM far from the tachometer;
 - the app freezing while ports are tested;
-- any port other than the adapter's being chosen automatically.
+- any port other than the adapter's being chosen automatically;
+- the adapter's own port reading **IN USE** in step 9, when nothing else is running.
 
 If step 7 fails, **don't restart yet.** Open **Settings ▸ Vehicle**: the status line ends with
 `Last: …`, saying what the link last ran into. Photograph it, then send `adapter.log`. The first

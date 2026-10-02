@@ -26,6 +26,23 @@ public sealed class AdapterPortsTests
 
         public List<string?> Chosen { get; } = [];
 
+        /// <summary>True while the search is held still for a port test.</summary>
+        public bool SearchPaused { get; private set; }
+
+        public int Pauses { get; private set; }
+
+        public Task<IDisposable> PauseSearchAsync(CancellationToken ct)
+        {
+            SearchPaused = true;
+            Pauses++;
+            return Task.FromResult<IDisposable>(new Resume(this));
+        }
+
+        private sealed class Resume(FakeStatus status) : IDisposable
+        {
+            public void Dispose() => status.SearchPaused = false;
+        }
+
         public AdapterChoice UseAdapterPort(string? port)
         {
             Chosen.Add(port);
@@ -47,6 +64,11 @@ public sealed class AdapterPortsTests
 
         public List<string> Tested { get; } = [];
 
+        /// <summary>Set to check, at each port test, that DashDeck's own search is paused.</summary>
+        public Func<bool>? SearchPaused { get; set; }
+
+        public List<bool> PausedDuringTest { get; } = [];
+
         public IReadOnlyList<string> ListPorts() => ports;
 
         public async Task<PortTestResult> TestAsync(string port, int? knownBaudRate, CancellationToken ct)
@@ -54,6 +76,11 @@ public sealed class AdapterPortsTests
             lock (Tested)
             {
                 Tested.Add(port);
+
+                if (SearchPaused is not null)
+                {
+                    PausedDuringTest.Add(SearchPaused());
+                }
             }
 
             await Task.Yield();
@@ -166,6 +193,22 @@ public sealed class AdapterPortsTests
 
         Assert.True(vm.RestartNeeded);
         Assert.Contains("next launch", vm.ChoiceMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DashDecks_own_search_is_paused_while_ports_are_tested()
+    {
+        // The truck, 2026-10-02: the background search and TEST PORTS opened the adapter's port at
+        // the same moment, and the test reported DashDeck's own search as FORScan.
+        var rig = new Rig { Probe = new FakeProbe("COM3", "COM4") };
+        rig.Probe.SearchPaused = () => rig.Status.SearchPaused;
+
+        var vm = rig.Make();
+        await vm.TestPortsCommand.ExecuteAsync(null);
+
+        Assert.Equal([true, true], rig.Probe.PausedDuringTest);
+        Assert.False(rig.Status.SearchPaused);   // and resumed afterwards
+        Assert.Equal(1, rig.Status.Pauses);
     }
 
     [Fact]

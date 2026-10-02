@@ -21,7 +21,7 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **356 tests green** — 132 engine, 224 shell.
+(ADR-0010). **358 tests green** — 133 engine, 225 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck

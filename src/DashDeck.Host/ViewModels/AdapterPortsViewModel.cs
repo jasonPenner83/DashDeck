@@ -26,6 +26,9 @@ public interface IAdapterStatus
     string? LinkProblem { get; }
 
     AdapterChoice UseAdapterPort(string? port);
+
+    /// <summary>Hold DashDeck's own adapter search still until the handle is disposed.</summary>
+    Task<IDisposable> PauseSearchAsync(CancellationToken ct);
 }
 
 /// <summary>Lists ports and tests one. A seam, so the list is testable without serial hardware.</summary>
@@ -241,6 +244,12 @@ public sealed partial class AdapterPortsViewModel : ObservableObject
             Refresh();
 
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+
+            // DashDeck's own search for the adapter opens these same ports. Hold it still while
+            // they are tested, or the two collide and the loser reads the other as "in use".
+            TestSummary = "Testing… (pausing DashDeck's own search first)";
+            using var paused = await _status.PauseSearchAsync(timeout.Token);
+            TestSummary = "Testing…";
 
             await Task.WhenAll(Ports.Select(row => TestRowAsync(row, present, reserved, timeout.Token)));
 
