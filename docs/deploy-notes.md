@@ -28,12 +28,30 @@ To confirm the loader in the deployed folder without opening the shell:
 To attach the build to its GitHub Release (rollback is unzipping the previous one):
 
 ```powershell
-Compress-Archive -Path dist\DashDeck\* -DestinationPath dist\DashDeck-v0.4.0-win-x64.zip -Force
+Compress-Archive -Path dist\DashDeck\* -DestinationPath dist\DashDeck-v0.5.0-win-x64.zip -Force
 ```
 
 ## What this build contains
 
-**`v0.4.0`** — released 2026-10-02 from `main`. It adds the following to `v0.3.0`:
+**`v0.5.0`** — released 2026-10-02 from `main` (tag on the #27 merge, `ee8911b`). It adds the
+following to `v0.4.0`:
+
+- **The stage as a file** (ADR-0037). The GAUGES stage is drawn from a JSON layout of gauges
+  (dial, arc, bar, LCARS bar, digital), text, a clock and panels on a 912 × 636 canvas.
+  - A theme brings its stage: LCARS brings the LCARS stage.
+  - **Settings ▸ Themes ▸ STAGE LAYOUT** chooses a layout, or follows the theme, and has SAVE AS,
+    DELETE, OPEN FOLDER and RELOAD. RELOAD STAGE LAYOUT is in the three-dot menu.
+  - Your layouts are in `%LOCALAPPDATA%\DashDeck\stage\`.
+  - Writing one: [writing-a-stage-layout](writing-a-stage-layout.md).
+- **Honest gauges.** No reading means no needle and NO DATA; Stale is dimmed; every gauge has a
+  quality dot. On the truck, **OIL TEMP reads NO DATA**, which is correct: the truck doesn't report
+  oil temperature.
+- **Examples** are written to `themes\examples\` and `stage\examples\` on every launch: the
+  shipped files, plus the built-in theme and cluster as JSON. They're references only, never loaded.
+- **CLOSE DASHDECK** in the three-dot menu (from v0.4.1): two taps to quit, and quitting now ends the
+  process and frees the adapter's port.
+
+And from **`v0.4.0`** (released 2026-10-02):
 
 - **Themes** (Settings ▸ Themes, ADR-0036). A theme restyles the whole dash; tap one to wear it.
   IMPORT, EXPORT, SAVE AS, DELETE (yours only), OPEN FOLDER and RELOAD.
@@ -112,6 +130,9 @@ Step-by-step walkthroughs, with what to expect and what a failure looks like, ar
   the truck*. Check TEST rpm against the tachometer.
 - **VIN lookup**: read from the truck, and decoded as a 2019 Ford F-150 with the 2.7 L.
 - **Settings ▸ Themes**: passed on the tablet 2026-10-02 (LCARS approved).
+- **Closing by touch**: passed on the Surface 2026-10-02. Nothing left in Task Manager.
+- **The stage as a file**: ran on the PC on 2026-10-02. In the truck, with the engine running,
+  OIL TEMP should read NO DATA and the other gauges should move.
 - **Settings ▸ Sensors ▸ Modules**: **not yet walked through** — the next thing to do in the truck.
   Close FORScan first; send the module list it finds (cover the `22 F190` row, the VIN).
 
