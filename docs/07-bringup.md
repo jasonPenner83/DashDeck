@@ -102,14 +102,18 @@ transcript.
 
 ## Running the app itself on the adapter
 
-Bring-up proves the pipeline; the shell is wired separately (ADR-0031). Put the adapter's
-COM port in **Settings → Vehicle → OBD-II adapter**, then relaunch. Leave it empty to run
-the synthetic truck.
+Bring-up proves the pipeline; the shell is wired separately (ADR-0031, ADR-0034). Open
+**Settings → Vehicle → OBD-II adapter**: the ports are tested as the section opens (or press
+TEST PORTS), each row saying what is on it — the adapter's identity, its baud rate and the
+voltage at the OBD-II port, or IN USE / NO ADAPTER / WON'T OPEN. Tap the adapter's row. No
+restart: the dash switches to live data as soon as the adapter answers. USE SIMULATOR goes back
+to the synthetic truck.
 
 The **SIM badge in the status strip is the thing to watch**: it is bound to whether the
-data is simulated, so its absence is what tells you the dash is live. If a configured
-adapter does not come up, the dash comes up simulated rather than dead and records why —
-so a missing badge is the only confirmation that the numbers are real.
+data is simulated, so its absence is what tells you the dash is live. If the chosen adapter
+is not there at launch, the dash comes up simulated, says why, and **keeps looking** — it
+goes live by itself when the adapter is plugged in, finds it again if the cable is knocked or
+Windows gives it a new COM number, and finds the baud rate again if it resets.
 
 For a one-off without changing settings: `DashDeck.Host.exe --port COM7`.
 

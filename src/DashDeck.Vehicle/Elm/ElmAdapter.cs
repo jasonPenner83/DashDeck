@@ -42,6 +42,35 @@ public sealed class ElmAdapter : IVehicleAdapter
     {
         _transport = transport;
         _clock = clock ?? SystemClock.Instance;
+        _transport.StateChanged += OnTransportStateChanged;
+    }
+
+    /// <summary>True once <see cref="InitializeAsync"/> has configured the adapter.</summary>
+    private bool _initialized;
+
+    /// <summary>
+    /// Set when the link came back after being lost, so the adapter is configured again before
+    /// the next request.
+    /// </summary>
+    /// <remarks>
+    /// A reconnect is not a resume. Unplugging the USB cable power-cycles the adapter, and it
+    /// comes back with echo on, spaces on, the protocol on automatic and the CAN transceiver
+    /// on HS — while this class still believed its own settings and its own record of the
+    /// selected bus. The first MS-CAN request after a knock to the cable went out on the wrong
+    /// bus and read as NO DATA. So any return to Connected after the first initialisation,
+    /// including a switch from the simulator to the real adapter (ADR-0034), re-runs it.
+    /// </remarks>
+    private volatile bool _needsConfigure;
+
+    /// <summary>How many times the adapter has been configured — 1 after start-up, more after reconnects.</summary>
+    public int ConfigureCount { get; private set; }
+
+    private void OnTransportStateChanged(TransportState state)
+    {
+        if (state == TransportState.Connected && _initialized)
+        {
+            _needsConfigure = true;
+        }
     }
 
     public AdapterCapabilities? Capabilities { get; private set; }
@@ -52,6 +81,17 @@ public sealed class ElmAdapter : IVehicleAdapter
         {
             await _transport.ConnectAsync(ct).ConfigureAwait(false);
         }
+
+        await ConfigureAsync(ct).ConfigureAwait(false);
+        _initialized = true;
+        _needsConfigure = false;
+    }
+
+    /// <summary>Put the adapter in the state every request assumes, and learn what it can reach.</summary>
+    private async Task ConfigureAsync(CancellationToken ct)
+    {
+        // Whatever the adapter was doing, ATZ puts it back on HS-CAN with defaults.
+        _selectedBus = CanBus.Hs;
 
         await _transport.ExchangeAsync("ATZ", ct).ConfigureAwait(false);      // reset
         await _transport.ExchangeAsync("ATE0", ct).ConfigureAwait(false);     // echo off
@@ -71,6 +111,8 @@ public sealed class ElmAdapter : IVehicleAdapter
             Buses: buses,
             SimultaneousBusAccess: buses.Count > 1,
             MaxRequestsPerSecond: AssumedRequestsPerSecond);
+
+        ConfigureCount++;
     }
 
     /// <summary>
@@ -121,6 +163,15 @@ public sealed class ElmAdapter : IVehicleAdapter
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
+            if (_needsConfigure)
+            {
+                await ConfigureAsync(ct).ConfigureAwait(false);
+
+                // Cleared after, not before: the reconnect that configuring itself may cause
+                // raises Connected again, and this configuration already covers it.
+                _needsConfigure = false;
+            }
+
             if (Capabilities is { } caps && !caps.Supports(request.Bus))
             {
                 return PidResponse.Failed(request, PidFailure.NoData, _clock.UtcNow);
@@ -138,7 +189,13 @@ public sealed class ElmAdapter : IVehicleAdapter
         catch (IOException)
         {
             // A dropped cable mid-request is routine, not exceptional. The transport
-            // reconnects on its own; this request simply has no answer.
+            // reconnects on its own; this request simply has no answer — and whatever the
+            // adapter was configured as may not survive the reconnect, so configure again.
+            if (_initialized)
+            {
+                _needsConfigure = true;
+            }
+
             return PidResponse.Failed(request, PidFailure.Timeout, _clock.UtcNow);
         }
         finally
@@ -149,6 +206,7 @@ public sealed class ElmAdapter : IVehicleAdapter
 
     public async ValueTask DisposeAsync()
     {
+        _transport.StateChanged -= OnTransportStateChanged;
         _gate.Dispose();
         await _transport.DisposeAsync().ConfigureAwait(false);
     }

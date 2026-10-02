@@ -58,23 +58,6 @@ public sealed partial class SettingsSection(string name) : ObservableObject
 /// </remarks>
 public sealed partial class SettingsViewModel : ObservableObject
 {
-    /// <summary>
-    /// Serial ports the OS can see, as a hint beside the adapter field.
-    /// </summary>
-    /// <remarks>
-    /// A hint rather than a picker: the list can be long and full of unrelated devices
-    /// (the phone's Bluetooth GPS shows up here too), and a wrong pick is cheaper to
-    /// correct than a wrong guess is to diagnose.
-    /// </remarks>
-    public string DetectedSerialPorts
-    {
-        get
-        {
-            var ports = Settings.DisplaySettings.AvailableSerialPorts();
-            return ports.Count == 0 ? "no serial ports detected" : "detected: " + string.Join(", ", ports);
-        }
-    }
-
     private readonly ThemeService _theme;
     private readonly DashDeck.Host.Sensors.SensorService _sensors;
     private readonly DashDeck.Host.Stage.UserAppStore _userApps;
@@ -126,6 +109,12 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         Section = section.Name;
 
+        // Opening Vehicle tests the ports, so the list is current when it is looked at (ADR-0034).
+        if (IsVehicle)
+        {
+            _ = Adapter.TestIfStaleAsync();
+        }
+
         foreach (var candidate in Sections)
         {
             candidate.IsSelected = ReferenceEquals(candidate, section);
@@ -139,8 +128,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         DashDeck.Host.Stage.UserAppStore userApps,
         IReadOnlyList<string> reservedNames,
         SensorInventoryViewModel inventory,
-        VehicleIdentityViewModel vehicle)
+        VehicleIdentityViewModel vehicle,
+        AdapterPortsViewModel adapter)
     {
+        Adapter = adapter;
         _theme = theme;
         Inventory = inventory;
         Vehicle = vehicle;
@@ -175,6 +166,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Every signal and sensor, the scan that finds missing ones, and the editor (ADR-0032).</summary>
     public SensorInventoryViewModel Inventory { get; }
+
+    /// <summary>The OBD-II adapter and the tested ports to choose it from (ADR-0034).</summary>
+    public AdapterPortsViewModel Adapter { get; }
 
     /// <summary>Which vehicle this is: its VIN, the decode, the signal pack (ADR-0033).</summary>
     public VehicleIdentityViewModel Vehicle { get; }

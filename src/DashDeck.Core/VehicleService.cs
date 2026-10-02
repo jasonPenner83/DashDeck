@@ -121,6 +121,11 @@ public sealed class VehicleService : IAsyncDisposable
     {
         while (!ct.IsCancellationRequested)
         {
+            if (_resetRequested)
+            {
+                ApplyReset();
+            }
+
             var entry = NextDue(out var waitFor);
 
             if (entry is null)
@@ -281,6 +286,12 @@ public sealed class VehicleService : IAsyncDisposable
             _lastPolled[definition.Id] = _clock.UtcNow;
         }
 
+        // Taken before the request, not after the reply: during a switch from the simulator to
+        // the truck (ADR-0034) a reply may come from either side of it, and only a quality
+        // decided before asking guarantees a simulated reply is never stamped Live — the worst
+        // case is the reverse, a real value labelled Simulated for one poll.
+        var quality = Quality;
+
         PidResponse response;
         var started = Stopwatch.GetTimestamp();
         try
@@ -333,7 +344,7 @@ public sealed class VehicleService : IAsyncDisposable
             decoded.Value,
             definition.Decode.Unit,
             response.TimestampUtc,
-            Quality));
+            quality));
     }
 
     /// <summary>
@@ -385,7 +396,44 @@ public sealed class VehicleService : IAsyncDisposable
     /// Quality stamped on published readings. Simulated sources say so, so mock data can
     /// never be mistaken for a truck on screen (ADR-0005).
     /// </summary>
-    public SignalQuality Quality { get; set; } = SignalQuality.Live;
+    public SignalQuality Quality
+    {
+        get => _quality;
+        set => _quality = value;
+    }
+
+    // Written by whoever switches the link (ADR-0034), read by the polling worker.
+    private volatile SignalQuality _quality = SignalQuality.Live;
+
+    /// <summary>
+    /// Forget everything polling has learned: which signals answered, which were retired, the
+    /// measured service time.
+    /// </summary>
+    /// <remarks>
+    /// For a switch from the simulator to the truck (ADR-0034). What the synthetic ECU answered
+    /// says nothing about the real one, and a signal the simulator never implemented must not
+    /// stay retired on a truck that has it. Applied by the polling worker at the top of its next
+    /// loop, because the dictionaries it clears are the worker's own.
+    /// </remarks>
+    public void ResetLearning() => _resetRequested = true;
+
+    private volatile bool _resetRequested;
+
+    private void ApplyReset()
+    {
+        _resetRequested = false;
+
+        lock (_statusLock)
+        {
+            _supported.Clear();
+            _unsupported.Clear();
+            _lastPolled.Clear();
+        }
+
+        _consecutiveNoData.Clear();
+        _meanServiceSeconds = 0;
+        Arbiter.BudgetHz = _adapter.Capabilities?.MaxRequestsPerSecond ?? Arbiter.BudgetHz;
+    }
 
     public async ValueTask DisposeAsync()
     {

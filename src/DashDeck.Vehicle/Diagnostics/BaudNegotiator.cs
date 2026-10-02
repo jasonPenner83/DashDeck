@@ -97,9 +97,7 @@ public static class BaudNegotiator
             return false;
         }
 
-        var printable = reply.Count(c => c is >= ' ' and <= '~' || c is '\r' or '\n');
-
-        if (printable < reply.Length * 0.9)
+        if (!IsMostlyPrintable(reply))
         {
             return false;
         }
@@ -107,6 +105,24 @@ public static class BaudNegotiator
         return reply.Contains("ELM", StringComparison.OrdinalIgnoreCase) ||
                reply.Contains("STN", StringComparison.OrdinalIgnoreCase) ||
                reply.Contains("OBDLINK", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// True when a reply is text rather than line noise.
+    /// </summary>
+    /// <remarks>
+    /// The tell for a baud mismatch: an adapter that power-cycled back to its factory rate
+    /// while the port stayed open at another one answers in mojibake, not silence (ADR-0034).
+    /// </remarks>
+    public static bool IsMostlyPrintable(string reply)
+    {
+        if (reply.Length == 0)
+        {
+            return true;
+        }
+
+        var printable = reply.Count(c => c is >= ' ' and <= '~' || c is '\r' or '\n');
+        return printable >= reply.Length * 0.9;
     }
 
     private static string Flatten(string value) => value

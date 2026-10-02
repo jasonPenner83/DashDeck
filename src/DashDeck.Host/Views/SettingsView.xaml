@@ -544,23 +544,106 @@
                                TextWrapping="Wrap" Style="{StaticResource MicroText}"
                                Text="The VIN doesn't say how big the tank is, so set it here — the owner's manual or the window sticker has it. The range estimate uses it. Takes effect at the next launch — a tank doesn't change size while you drive." />
 
-                    <!-- The real adapter (ADR-0031). Empty is the default and stays the
-                         default: most of this tablet's life is nowhere near the truck. -->
-                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,28,0,0" Text="OBD-II ADAPTER · COM PORT" />
+                    <!-- The real adapter (ADR-0031), chosen from tested ports (ADR-0034). Simulated is
+                         the default and stays it: most of this tablet's life is nowhere near the truck. -->
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,34,0,0" Text="OBD-II ADAPTER" />
 
-                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                        <TextBox Style="{StaticResource InputField}" Width="150"
-                                 CharacterCasing="Upper"
-                                 VerticalContentAlignment="Center"
-                                 Text="{Binding Display.AdapterSerialPort, UpdateSourceTrigger=PropertyChanged}" />
-                        <TextBlock Text="{Binding DetectedSerialPorts}" Margin="14,0,0,0"
-                                   VerticalAlignment="Center" Style="{StaticResource MicroText}" />
+                    <StackPanel Orientation="Horizontal" Margin="2,12,0,0">
+                        <Ellipse Width="10" Height="10" VerticalAlignment="Center"
+                                 Fill="{Binding Adapter.StatusQuality, Converter={StaticResource QualityBrushToken}}" />
+                        <TextBlock Margin="10,0,0,0" MaxWidth="590" TextWrapping="Wrap" VerticalAlignment="Center"
+                                   FontFamily="{StaticResource MonoFont}" FontSize="13"
+                                   Foreground="{DynamicResource TextHighBrush}"
+                                   Text="{Binding Adapter.StatusText}" />
                     </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <Button Style="{StaticResource StageLauncherButton}" MinWidth="150"
+                                Command="{Binding Adapter.TestPortsCommand}">
+                            <TextBlock Text="TEST PORTS" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                        </Button>
+                        <Button Style="{StaticResource StageLauncherButton}" MinWidth="170"
+                                Command="{Binding Adapter.UseSimulatorCommand}">
+                            <TextBlock Text="USE SIMULATOR" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                        </Button>
+                    </StackPanel>
+
+                    <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}" Text="{Binding Adapter.TestSummary}" />
+
+                    <!-- The tested ports. Tap one to use it. -->
+                    <ItemsControl Margin="0,12,0,0" ItemsSource="{Binding Adapter.Ports}"
+                                  Visibility="{Binding Adapter.HasPorts, Converter={StaticResource BoolToVis}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Command="{Binding DataContext.Adapter.ChooseCommand,
+                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource SensorRowButton}">
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border x:Name="Chrome"
+                                                                Background="{DynamicResource SurfaceBrush}"
+                                                                BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="1"
+                                                                CornerRadius="12" Padding="14,9,14,9" MinHeight="58">
+                                                            <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Stretch" />
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource AccentWashBrush}" />
+                                                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                            </DataTrigger>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </Button.Style>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="90" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Port}" VerticalAlignment="Center"
+                                                   FontFamily="{StaticResource MonoFont}" FontSize="16"
+                                                   Foreground="{DynamicResource TextHighBrush}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Detail}" VerticalAlignment="Center"
+                                                   TextWrapping="Wrap" Margin="0,0,12,0"
+                                                   Style="{StaticResource MicroText}" />
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Ellipse Width="9" Height="9" VerticalAlignment="Center"
+                                                     Fill="{Binding Quality, Converter={StaticResource QualityBrushToken}}" />
+                                            <TextBlock Text="{Binding Label}" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                       FontFamily="{StaticResource MonoFont}" FontSize="12"
+                                                       Foreground="{Binding Quality, Converter={StaticResource ValueBrushToken}}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Margin="2,8,0,0" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}" Foreground="{DynamicResource AccentBrush}"
+                               Text="{Binding Adapter.ChoiceMessage}"
+                               Visibility="{Binding Adapter.ChoiceMessage, Converter={StaticResource EmptyToCollapsed}}" />
+
+                    <Button Style="{StaticResource StageLauncherButton}" Height="48" Margin="0,10,0,0"
+                            HorizontalAlignment="Left" Command="{Binding Adapter.RestartCommand}"
+                            Visibility="{Binding Adapter.ShowRestart, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="RESTART NOW" FontFamily="{StaticResource MonoFont}" FontSize="13" />
+                    </Button>
 
                     <TextBlock Margin="2,12,0,0" MaxWidth="620" HorizontalAlignment="Left"
                                TextWrapping="Wrap" Style="{StaticResource MicroText}"
-                               Text="Leave empty to run the synthetic truck — the SIM badge in the status strip tells you which you're looking at. Set it to the adapter's port (FORScan's connection screen shows it) to read the real bus. The baud rate is worked out automatically. Takes effect at the next launch; if the adapter doesn't answer, the dash comes up simulated rather than dead, and says why." />
-                </StackPanel>
+                               Text="Testing opens each port briefly and asks what is on it — adapter commands only; nothing is sent to the vehicle. A port FORScan is holding shows as in use; close it to test. The voltage is read at the OBD-II port: near zero on a desk, about 12 V with the ignition off, 14 V running. Once chosen, DashDeck keeps the link alive by itself: it switches from simulated to live when the adapter answers, reconnects when the cable is knocked, finds the baud rate again if the adapter resets, and follows the adapter if Windows gives it a new COM number." />
+</StackPanel>
             </ScrollViewer>
 
             <!-- ── SENSORS (ADR-0032) ────────────────────────────────────── -->

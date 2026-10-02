@@ -95,3 +95,52 @@ phone hotspot) for LOOK UP.
 **A failure looks like:** READ FROM TRUCK saying the truck didn't answer with the ignition on; a
 VIN that differs from the windscreen by even one character; LOOK UP decoding a different engine
 than the 2.7; or the vehicle being forgotten after a restart.
+
+---
+
+## Settings ▸ Vehicle — the adapter link and tested ports (ADR-0034)
+
+**You need:** the truck, the adapter in the OBD-II port, and its USB cable to the Surface.
+
+**A — The tested-ports list** (ignition **on**, engine off)
+
+1. Open **Settings ▸ Vehicle**. The ports are tested as it opens, and rows fill in within a few
+   seconds. **Expect:**
+   - the adapter's row reads **ADAPTER**, with its identity and a baud rate (115200, or 2000000
+     if FORScan raised it);
+   - the same row shows **about 12 V at the OBD port (ignition off)**;
+   - if phone GPS over Bluetooth is on, its port reads **PHONE GPS** and isn't opened.
+2. Tap the adapter's row. **Expect:** the row highlights, and the status line turns **LIVE — … on
+   COMn** within a few seconds. The SIM badge disappears from the status strip.
+3. Optional: with FORScan open and connected, press **TEST PORTS**. **Expect:** the adapter's
+   port reads **IN USE**. Close FORScan.
+
+**B — A late adapter goes live** (the trip from the house to the truck)
+
+4. Unplug the adapter's USB cable from the Surface. Quit DashDeck and launch it again.
+   **Expect:**
+   - the SIM badge;
+   - in the status strip, **ADAPTER NOT CONNECTED — SHOWING SIMULATED DATA · COMn isn't there …
+     switches to live when it answers**.
+5. Plug the USB cable back in. Don't restart. **Expect:** within about 10 s the SIM badge goes,
+   and the dash values turn from the blue of Simulated to the green of Live.
+
+**C — A knock to the cable** (engine **running**, with RPM on the visible dash page)
+
+6. Pull the adapter's USB cable for about five seconds. **Expect:** **ADAPTER LOST —
+   RECONNECTING**, and the values turn the amber of Stale. They don't freeze and don't go blue.
+7. Plug it back in. **Expect:** the banner clears within about 10 s, the values are green again,
+   and RPM matches the tachometer. This proves the adapter is set up again after a reconnect.
+
+**D — A renumbered port** (needs a second USB socket or a USB-C adapter)
+
+8. Quit DashDeck, move the adapter's cable to the other USB socket, and launch. **Expect:** it
+   comes up live, and **Settings ▸ Vehicle** says **found it on a new port**, with the new COM
+   number highlighted. If Windows kept the same COM number, this step proves nothing — note that.
+
+**A failure looks like:**
+- the SIM badge never going after plugging in (step 5);
+- **ADAPTER LOST** not clearing within about 30 s of plugging back in (step 7);
+- values green, but RPM far from the tachometer;
+- the app freezing while ports are tested;
+- any port other than the adapter's being chosen automatically.
