@@ -418,6 +418,7 @@ public sealed class SyntheticTransport : IVehicleTransport
         0xCD => [(byte)_truck.Airflow],
         0xCE => [unchecked((byte)(sbyte)_truck.DriverSeat)],
         0xCF => [unchecked((byte)(sbyte)_truck.PassengerSeat)],
+        0xD0 => [_truck.SteeringWheelHeat ? (byte)1 : (byte)0],
         _ => null,
     };
 

@@ -134,6 +134,7 @@ public class EndToEndTests
     [InlineData("hvac.auto", 1, 1)]
     [InlineData("hvac.airflow", 1, 7)]
     [InlineData("seat.driver.climate", -3, 3)]
+    [InlineData("steeringWheel.heat", 0, 1)]
     public async Task A_climate_placeholder_answers_on_the_ms_bus(string id, double min, double max)
     {
         var (service, _) = await StartAsync();

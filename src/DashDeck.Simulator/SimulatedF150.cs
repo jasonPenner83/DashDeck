@@ -155,6 +155,9 @@ public sealed class SimulatedF150
 
     public int PassengerSeat => 0;
 
+    /// <summary>The heated steering wheel: on below 10 °C outside, as the driver's seat heat is.</summary>
+    public bool SteeringWheelHeat => AmbientTempC < 10;
+
     /// <summary>True once the scripted drive has run to completion.</summary>
     public bool IsFinished => _segmentIndex >= _drive.Segments.Count;
 

@@ -42,12 +42,17 @@
       "source": { "signal": "hvac.passengerSetTemp", "rateHz": 0.5 },
       "parts": { "arcColour": "#FF9966", "trackColour": "#1A1A2A", "thickness": 8, "glow": "none", "valueColour": "#FFCC99", "labelColour": "#CC99CC" } },
 
-    { "id": "driverSeat", "type": "levels", "x": 136, "y": 262, "width": 180, "height": 40,
+    // Seats heat (peach, HEAT 1–3) and cool (blue, COOL 1–3); the wheel heats.
+    { "id": "driverSeat", "type": "levels", "x": 120, "y": 262, "width": 130, "height": 40,
       "label": "SEAT", "min": -3, "max": 3, "source": { "signal": "seat.driver.climate", "rateHz": 0.2 },
-      "parts": { "steps": 3, "litColour": "#FF9966", "negativeColour": "#9999CC", "unlitColour": "#1A1A2A", "labelColour": "#CC99CC" } },
+      "parts": { "steps": 3, "litColour": "#FF9966", "negativeColour": "#9999CC", "unlitColour": "#1A1A2A", "labelColour": "#CC99CC",
+                 "positiveText": "HEAT", "negativeText": "COOL" } },
+    { "id": "wheel", "type": "indicator", "x": 258, "y": 266, "width": 78, "height": 34, "label": "WHEEL",
+      "source": { "signal": "steeringWheel.heat", "rateHz": 0.2 }, "parts": { "litColour": "#FF9966", "litText": "#000000", "unlitColour": "#9999CC" } },
     { "id": "passengerSeat", "type": "levels", "x": 700, "y": 262, "width": 180, "height": 40,
       "label": "SEAT", "min": -3, "max": 3, "source": { "signal": "seat.passenger.climate", "rateHz": 0.2 },
-      "parts": { "steps": 3, "litColour": "#FF9966", "negativeColour": "#9999CC", "unlitColour": "#1A1A2A", "labelColour": "#CC99CC" } },
+      "parts": { "steps": 3, "litColour": "#FF9966", "negativeColour": "#9999CC", "unlitColour": "#1A1A2A", "labelColour": "#CC99CC",
+                 "positiveText": "HEAT", "negativeText": "COOL" } },
 
     // ── Fan and air ──────────────────────────────────────────────────────────────────────
     { "id": "fan", "type": "levels", "x": 350, "y": 70, "width": 316, "height": 64,
