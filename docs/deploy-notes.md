@@ -17,7 +17,9 @@ powershell -ExecutionPolicy Bypass -File publish.ps1 -Shortcut   # or pwsh, if P
 
 Produces `dist/DashDeck/` — a self-contained folder: its own .NET runtime, the signal catalog,
 LibVLC, and every component under `plugins/`. Copy the whole folder to the Surface (or launch it
-in place) and run `DashDeck.lnk` / `DashDeck.Host.exe`. Escape closes it. Uninstalling is
+in place) and run `DashDeck.lnk` / `DashDeck.Host.exe`. Tap it **once** — it takes a few seconds
+to find the adapter, and a second tap now just brings the same dash forward. **CLOSE DASHDECK** in
+the three-dot menu (two taps) closes it. Uninstalling is
 deleting the folder (constraint C1).
 
 The publish summary should read: catalog `included`, libvlc `included`, components `5 included`.
@@ -28,13 +30,33 @@ To confirm the loader in the deployed folder without opening the shell:
 To attach the build to its GitHub Release (rollback is unzipping the previous one):
 
 ```powershell
-Compress-Archive -Path dist\DashDeck\* -DestinationPath dist\DashDeck-v0.5.0-win-x64.zip -Force
+Compress-Archive -Path dist\DashDeck\* -DestinationPath dist\DashDeck-v0.6.0-win-x64.zip -Force
 ```
 
 ## What this build contains
 
-**`v0.5.0`** — released 2026-10-02 from `main` (tag on the #27 merge, `ee8911b`). It adds the
-following to `v0.4.0`:
+**`v0.6.0`** — released from `main` (the tag goes on the release merge; see the release steps). It
+adds the following to `v0.5.0`:
+
+- **The launcher is a file** (ADR-0038). `%LOCALAPPDATA%\DashDeck\launcher.json` lists every stage
+  option — screens, web pages (with their own zoom), Windows programs — in order, with the five
+  buttons below the stage and the opening stage. **Settings ▸ Apps ▸ STAGE LAUNCHER** shows it, with
+  MAKE IT MINE, OPEN FOLDER and RELOAD. Without a file, the launcher is exactly as before.
+  Reference: [writing-a-launcher](writing-a-launcher.md).
+- **COMPASS is a stage layout** (ADR-0039): a rose, a G meter, and gauges that read the tablet's
+  sensors with their source written under them. Copy `stage\examples\compass.json` up into
+  `stage\` to change it. RESET PEAK G is in the three-dot menu on COMPASS.
+- **One DashDeck at a time.** A second launch brings the running one forward instead of starting a
+  copy with no truck.
+- **Module scans and sweeps are kept** in `%LOCALAPPDATA%\DashDeck\discovery.json` and shown again at
+  launch, marked SAVED. The file can hold the VIN — keep it on the tablet.
+- **The signal editor's TEST button is on screen** again (it was pushed off the right edge).
+
+Check in the truck: the walkthroughs in [08-in-vehicle-testing](08-in-vehicle-testing.md) —
+*The launcher as a file*, *COMPASS as a stage layout*, *One DashDeck at a time*, *Module scans and
+sweeps are kept across a restart* and *The signal editor's TEST button is on screen*.
+
+And from **`v0.5.0`** — released 2026-10-02 from `main` (tag on the #27 merge, `ee8911b`):
 
 - **The stage as a file** (ADR-0037). The GAUGES stage is drawn from a JSON layout of gauges
   (dial, arc, bar, LCARS bar, digital), text, a clock and panels on a 912 × 636 canvas.
