@@ -454,7 +454,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         StageOptions.Clear();
 
         foreach (var option in StageOption.All(
-            _videoPath, _clock, _vehicle.Signals, Sensors, Weather, Display, _userApps.Apps))
+            _videoPath, _clock, _vehicle.Signals, Sensors, Weather, Display, _userApps.Apps, _theme.Layouts))
         {
             StageOptions.Add(new StageOptionViewModel(option));
         }

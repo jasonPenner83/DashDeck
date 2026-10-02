@@ -136,7 +136,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         Adapter = adapter;
         _theme = theme;
-        Themes = new ThemesViewModel(theme, new ThemeDialogs());
+        var dialogs = new ThemeDialogs();
+        Themes = new ThemesViewModel(theme, dialogs);
+        StageLayouts = new StageLayoutsViewModel(theme.Layouts, dialogs);
         Inventory = inventory;
         Vehicle = vehicle;
         Display = display;
@@ -170,6 +172,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Choosing, importing and exporting themes (ADR-0036).</summary>
     public ThemesViewModel Themes { get; }
+
+    /// <summary>Which layout the stage shows, and writing your own (ADR-0037).</summary>
+    public StageLayoutsViewModel StageLayouts { get; }
 
     /// <summary>Every signal and sensor, the scan that finds missing ones, and the editor (ADR-0032).</summary>
     public SensorInventoryViewModel Inventory { get; }

@@ -345,7 +345,101 @@
 
                     <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
                                TextWrapping="Wrap" Style="{StaticResource MicroText}"
-                               Text="{Binding UserFolder, StringFormat=Your themes are kept in {0}. Edit one in Notepad and press RELOAD to see it.}" />
+                               Text="{Binding UserFolder, StringFormat=Your themes are kept in {0}. The examples folder inside it has every shipped theme as a file to copy from. Edit one in Notepad and press RELOAD to see it.}" />
+
+                    <!-- ── STAGE LAYOUT (ADR-0037): what the GAUGES stage draws, as a file. ── -->
+                    <StackPanel Margin="0,30,0,0" DataContext="{Binding DataContext.StageLayouts, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                        <TextBlock Style="{StaticResource CaptionText}" Text="STAGE LAYOUT" />
+
+                        <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                                   TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                   Text="What the GAUGES stage draws: every gauge, label, clock and panel, where it sits, what it reads and how it looks — a JSON file, like a Home Assistant dashboard. A theme can bring its own." />
+
+                        <TextBlock Margin="2,16,0,0" FontFamily="{DynamicResource MonoFont}" FontSize="15"
+                                   Foreground="{DynamicResource TextHighBrush}"
+                                   Text="{Binding CurrentName, StringFormat=SHOWING  {0}}" />
+                        <TextBlock Margin="2,4,0,0" Style="{StaticResource MicroText}" Text="{Binding Reason}" />
+
+                        <ItemsControl Margin="2,8,0,0" ItemsSource="{Binding Warnings}"
+                                      Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap" Margin="0,0,0,4"
+                                               Style="{StaticResource MicroText}" Foreground="#FFE0B23C" Text="{Binding}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <ItemsControl Margin="0,14,0,0" ItemsSource="{Binding Rows}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" Style="{StaticResource SensorRowButton}" Margin="0"
+                                                Command="{Binding DataContext.ChooseCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding Caption}" TextTrimming="CharacterEllipsis"
+                                                               FontFamily="{DynamicResource MonoFont}" FontSize="14"
+                                                               Foreground="{DynamicResource TextHighBrush}" />
+                                                    <TextBlock Margin="0,3,0,0" Style="{StaticResource MicroText}" TextWrapping="Wrap" Text="{Binding Detail}" />
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1" Text="CHOSEN" VerticalAlignment="Center" Margin="12,0,0,0"
+                                                           FontFamily="{DynamicResource MonoFont}" FontSize="13"
+                                                           Foreground="{DynamicResource AccentBrush}"
+                                                           Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVis}}" />
+                                            </Grid>
+                                        </Button>
+                                        <Button Grid.Column="1" Style="{StaticResource StageLauncherButton}" MinWidth="110" Margin="8,0,0,0"
+                                                VerticalAlignment="Center"
+                                                Command="{Binding DataContext.DeleteCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}"
+                                                Visibility="{Binding CanDelete, Converter={StaticResource BoolToVis}}">
+                                            <TextBlock Text="DELETE" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <WrapPanel Margin="0,10,0,0">
+                            <Button Style="{StaticResource StageLauncherButton}" MinWidth="140" Margin="0,0,10,10" Command="{Binding ReloadCommand}">
+                                <TextBlock Text="RELOAD" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                            </Button>
+                            <Button Style="{StaticResource StageLauncherButton}" MinWidth="170" Margin="0,0,10,10" Command="{Binding OpenFolderCommand}">
+                                <TextBlock Text="OPEN FOLDER" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                            </Button>
+                        </WrapPanel>
+
+                        <TextBlock Style="{StaticResource FieldLabel}" Margin="0,14,0,0" Text="EDIT YOUR OWN COPY OF THE ONE SHOWING" />
+                        <StackPanel Orientation="Horizontal">
+                            <TextBox Style="{StaticResource InputField}" Width="330"
+                                     Text="{Binding SaveAsName, UpdateSourceTrigger=PropertyChanged}" />
+                            <Button Style="{StaticResource StageLauncherButton}" MinWidth="140" Margin="10,0,0,0" Command="{Binding SaveAsCommand}">
+                                <TextBlock Text="SAVE AS" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                            </Button>
+                        </StackPanel>
+
+                        <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                                   TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   Text="{Binding Status}"
+                                   Visibility="{Binding Status, Converter={StaticResource EmptyToCollapsed}}" />
+
+                        <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                                   TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                   Text="{Binding UserFolder, StringFormat=Your layouts are kept in {0}. The examples folder inside it has every shipped layout as a file to copy from. Save as the name a theme uses (lcars) to replace its stage. The stage is 912 × 636; RELOAD STAGE LAYOUT in the three-dot menu redraws it without leaving the stage.}" />
+                    </StackPanel>
 
                     <!-- The reference for editing a file by hand. -->
                     <TextBlock Style="{StaticResource FieldLabel}" Margin="0,26,0,0" Text="TOKENS — WHAT A THEME FILE CAN SET" />

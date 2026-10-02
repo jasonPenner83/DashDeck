@@ -45,6 +45,12 @@ public sealed record ThemeDefinition
 
     public string Author { get; init; } = "";
 
+    /// <summary>
+    /// The stage layout that comes with the theme (ADR-0037), by file name — <c>lcars</c> — or empty
+    /// for the built-in cluster.
+    /// </summary>
+    public string StageLayout { get; init; } = "";
+
     /// <summary>Font files beside the theme file, carried with it.</summary>
     public IReadOnlyList<string> FontFiles { get; init; } = [];
 
@@ -120,6 +126,7 @@ public sealed record ThemeDefinition
                 Name = name.Trim(),
                 Description = Text(root, "description")?.Trim() ?? "",
                 Author = Text(root, "author")?.Trim() ?? "",
+                StageLayout = Text(root, "stageLayout")?.Trim() ?? "",
                 FontFiles = Strings(root, "fontFiles"),
                 Tokens = Values(root, "tokens"),
                 Night = Values(root, "night"),
@@ -152,6 +159,11 @@ public sealed record ThemeDefinition
             if (Author.Length > 0)
             {
                 writer.WriteString("author", Author);
+            }
+
+            if (StageLayout.Length > 0)
+            {
+                writer.WriteString("stageLayout", StageLayout);
             }
 
             if (FontFiles.Count > 0)
