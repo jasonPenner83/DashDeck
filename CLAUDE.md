@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **516 tests green** — 176 engine, 340 shell.
+(ADR-0010). **539 tests green** — 182 engine, 357 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -130,6 +130,20 @@ along the gauge's bottom edge. Two new elements: **`compass`** (a rose, `mode` `
 one). The old screen is the compiled-in **`compass`** layout; the launcher's `compass` entry shows it,
 and a `compass.json` of the user's in `stage\` replaces it. `CompassView`/`CompassViewModel`/
 `CompassStageOccupant` are gone; the arithmetic lives in `SensorMath`.
+
+**CLIMATE is a layout too** (ADR-0040) — read only, in place of the cards. A layout is drawn on a
+`LayoutCanvas`: the stage's 912 × 636 or the **climate panel's 912 × 390** (the two card bands), with
+the stage's engine. Four new elements work on either: **`setpoint`** (a set temperature on a thin
+glowing arc), **`levels`** (steps lit to the value; below zero in `negativeColour`, for a seat that
+heats and cools), **`indicator`** (a pill lit by a `bit`, `equals` or `onAt`; no reading is dimmed
+with a dash, never "off") and **`glass`** (painted frost). The built-in is **Glass**; LCARS ships
+`catalog/climate/lcars.json` and names it (`"climateLayout"`); the user's live in
+`%LOCALAPPDATA%\DashDeck\climate\`, chosen in **Settings ▸ Themes ▸ CLIMATE LAYOUT** (the stage's
+block, one template). The panel is **made when CLIMATE is chosen and disposed when left**, so it
+declares signals only while visible. Its twelve `hvac.*` / `seat.*.climate` signals are
+**placeholders** (MS-CAN, mode 01 `C4`–`CF`, like TPMS): Simulated on the synthetic truck,
+**Unavailable on the real one** until the HVAC module is found. **Nothing is sent** — control is
+Phase 3 (ADR-0006).
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
@@ -350,7 +364,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Thirty-nine exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Forty exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -371,7 +385,8 @@ address — a module sweep, an identifier sweep, and signals that name their mod
 themes as files of named tokens chosen in Settings, with the quality colours still out of reach,
 and the stage as a file of gauges, text, clock and panels that a theme can bring with it, and
 the launcher as a file — every stage option, web page and program, in order, and the quick bar, and
-the compass as layout elements — sensor-sourced gauges, a rose and a G meter.
+the compass as layout elements — sensor-sourced gauges, a rose and a G meter, and a read-only
+climate panel drawn from a layout file in place of the cards.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

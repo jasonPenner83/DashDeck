@@ -513,3 +513,43 @@ answers are never watched). **A failure looks like:** no *Recorded to* line afte
 or header-only file after several passes; the rpm column blank throughout with the engine
 running.
 
+
+## The climate panel (ADR-0040)
+
+**You need:** the tablet at a desk first (no adapter — the synthetic truck), then in the truck with
+the adapter, **parked**, ignition **on** or engine running. No internet.
+
+**At the desk (synthetic truck):**
+
+1. Start DashDeck with no adapter attached and tap **CLIMATE** in the bottom bar.
+2. **Expect:** the cards go and the **Glass** panel takes their place — three frosted panels (DRIVER,
+   CLIMATE, PASSENGER) over a long glass bar of switches. The stage above is untouched and keeps
+   running. DRIVER reads **21.5°** and PASSENGER **22.0°** on thin blue arcs with a bright point;
+   FAN shows some bars lit; FACE or FEET is lit; the switches show A/C lit when the synthetic
+   outside air is warm; OUTSIDE shows a temperature. Every element has a small **blue** dot
+   (Simulated).
+3. Tap anything on the panel. **Expect:** nothing happens. It is read only.
+4. Tap **DASH**. **Expect:** the cards come back exactly as they were. Tap **CLIMATE** again: the
+   panel is back.
+5. **Settings ▸ Themes**, wear **LCARS (inspired)**, tap **CLIMATE**. **Expect:** the LCARS panel —
+   lavender and peach elbows, ENVIRONMENTAL, orange arcs. Wear the DashDeck theme again: Glass is back.
+6. **Settings ▸ Themes ▸ CLIMATE LAYOUT**: **Expect:** SHOWING GLASS, the reason *following the
+   theme*, rows FOLLOW THE THEME, GLASS (BUILT IN) and LCARS (INSPIRED) CLIMATE (SHIPPED). Type
+   `mine`, press **SAVE AS**: *Saved as mine.json in your climate folder*. **OPEN FOLDER**, open
+   `mine.json` in Notepad, change the first `"x": 24` to `"x": 60`, save, press **RELOAD**, tap
+   **CLIMATE**: the driver glass has moved right. Back in Settings, **DELETE** it: the panel follows
+   the theme again.
+
+**In the truck (real adapter):**
+
+7. Tap **CLIMATE**. **Expect:** the same panel, but **every climate element shows a dash** — the
+   set temperatures read **– –** with no arc, FAN and SEAT read **–** with every bar dark, and every
+   pill is dimmed with a dash after its name. Their dots are **grey** (Unavailable). This is right:
+   the HVAC signals are placeholders until the HVAC module is found.
+8. **OUTSIDE** shows the real outside air temperature with a **green** dot — it is a standard signal.
+9. Change the fan or temperature on the truck's own controls. **Expect:** the truck's climate works
+   exactly as always and the panel does not change (still dashes). DashDeck sends nothing.
+
+**A failure looks like:** a climate element showing a number on the real truck (a placeholder must
+never pass for a reading); the cards and the panel both showing; the panel staying after leaving
+CLIMATE; anything about the truck's own climate behaving differently with DashDeck running.
