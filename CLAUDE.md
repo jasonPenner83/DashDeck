@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **452 tests green** — 166 engine, 286 shell.
+(ADR-0010). **454 tests green** — 166 engine, 288 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -91,7 +91,9 @@ needle and says NO DATA**, Stale draws dimmed, and a corner dot carries the fixe
 The old six-dial cluster is the compiled-in built-in layout; `catalog/stage/` ships more and the
 user's live in `%LOCALAPPDATA%\DashDeck\stage\`. **A theme names its stage**
 (`"stageLayout": "lcars"`) and the stage follows the theme unless one is chosen in **Settings ▸
-Themes ▸ STAGE LAYOUT**; a user file with a shipped one's name wins. Reference:
+Themes ▸ STAGE LAYOUT**; a user file with a shipped one's name wins. Every launch writes the shipped
+themes and layouts — and the built-in ones, as JSON — to `themes\examples\` and `stage\examples\`
+beside the user's, as references to copy from; they are never loaded. Reference:
 [`docs/writing-a-stage-layout.md`](docs/writing-a-stage-layout.md).
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with

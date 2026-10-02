@@ -114,7 +114,8 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
             stored.StageLayout,
             choice => SettingsStore.Update(s => s with { StageLayout = choice }));
 
-        // The shipped layouts as files beside yours, to read and copy from.
+        // The shipped themes and layouts as files beside yours, to read and copy from.
+        Library.WriteExamples();
         Layouts.Library.WriteExamples();
 
         // Re-checked on load, not just on entry. A stored colour was validated against the

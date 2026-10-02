@@ -221,6 +221,9 @@ silence there would be news.
 **daylight** and, if you can, one after dark (or set **Settings ▸ Appearance ▸ NIGHT** to fake it).
 No internet needed. The adapter is optional; with it, the card borders show real Live green.
 
+0. (At a desk is fine.) **Settings ▸ Themes ▸ OPEN FOLDER**. **Expect:** an **examples** folder
+   holding `dashdeck.json` (every token written out), `lcars-inspired.json`, the Antonio `.ttf`
+   files, `OFL-Antonio.txt` and `README.txt`.
 1. Open **Settings ▸ Themes**. **Expect:** a list of **DASHDECK** (built in, marked **WEARING**)
    and **LCARS (INSPIRED)** (shipped), each with five colour swatches, and a token list below.
 2. Tap **LCARS (INSPIRED)**. **Expect**, within a second and without a restart:

@@ -85,7 +85,10 @@ edit–look loop without leaving it.
 **The shipped layouts are written out as examples.** Every launch writes each shipped layout,
 exactly as shipped, and the built-in cluster as JSON, to `stage\examples\` beside the user's
 layouts, with a README. They are references to read and copy from, not layouts: only files directly
-in `stage\` are loaded, and the examples are put back whenever they differ from the running build.
+in `stage\` are loaded, and the examples are put back whenever they differ from the running build. Themes
+get the same treatment in `themes\examples\`: each shipped theme with its font files and licences,
+and the built-in DashDeck look written out with every token set, day and night — the whole token
+vocabulary in one file (an addition to ADR-0036's library, not a change to it).
 
 **The first shipped layout is the LCARS (inspired) stage**: a frame of elbows and bars, a title and
 the time, and the same six readings as segmented LCARS bars. The LCARS theme names it.

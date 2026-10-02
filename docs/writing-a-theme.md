@@ -15,6 +15,18 @@ look. Themes are chosen in **Settings ▸ Themes**.
 
 **EXPORT…** writes the current theme (and its fonts) to a folder to share; **IMPORT…** brings one in.
 
+## Examples to copy from
+
+Every theme DashDeck ships is written out to `%LOCALAPPDATA%\DashDeck\themes\examples\` each time
+DashDeck starts (and when you press **OPEN FOLDER**):
+- `lcars-inspired.json`, with its Antonio font files and licence beside it;
+- `dashdeck.json`: the built-in look with **every token written out** at its default value, day and
+  night. It's the whole vocabulary in one file.
+
+That folder is for reading. Files there are not loaded, and they're put back at the next launch.
+To start from one, copy the `.json`, and any `.ttf` files it lists under `fontFiles`, up a folder
+into `themes\`. Change its `name`, then press **RELOAD**.
+
 ## The file
 
 ```jsonc

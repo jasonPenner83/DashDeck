@@ -255,4 +255,35 @@ public sealed class ThemeTests : IDisposable
     [InlineData("???", "theme")]
     public void A_theme_name_becomes_a_file_name(string name, string slug) =>
         Assert.Equal(slug, ThemeLibrary.Slug(name));
+
+    [Fact]
+    public void The_shipped_themes_are_written_out_as_examples_that_are_not_loaded()
+    {
+        var library = new ThemeLibrary(ShippedFolder(), Path.Combine(_dir, "yours"));
+
+        Assert.Null(library.WriteExamples());
+
+        var lcars = Path.Combine(library.ExamplesFolder, "lcars-inspired.json");
+        Assert.Equal(File.ReadAllText(Path.Combine(ShippedFolder(), "lcars-inspired.json")), File.ReadAllText(lcars));
+        Assert.True(File.Exists(Path.Combine(library.ExamplesFolder, "Antonio-Regular.ttf")));
+        Assert.True(File.Exists(Path.Combine(library.ExamplesFolder, "OFL-Antonio.txt")));
+        Assert.True(File.Exists(Path.Combine(library.ExamplesFolder, "README.txt")));
+
+        // The written-out DashDeck theme sets every token, and copied up a folder it is the same look.
+        var every = ThemeDefinition.Parse(File.ReadAllText(Path.Combine(library.ExamplesFolder, "dashdeck.json")));
+        Assert.Equal(ThemeTokens.All.Count, every.Tokens.Count);
+        Assert.Equal(ThemeResolver.Resolve(ThemeDefinition.BuiltIn, night: false).Colours, ThemeResolver.Resolve(every, night: false).Colours);
+        Assert.Equal(ThemeResolver.Resolve(ThemeDefinition.BuiltIn, night: true).Colours, ThemeResolver.Resolve(every, night: true).Colours);
+
+        // The LCARS example, copied up a folder with its fonts, imports cleanly.
+        Assert.Equal("yours/lcars-inspired", library.Import(lcars).Id);
+
+        // Examples themselves are references, not themes.
+        library.Reload();
+        Assert.Single(library.Themes, t => t.Origin is ThemeOrigin.Yours);
+
+        File.WriteAllText(lcars, "{ edited }");
+        library.WriteExamples();
+        Assert.NotEqual("{ edited }", File.ReadAllText(lcars));
+    }
 }

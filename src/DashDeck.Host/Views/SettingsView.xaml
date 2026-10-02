@@ -345,7 +345,7 @@
 
                     <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
                                TextWrapping="Wrap" Style="{StaticResource MicroText}"
-                               Text="{Binding UserFolder, StringFormat=Your themes are kept in {0}. Edit one in Notepad and press RELOAD to see it.}" />
+                               Text="{Binding UserFolder, StringFormat=Your themes are kept in {0}. The examples folder inside it has every shipped theme as a file to copy from. Edit one in Notepad and press RELOAD to see it.}" />
 
                     <!-- ── STAGE LAYOUT (ADR-0037): what the GAUGES stage draws, as a file. ── -->
                     <StackPanel Margin="0,30,0,0" DataContext="{Binding DataContext.StageLayouts, RelativeSource={RelativeSource AncestorType=UserControl}}">
