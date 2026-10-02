@@ -430,6 +430,120 @@ public sealed class SensorInventoryTests : IDisposable
         Assert.False(modules.SweepCommand.CanExecute(null));
     }
 
+    // ── Kept across launches ──────────────────────────────────────────────────
+
+    private string DiscoveryPath => Path.Combine(_dir, "discovery.json");
+
+    private static readonly IClock At = new FixedClock(new DateTimeOffset(2026, 10, 2, 21, 18, 0, TimeSpan.Zero));
+
+    private sealed class FixedClock(DateTimeOffset now) : IClock
+    {
+        public DateTimeOffset UtcNow => now;
+    }
+
+    [Fact]
+    public void The_discovery_store_writes_what_it_reads()
+    {
+        var store = new DiscoveryStore(DiscoveryPath);
+        store.SaveModules(TwoModules(), At.UtcNow);
+        store.SaveSweep(CanBus.Hs, 0x7E0, 0xF400, 0xF4FF,
+            new DidSweepResult([new FoundIdentifier(0xF405, [0x88], null), new FoundIdentifier(0xF41F, [], 0x33)], 256, null), At.UtcNow);
+
+        var reloaded = new DiscoveryStore(DiscoveryPath);
+        var modules = reloaded.LoadModules()!;
+
+        Assert.Equal(At.UtcNow, reloaded.ModulesScannedUtc);
+        Assert.Equal([(CanBus.Ms, (ushort)0x726, "SYNTH-BCM", (byte?)null), (CanBus.Hs, (ushort)0x7E0, (string?)null, (byte?)0x31)],
+            modules.Modules.Select(m => (m.Bus, m.Address, m.PartNumber, m.RefusalCode)));
+
+        var (sweep, swept) = reloaded.LoadSweep(CanBus.Hs, 0x7E0, 0xF400, 0xF4FF)!.Value;
+        Assert.Equal(At.UtcNow, swept);
+        Assert.Equal(256, sweep.Asked);
+        Assert.Equal([0x88], sweep.Found[0].Data);
+        Assert.Equal((byte)0x33, sweep.Found[1].RefusalCode);
+        Assert.Equal(["F400–F4FF"], reloaded.SweptRanges(CanBus.Hs, 0x7E0));
+        Assert.Null(reloaded.LoadSweep(CanBus.Hs, 0x7E0, 0x1000, 0x1FFF));
+    }
+
+    [Fact]
+    public void Sweeping_the_same_range_again_replaces_it_and_other_ranges_stay()
+    {
+        var store = new DiscoveryStore(DiscoveryPath);
+        store.SaveSweep(CanBus.Hs, 0x7E0, 0xF400, 0xF4FF, new DidSweepResult([], 256, null), At.UtcNow);
+        store.SaveSweep(CanBus.Hs, 0x7E0, 0x1000, 0x1FFF, new DidSweepResult([], 4096, null), At.UtcNow);
+        store.SaveSweep(CanBus.Hs, 0x7E0, 0xF400, 0xF4FF, new DidSweepResult([new FoundIdentifier(0xF405, [0x90], null)], 256, null), At.UtcNow);
+
+        var reloaded = new DiscoveryStore(DiscoveryPath);
+
+        Assert.Equal(["1000–1FFF", "F400–F4FF"], reloaded.SweptRanges(CanBus.Hs, 0x7E0));
+        Assert.Equal([0x90], Assert.Single(reloaded.LoadSweep(CanBus.Hs, 0x7E0, 0xF400, 0xF4FF)!.Value.Result.Found).Data);
+    }
+
+    [Fact]
+    public void A_corrupt_discovery_file_is_nothing_saved_never_a_crash()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(DiscoveryPath, "{ not json");
+
+        var store = new DiscoveryStore(DiscoveryPath);
+
+        Assert.Null(store.LoadModules());
+        Assert.NotNull(store.LastError);
+    }
+
+    /// <summary>The point of it: after a restart, the modules and what they answered are still there.</summary>
+    [Fact]
+    public async Task A_sweep_on_the_truck_is_there_after_a_restart()
+    {
+        var vehicle = new FakeVehicle(Shipped());
+        vehicle.ModuleAnswers[(0x7E0, 0x4001)] = [0x00, 0x8D];
+        new DiscoveryStore(DiscoveryPath).SaveModules(TwoModules(), At.UtcNow);
+
+        var first = new SensorInventoryViewModel(vehicle, new UserSignalStore(FilePath), discovery: new DiscoveryStore(DiscoveryPath), clock: At).Modules;
+        Assert.Equal(2, first.Found.Count);
+        Assert.StartsWith("SAVED SCAN", first.Status, StringComparison.Ordinal);
+
+        first.SelectCommand.Execute(first.Found[0]);
+        first.FromText = "4000";
+        first.ToText = "400F";
+        await first.SweepCommand.ExecuteAsync(null);
+        Assert.Contains("swept 4000–400F", first.Found[0].Detail, StringComparison.Ordinal);
+
+        // Launch again.
+        var again = new SensorInventoryViewModel(vehicle, new UserSignalStore(FilePath), discovery: new DiscoveryStore(DiscoveryPath), clock: At).Modules;
+        Assert.Contains("swept 4000–400F", again.Found[0].Detail, StringComparison.Ordinal);
+
+        again.SelectCommand.Execute(again.Found[0]);
+        Assert.Empty(again.Identifiers);
+        Assert.Contains("has not been swept", again.SweepStatus, StringComparison.Ordinal);
+
+        again.FromText = "4000";
+        again.ToText = "400F";
+        again.SelectCommand.Execute(again.Found[0]);
+        Assert.Equal("22 4001", Assert.Single(again.Identifiers).Caption);
+        Assert.StartsWith("SAVED SWEEP", again.SweepStatus, StringComparison.Ordinal);
+    }
+
+    /// <summary>The synthetic truck's modules would overwrite the real ones the first time the dash ran at a desk.</summary>
+    [Fact]
+    public async Task The_synthetic_truck_is_never_saved()
+    {
+        var vehicle = new FakeVehicle(Shipped()) { IsSimulated = true };
+        vehicle.ModuleAnswers[(0x726, 0x4001)] = [0x01];
+        var store = new DiscoveryStore(DiscoveryPath);
+        var modules = new SensorInventoryViewModel(vehicle, new UserSignalStore(FilePath), discovery: store, clock: At).Modules;
+        modules.ApplyModules(TwoModules());
+
+        modules.SelectCommand.Execute(modules.Found[1]);
+        modules.FromText = "4000";
+        modules.ToText = "400F";
+        await modules.SweepCommand.ExecuteAsync(null);
+
+        Assert.Contains("not saved", modules.SweepStatus, StringComparison.Ordinal);
+        Assert.Empty(new DiscoveryStore(DiscoveryPath).SweptRanges(CanBus.Ms, 0x726));
+        Assert.Null(new DiscoveryStore(DiscoveryPath).LoadModules());
+    }
+
     [Fact]
     public void The_editor_refuses_a_reply_address_as_a_module()
     {

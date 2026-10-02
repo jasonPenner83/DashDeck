@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **480 tests green** — 166 engine, 314 shell.
+(ADR-0010). **485 tests green** — 166 engine, 319 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -63,6 +63,10 @@ signal can now **name a module** (`"module": "726"`); `ElmAdapter` sets `ATSH`/`
 only when the module changes and restores the broadcast after. The parser reads negative
 responses as `Rejected` with a code, and takes the first of several broadcast answers rather than
 gluing them into garbage. Module names come from the vehicle pack and are shown as *likely*.
+Scans and sweeps of the **real** truck are **kept** in `%LOCALAPPDATA%\DashDeck\discovery.json` — the
+last module scan and the latest sweep of each module and range — and shown again at launch marked
+**SAVED**; the synthetic truck's are never saved. The file can hold the VIN (7E0's F190), so it stays
+on the tablet.
 **Settings ▸ Vehicle** (ADR-0033) says *which* vehicle this is, so nothing hard-codes it: the
 VIN is **read from the truck** (mode 09) or typed, **decoded once by NHTSA vPIC** and cached in
 `%LOCALAPPDATA%\DashDeck\vehicle.json`, and every decoded field is correctable by hand. It fills
