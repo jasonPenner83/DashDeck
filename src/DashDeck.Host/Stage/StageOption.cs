@@ -66,7 +66,8 @@ public sealed record StageOption(
         SensorService sensors,
         WeatherService weather,
         DisplaySettings display,
-        IReadOnlyList<UserAppEntry>? userApps = null) =>
+        IReadOnlyList<UserAppEntry>? userApps = null,
+        Gauges.StageLayoutService? layouts = null) =>
     [
         // ── SCREENS: rendered inside DashDeck, never a separate process. ──────────────────
 
@@ -74,7 +75,8 @@ public sealed record StageOption(
         // what the factory cluster leaves out — boost, oil temp, voltage. A truck's home
         // screen wanting gauges is a better idle than a clock, and it means there is no
         // arbitrary "last occupant" to restore on ignition.
-        new StageOption("GAUGES", "Boost, oil, volts — what the cluster hides", () => new GaugesStageOccupant(signals)),
+        new StageOption("GAUGES", "Your stage layout — boost, oil, volts by default", () => new GaugesStageOccupant(
+            signals, clock, layouts ?? new Gauges.StageLayoutService(new Gauges.StageLayoutLibrary(null, System.IO.Path.Combine(System.IO.Path.GetTempPath(), "dashdeck-no-stage-layouts")), () => null, null))),
 
         // Time and weather, the other idle. No "nothing" option: an empty stage announcing its
         // own emptiness was honest but useless.

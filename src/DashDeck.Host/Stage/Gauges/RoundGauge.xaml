@@ -1,9 +1,0 @@
-<UserControl x:Class="DashDeck.Host.Stage.Gauges.RoundGauge"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <!-- Everything is drawn in code-behind onto this canvas: bezel, ticks, numerals, redline
-         and the needle. This is ADR-0011's second rendering idiom — an animated instrument a
-         data-bound TextBlock could not be — kept out of XAML because a dial is a loop, not a
-         layout. -->
-    <Canvas x:Name="Host" />
-</UserControl>

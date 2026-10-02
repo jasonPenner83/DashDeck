@@ -61,6 +61,11 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
     /// <summary>The shipped themes and the user's own.</summary>
     public ThemeLibrary Library { get; }
 
+    /// <summary>Which stage layout shows: the one this theme names, or one chosen (ADR-0037).</summary>
+    public Stage.Gauges.StageLayoutService Layouts { get; }
+
+    partial void OnCurrentChanged(ThemeDefinition value) => Layouts?.ThemeChanged();
+
     [ObservableProperty]
     private bool _isNight;
 
@@ -102,6 +107,12 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
         // A theme that has gone — deleted, or a shipped one a later build dropped — falls back
         // to the DashDeck look rather than leaving the screen undressed.
         _current = Library.Find(stored.ThemeId) ?? ThemeDefinition.BuiltIn;
+
+        Layouts = new Stage.Gauges.StageLayoutService(
+            new Stage.Gauges.StageLayoutLibrary(CatalogPath.FindFolder("stage"), JsonFile.InLocalAppData("stage")),
+            () => Current.StageLayout,
+            stored.StageLayout,
+            choice => SettingsStore.Update(s => s with { StageLayout = choice }));
 
         // Re-checked on load, not just on entry. A stored colour was validated against the
         // quality palette of whatever build wrote it; if a later build moves one of those

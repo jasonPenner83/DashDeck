@@ -22,6 +22,7 @@ look. Themes are chosen in **Settings ▸ Themes**.
   "name": "Night Owl",                       // required — what the list shows
   "description": "Deep blue, amber-free.",   // optional
   "author": "you",                           // optional
+  "stageLayout": "night-owl",                // optional — the stage layout this theme brings (ADR-0037)
   "fontFiles": [ "MyFont-Regular.ttf" ],     // optional — font files beside this file
   "tokens": {                                // the day values you change
     "canvas": "#0A0F1E",

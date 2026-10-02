@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **430 tests green** — 166 engine, 264 shell.
+(ADR-0010). **452 tests green** — 166 engine, 286 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -82,6 +82,17 @@ colours are not tokens**, and a theme's accent passes the same check a hand-pick
 *LCARS (inspired)* ships first, lettered in Antonio (OFL). **Fonts, radii and border width are
 `DynamicResource` now, like colours** — a view that reaches `UiFont` by `StaticResource` will not
 follow the theme.
+
+**The GAUGES stage is a file** (ADR-0037): a *stage layout* is JSON of elements — gauges (`dial`,
+`arc`, `bar`, `lcarsBar`, `digital`, each tuned by `parts`), `text`, `clock` and `panel` — placed
+in pixels on a fixed 912 × 636 canvas scaled to the stage. A gauge's source is a signal, optionally
+minus another, scaled (boost = manifold − barometric, in psi). **A gauge with no reading draws no
+needle and says NO DATA**, Stale draws dimmed, and a corner dot carries the fixed quality colour.
+The old six-dial cluster is the compiled-in built-in layout; `catalog/stage/` ships more and the
+user's live in `%LOCALAPPDATA%\DashDeck\stage\`. **A theme names its stage**
+(`"stageLayout": "lcars"`) and the stage follows the theme unless one is chosen in **Settings ▸
+Themes ▸ STAGE LAYOUT**; a user file with a shipped one's name wins. Reference:
+[`docs/writing-a-stage-layout.md`](docs/writing-a-stage-layout.md).
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
@@ -295,7 +306,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Thirty-six exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Thirty-seven exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -313,7 +324,8 @@ a VIN read from the truck or typed, decoded once and cached, filling `VehiclePro
 re-configured after reconnects, rate and port found again — with a simulated start that goes
 live when the adapter answers, chosen from a list of tested ports, and asking modules by
 address — a module sweep, an identifier sweep, and signals that name their module, and
-themes as files of named tokens chosen in Settings, with the quality colours still out of reach.
+themes as files of named tokens chosen in Settings, with the quality colours still out of reach,
+and the stage as a file of gauges, text, clock and panels that a theme can bring with it.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

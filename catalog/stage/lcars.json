@@ -1,0 +1,82 @@
+// The LCARS (inspired) stage (ADR-0037) — worn automatically with the LCARS (inspired) theme, which
+// names it with "stageLayout": "lcars". A fan homage; not affiliated with Paramount.
+//
+// The stage is 912 × 636. Everything is drawn in order, later on top: the frame panels first, then
+// the black cut-outs that turn two panels into an elbow, then the text, then the gauges.
+//
+// Edit it by hand: in Settings ▸ Themes ▸ STAGE LAYOUT, SAVE AS makes your own copy in
+// %LOCALAPPDATA%\DashDeck\stage\ — save it as "lcars" and it replaces this one for the theme. Then
+// change a number here, press RELOAD (or RELOAD STAGE LAYOUT in the three-dot menu), and look.
+{
+  "name": "LCARS (inspired) stage",
+  "description": "A frame of elbows and bars around six segmented LCARS bars, with the time. Comes with the LCARS (inspired) theme.",
+  "author": "DashDeck",
+  "background": "#000000",
+  "elements": [
+    // ── The frame ────────────────────────────────────────────────────────────────────────
+    { "type": "panel", "id": "top-elbow",    "x": 0,   "y": 0,   "width": 220, "height": 86,  "colour": "#CC99CC", "radius": "56,0,0,0" },
+    { "type": "panel", "id": "top-bar",      "x": 226, "y": 0,   "width": 470, "height": 24,  "colour": "#FF9966" },
+    { "type": "panel", "id": "top-end",      "x": 702, "y": 0,   "width": 210, "height": 24,  "colour": "#9999CC", "radius": "0,12,12,0" },
+    { "type": "panel", "id": "left-bar",     "x": 0,   "y": 92,  "width": 118, "height": 448, "colour": "#CC99CC" },
+    { "type": "panel", "id": "bottom-elbow", "x": 0,   "y": 546, "width": 220, "height": 90,  "colour": "#FF9966", "radius": "0,0,0,56" },
+    { "type": "panel", "id": "bottom-bar",   "x": 226, "y": 612, "width": 686, "height": 24,  "colour": "#9999CC", "radius": "0,12,12,0" },
+
+    // The inside curves of the elbows: black, rounded on the inner corner.
+    { "type": "panel", "id": "top-cut",      "x": 118, "y": 24,  "width": 102, "height": 62,  "colour": "#000000", "radius": "28,0,0,0" },
+    { "type": "panel", "id": "bottom-cut",   "x": 118, "y": 546, "width": 102, "height": 66,  "colour": "#000000", "radius": "0,0,0,28" },
+
+    // Block captions on the left bar, black on lavender.
+    { "type": "text", "id": "code-1", "x": 8, "y": 100, "width": 100, "height": 28, "content": "AUX 01", "colour": "#000000", "fontSize": 18, "align": "right" },
+    { "type": "text", "id": "code-2", "x": 8, "y": 500, "width": 100, "height": 28, "content": "PWR 47", "colour": "#000000", "fontSize": 18, "align": "right" },
+
+    // ── Title and time ───────────────────────────────────────────────────────────────────
+    { "type": "text",  "id": "title", "x": 240, "y": 30, "width": 400, "height": 50, "content": "ENGINE STATUS", "colour": "#FF9966", "fontSize": 36, "font": "ui" },
+    { "type": "clock", "id": "time",  "x": 652, "y": 30, "width": 250, "height": 50, "content": "HH:mm", "colour": "#FFCC99", "fontSize": 36, "font": "ui", "align": "right" },
+
+    // ── Six LCARS bars ───────────────────────────────────────────────────────────────────
+    {
+      "id": "boost", "style": "lcarsBar", "x": 140, "y": 96, "width": 760, "height": 60,
+      "label": "BOOST", "unit": "psi", "format": "0.0",
+      "source": { "signal": "engine.intakeManifoldPressure", "minus": "engine.barometricPressure", "minusFallback": 101.325, "scale": 0.1450377, "rateHz": 3 },
+      "min": -15, "max": 25,
+      "zones": [ { "from": 18, "to": 25, "colour": "#CC6666" } ],
+      "parts": { "segments": 24, "capColour": "#FF9966", "fillColour": "@accent", "trackColour": "#1A1A2A", "thickness": 34 }
+    },
+    {
+      "id": "oil", "style": "lcarsBar", "x": 140, "y": 170, "width": 760, "height": 60,
+      "label": "OIL °C", "format": "0",
+      "source": { "signal": "engine.oilTemp", "rateHz": 1 },
+      "min": 40, "max": 150,
+      "zones": [ { "from": 135, "to": 150, "colour": "#CC6666" } ],
+      "parts": { "segments": 24, "capColour": "#CC99CC", "fillColour": "#CC99CC", "trackColour": "#1A1A2A", "thickness": 34 }
+    },
+    {
+      "id": "volts", "style": "lcarsBar", "x": 140, "y": 244, "width": 760, "height": 60,
+      "label": "VOLTS", "format": "0.0",
+      "source": { "signal": "vehicle.controlModuleVoltage", "rateHz": 1 },
+      "min": 8, "max": 18,
+      "parts": { "segments": 24, "capColour": "#9999CC", "fillColour": "#9999CC", "trackColour": "#1A1A2A", "thickness": 34 }
+    },
+    {
+      "id": "intake", "style": "lcarsBar", "x": 140, "y": 318, "width": 760, "height": 60,
+      "label": "INTAKE °C", "format": "0",
+      "source": { "signal": "engine.intakeAirTemp", "rateHz": 0.5 },
+      "min": -20, "max": 60,
+      "parts": { "segments": 24, "capColour": "#FFCC99", "fillColour": "#FFCC99", "trackColour": "#1A1A2A", "thickness": 34 }
+    },
+    {
+      "id": "throttle", "style": "lcarsBar", "x": 140, "y": 392, "width": 760, "height": 60,
+      "label": "THROTTLE %", "format": "0",
+      "source": { "signal": "engine.throttlePosition", "rateHz": 4 },
+      "min": 0, "max": 100,
+      "parts": { "segments": 24, "capColour": "#FF9966", "fillColour": "@accent", "trackColour": "#1A1A2A", "thickness": 34 }
+    },
+    {
+      "id": "load", "style": "lcarsBar", "x": 140, "y": 466, "width": 760, "height": 60,
+      "label": "LOAD %", "format": "0",
+      "source": { "signal": "engine.load", "rateHz": 2 },
+      "min": 0, "max": 100,
+      "parts": { "segments": 24, "capColour": "#CC99CC", "fillColour": "#CC99CC", "trackColour": "#1A1A2A", "thickness": 34 }
+    }
+  ]
+}
