@@ -17,7 +17,8 @@ Start with [`docs/00-project-outline.md`](docs/00-project-outline.md).
 
 ## Current state
 
-**P0 engine complete. P0.5 shell underway and running on Windows.**
+**P0 engine complete. P0.5 shell running on Windows — and on the truck.** `v0.3.0` (2026-10-02) is
+the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
@@ -160,7 +161,7 @@ from two signals — the value a card can't derive), `TripEconomy` (trip-average
 persisted, with a full-screen detail and a reset), `Tpms` (per-wheel tyre pressure with an
 overhead white F-150 that lights the low corner), and `RangeEstimator` (distance to empty — fuel
 level over a recent economy it derives from fuel rate and speed, with a full-screen breakdown;
-the assumed tank size is a documented constant until per-component settings land). **TPMS is the
+the tank size comes from `VehicleProfile`, set in Settings ▸ Vehicle, with 136 L as the fallback). **TPMS is the
 first MS-CAN signal set** — its
 four `tire.*.pressure` ids carry **placeholder mode/PID** (documented in the catalog) because
 Ford's real body-module message is undiscovered (R2); the synthetic answers them on MS-CAN
@@ -179,20 +180,39 @@ it would fail with an impossible "cannot convert IDashComponent to IDashComponen
 context defers the contract assemblies to the host's default context; the component's
 `ProjectReference` sets `Private=false` so no copy is ever emitted beside its DLL.
 
-The **OBDLink EX** adapter, wired USB (ADR-0007), was **ordered 2026-09-29, due 2026-10-05**
-(genuine, sold by OBD Solutions). The **Carlinkit CPC200** for Android Auto and CarPlay
-(ADR-0019) is chosen and not bought. Both are built against synthetic transports behind a
-seam, so neither is blocking. First bring-up with the EX: a real `UsbSerialTransport`, then
-measure the request ceiling (Q12) and what the Gateway Module passes on MS-CAN (Q5). Then
-**Settings ▸ Sensors ▸ SCAN THE TRUCK** asks which standard PIDs it supports from the tablet,
-and **TEST** is the loop for trying Ford mode 22 PIDs (R2, Q13) from the driver's seat —
-found with **SCAN FOR MODULES** and a module's **identifier sweep** (ADR-0035).
+**The hardware is in hand and on the truck.** The **OBDLink EX** (STN2232 v5.12.4), wired USB
+through its FTDI virtual COM port (ADR-0007), was brought up on 2026-10-01 and runs through
+`SerialPortTransport` wrapped in `AdapterLinkTransport` (ADR-0031, ADR-0034). What bring-up
+measured:
+
+- **~19 requests/second** for the whole app — mean 52.5 ms round trip, p95 71.4 ms (Q12). The
+  vehicle's response time dominates, so USB bought far less than hoped; risk R1 stands, and
+  smooth high-rate gauges need request batching, not a faster link. The simulator now runs at
+  the same 52 ms (`SyntheticFaults.Realistic`).
+- **MS-CAN is reachable from the OBD port** — the adapter accepts the switch and the Gateway
+  Module does not get in the way (Q5).
+- **The truck answers 48 standard PIDs but neither fuel rate (`5E`) nor MAF (`10`)** (Q4). So
+  **Fuel Economy, Avg Economy and Range Estimator read blank on the real truck** — they need
+  `engine.fuelRate`. The fix is decided, not built: speed-density from MAP, IAT, RPM and lambda,
+  with tank calibration made mandatory (ADR-0030). Oil temperature (`5C`) is absent too.
+- **TPMS reads a dash at every corner** — its PIDs are still placeholders.
+
+Ford's own values (transmission and oil temperature, fuel flow, TPMS — R2, Q13) are the next
+hardware-side work, and the tools are on the tablet: **SCAN FOR MODULES** finds the modules,
+a module's **identifier sweep** finds candidates, and **TEST** in the editor confirms one while
+the thing it measures changes (ADR-0032, ADR-0035). Confirmed values go in the vehicle pack.
+
+The **Carlinkit CPC200** for Android Auto and CarPlay (ADR-0019) is chosen and not bought; it
+is built against a synthetic transport behind a seam, so it is not blocking.
 
 ## Things that are easy to get wrong here
 
-1. **No hardware exists yet.** The adapter (OBDLink EX over wired USB, ADR-0007) is
-   ordered, not in hand. Until bring-up, everything runs on the synthetic vehicle (ADR-0005). Do not
-   write code that assumes a truck is attached, and do not defer work waiting for hardware.
+1. **The truck is not always attached.** The adapter is real now, but the tablet is carried in
+   and out, and development happens at a desk. The synthetic vehicle (ADR-0005) is still the
+   default whenever the adapter is absent, and the dash goes live by itself when it answers
+   (ADR-0034). Do not write code that assumes a truck is attached, and do not defer work waiting
+   for one — but anything that touches the vehicle, the adapter or the cab screen is not done
+   until it has been walked through in the truck (see *Working agreement*).
 2. **The Surface is a personal device.** No kiosk mode, no shell replacement, no services,
    no registry writes. Self-contained folder deploy, settings in `%LOCALAPPDATA%`.
    **Two** driver exceptions, each named by an ADR: the Microsoft-signed FTDI USB serial
@@ -206,10 +226,10 @@ found with **SCAN FOR MODULES** and a module's **identifier sweep** (ADR-0035).
    a silent stand-in. Never guess a PID to fill the gap — a wrong heading is in range, so the
    catalog's own `min`/`max` guard cannot catch it.
 4. **Nothing polls the adapter directly.** Components *declare* signals; the Request
-   Arbiter builds one plan (ADR-0004). The old "~10–20 requests/second" figure was a
-   *Bluetooth* limit and no longer applies now the link is USB — but **the real ceiling is
-   unmeasured**, so do not assume headroom. The simulator keeps the conservative number
-   until P1.5 measures a real one (Q12).
+   Arbiter builds one plan (ADR-0004). **The measured ceiling is ~19 requests/second for the
+   whole app** (Q12), shared by every card and component — there is no headroom to assume.
+   Settings sweeps (ADR-0032, ADR-0035) go through the same serialised adapter and take most of
+   it while they run, which is why they are refused while moving.
    Signals also declare a bus (`hs` / `ms`) and the arbiter interleaves across both.
 5. **Read-only until Phase 3.** No writes to the vehicle. When they arrive they pass the
    five gates in ADR-0006 — all five, or it does not ship.
