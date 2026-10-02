@@ -655,15 +655,18 @@ public sealed record StageLayout
     /// <summary>Every layout compiled in.</summary>
     public static IReadOnlyList<StageLayout> BuiltIns { get; } = [BuiltIn, BuiltInCompass];
 
-    private const string BuiltInCompassJson = """
+    /// <summary>The compass layout as text, comments and all — what <c>stage\examples\compass.json</c> holds.</summary>
+    internal const string BuiltInCompassJson = """
     {
       "name": "Compass",
       "description": "Where the truck is pointing, how it is sitting and what it is doing: heading, G, pitch and roll, speed and outside air. Truck first, tablet second, and every reading says which.",
       "author": "DashDeck",
       "elements": [
+        // The rose. "parts" tunes it: "mode": "needle" keeps north up; every colour is a part.
         { "id": "heading", "type": "compass", "x": 31, "y": 96, "width": 320, "height": 344,
           "source": { "sensor": "attitude.heading" } },
 
+        // Position from the phone's GPS (ADR-0027). Any gauge can read a sensor like this.
         { "id": "latitude", "style": "digital", "x": 31, "y": 456, "width": 160, "height": 96,
           "label": "LATITUDE", "format": "0.0000",
           "source": { "sensor": "location.latitude" }, "min": -90, "max": 90,
@@ -673,8 +676,10 @@ public sealed record StageLayout
           "source": { "sensor": "location.longitude" }, "min": -180, "max": 180,
           "parts": { "valueSize": 18, "valueColour": "@textMid" } },
 
+        // The G meter. "parts": { "range": 0.5 } makes the outer ring half a g.
         { "id": "g", "type": "gMeter", "x": 369, "y": 150, "width": 240, "height": 312 },
 
+        // Pitch and roll need the mount levelled (Settings > Mount); until then they say so.
         { "id": "pitch", "style": "digital", "x": 627, "y": 170, "width": 127, "height": 120,
           "label": "PITCH", "unit": "°", "format": "0.0",
           "source": { "sensor": "attitude.pitch" }, "min": -45, "max": 45,
@@ -683,6 +688,7 @@ public sealed record StageLayout
           "label": "ROLL", "unit": "°", "format": "0.0",
           "source": { "sensor": "attitude.roll" }, "min": -45, "max": 45,
           "parts": { "valueSize": 30 } },
+        // Speed and outside air are vehicle signals, as on any gauge.
         { "id": "speed", "style": "digital", "x": 627, "y": 320, "width": 127, "height": 120,
           "label": "SPEED", "unit": "km/h", "format": "0",
           "source": { "signal": "vehicle.speed", "rateHz": 1 }, "min": 0, "max": 250,

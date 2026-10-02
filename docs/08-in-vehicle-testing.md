@@ -439,7 +439,7 @@ a short drive with someone else watching the screen — or watch it only while s
    in Notepad and:
    - in the `"heading"` element, add `"parts": { "mode": "needle", "northColour": "#FF3B30" },`
      after `"height": 344,`;
-   - in the `"g"` element, add `"parts": { "range": 0.5 },` after `"height": 312,`.
+   - in the `"g"` element, change `"height": 312 }` to `"height": 312, "parts": { "range": 0.5 } }`.
 
    Save. On COMPASS, three-dot ▸ **RELOAD STAGE LAYOUT**. **Expect:** the rose no longer turns —
    N stays at the top in **red** — and a needle points the way the truck faces; the G meter's rings

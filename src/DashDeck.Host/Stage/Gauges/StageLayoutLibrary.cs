@@ -115,7 +115,7 @@ public sealed class StageLayoutLibrary
 
             Write("README.txt", ExamplesReadme);
             Write("f150-cluster.json", BuiltInHeader + StageLayout.BuiltIn.ToJson() + Environment.NewLine);
-            Write("compass.json", CompassHeader + StageLayout.BuiltInCompass.ToJson() + Environment.NewLine);
+            Write("compass.json", CompassHeader + StageLayout.BuiltInCompassJson + Environment.NewLine);
 
             if (ShippedFolder is not null && Directory.Exists(ShippedFolder))
             {
