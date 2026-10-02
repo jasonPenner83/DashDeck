@@ -6,9 +6,17 @@
 
 <!-- Tests added? Run on the synthetic truck? If it's a touch gesture, was it tried on glass? -->
 
+## How to test in the truck
+
+<!-- Required for anything that touches the vehicle, the adapter, or the screen in the cab.
+     The same walkthrough as the new section in docs/08-in-vehicle-testing.md: what you need
+     (ignition off / on / running, internet, parked), numbered steps each with what you should
+     see, and what a failure looks like. "Not tested on hardware" is not a walkthrough. -->
+
 ## Checklist
 
 - [ ] Targets `develop` (not `main`)
+- [ ] In-vehicle walkthrough added to `docs/08-in-vehicle-testing.md` (or this change can't be seen in the truck)
 - [ ] Build is clean (warnings are errors) and `dotnet test DashDeck.slnx` passes
 - [ ] **Read-only:** nothing writes to the vehicle
 - [ ] Components use named signals only; any new PID is in the catalog JSON, not guessed
