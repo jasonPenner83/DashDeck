@@ -1,0 +1,939 @@
+{
+  "_comment": [
+    "The ID hunter's checklist (ADR-0044). Edit freely: add a target, change the steps.",
+    "listen: hold the truck in each step's state while the tool listens to the bus; 'state' numbers say which steps should read alike.",
+    "follow: sweep a module's identifiers, then watch them while a standard reading (coolant or rpm) changes.",
+    "match: sweep a module's identifiers and find the ones holding a number you read off the cluster.",
+    "'modules' and 'ranges' are where to SEARCH, not claims about where anything is. 'simulate' is used only with --simulate."
+  ],
+  "targets": [
+    {
+      "id": "door.driver",
+      "name": "Driver door",
+      "signal": "warning.door",
+      "method": "listen",
+      "buses": [
+        "ms",
+        "hs"
+      ],
+      "needs": "Ignition ON, parked, every door shut.",
+      "hold": 5,
+      "steps": [
+        {
+          "label": "CLOSED",
+          "state": 0,
+          "do": "Shut the driver's door.",
+          "simulate": {
+            "driverDoor": 0
+          }
+        },
+        {
+          "label": "OPEN",
+          "state": 1,
+          "do": "Open the driver's door and leave it open.",
+          "simulate": {
+            "driverDoor": 1
+          }
+        },
+        {
+          "label": "CLOSED",
+          "state": 0,
+          "do": "Shut the driver's door.",
+          "simulate": {
+            "driverDoor": 0
+          }
+        },
+        {
+          "label": "OPEN",
+          "state": 1,
+          "do": "Open the driver's door and leave it open.",
+          "simulate": {
+            "driverDoor": 1
+          }
+        },
+        {
+          "label": "CLOSED",
+          "state": 0,
+          "do": "Shut the driver's door.",
+          "simulate": {
+            "driverDoor": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "door.passenger",
+      "name": "Passenger door",
+      "signal": "warning.door",
+      "method": "listen",
+      "buses": [
+        "ms",
+        "hs"
+      ],
+      "needs": "Ignition ON, parked, every door shut.",
+      "hold": 5,
+      "steps": [
+        {
+          "label": "CLOSED",
+          "state": 0,
+          "do": "Shut the front passenger door.",
+          "simulate": {
+            "passengerDoor": 0
+          }
+        },
+        {
+          "label": "OPEN",
+          "state": 1,
+          "do": "Open the front passenger door and leave it open.",
+          "simulate": {
+            "passengerDoor": 1
+          }
+        },
+        {
+          "label": "CLOSED",
+          "state": 0,
+          "do": "Shut the front passenger door.",
+          "simulate": {
+            "passengerDoor": 0
+          }
+        },
+        {
+          "label": "OPEN",
+          "state": 1,
+          "do": "Open the front passenger door and leave it open.",
+          "simulate": {
+            "passengerDoor": 1
+          }
+        },
+        {
+          "label": "CLOSED",
+          "state": 0,
+          "do": "Shut the front passenger door.",
+          "simulate": {
+            "passengerDoor": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "seatbelt.driver",
+      "name": "Driver seatbelt",
+      "signal": "warning.seatbelt",
+      "method": "listen",
+      "buses": [
+        "ms",
+        "hs"
+      ],
+      "needs": "Ignition ON, parked, sitting in the driver's seat.",
+      "hold": 5,
+      "steps": [
+        {
+          "label": "BUCKLED",
+          "state": 0,
+          "do": "Buckle your seatbelt.",
+          "simulate": {
+            "driverSeatbelt": 1
+          }
+        },
+        {
+          "label": "UNBUCKLED",
+          "state": 1,
+          "do": "Unbuckle your seatbelt.",
+          "simulate": {
+            "driverSeatbelt": 0
+          }
+        },
+        {
+          "label": "BUCKLED",
+          "state": 0,
+          "do": "Buckle your seatbelt.",
+          "simulate": {
+            "driverSeatbelt": 1
+          }
+        },
+        {
+          "label": "UNBUCKLED",
+          "state": 1,
+          "do": "Unbuckle your seatbelt.",
+          "simulate": {
+            "driverSeatbelt": 0
+          }
+        },
+        {
+          "label": "BUCKLED",
+          "state": 0,
+          "do": "Buckle your seatbelt.",
+          "simulate": {
+            "driverSeatbelt": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "parkingBrake",
+      "name": "Parking brake",
+      "signal": "warning.brake",
+      "method": "listen",
+      "buses": [
+        "ms",
+        "hs"
+      ],
+      "needs": "Engine RUNNING, in PARK, foot on the brake pedal throughout.",
+      "hold": 5,
+      "steps": [
+        {
+          "label": "SET",
+          "state": 0,
+          "do": "Set the parking brake.",
+          "simulate": {
+            "parkingBrake": 1
+          }
+        },
+        {
+          "label": "RELEASED",
+          "state": 1,
+          "do": "Release the parking brake (stay in PARK, foot on the brake).",
+          "simulate": {
+            "parkingBrake": 0
+          }
+        },
+        {
+          "label": "SET",
+          "state": 0,
+          "do": "Set the parking brake.",
+          "simulate": {
+            "parkingBrake": 1
+          }
+        },
+        {
+          "label": "RELEASED",
+          "state": 1,
+          "do": "Release the parking brake (stay in PARK, foot on the brake).",
+          "simulate": {
+            "parkingBrake": 0
+          }
+        },
+        {
+          "label": "SET",
+          "state": 0,
+          "do": "Set the parking brake.",
+          "simulate": {
+            "parkingBrake": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "seat.driver.heat",
+      "name": "Driver seat heat",
+      "signal": "seat.driver.climate",
+      "method": "listen",
+      "buses": [
+        "ms",
+        "hs"
+      ],
+      "needs": "Engine RUNNING, parked. Driver seat heat and cooling OFF.",
+      "hold": 5,
+      "steps": [
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Make sure the driver seat heat is OFF.",
+          "simulate": {
+            "driverSeat": 0
+          }
+        },
+        {
+          "label": "HEAT 1",
+          "state": 1,
+          "do": "Press driver seat HEAT once (lowest).",
+          "simulate": {
+            "driverSeat": 1
+          }
+        },
+        {
+          "label": "HEAT 2",
+          "state": 2,
+          "do": "Press it again (next level).",
+          "simulate": {
+            "driverSeat": 2
+          }
+        },
+        {
+          "label": "HEAT 3",
+          "state": 3,
+          "do": "Press it again (highest). If your seat has only two levels, leave it on the highest.",
+          "simulate": {
+            "driverSeat": 3
+          }
+        },
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn driver seat heat OFF.",
+          "simulate": {
+            "driverSeat": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "seat.driver.cool",
+      "name": "Driver seat cooling",
+      "signal": "seat.driver.climate",
+      "method": "listen",
+      "buses": [
+        "ms",
+        "hs"
+      ],
+      "needs": "Engine RUNNING, parked. Driver seat heat and cooling OFF.",
+      "hold": 5,
+      "steps": [
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Make sure the driver seat cooling is OFF.",
+          "simulate": {
+            "driverSeat": 0
+          }
+        },
+        {
+          "label": "COOL 1",
+          "state": -1,
+          "do": "Press driver seat COOL once (lowest).",
+          "simulate": {
+            "driverSeat": -1
+          }
+        },
+        {
+          "label": "COOL 2",
+          "state": -2,
+          "do": "Press it again.",
+          "simulate": {
+            "driverSeat": -2
+          }
+        },
+        {
+          "label": "COOL 3",
+          "state": -3,
+          "do": "Press it again (highest).",
+          "simulate": {
+            "driverSeat": -3
+          }
+        },
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn driver seat cooling OFF.",
+          "simulate": {
+            "driverSeat": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "seat.passenger.heat",
+      "name": "Passenger seat heat",
+      "signal": "seat.passenger.climate",
+      "method": "listen",
+      "buses": [
+        "ms",
+        "hs"
+      ],
+      "needs": "Engine RUNNING, parked. Passenger seat heat OFF.",
+      "hold": 5,
+      "steps": [
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Make sure the passenger seat heat is OFF.",
+          "simulate": {
+            "passengerSeat": 0
+          }
+        },
+        {
+          "label": "HEAT 1",
+          "state": 1,
+          "do": "Press passenger seat HEAT once.",
+          "simulate": {
+            "passengerSeat": 1
+          }
+        },
+        {
+          "label": "HEAT 2",
+          "state": 2,
+          "do": "Press it again.",
+          "simulate": {
+            "passengerSeat": 2
+          }
+        },
+        {
+          "label": "HEAT 3",
+          "state": 3,
+          "do": "Press it again (highest).",
+          "simulate": {
+            "passengerSeat": 3
+          }
+        },
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn passenger seat heat OFF.",
+          "simulate": {
+            "passengerSeat": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "wheel.heat",
+      "name": "Heated steering wheel",
+      "signal": "steeringWheel.heat",
+      "method": "listen",
+      "buses": [
+        "ms",
+        "hs"
+      ],
+      "needs": "Engine RUNNING, parked. Heated wheel OFF.",
+      "hold": 5,
+      "steps": [
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn the heated steering wheel OFF.",
+          "simulate": {
+            "wheelHeat": 0
+          }
+        },
+        {
+          "label": "ON",
+          "state": 1,
+          "do": "Turn the heated steering wheel ON.",
+          "simulate": {
+            "wheelHeat": 1
+          }
+        },
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn the heated steering wheel OFF.",
+          "simulate": {
+            "wheelHeat": 0
+          }
+        },
+        {
+          "label": "ON",
+          "state": 1,
+          "do": "Turn the heated steering wheel ON.",
+          "simulate": {
+            "wheelHeat": 1
+          }
+        },
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn the heated steering wheel OFF.",
+          "simulate": {
+            "wheelHeat": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "hvac.fan",
+      "name": "Fan speed",
+      "signal": "hvac.fanSpeed",
+      "method": "listen",
+      "buses": [
+        "ms",
+        "hs"
+      ],
+      "needs": "Engine RUNNING, parked. Climate on, AUTO off.",
+      "hold": 5,
+      "steps": [
+        {
+          "label": "FAN 1",
+          "state": 1,
+          "do": "Set the fan to its lowest speed (1).",
+          "simulate": {
+            "fan": 1
+          }
+        },
+        {
+          "label": "FAN 3",
+          "state": 3,
+          "do": "Set the fan to 3.",
+          "simulate": {
+            "fan": 3
+          }
+        },
+        {
+          "label": "FAN 5",
+          "state": 5,
+          "do": "Set the fan to 5.",
+          "simulate": {
+            "fan": 5
+          }
+        },
+        {
+          "label": "FAN 7",
+          "state": 7,
+          "do": "Set the fan to its highest.",
+          "simulate": {
+            "fan": 7
+          }
+        },
+        {
+          "label": "FAN 1",
+          "state": 1,
+          "do": "Set the fan back to 1.",
+          "simulate": {
+            "fan": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "hvac.ac",
+      "name": "A/C button",
+      "signal": "hvac.airConditioning",
+      "method": "listen",
+      "buses": [
+        "ms",
+        "hs"
+      ],
+      "needs": "Engine RUNNING, parked. Climate on.",
+      "hold": 5,
+      "steps": [
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn A/C OFF.",
+          "simulate": {
+            "ac": 0
+          }
+        },
+        {
+          "label": "ON",
+          "state": 1,
+          "do": "Turn A/C ON.",
+          "simulate": {
+            "ac": 1
+          }
+        },
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn A/C OFF.",
+          "simulate": {
+            "ac": 0
+          }
+        },
+        {
+          "label": "ON",
+          "state": 1,
+          "do": "Turn A/C ON.",
+          "simulate": {
+            "ac": 1
+          }
+        },
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn A/C OFF.",
+          "simulate": {
+            "ac": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "hvac.recirc",
+      "name": "Recirculation",
+      "signal": "hvac.recirculate",
+      "method": "listen",
+      "buses": [
+        "ms",
+        "hs"
+      ],
+      "needs": "Engine RUNNING, parked. Climate on.",
+      "hold": 5,
+      "steps": [
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn RECIRCULATION off.",
+          "simulate": {
+            "recirc": 0
+          }
+        },
+        {
+          "label": "ON",
+          "state": 1,
+          "do": "Turn RECIRCULATION on.",
+          "simulate": {
+            "recirc": 1
+          }
+        },
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn RECIRCULATION off.",
+          "simulate": {
+            "recirc": 0
+          }
+        },
+        {
+          "label": "ON",
+          "state": 1,
+          "do": "Turn RECIRCULATION on.",
+          "simulate": {
+            "recirc": 1
+          }
+        },
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn RECIRCULATION off.",
+          "simulate": {
+            "recirc": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "hvac.rearDefrost",
+      "name": "Rear defrost",
+      "signal": "hvac.rearDefrost",
+      "method": "listen",
+      "buses": [
+        "ms",
+        "hs"
+      ],
+      "needs": "Engine RUNNING, parked.",
+      "hold": 5,
+      "steps": [
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn REAR DEFROST off.",
+          "simulate": {
+            "rearDefrost": 0
+          }
+        },
+        {
+          "label": "ON",
+          "state": 1,
+          "do": "Turn REAR DEFROST on.",
+          "simulate": {
+            "rearDefrost": 1
+          }
+        },
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn REAR DEFROST off.",
+          "simulate": {
+            "rearDefrost": 0
+          }
+        },
+        {
+          "label": "ON",
+          "state": 1,
+          "do": "Turn REAR DEFROST on.",
+          "simulate": {
+            "rearDefrost": 1
+          }
+        },
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn REAR DEFROST off.",
+          "simulate": {
+            "rearDefrost": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "hvac.auto",
+      "name": "AUTO climate",
+      "signal": "hvac.auto",
+      "method": "listen",
+      "buses": [
+        "ms",
+        "hs"
+      ],
+      "needs": "Engine RUNNING, parked. Climate on.",
+      "hold": 5,
+      "steps": [
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn AUTO off (press the fan button).",
+          "simulate": {
+            "auto": 0
+          }
+        },
+        {
+          "label": "ON",
+          "state": 1,
+          "do": "Press AUTO so it is ON.",
+          "simulate": {
+            "auto": 1
+          }
+        },
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn AUTO off (press the fan button).",
+          "simulate": {
+            "auto": 0
+          }
+        },
+        {
+          "label": "ON",
+          "state": 1,
+          "do": "Press AUTO so it is ON.",
+          "simulate": {
+            "auto": 1
+          }
+        },
+        {
+          "label": "OFF",
+          "state": 0,
+          "do": "Turn AUTO off (press the fan button).",
+          "simulate": {
+            "auto": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "hvac.driverSetTemp",
+      "name": "Driver set temperature",
+      "signal": "hvac.driverSetTemp",
+      "method": "listen",
+      "buses": [
+        "ms",
+        "hs"
+      ],
+      "needs": "Engine RUNNING, parked. Climate on, driver temperature at 21 °C (or 70 °F).",
+      "hold": 5,
+      "steps": [
+        {
+          "label": "21",
+          "state": 21,
+          "do": "Set the driver temperature to 21 °C (70 °F).",
+          "simulate": {
+            "driverSetTemp": 21
+          }
+        },
+        {
+          "label": "22",
+          "state": 22,
+          "do": "Raise the driver temperature one step.",
+          "simulate": {
+            "driverSetTemp": 22
+          }
+        },
+        {
+          "label": "23",
+          "state": 23,
+          "do": "Raise it one more step.",
+          "simulate": {
+            "driverSetTemp": 23
+          }
+        },
+        {
+          "label": "22",
+          "state": 22,
+          "do": "Lower it one step.",
+          "simulate": {
+            "driverSetTemp": 22
+          }
+        },
+        {
+          "label": "21",
+          "state": 21,
+          "do": "Lower it one more step, back where you started.",
+          "simulate": {
+            "driverSetTemp": 21
+          }
+        }
+      ]
+    },
+    {
+      "id": "oil.temp",
+      "name": "Engine oil temperature",
+      "signal": "engine.oilTemp",
+      "method": "follow",
+      "reference": "coolant",
+      "needs": "A COLD engine (parked overnight), ignition OFF to start. Parked outside, not in a closed garage.",
+      "instructions": "Start the engine and let it idle in PARK. Leave it — the tool reads while it warms.",
+      "modules": [
+        "7E0"
+      ],
+      "ranges": [
+        "1000-1FFF"
+      ],
+      "minutes": 12,
+      "simulateRanges": [
+        "4100-41FF"
+      ]
+    },
+    {
+      "id": "trans.temp",
+      "name": "Transmission fluid temperature",
+      "signal": "transmission.fluidTemp",
+      "method": "follow",
+      "reference": "coolant",
+      "needs": "A COLD engine (parked overnight). Parked outside.",
+      "instructions": "Start the engine and let it idle in PARK. Leave it — the tool reads while it warms.",
+      "modules": [
+        "7E1",
+        "7E0"
+      ],
+      "ranges": [
+        "1000-1FFF"
+      ],
+      "minutes": 12,
+      "simulateRanges": [
+        "4100-41FF"
+      ]
+    },
+    {
+      "id": "fuel.flow",
+      "name": "Fuel flow",
+      "signal": "engine.fuelRate",
+      "method": "follow",
+      "reference": "rpm",
+      "needs": "Engine RUNNING and warm, in PARK, parking brake set.",
+      "instructions": "Every time the tool says REV, press the accelerator gently to about 2,000 rpm for two seconds and let it fall back to idle. Never above 3,000 rpm.",
+      "modules": [
+        "7E0"
+      ],
+      "ranges": [
+        "1000-1FFF"
+      ],
+      "minutes": 3,
+      "blips": true,
+      "simulateRanges": [
+        "4100-41FF"
+      ]
+    },
+    {
+      "id": "oil.pressure",
+      "name": "Engine oil pressure",
+      "signal": "engine.oilPressure",
+      "method": "follow",
+      "reference": "rpm",
+      "needs": "Engine RUNNING and warm, in PARK, parking brake set.",
+      "instructions": "Every time the tool says REV, press the accelerator gently to about 2,000 rpm for two seconds and let it fall back to idle. Never above 3,000 rpm.",
+      "modules": [
+        "7E0"
+      ],
+      "ranges": [
+        "1000-1FFF"
+      ],
+      "minutes": 3,
+      "blips": true,
+      "simulateRanges": [
+        "4100-41FF"
+      ]
+    },
+    {
+      "id": "fuel.range",
+      "name": "Distance to empty",
+      "signal": "fuel.range",
+      "method": "match",
+      "needs": "Ignition ON, parked. Show DISTANCE TO EMPTY on the cluster.",
+      "modules": [
+        "720",
+        "7E0"
+      ],
+      "ranges": [
+        "0000-0FFF"
+      ],
+      "rounds": 2,
+      "between": "Run the engine (parked) for 10 minutes, or come back to this after a drive, so the number changes. The tool keeps what it found.",
+      "readings": [
+        {
+          "label": "DTE",
+          "ask": "Distance to empty, exactly as the cluster shows it",
+          "simulate": "range"
+        }
+      ],
+      "simulateRanges": [
+        "4200-42FF"
+      ]
+    },
+    {
+      "id": "fuel.economy",
+      "name": "Average fuel economy",
+      "signal": "fuel.economy",
+      "method": "match",
+      "needs": "Ignition ON, parked. Show the trip's AVERAGE economy on the cluster.",
+      "modules": [
+        "720",
+        "7E0"
+      ],
+      "ranges": [
+        "0000-0FFF"
+      ],
+      "rounds": 2,
+      "between": "Come back to this after a drive, so the average changes.",
+      "readings": [
+        {
+          "label": "AVG",
+          "ask": "Average economy, exactly as the cluster shows it (L/100km or mpg)",
+          "simulate": "economy"
+        }
+      ],
+      "simulateRanges": [
+        "4200-42FF"
+      ]
+    },
+    {
+      "id": "tire.pressure",
+      "name": "Tyre pressures",
+      "signal": "tire.*.pressure",
+      "method": "match",
+      "needs": "Ignition ON, parked. Show the TYRE PRESSURE screen on the cluster.",
+      "modules": [
+        "726",
+        "720"
+      ],
+      "ranges": [
+        "0000-0FFF"
+      ],
+      "rounds": 1,
+      "between": "",
+      "readings": [
+        {
+          "label": "FRONT LEFT",
+          "ask": "Front left pressure as shown",
+          "simulate": "tireFL"
+        },
+        {
+          "label": "FRONT RIGHT",
+          "ask": "Front right pressure as shown",
+          "simulate": "tireFR"
+        },
+        {
+          "label": "REAR LEFT",
+          "ask": "Rear left pressure as shown",
+          "simulate": "tireRL"
+        },
+        {
+          "label": "REAR RIGHT",
+          "ask": "Rear right pressure as shown",
+          "simulate": "tireRR"
+        }
+      ],
+      "simulateRanges": [
+        "4300-43FF"
+      ]
+    }
+  ]
+}

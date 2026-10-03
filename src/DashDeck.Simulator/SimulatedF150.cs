@@ -63,6 +63,18 @@ public sealed class SimulatedF150
 
     public double AmbientTempC { get; }
 
+    /// <summary>Doors, switches and the throttle blip, set by hand (ADR-0044).</summary>
+    public SimulatedCabin Cabin { get; } = new();
+
+    /// <summary>
+    /// Engine oil temperature: coolant's, a few degrees behind it while warming. Only the ID
+    /// hunter's invented identifiers read it.
+    /// </summary>
+    public double OilTempC => CoolantTempC - (4.0 * (1 - Math.Clamp((CoolantTempC - AmbientTempC) / 80.0, 0, 1)));
+
+    /// <summary>Transmission fluid temperature: slower than the oil to warm. Invented, likewise.</summary>
+    public double TransmissionTempC => AmbientTempC + ((CoolantTempC - AmbientTempC) * 0.7);
+
     public double SpeedKph { get; private set; }
 
     public double Rpm { get; private set; } = 700;
@@ -267,8 +279,14 @@ public sealed class SimulatedF150
 
         // RPM: idle when stopped, otherwise a plausible cruising band that steps with speed.
         Rpm = SpeedKph < 2
-            ? 700 + (_random.NextDouble() * 40) - 20
+            ? 700 + Cabin.ExtraRpm + (_random.NextDouble() * 40) - 20
             : 1100 + (SpeedKph * 7) + (EnginePowerKw * 4);
+
+        if (SpeedKph < 2 && Cabin.ExtraRpm > 0)
+        {
+            // A blip burns fuel in proportion to how far it revs.
+            FuelRateLitresPerHour += Cabin.ExtraRpm / 1000.0 * 1.8;
+        }
 
         // A naturally-aspirated-style MAF estimate: air scales with power demand.
         MafGramsPerSecond = 2.5 + (EnginePowerKw * 0.55);
