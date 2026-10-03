@@ -74,6 +74,19 @@ if (Test-Path $pluginsSource) {
     }
 }
 
+# The ID hunter (ADR-0044) travels in its own folder beside the dash: a separate console program
+# that guides finding identifiers. Self-contained like the dash, so the tablet needs nothing installed.
+# It finds catalog\vehicles one folder up, for module names.
+$hunter = Join-Path $Output 'IdHunter'
+dotnet publish src\DashDeck.IdHunter\DashDeck.IdHunter.csproj `
+    --configuration Release `
+    --runtime $Runtime `
+    --self-contained true `
+    --output $hunter `
+    --nologo
+
+if ($LASTEXITCODE -ne 0) { throw "ID hunter publish failed" }
+
 $bytes = (Get-ChildItem $Output -Recurse -File | Measure-Object -Property Length -Sum).Sum
 
 Write-Output ""
@@ -81,6 +94,7 @@ Write-Output ("  {0,-22} {1}" -f 'executable', (Resolve-Path $exe))
 Write-Output ("  {0,-22} {1} MB in {2} files" -f 'size', [math]::Round($bytes / 1MB), (Get-ChildItem $Output -Recurse -File).Count)
 Write-Output ("  {0,-22} {1}" -f 'catalog', 'included')
 Write-Output ("  {0,-22} {1}" -f 'libvlc', $(if (Test-Path (Join-Path $Output 'libvlc')) { 'included' } else { 'MISSING' }))
+Write-Output ("  {0,-22} {1}" -f 'id hunter', $(if (Test-Path (Join-Path $hunter 'IdHunter.exe')) { 'IdHunter\IdHunter.exe' } else { 'MISSING' }))
 Write-Output ("  {0,-22} {1}" -f 'components', $(if ($componentCount -gt 0) { "$componentCount included" } else { 'none' }))
 
 if ($Shortcut) {
