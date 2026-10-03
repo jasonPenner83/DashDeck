@@ -218,4 +218,26 @@ public sealed class IdHunterTests : IDisposable
         Assert.Null(Wizard.ParseRanges("2000-1000"));
         Assert.Null(Wizard.ParseRanges("nonsense"));
     }
+
+    [Fact]
+    public void The_dash_settings_say_where_the_adapter_was_and_which_port_is_the_gps()
+    {
+        Directory.CreateDirectory(_folder);
+        var path = Path.Combine(_folder, "settings.json");
+        File.WriteAllText(path, """
+            { "adapterSerialPort": "COM4", "adapterBaudRate": 115200, "adapterIdentity": "STN2232 v5.12.4",
+              "gpsEnabled": true, "gpsTransport": "Bluetooth", "gpsSerialPort": "COM7", "themeId": "builtin/modern" }
+            """);
+
+        var dash = DashSettings.Read(path);
+
+        Assert.Equal(new DashSettings("COM4", 115200, "STN2232 v5.12.4", "COM7"), dash);
+        Assert.Equal(new DashSettings(null, null, null, null), DashSettings.Read(Path.Combine(_folder, "missing.json")));
+
+        File.WriteAllText(path, """{ "adapterSerialPort": "", "adapterBaudRate": 0, "gpsEnabled": false, "gpsSerialPort": "COM7" }""");
+        Assert.Equal(new DashSettings(null, null, null, null), DashSettings.Read(path));
+
+        File.WriteAllText(path, "not json");
+        Assert.Equal(new DashSettings(null, null, null, null), DashSettings.Read(path));
+    }
 }
