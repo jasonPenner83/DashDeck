@@ -295,4 +295,33 @@ public sealed class IdHunterTests : IDisposable
         Assert.Contains("ask,pins 3/11 (125 kbit/s),733,,4401,byte 0 high nibble", findings);
         Assert.DoesNotContain(",4402,", findings);
     }
+
+    [Fact]
+    public async Task A_can_database_is_checked_against_the_truck()
+    {
+        Directory.CreateDirectory(_folder);
+        var dbc = Path.Combine(_folder, "invented.dbc");
+        File.WriteAllText(dbc, """
+            BO_ 947 SynthBody: 8 BODY
+             SG_ DriverDoor : 0|1@1+ (1,0) [0|1] "" Vector__XXX
+            BO_ 2047 Ghost: 8 BODY
+             SG_ GhostValue : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+            VAL_ 947 DriverDoor 1 "Ajar" 0 "Closed" ;
+            """);
+
+        var (io, findings) = await Run(
+            "D", dbc, "",           // the file, check presence
+            "door", "1",            // search, pick
+            "@wait:1500", "", "y",  // live, stop, it matched
+            "ghost", "1",           // a message the truck does not send
+            "B",
+            "q");
+
+        Assert.Contains("are on this truck", io.Output);
+        Assert.Contains("DriverDoor = 0 (Closed)", io.Output);
+        Assert.Contains("SynthBody.DriverDoor,,dbc,pins 3/11 (125 kbit/s),,3B3,,DriverDoor,start 0 len 1 LE", findings);
+        Assert.Contains(",confirmed,from invented.dbc", findings);
+        Assert.Contains("Ghost.GhostValue,,dbc,,,7FF", findings);
+        Assert.Contains(",absent,", findings);
+    }
 }
