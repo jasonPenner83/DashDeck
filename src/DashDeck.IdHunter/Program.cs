@@ -12,6 +12,7 @@ using DashDeck.Vehicle.Diagnostics;
 //   IdHunter --simulate          the synthetic truck, to learn the guide at a desk
 //   IdHunter --out <folder>      where findings.csv and the captures go
 //   IdHunter --targets <file>    another checklist
+//   IdHunter --dbc <file>        a CAN database to check (D on the menu)
 
 string? ArgValue(string name)
 {
@@ -23,7 +24,7 @@ bool Flag(string name) => args.Contains(name, StringComparer.OrdinalIgnoreCase);
 
 if (Flag("--help") || Flag("-h") || Flag("/?"))
 {
-    Console.WriteLine("IdHunter [--port COMn] [--baud n] [--simulate] [--out folder] [--targets file]");
+    Console.WriteLine("IdHunter [--port COMn] [--baud n] [--simulate] [--out folder] [--targets file] [--dbc file]");
     return 0;
 }
 
@@ -120,7 +121,7 @@ catch (OperationCanceledException)
 
 await using (session)
 {
-    await new Wizard(io, session, targets, output, packs, clock).RunAsync(cts.Token);
+    await new Wizard(io, session, targets, output, packs, clock) { DatabasePath = ArgValue("--dbc") }.RunAsync(cts.Token);
 }
 
 return 0;

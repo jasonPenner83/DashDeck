@@ -759,3 +759,38 @@ The guide itself: [id-hunter](id-hunter.md).
 - a step running while the truck is moving;
 - a listen that hears nothing with the ignition on;
 - the program stuck and not answering Enter (Ctrl+C quits it).
+
+## The ID hunter — checking a CAN database (ADR-0045)
+
+**You need:**
+- the truck, engine **running** and warm, parked;
+- the adapter, with DashDeck closed;
+- the `.dbcx` file copied to `%LOCALAPPDATA%\DashDeck\dbc\`;
+- FORScan on a laptop if you can, to compare against.
+
+1. Start the hunter and choose **D**. Press Enter to take the file. **Expect:** *VehicleCAN.dbcx: 329
+   messages, 2141 signals.*
+2. Press Enter to check presence. **Expect:** a line per bus, then *N of the file's 329 messages are on
+   this truck*. **Tell me N.** It says how close this file is to your 2019.
+3. Press Enter to search DashDeck's list. **Expect:** rows with **HEARD ON**. Write down which of these
+   are heard:
+   - `156` EngOil_Te_Actl
+   - `230` GboxOil_Te_Actl
+   - `179` FuelFlw_Vl_Dsply
+   - `3B3` DrStatDrv_B_Actl
+   - `3B5` Tire_Press_*
+   - `430` OdometerMasterValue
+4. For each one heard, type its number. **Expect:**
+   - **oil and gearbox temperature:** a value within a few degrees of FORScan's;
+   - **tyres:** kPa, so 240 kPa is 35 psi; compare with the cluster's tyre screen;
+   - **driver door:** Closed/Ajar following the door;
+   - **odometer:** the cluster's kilometres.
+
+   Press Enter, then answer **y** or **n** for each.
+5. Quit. Send me `findings.csv`.
+
+**A failure looks like:**
+- the file not loading;
+- every message *not heard* with the engine running;
+- any warning on the cluster. Listening is silent, so there should be none.
+

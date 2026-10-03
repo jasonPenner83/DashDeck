@@ -194,7 +194,10 @@ adapter's monitor (`STMA`/`ATMA`), and `CanMonitor` sets it up **silent (`ATCSM1
 formatting off; whoever owns the `ElmAdapter` must `InitializeAsync` again after. `--simulate` runs it
 against the synthetic truck, whose `SimulatedCabin` switches and broadcast frames use **invented**
 identifiers. A value found by listening cannot be shown on the dash yet — signals are requested, not
-heard. Reference: [`docs/id-hunter.md`](docs/id-hunter.md).
+heard. **D** checks a **CAN database** (`.dbc`, `CanDatabase`) the person keeps on the tablet: which
+of its messages the truck sends, then picked signals decoded live to confirm (ADR-0045). **A database
+is a lead, never committed** — the one found so far is for the 2021+ F-150 (P702) and unlicensed;
+only our own confirmed measurements reach the vehicle pack. Reference: [`docs/id-hunter.md`](docs/id-hunter.md).
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
@@ -421,7 +424,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Forty-four exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Forty-five exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -445,7 +448,7 @@ the launcher as a file — every stage option, web page and program, in order, a
 the compass as layout elements — sensor-sourced gauges, a rose and a G meter, and a read-only
 climate panel drawn from a layout file in place of the cards, and DASH as a console layout with
 warning lights while the cards move onto the stage, and clean, typographic defaults for both, and two default themes, Modern and Glass, with LCARS made
-the user's own, and a separate guided ID hunter that listens silently, follows and matches.
+the user's own, and a separate guided ID hunter that listens silently, follows and matches, and CAN databases as leads checked on the truck, never shipped.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.
