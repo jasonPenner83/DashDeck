@@ -213,6 +213,10 @@ public partial class App : Application
         // VIN except the VIN itself, which no component needs.
         var vehicle = identity.ToProfile(Settings.SettingsStore.Load().FuelTankLitres);
 
+        // Fuel flow, economy and range (ADR-0041): speed-density from the engine's own sensors,
+        // calibrated by fill-ups. It needs the displacement and tank from the same profile.
+        _vehicle.StartFuel(vehicle, new Settings.FuelLedgerStore());
+
         var componentHost = new Components.ComponentHost(
             _vehicle.Signals, SystemClock.Instance, Components.PluginPath.FindRoot() ?? "plugins", vehicle);
         await componentHost.LoadAllAsync(CancellationToken.None);

@@ -383,7 +383,7 @@ public sealed class SyntheticTransport : IVehicleTransport
         0x08 => [(byte)Math.Clamp(Math.Round((_truck.Jitter(0, 3) + 100) / 0.78125), 0, 255)],  // short-term fuel trim, bank 2
         0x09 => [(byte)Math.Clamp(Math.Round((-1.6 + 100) / 0.78125), 0, 255)],                 // long-term fuel trim, bank 2
         0x3D => TwoByte((ushort)Math.Clamp((245 + (_truck.EnginePowerKw * 3) + 40) * 10, 0, 65535)), // catalyst temp, bank 2
-        0x44 => TwoByte((ushort)Math.Clamp(Math.Round(_truck.Jitter(1.0, 0.02) * 32768), 0, 65535)), // commanded lambda
+        0x44 => TwoByte((ushort)Math.Clamp(Math.Round(_truck.Jitter(1.0, 0.02) * 32768), 0, 65535)), // commanded lambda (in the catalog since ADR-0041)
         0x21 => TwoByte(0),                                                                     // distance with MIL on
 
         _ => null,

@@ -50,6 +50,13 @@ public enum SignalSourceKind
 {
     /// <summary>A standard or manufacturer OBD-II mode/PID request.</summary>
     ObdPid,
+
+    /// <summary>
+    /// Worked out in DashDeck from other signals — fuel flow by speed-density, economy, range
+    /// (ADR-0041). Never asked of the truck: the arbiter leaves it out of the polling plan, and
+    /// its value is published to the bus by the code that derives it.
+    /// </summary>
+    Derived,
 }
 
 /// <summary>
@@ -140,6 +147,10 @@ public sealed record SignalDefinition
         StalenessSeconds ?? Math.Max(2.0, 5.0 / Math.Max(DefaultRateHz, 0.05)));
 
     public PidRequestSpec ToRequest() => new(Mode, Pid, Bus, ModuleAddress);
+
+    /// <summary>True for a signal DashDeck works out itself rather than asks the truck for.</summary>
+    [JsonIgnore]
+    public bool IsDerived => Kind is SignalSourceKind.Derived;
 
     /// <summary>True when a decoded value falls inside the declared physical range.</summary>
     public bool InRange(double value) =>

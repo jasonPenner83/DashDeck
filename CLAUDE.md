@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **546 tests green** — 183 engine, 363 shell.
+(ADR-0010). **566 tests green** — 199 engine, 367 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -281,10 +281,15 @@ measured:
   the same 52 ms (`SyntheticFaults.Realistic`).
 - **MS-CAN is reachable from the OBD port** — the adapter accepts the switch and the Gateway
   Module does not get in the way (Q5).
-- **The truck answers 48 standard PIDs but neither fuel rate (`5E`) nor MAF (`10`)** (Q4). So
-  **Fuel Economy, Avg Economy and Range Estimator read blank on the real truck** — they need
-  `engine.fuelRate`. The fix is decided, not built: speed-density from MAP, IAT, RPM and lambda,
-  with tank calibration made mandatory (ADR-0030). Oil temperature (`5C`) is absent too.
+- **The truck answers 48 standard PIDs but neither fuel rate (`5E`) nor MAF (`10`)** (Q4). **Fuel
+  flow is worked out by speed-density** (ADR-0030, built by ADR-0041) from MAP, IAT, RPM, commanded
+  λ and the decoded displacement, and **calibrated by full-to-full fill-ups** entered in Settings ▸
+  Vehicle ▸ FUEL (`%LOCALAPPDATA%\DashDeck\fuel.json`). It is published as **derived signals** —
+  `fuel.flowRate` (the truck's own rate first), `fuel.flowSource`, `fuel.economy`,
+  `fuel.economyAverage`, `fuel.range`, `fuel.usedSinceFill` — a `SignalSourceKind.Derived` the
+  arbiter never polls; the components read `fuel.flowRate`. `FuelModel` **runs always at Low
+  priority** (~4–5 req/s; the one exception to ADR-0015, because calibration needs every litre
+  counted) and **counts only the real truck**. Oil temperature (`5C`) is absent too.
 - **TPMS reads a dash at every corner** — its PIDs are still placeholders.
 
 Ford's own values (transmission and oil temperature, fuel flow, TPMS — R2, Q13) are the next
@@ -365,7 +370,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Forty exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Forty-one exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -387,7 +392,8 @@ themes as files of named tokens chosen in Settings, with the quality colours sti
 and the stage as a file of gauges, text, clock and panels that a theme can bring with it, and
 the launcher as a file — every stage option, web page and program, in order, and the quick bar, and
 the compass as layout elements — sensor-sourced gauges, a rose and a G meter, and a read-only
-climate panel drawn from a layout file in place of the cards.
+climate panel drawn from a layout file in place of the cards, and fuel flow by speed-density,
+calibrated by fill-ups, as derived signals the arbiter never polls.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

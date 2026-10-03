@@ -16,7 +16,7 @@ namespace TripEconomy;
 /// is the average over the trip, and an average is not a signal you can read off the bus — it
 /// is <em>total fuel over total distance</em>, both accumulated over time. So this integrates
 /// two signals rather than dividing their current values: distance from <c>vehicle.speed</c>,
-/// litres from <c>engine.fuelRate</c>, each against the injected clock, and reports
+/// litres from <c>fuel.flowRate</c> (the truck's fuel rate, or the speed-density estimate, ADR-0041), each against the injected clock, and reports
 /// <c>litres ÷ km × 100</c>. Both totals are persisted as they grow and picked back up on the
 /// next launch, so a trip survives the app being closed — which, in a truck, is how the app is
 /// always closed (its power is pulled).
@@ -58,7 +58,7 @@ public sealed class Component : IDashComponent, IDashComponentView
     {
         _context = context;
         _speed = SignalValue.Missing("vehicle.speed");
-        _fuel = SignalValue.Missing("engine.fuelRate");
+        _fuel = SignalValue.Missing("fuel.flowRate");
 
         _distanceKm = await ReadNumber(DistanceKey, ct).ConfigureAwait(false);
         _litres = await ReadNumber(LitresKey, ct).ConfigureAwait(false);
@@ -71,11 +71,11 @@ public sealed class Component : IDashComponent, IDashComponentView
     public Task StartAsync(CancellationToken ct)
     {
         _speedDemand = _context.Signals.Require("vehicle.speed", SignalPriority.Normal, 2);
-        _fuelDemand = _context.Signals.Require("engine.fuelRate", SignalPriority.Normal, 2);
+        _fuelDemand = _context.Signals.Require("fuel.flowRate", SignalPriority.Normal, 2);
 
         _lastTickAt = null;
         _speedSub = _context.Signals.Subscribe("vehicle.speed", v => { _speed = v; Integrate(); });
-        _fuelSub = _context.Signals.Subscribe("engine.fuelRate", v => { _fuel = v; Integrate(); });
+        _fuelSub = _context.Signals.Subscribe("fuel.flowRate", v => { _fuel = v; Integrate(); });
         return Task.CompletedTask;
     }
 

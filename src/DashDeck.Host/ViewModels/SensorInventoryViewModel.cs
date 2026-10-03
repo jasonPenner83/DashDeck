@@ -275,7 +275,8 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
         var shipped = _vehicle.Shipped;
         var (merged, _) = VehicleStack.ApplyOverlay(shipped, _store.Definitions);
 
-        _rows = [.. merged.Definitions.Select(d =>
+        // Derived signals (ADR-0041) are worked out, not asked: nothing to scan, TEST or edit.
+        _rows = [.. merged.Definitions.Where(d => !d.IsDerived).Select(d =>
         {
             var origin = !_store.Contains(d.Id) ? SignalOrigin.Shipped
                 : shipped.TryGet(d.Id, out _) ? SignalOrigin.Override

@@ -194,6 +194,18 @@
     "max": 255
   },
   {
+    // Commanded equivalence ratio: 1.0 is stoichiometric, below it rich. One of the inputs to
+    // fuel flow by speed-density (ADR-0030, ADR-0041) — the F-150 does not report fuel rate or MAF.
+    "id": "engine.commandedLambda",
+    "name": "Commanded Air-Fuel Equivalence Ratio",
+    "category": "Air & Boost",
+    "pid": 68,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 0.000030517578125, "offset": 0, "unit": "λ" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 2
+  },
+  {
     "id": "engine.barometricPressure",
     "name": "Barometric Pressure",
     "category": "Air & Boost",

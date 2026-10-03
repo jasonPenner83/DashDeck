@@ -139,6 +139,20 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// <summary>Named-signal access. This is all the UI is allowed to know about.</summary>
     public IVehicleSignals Signals => _service.Bus;
 
+    /// <summary>Fuel flow, economy and range (ADR-0041), once <see cref="StartFuel"/> has run.</summary>
+    public DashDeck.Core.Fuel.FuelModel? Fuel { get; private set; }
+
+    /// <summary>
+    /// Start counting fuel: speed-density when the truck gives no fuel rate, calibrated by the
+    /// fill-ups kept in <paramref name="store"/>.
+    /// </summary>
+    /// <param name="profile">The vehicle's displacement and tank, as Settings ▸ Vehicle has them at launch.</param>
+    public void StartFuel(VehicleProfile profile, Settings.FuelLedgerStore store)
+    {
+        Fuel = new DashDeck.Core.Fuel.FuelModel(_service.Bus, SystemClock.Instance, () => profile, store.Ledger, store.Save);
+        Fuel.Start();
+    }
+
     /// <summary>
     /// The synthetic truck, or null when a real adapter is driving the stack.
     /// </summary>
@@ -380,7 +394,8 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// </remarks>
     internal static LoadedCatalog LoadCatalog(CatalogSources sources)
     {
-        var standard = SignalCatalog.FromFile(FindCatalog());
+        // The derived fuel signals (ADR-0041) join the standard set, so a pack or the overlay sees them.
+        var standard = DashDeck.Core.Fuel.FuelModel.AddTo(SignalCatalog.FromFile(FindCatalog()));
         var (available, problems) = VehiclePacks.LoadFolder(CatalogPath.FindFolder("vehicles"));
         var active = VehiclePacks.Select(available, sources.Vehicle);
         var packProblem = problems.Count > 0 ? string.Join(" ", problems) : null;
@@ -431,6 +446,9 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// </remarks>
     public async ValueTask DisposeAsync()
     {
+        // First, while the bus is still there: it writes what this drive counted.
+        Fuel?.Dispose();
+
         if (_failover is not null)
         {
             await _failover.DisposeAsync().ConfigureAwait(false);

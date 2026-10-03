@@ -14,7 +14,7 @@ namespace FuelEconomy;
 /// <remarks>
 /// <b>A card cannot do this, and that is the point (ADR-0012).</b> A widget is one signal drawn
 /// as a number or a bar; fuel economy is <em>two</em> signals combined —
-/// <c>engine.fuelRate</c> in litres per hour over <c>vehicle.speed</c> in km/h, which is litres
+/// <c>fuel.flowRate</c> (the truck's fuel rate, or the speed-density estimate, ADR-0041) in litres per hour over <c>vehicle.speed</c> in km/h, which is litres
 /// per 100 km. A derived value across signals is exactly what crosses the line from a card into
 /// a component.
 /// <para>
@@ -55,7 +55,7 @@ public sealed class Component : IDashComponent, IDashComponentView
     {
         _context = context;
         _speed = SignalValue.Missing("vehicle.speed");
-        _fuel = SignalValue.Missing("engine.fuelRate");
+        _fuel = SignalValue.Missing("fuel.flowRate");
         return Task.CompletedTask;
     }
 
@@ -65,10 +65,10 @@ public sealed class Component : IDashComponent, IDashComponentView
         // Require both signals, so they are polled because of this component, and observe them.
         // A modest 2 Hz: economy is not a number you watch change frame by frame.
         _speedDemand = _context.Signals.Require("vehicle.speed", SignalPriority.Normal, 2);
-        _fuelDemand = _context.Signals.Require("engine.fuelRate", SignalPriority.Normal, 2);
+        _fuelDemand = _context.Signals.Require("fuel.flowRate", SignalPriority.Normal, 2);
 
         _speedSub = _context.Signals.Subscribe("vehicle.speed", v => { _speed = v; Recompute(); });
-        _fuelSub = _context.Signals.Subscribe("engine.fuelRate", v => { _fuel = v; Recompute(); });
+        _fuelSub = _context.Signals.Subscribe("fuel.flowRate", v => { _fuel = v; Recompute(); });
         return Task.CompletedTask;
     }
 

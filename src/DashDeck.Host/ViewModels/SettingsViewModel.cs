@@ -190,6 +190,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Which vehicle this is: its VIN, the decode, the signal pack (ADR-0033).</summary>
     public VehicleIdentityViewModel Vehicle { get; }
 
+    /// <summary>Settings ▸ Vehicle ▸ FUEL (ADR-0041): fill-ups and the calibration they teach.</summary>
+    public FuelCalibrationViewModel Fuel { get; init; } = new(null);
+
     /// <summary>True once the tablet''s mount has been levelled.</summary>
     public bool IsLevelled => _sensors.IsLevelled;
 

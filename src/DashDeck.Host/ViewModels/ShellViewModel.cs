@@ -272,7 +272,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             Remember(atLaunch);
         }
 
-        Settings = new SettingsViewModel(theme, Display, Sensors, _userApps, _launcher, Inventory, VehicleIdentity, Adapter);
+        Settings = new SettingsViewModel(theme, Display, Sensors, _userApps, _launcher, Inventory, VehicleIdentity, Adapter)
+        {
+            Fuel = new FuelCalibrationViewModel(_vehicle.Fuel),
+        };
 
         RebuildStageOptions();
 
@@ -1109,6 +1112,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         if (IsSettingsActive && Settings.IsVehicle)
         {
             Adapter.Refresh();
+            Settings.Fuel.Refresh();
         }
     }
 }

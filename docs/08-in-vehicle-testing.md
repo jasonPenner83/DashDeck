@@ -557,3 +557,39 @@ the adapter, **parked**, ignition **on** or engine running. No internet.
 **A failure looks like:** a climate element showing a number on the real truck (a placeholder must
 never pass for a reading); the cards and the panel both showing; the panel staying after leaving
 CLIMATE; anything about the truck's own climate behaving differently with DashDeck running.
+
+## Fuel economy and range without a fuel-rate PID (ADR-0041)
+
+**You need:** the truck, the adapter, the dash on the real adapter; **a fuel stop at each end** —
+fill to full, drive normally for a tank or most of one, fill to full again. The VIN decoded in
+Settings ▸ Vehicle (so the engine is known to be 2.7 L).
+
+**At the desk first (synthetic truck):**
+
+1. Add a card for **Fuel Economy — Instant** (the picker's *Fuel* group) and one for **Distance to
+   Empty**. **Expect:** after a few seconds of the synthetic drive moving, a number on each, marked
+   Simulated (blue). Stopped, the economy card shows a dash — L/100 km means nothing at a standstill.
+2. **Settings ▸ Vehicle ▸ FUEL**. **Expect:** *FUEL FLOW: FROM THE TRUCK* — the synthetic truck
+   reports a fuel rate; the real one will not.
+
+**In the truck:**
+
+3. Start the engine, open **Settings ▸ Vehicle ▸ FUEL**. **Expect:** *FUEL FLOW: ESTIMATED —
+   speed-density, NOT YET CALIBRATED* and *Not calibrated yet. Fill to full and enter it below…*
+4. At the pump, **fill to full** (first click). Enter the litres in **FILLED TO FULL**, press
+   **FILLED UP**. **Expect:** *First fill-up recorded…*, and *Since the last fill-up: 0.0 L over 0 km*.
+5. Drive. **Expect:** the **Fuel Economy**, **Avg Economy** and **Range Estimator** cards (and the
+   new Instant and Distance to Empty cards) now show numbers with **green** dots instead of dashes.
+   Back in Settings ▸ Vehicle ▸ FUEL, the litres and km since the fill-up climb. Idling, the litres
+   climb slowly (about 1.5 L an hour) and the km do not.
+6. Before calibration the numbers can be well off — that is expected. Note the trip computer's
+   litres-since-fill against SYNC's own economy if you like.
+7. Next fill-up: **fill to full** again, enter the litres, **FILLED UP**. **Expect:** *Calibrated:
+   N L in against M L estimated. The factor is now X.XX* and the top line says *calibrated*. A factor
+   between about 0.8 and 1.4 is believable; that is the engine breathing better or worse than assumed.
+8. Close and reopen DashDeck. **Expect:** the factor and the counts are still there.
+
+**A failure looks like:** economy or range still a dash on the real truck with the engine running
+and moving (check the VIN is decoded — no displacement, no estimate); litres climbing with the engine
+off; the counts jumping after the cable was unplugged and plugged back in; *too far off* on a genuine
+full-to-full fill-up (tell me the litres and the estimate it showed).

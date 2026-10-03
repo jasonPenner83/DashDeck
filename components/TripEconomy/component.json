@@ -12,7 +12,7 @@
 
   "signals": [
     { "id": "vehicle.speed",   "priority": "normal", "rateHz": 2 },
-    { "id": "engine.fuelRate", "priority": "normal", "rateHz": 2 }
+    { "id": "fuel.flowRate", "priority": "normal", "rateHz": 2 }
   ],
 
   "permissions": ["storage", "signals.read"]

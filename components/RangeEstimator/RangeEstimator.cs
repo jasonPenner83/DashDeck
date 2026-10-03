@@ -65,7 +65,7 @@ public sealed class Component : IDashComponent, IDashComponentView
     {
         _context = context;
         _speed = SignalValue.Missing("vehicle.speed");
-        _fuelRate = SignalValue.Missing("engine.fuelRate");
+        _fuelRate = SignalValue.Missing("fuel.flowRate");
         _level = SignalValue.Missing("fuel.levelPercent");
         return Task.CompletedTask;
     }
@@ -74,7 +74,7 @@ public sealed class Component : IDashComponent, IDashComponentView
     public Task StartAsync(CancellationToken ct)
     {
         _speedDemand = _context.Signals.Require("vehicle.speed", SignalPriority.Normal, 2);
-        _fuelRateDemand = _context.Signals.Require("engine.fuelRate", SignalPriority.Normal, 2);
+        _fuelRateDemand = _context.Signals.Require("fuel.flowRate", SignalPriority.Normal, 2);
 
         // Normal, not Low: the range depends on the fuel level, and Low is the priority that gets
         // starved first under a heavy demand plan. It is only 0.2 Hz, so the budget cost is nil —
@@ -82,7 +82,7 @@ public sealed class Component : IDashComponent, IDashComponentView
         _levelDemand = _context.Signals.Require("fuel.levelPercent", SignalPriority.Normal, 0.2);
 
         _speedSub = _context.Signals.Subscribe("vehicle.speed", v => { _speed = v; LearnEconomy(); });
-        _fuelRateSub = _context.Signals.Subscribe("engine.fuelRate", v => { _fuelRate = v; LearnEconomy(); });
+        _fuelRateSub = _context.Signals.Subscribe("fuel.flowRate", v => { _fuelRate = v; LearnEconomy(); });
         _levelSub = _context.Signals.Subscribe("fuel.levelPercent", v => _level = v);
         return Task.CompletedTask;
     }

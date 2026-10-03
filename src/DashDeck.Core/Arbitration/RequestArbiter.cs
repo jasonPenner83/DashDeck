@@ -75,6 +75,13 @@ public sealed class RequestArbiter
             rateHz = definition.DefaultRateHz;
         }
 
+        // A derived signal is never asked of the truck (ADR-0041): whatever derives it holds its
+        // own declarations for its inputs. Declaring it costs no budget and is always granted.
+        if (definition.IsDerived)
+        {
+            return new DerivedDeclaration(signalId, priority, rateHz);
+        }
+
         var declaration = new Declaration(this, signalId, priority, rateHz);
 
         lock (_sync)
@@ -151,6 +158,28 @@ public sealed class RequestArbiter
         }
 
         PlanChanged?.Invoke(plan);
+    }
+
+    /// <summary>A declaration of a derived signal: granted in full, and nothing to withdraw.</summary>
+    private sealed class DerivedDeclaration(string signalId, SignalPriority priority, double rateHz) : ISignalSubscription
+    {
+        public string SignalId { get; } = signalId;
+
+        public SignalPriority Priority { get; } = priority;
+
+        public double RequestedRateHz { get; } = rateHz;
+
+        public double EffectiveRateHz => RequestedRateHz;
+
+        public event Action<double>? EffectiveRateChanged
+        {
+            add { }
+            remove { }
+        }
+
+        public void Dispose()
+        {
+        }
     }
 
     private sealed class Declaration(

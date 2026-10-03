@@ -808,6 +808,37 @@
                                TextWrapping="Wrap" Style="{StaticResource MicroText}"
                                Text="The VIN doesn't say how big the tank is, so set it here — the owner's manual or the window sticker has it. The range estimate uses it. Takes effect at the next launch — a tank doesn't change size while you drive." />
 
+                    <!-- FUEL (ADR-0041): fuel flow by speed-density, calibrated by full-to-full fill-ups. -->
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,34,0,0" Text="FUEL" />
+                    <TextBlock Margin="2,12,0,0" FontFamily="{DynamicResource MonoFont}" FontSize="14"
+                               Foreground="{DynamicResource TextHighBrush}" TextWrapping="Wrap" MaxWidth="620" HorizontalAlignment="Left"
+                               Text="{Binding Fuel.SourceText}" />
+                    <TextBlock Margin="2,6,0,0" Style="{StaticResource MicroText}" TextWrapping="Wrap" MaxWidth="620" HorizontalAlignment="Left"
+                               Text="{Binding Fuel.CalibrationText}" />
+                    <TextBlock Margin="2,4,0,0" Style="{StaticResource MicroText}" TextWrapping="Wrap" MaxWidth="620" HorizontalAlignment="Left"
+                               Text="{Binding Fuel.SinceFillText}" />
+
+                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,18,0,0" Text="FILLED TO FULL — LITRES THE PUMP PUT IN" />
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <TextBox Style="{StaticResource InputField}" Width="150" VerticalContentAlignment="Center"
+                                 Text="{Binding Fuel.FillLitres, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Style="{StaticResource StageLauncherButton}" MinWidth="150" Height="48" Margin="12,0,0,0"
+                                Command="{Binding Fuel.RecordFillCommand}">
+                            <TextBlock Text="FILLED UP" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                        </Button>
+                        <Button Style="{StaticResource StageLauncherButton}" MinWidth="200" Height="48" Margin="12,0,0,0"
+                                Command="{Binding Fuel.ResetCommand}">
+                            <TextBlock Text="{Binding Fuel.ResetCaption}" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                        </Button>
+                    </StackPanel>
+                    <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}" Foreground="{DynamicResource AccentBrush}"
+                               Text="{Binding Fuel.Status}"
+                               Visibility="{Binding Fuel.Status, Converter={StaticResource EmptyToCollapsed}}" />
+                    <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="This truck reports no fuel rate, so DashDeck works it out from manifold pressure, intake temperature, rpm and the engine's displacement — an estimate until it is calibrated. Fill to full, enter the litres, drive, fill to full again and enter that: each full-to-full fill-up tunes the estimate. Economy and distance to empty use it. Kept on this tablet in fuel.json." />
+
                     <!-- The real adapter (ADR-0031), chosen from tested ports (ADR-0034). Simulated is
                          the default and stays it: most of this tablet's life is nowhere near the truck. -->
                     <TextBlock Style="{StaticResource CaptionText}" Margin="0,34,0,0" Text="OBD-II ADAPTER" />
