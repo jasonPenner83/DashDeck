@@ -1,8 +1,8 @@
-// Modern (ADR-0041) — speed on a glowing arc, rpm beside it, fuel, temperature and range, a row of
-// warning lights and a strip below. It was the built-in console before Clean took its place; choose
-// it in Settings ▸ Themes ▸ CONSOLE LAYOUT.
+// Glass (ADR-0041, ADR-0043) — speed on a glowing arc, rpm beside it, fuel, temperature and range,
+// a row of warning lights and a frosted strip below. The Glass theme's console; it can also be chosen
+// on its own in Settings ▸ Themes ▸ CONSOLE LAYOUT.
 {
-  "name": "Modern",
+  "name": "Glass",
   "description": "Speed large on a glowing arc, rpm beside it, fuel, temperature and range, a row of warning lights, and odometer, economy, codes and outside air below.",
   "author": "DashDeck",
   "background": "#04070B",

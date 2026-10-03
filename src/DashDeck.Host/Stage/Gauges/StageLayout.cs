@@ -790,14 +790,14 @@ public sealed record StageLayout
     /// <summary>
     /// The climate panel (ADR-0040), drawn as type rather than boxes: each side's temperature large at
     /// its edge with the seat beneath, the fan and airflow between, the switches as words that light.
-    /// Read only. A climate layout of yours called <c>clean</c>, or the one a theme names, replaces
-    /// it; Glass, the first built-in, ships as <c>catalog/climate/glass.json</c>.
+    /// Read only. The Modern theme's (ADR-0043); a climate layout of yours called <c>modern</c>, or the
+    /// one a theme names, replaces it. Glass, the Glass theme's, ships as <c>catalog/climate/glass.json</c>.
     /// </summary>
     public static StageLayout BuiltInClimate { get; } =
         Parse(BuiltInClimateJson, null, LayoutOrigin.BuiltIn, LayoutCanvas.Climate) with { BuiltInSlug = ClimateSlug };
 
     /// <summary>What the built-in climate layout is called.</summary>
-    public const string ClimateSlug = "clean";
+    public const string ClimateSlug = "modern";
 
     /// <summary>The climate layouts compiled in.</summary>
     public static IReadOnlyList<StageLayout> ClimateBuiltIns { get; } = [BuiltInClimate];
@@ -805,22 +805,23 @@ public sealed record StageLayout
     /// <summary>
     /// The console (ADR-0041), drawn as type rather than boxes: speed large in the middle, engine and
     /// fuel down the left, range and economy down the right, warning lights that show only when on,
-    /// the odometer along the bottom. A console layout of yours called <c>clean</c>, or the one a
-    /// theme names, replaces it; Modern, the first built-in, ships as <c>catalog/console/modern.json</c>.
+    /// the odometer along the bottom. The Modern theme's (ADR-0043); a console layout of yours called
+    /// <c>modern</c>, or the one a theme names, replaces it. Glass, the Glass theme's, ships as
+    /// <c>catalog/console/glass.json</c>.
     /// </summary>
     public static StageLayout BuiltInConsole { get; } =
         Parse(BuiltInConsoleJson, null, LayoutOrigin.BuiltIn, LayoutCanvas.Console) with { BuiltInSlug = ConsoleSlug };
 
     /// <summary>What the built-in console layout is called.</summary>
-    public const string ConsoleSlug = "clean";
+    public const string ConsoleSlug = "modern";
 
     /// <summary>The console layouts compiled in.</summary>
     public static IReadOnlyList<StageLayout> ConsoleBuiltIns { get; } = [BuiltInConsole];
 
-    /// <summary>The console layout as text, comments and all — what <c>console\examples\clean.json</c> holds.</summary>
+    /// <summary>The console layout as text, comments and all — what <c>console\examples\modern.json</c> holds.</summary>
     internal const string BuiltInConsoleJson = """
     {
-      "name": "Clean",
+      "name": "Modern",
       "description": "Type, not boxes: speed large in the middle, engine and fuel on the left, range and economy on the right, warning lights that only show when they are on, and the odometer along the bottom.",
       "author": "DashDeck",
       // No background of its own: the theme's canvas, so it sits seamlessly below the stage. White
@@ -905,10 +906,10 @@ public sealed record StageLayout
     }
     """;
 
-    /// <summary>The climate layout as text, comments and all — what <c>climate\examples\clean.json</c> holds.</summary>
+    /// <summary>The climate layout as text, comments and all — what <c>climate\examples\modern.json</c> holds.</summary>
     internal const string BuiltInClimateJson = """
     {
-      "name": "Clean",
+      "name": "Modern",
       "description": "Type, not boxes: each side's temperature large at its edge, the seat beneath it, the fan and airflow in the middle, and the switches as words that light. Shows what the truck reports; changes nothing.",
       "author": "DashDeck",
       // No background of its own: the theme's canvas, so it sits seamlessly below the stage. White
@@ -926,7 +927,7 @@ public sealed record StageLayout
         { "id": "driverSeat", "type": "levels", "x": 40, "y": 160, "width": 150, "height": 40,
           "label": "SEAT", "min": -3, "max": 3,
           "source": { "signal": "seat.driver.climate", "rateHz": 0.2 },
-          "parts": { "steps": 3, "shape": "dots", "size": 12, "gap": 10, "litColour": "#FF8A3D", "negativeColour": "#4DA3FF", "unlitColour": "@hairlineStrong",
+          "parts": { "steps": 3, "shape": "dots", "size": 12, "gap": 10, "litColour": "#FF8A3D", "negativeColour": "@accent", "unlitColour": "@hairlineStrong",
                      "labelColour": "@textMid", "labelSize": 12, "labelWeight": "regular", "positiveText": "HEAT", "negativeText": "COOL" } },
         { "id": "wheel", "type": "indicator", "x": 40, "y": 214, "width": 200, "height": 26, "label": "HEATED WHEEL",
           "source": { "signal": "steeringWheel.heat", "rateHz": 0.2 },
@@ -963,19 +964,19 @@ public sealed record StageLayout
         { "id": "passengerSeat", "type": "levels", "x": 722, "y": 160, "width": 150, "height": 40,
           "label": "SEAT", "min": -3, "max": 3,
           "source": { "signal": "seat.passenger.climate", "rateHz": 0.2 },
-          "parts": { "steps": 3, "shape": "dots", "size": 12, "gap": 10, "litColour": "#FF8A3D", "negativeColour": "#4DA3FF", "unlitColour": "@hairlineStrong",
+          "parts": { "steps": 3, "shape": "dots", "size": 12, "gap": 10, "litColour": "#FF8A3D", "negativeColour": "@accent", "unlitColour": "@hairlineStrong",
                      "labelColour": "@textMid", "labelSize": 12, "labelWeight": "regular", "positiveText": "HEAT", "negativeText": "COOL" } },
 
         // ── The switches ── words that light when on, grey when off, with a dash when not known.
         { "id": "auto", "type": "indicator", "x": 40, "y": 316, "width": 100, "height": 32, "label": "AUTO",
           "source": { "signal": "hvac.auto", "rateHz": 0.5 },
-          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "#4DA3FF", "unlitColour": "@textFaint" } },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "@accent", "unlitColour": "@textFaint" } },
         { "id": "ac", "type": "indicator", "x": 150, "y": 316, "width": 100, "height": 32, "label": "A/C",
           "source": { "signal": "hvac.airConditioning", "rateHz": 0.5 },
-          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "#4DA3FF", "unlitColour": "@textFaint" } },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "@accent", "unlitColour": "@textFaint" } },
         { "id": "recirc", "type": "indicator", "x": 260, "y": 316, "width": 120, "height": 32, "label": "RECIRC",
           "source": { "signal": "hvac.recirculate", "rateHz": 0.5 },
-          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "#4DA3FF", "unlitColour": "@textFaint" } },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "@accent", "unlitColour": "@textFaint" } },
         { "id": "frontDefrost", "type": "indicator", "x": 390, "y": 316, "width": 130, "height": 32, "label": "DEFROST",
           "source": { "signal": "hvac.frontDefrost", "rateHz": 0.5 },
           "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "#FF8A3D", "unlitColour": "@textFaint" } },

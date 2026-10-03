@@ -222,10 +222,12 @@ silence there would be news.
 No internet needed. The adapter is optional; with it, the card borders show real Live green.
 
 0. (At a desk is fine.) **Settings ▸ Themes ▸ OPEN FOLDER**. **Expect:** an **examples** folder
-   holding `dashdeck.json` (every token written out), `lcars-inspired.json`, the Antonio `.ttf`
-   files, `OFL-Antonio.txt` and `README.txt`.
-1. Open **Settings ▸ Themes**. **Expect:** a list of **DASHDECK** (built in, marked **WEARING**)
-   and **LCARS (INSPIRED)** (shipped), each with five colour swatches, and a token list below.
+   holding `modern.json` (every token written out), `glass.json` and `README.txt`; beside it, in
+   `themes\` itself, `lcars-inspired.json` with its Antonio `.ttf` files and `OFL-Antonio.txt`
+   (LCARS is yours since ADR-0043).
+1. Open **Settings ▸ Themes**. **Expect:** a list of **MODERN** (built in, marked **WEARING**),
+   **GLASS** (shipped) and **LCARS (INSPIRED)** (yours), each with five colour swatches, and a token
+   list below.
 2. Tap **LCARS (INSPIRED)**. **Expect**, within a second and without a restart:
    - a black screen;
    - **pill-shaped** buttons in periwinkle with black lettering;
@@ -522,7 +524,7 @@ the adapter, **parked**, ignition **on** or engine running. No internet.
 **At the desk (synthetic truck):**
 
 1. Start DashDeck with no adapter attached and tap **CLIMATE** in the bottom bar.
-2. **Expect:** the cards go and the **Clean** panel takes their place — no boxes, just type on black:
+2. **Expect:** the cards go and the **Modern** panel takes their place — no boxes, just type on black:
    DRIVER at the left edge with **21.5°** large and thin, PASSENGER at the right with **22.0°**, a row
    of FAN dots in the middle with FACE / FEET / SCREEN beneath (the ones in use bright, the rest grey)
    and CABIN under them, SEAT dots and HEATED WHEEL under the driver, and AUTO · A/C · RECIRC ·
@@ -532,10 +534,10 @@ the adapter, **parked**, ignition **on** or engine running. No internet.
 4. Tap **DASH**. **Expect:** the cards come back exactly as they were. Tap **CLIMATE** again: the
    panel is back.
 5. **Settings ▸ Themes**, wear **LCARS (inspired)**, tap **CLIMATE**. **Expect:** the LCARS panel —
-   lavender and peach elbows, ENVIRONMENTAL, orange arcs. Wear the DashDeck theme again: Clean is back.
-   **Settings ▸ Themes ▸ CLIMATE LAYOUT ▸ GLASS** brings back the frosted panels if you prefer them.
-6. **Settings ▸ Themes ▸ CLIMATE LAYOUT**: **Expect:** SHOWING CLEAN, the reason *following the
-   theme*, rows FOLLOW THE THEME, CLEAN (BUILT IN), GLASS and LCARS (INSPIRED) CLIMATE (SHIPPED). Type
+   lavender and peach elbows, ENVIRONMENTAL, orange arcs. Wear **Modern** again: its panel is back.
+   Wear **Glass**: the frosted panels.
+6. **Settings ▸ Themes ▸ CLIMATE LAYOUT**: **Expect:** SHOWING MODERN, the reason *following the
+   theme*, rows FOLLOW THE THEME, MODERN (BUILT IN), GLASS (SHIPPED) and LCARS (INSPIRED) CLIMATE (YOURS). Type
    `mine`, press **SAVE AS**: *Saved as mine.json in your climate folder*. **OPEN FOLDER**, open
    `mine.json` in Notepad, change the first `"x": 40` to `"x": 100`, save, press **RELOAD**, tap
    **CLIMATE**: the DRIVER temperature has moved right. Back in Settings, **DELETE** it: the panel follows
@@ -563,7 +565,7 @@ adapter, **parked**, engine **running**, then a short drive.
 
 **At the desk (synthetic truck):**
 
-1. Start DashDeck. **Expect:** below the stage, where the cards were, the **Clean** console — no
+1. Start DashDeck. **Expect:** below the stage, where the cards were, the **Modern** console — no
    boxes or arcs: the speed large and thin in the middle with *km/h* under it; RPM, ENGINE and FUEL
    down the left (a small grey caption over a light number); RANGE, ECONOMY and OUTSIDE down the right,
    aligned right; nine warning icons under the speed, barely visible; ODOMETER at the bottom left and
@@ -578,10 +580,10 @@ adapter, **parked**, engine **running**, then a short drive.
 5. Tap a card while editing to open its editor. **Expect:** the full-screen editor, as before; back
    out and you are on CARDS.
 6. **Settings ▸ Themes**, wear **LCARS (inspired)**, tap **DASH**. **Expect:** the LCARS console —
-   HELM STATUS, segmented RPM, FUEL and TEMP bars. Wear DashDeck again: Clean is back.
-   **Settings ▸ Themes ▸ CONSOLE LAYOUT ▸ MODERN** brings back the arcs and glass.
-7. **Settings ▸ Themes ▸ CONSOLE LAYOUT**. **Expect:** SHOWING CLEAN, FOLLOW THE THEME / CLEAN
-   (BUILT IN) / LCARS (INSPIRED) CONSOLE / MODERN (SHIPPED), SAVE AS, RELOAD and OPEN FOLDER as for the stage.
+   HELM STATUS, segmented RPM, FUEL and TEMP bars. Wear **Modern** again: its console is back.
+   Wear **Glass**: the arcs and the frosted strip.
+7. **Settings ▸ Themes ▸ CONSOLE LAYOUT**. **Expect:** SHOWING MODERN, FOLLOW THE THEME / MODERN
+   (BUILT IN) / GLASS (SHIPPED) / LCARS (INSPIRED) CONSOLE (YOURS), SAVE AS, RELOAD and OPEN FOLDER as for the stage.
 
 **In the truck (real adapter):**
 
@@ -602,17 +604,17 @@ cards still showing below the stage; cards on a page you can't see still costing
 `req/s` does not show this — say if the dash feels slower with CARDS off the stage); a launcher file
 of yours with no CARDS anywhere in the grid.
 
-## The Clean defaults — type over shapes (ADR-0042)
+## The Modern defaults — type over shapes (ADR-0042, named Clean then)
 
 **You need:** the tablet at a desk (no adapter), then the truck at night and in daylight, parked.
 
-1. With the DashDeck theme, tap **DASH**. **Expect:** the Clean console as in *The console dash*
+1. With the Modern theme, tap **DASH**. **Expect:** the Modern console as in *The console dash*
    step 1 — no panels, arcs or boxes; groups separated by space and by the size and weight of the
    type. Captions are small and grey, numbers large and thin, units smaller than their numbers
    (*88* then a small *°C*). The console's background is the same as the stage's above it — no
    darker block. Each reading's small quality dot sits right beside its caption (after it, or before
    it on the right-hand column), not out in the middle of the screen.
-2. Tap **CLIMATE**. **Expect:** the Clean panel as in *The climate panel* step 2 — the switches are
+2. Tap **CLIMATE**. **Expect:** the Modern panel as in *The climate panel* step 2 — the switches are
    words, not pills.
 3. Look at the type itself. **Expect:** a clean sans-serif (Segoe UI) throughout both — not the
    theme's lettering. Wear **LCARS**: it brings its own consoles and keeps its Antonio lettering; the
@@ -627,3 +629,48 @@ console or climate panel meets the stage; a quality dot that is not next to its 
 the wrong typeface; a unit as large as its number; any text running into another; a dark warning icon that
 draws the eye.
 
+## Two looks, Modern and Glass — and LCARS is yours (ADR-0043)
+
+**You need:** the tablet at a desk first (no adapter), then the truck, parked, ignition **on**, once
+in daylight and once after dark (or **Settings ▸ Appearance ▸ NIGHT**). No internet.
+
+**At the desk:**
+
+1. Deploy over the old build and start DashDeck. **If you were wearing LCARS, expect** to still be in
+   LCARS — same stage, console and climate panel, Antonio lettering. **If you were on the old DashDeck
+   theme, expect** the **Modern** look everywhere: cool greys, a light-blue accent on the selected nav
+   button and settings tab, Segoe UI lettering, slightly squarer buttons and cards.
+2. **Settings ▸ Themes**. **Expect:** **MODERN** (built in), **GLASS** (shipped) and
+   **LCARS (INSPIRED)** marked **YOURS** — with **DELETE** available on it, which it never had before.
+3. Wear **Modern** and tap **GAUGES**. **Expect:** the Modern stage — **BOOST** on the left and
+   **ENGINE** on the right as thin light-blue arcs with large, thin numbers (psi and °), and VOLTS,
+   INTAKE, THROTTLE and LOAD in a row below, each a small grey caption over a light number. No dials,
+   no boxes. Tap **DASH**: the Modern console. **CLIMATE**: the Modern panel. **CARDS**, the nav and
+   Settings: the same greys and accent.
+4. Wear **Glass**. **Expect:** without a restart, everything turns blue-black with an ice-blue accent
+   and rounder corners; **GAUGES** shows the chrome **F-150 cluster**; **DASH** the arcs and the frosted
+   strip; **CLIMATE** the frosted glass zones.
+5. Overrides still win: **Settings ▸ Themes ▸ CONSOLE LAYOUT**, pick **MODERN (BUILT IN)** while
+   wearing Glass. **Expect:** DASH shows the Modern console while the rest stays Glass. Press
+   **FOLLOW THE THEME**: the Glass console is back. The stage and climate blocks work the same way.
+6. Wear **LCARS (INSPIRED)**. **Expect:** its stage, console and climate panel, as before the update.
+   **OPEN FOLDER** on the stage, console and climate blocks: each holds `lcars.json` in your own folder.
+7. LCARS stays deleted when you delete it (optional — skip if you want to keep it): wear Modern,
+   **DELETE** LCARS, close DashDeck (two taps on **CLOSE DASHDECK**) and start it again. **Expect:**
+   LCARS does not come back. To get it back, copy the files from `catalog\extras\lcars\` beside
+   `DashDeck.exe` into the matching folders in `%LOCALAPPDATA%\DashDeck\` and press **RELOAD**.
+8. Look for duplicates. **Expect:** exactly one GLASS and one MODERN in each list, and no
+   LCARS marked SHIPPED (an old copy left beside the executable would show one — the build now clears it).
+
+**In the truck:**
+
+9. Wear **Modern**, engine running, parked. **Expect:** BOOST reads near **−10 psi** at idle with a
+   **green** dot, ENGINE the coolant temperature, VOLTS about 14. Blip the throttle: boost and THROTTLE
+   rise and fall.
+10. Wear each of Modern and Glass in **daylight and at night**. **Expect:** every caption readable from
+    the driver's seat; at night the white type dims with the dash and nothing glares.
+
+**A failure looks like:** LCARS gone or reverted to Modern for someone who wore it; LCARS listed twice,
+or as SHIPPED; a deleted LCARS coming back; Antonio missing from LCARS (ordinary wide lettering); a
+screen that does not change when the theme does (other than one you picked by hand); a stage number with
+no reading drawn as zero instead of a dash or NO DATA.

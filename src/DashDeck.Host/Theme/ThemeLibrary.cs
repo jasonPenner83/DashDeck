@@ -110,7 +110,7 @@ public sealed class ThemeLibrary
             Directory.CreateDirectory(ExamplesFolder);
 
             WriteText("README.txt", ExamplesReadme);
-            WriteText("dashdeck.json", BuiltInHeader + EveryToken().ToJson() + Environment.NewLine);
+            WriteText("modern.json", BuiltInHeader + EveryToken().ToJson() + Environment.NewLine);
 
             if (ShippedFolder is not null && Directory.Exists(ShippedFolder))
             {
@@ -150,7 +150,7 @@ public sealed class ThemeLibrary
         }
     }
 
-    /// <summary>The DashDeck look with every token written out, day and night, as a theme file.</summary>
+    /// <summary>The Modern look with every token written out, day and night, as a theme file.</summary>
     private static ThemeDefinition EveryToken()
     {
         var day = ThemeResolver.Resolve(ThemeDefinition.BuiltIn, night: false);
@@ -177,11 +177,11 @@ public sealed class ThemeLibrary
             }
         }
 
-        return ThemeDefinition.BuiltIn with { Name = "DashDeck (every token)", Tokens = tokens, Night = nights };
+        return ThemeDefinition.BuiltIn with { Name = "Modern (every token)", Tokens = tokens, Night = nights };
     }
 
     private const string BuiltInHeader = """
-        // The built-in DashDeck look, written out with EVERY token set to its default (ADR-0036).
+        // The built-in Modern look, written out with EVERY token set (ADR-0036, ADR-0043).
         // DashDeck draws this theme from code, so this copy is only a reference: the whole vocabulary
         // in one file. Editing it here changes nothing, and it is put back at the next launch.
         // To make your own: copy it up one folder (into themes\), rename it, change what you like,
@@ -196,15 +196,19 @@ public sealed class ThemeLibrary
 
         These are the themes that ship with DashDeck, kept here as references:
 
-          dashdeck.json           the built-in DashDeck look, with every token written out
-          lcars-inspired.json     the LCARS (inspired) theme
-          Antonio-*.ttf           the font the LCARS theme uses, and OFL-Antonio.txt, its licence
+          modern.json             the built-in Modern look, with every token written out
+          glass.json              the Glass theme
+
+        LCARS (inspired) is not a shipped theme any more: it was put in your own themes folder
+        the first time this version ran, as yours to edit or delete. A spare copy is in
+        DashDeck's own folder under catalog\extras\lcars.
 
         They are NOT loaded from this folder, and they are rewritten every time DashDeck starts,
         so any change made here is lost. To use one as a starting point:
 
           1. Copy the .json - and any .ttf files it lists under "fontFiles" - up one folder,
-             into  ...\DashDeck	hemes          2. Change its "name" so you can tell it apart in the list.
+             into  ...\DashDeck\themes\
+          2. Change its "name" so you can tell it apart in the list.
           3. Edit it in Notepad and save.
           4. In DashDeck: Settings > Themes > RELOAD, then tap it to wear it.
 

@@ -74,7 +74,7 @@ public sealed partial class ThemesViewModelTests : IDisposable
     {
         var (themes, _, _) = Make();
 
-        Assert.Equal(["DASHDECK", "BLACK"], themes.Themes.Select(t => t.Caption));
+        Assert.Equal(["MODERN", "BLACK"], themes.Themes.Select(t => t.Caption));
         Assert.True(themes.Themes[0].IsCurrent);
         Assert.Equal("BUILT IN", themes.Themes[0].OriginLabel);
         Assert.Equal("#000000", themes.Themes[1].Swatches[0]);
@@ -118,7 +118,7 @@ public sealed partial class ThemesViewModelTests : IDisposable
         themes.DeleteCommand.Execute(mine);
 
         Assert.DoesNotContain(themes.Themes, t => t.Theme.Id == "yours/my-black");
-        Assert.Equal("builtin/dashdeck", host.Current.Id);
+        Assert.Equal("builtin/modern", host.Current.Id);
     }
 
     [Fact]

@@ -1,0 +1,43 @@
+// Glass (ADR-0043) — one of DashDeck's two looks. Cool blue-black surfaces like smoked glass, an ice
+// blue accent, rounder corners, and the frosted climate panel and arcs console that go with it. The
+// stage is the chrome F-150 cluster.
+//
+// Every token is explained in docs/writing-a-theme.md. To make your own from this: Settings ▸ Themes
+// ▸ SAVE AS, then edit the copy. The four quality colours are not tokens (ADR-0013).
+{
+  "name": "Glass",
+  "description": "Smoked glass: cool blue-black surfaces, an ice-blue accent, frosted panels and glowing arcs.",
+  "author": "DashDeck",
+  "climateLayout": "glass",
+  "consoleLayout": "glass",
+  "tokens": {
+    "canvas": "#05080C",
+    "surface": "#0C1218",
+    "raised": "#121A22",
+    "hairline": "#1C2630",
+    "hairlineStrong": "#283542",
+    "textHigh": "#F4F8FB",
+    "textMid": "#A9B6C2",
+    "textLow": "#6E7C89",
+    "textFaint": "#4A5560",
+    "accent": "#8FDBFF",
+    "accentWash": 0.14,
+    "onAccent": "#04121A",
+    "buttonRadius": 16,
+    "cardRadius": 18,
+    "panelRadius": 16,
+    "uiFont": "Segoe UI Variable Display, Segoe UI",
+    "monoFont": "Segoe UI Variable Text, Segoe UI"
+  },
+  "night": {
+    "canvas": "#030507",
+    "surface": "#070B0F",
+    "raised": "#0B1015",
+    "hairline": "#121820",
+    "hairlineStrong": "#1A232C",
+    "textHigh": "#B4BEC6",
+    "textMid": "#7A8692",
+    "textLow": "#606C77",
+    "textFaint": "#363E46"
+  }
+}

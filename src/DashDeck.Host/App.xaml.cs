@@ -156,6 +156,15 @@ public partial class App : Application
         // One weather fetch for the whole application. Built before the theme, because Auto
         // day/night reads sunrise and sunset from it rather than fetching its own.
         _weather = new Stage.WeatherService(SystemClock.Instance);
+        // The extras (LCARS, ADR-0043) go into the user's own folders the first time this version
+        // runs — before the themes are read, so a dash that wore LCARS still does.
+        var extras = Theme.ExtrasInstaller.InstallNew(
+            CatalogPath.FindFolder("extras"), Settings.JsonFile.InLocalAppData, Settings.SettingsStore.Load().InstalledExtras);
+        if (extras.Installed.Count > 0)
+        {
+            Settings.SettingsStore.Update(s => s with { InstalledExtras = [.. s.InstalledExtras, .. extras.Installed] });
+        }
+
         _theme = new Theme.ThemeService(SystemClock.Instance, _weather);
 
         // --theme <DAY|NIGHT|AUTO> forces a palette, for looking at one without waiting for

@@ -88,7 +88,7 @@ public sealed partial class StageLayoutService : ObservableObject
     {
         if (Choice != FollowTheme)
         {
-            if (Library.Find(Choice) is { } chosen)
+            if ((Library.Find(Choice) ?? Library.Find(Theme.ExtrasInstaller.Moved(Choice))) is { } chosen)
             {
                 Current = chosen;
                 Reason = "Chosen in Settings.";

@@ -8,14 +8,15 @@ written in YAML, but in JSON with `//` comments allowed. Change the file, press 
 
 Every layout DashDeck ships is written out to `%LOCALAPPDATA%\DashDeck\stage\examples\` each
 time DashDeck starts:
-- `lcars.json`: the LCARS (inspired) stage, comments and all;
+- `modern.json`: the Modern theme's stage — two thin arcs with large light numbers, four readouts;
 - `f150-cluster.json`: the built-in six-dial cluster, which otherwise only exists in code.
 - `compass.json`: the built-in COMPASS screen (ADR-0039). Copy it up keeping the name `compass.json`
   and it replaces the compass.
 
 That folder is for reading. Files there are not loaded, and they're put back at the next launch.
-Copy one up a folder into `stage\` to make it yours. Keeping the name `lcars.json` makes your copy
-replace the LCARS stage whenever the LCARS theme is worn.
+Copy one up a folder into `stage\` to make it yours. Keeping the name `modern.json` makes your copy
+replace the Modern stage whenever the Modern theme is worn. (LCARS's layouts are already yours — in
+`stage\`, `console\` and `climate\` — since ADR-0043.)
 
 ## The loop
 
@@ -58,7 +59,7 @@ list falls back in order — Segoe UI Variable is Windows 11's, Segoe UI is ever
 per element: `valueWeight` and `labelWeight` (`thin`, `light`, `regular`, `medium`, `semibold`,
 `bold`), and `weight` on text.
 
-**Type over shapes.** The built-in Clean layouts use no panels or boxes: a small grey caption above a
+**Type over shapes.** The built-in Modern layouts use no panels or boxes: a small grey caption above a
 large light number, aligned to its edge (`"align": "left"` on a digital gauge), with space between
 groups. Switches are words (`"style": "text"` on an indicator) that light when on.
 
@@ -88,8 +89,8 @@ messages).
 | `warning` | A warning light: an icon lit when its signal says so | `source`, `parts` — see *The console* |
 
 **An LCARS elbow** is two things: a thick panel with one big corner (`"radius": "56,0,0,0"`), and a
-black panel over its inside corner with a smaller radius (`"radius": "28,0,0,0"`). The shipped
-`catalog/stage/lcars.json` does exactly this.
+black panel over its inside corner with a smaller radius (`"radius": "28,0,0,0"`). LCARS's
+`stage\lcars.json` (in your folder; a spare in `catalog/extras/lcars/`) does exactly this.
 
 ## Gauges
 
@@ -206,8 +207,8 @@ three-dot menu on any stage with a G meter; re-levelling resets the peak too.
 same format as a stage layout, on a canvas **912 wide and 390 tall** — the two bands where the cards
 are — and is chosen in **Settings ▸ Themes ▸ CLIMATE LAYOUT**, the same way: follow the theme, or
 pick one; SAVE AS, OPEN FOLDER, edit, RELOAD. Yours live in `%LOCALAPPDATA%\DashDeck\climate\`;
-`climate\examples\` has the built-in **Clean** panel (`clean.json`), **Glass** and the shipped LCARS one to copy
-from. A theme names its own with `"climateLayout": "lcars"`.
+`climate\examples\` has the built-in **Modern** panel (`modern.json`) and the Glass theme's frosted
+**Glass** one to copy from. A theme names its own with `"climateLayout": "glass"`.
 
 **It is read only.** It shows what the truck reports and changes nothing; a tap does nothing. The
 `hvac.*`, `seat.*.climate` and `steeringWheel.heat` signals it reads are **placeholders** until the truck's HVAC module is
@@ -285,8 +286,8 @@ Off is an outlined pill. **No reading is dimmed with a dash, never drawn as off.
 **DASH** in the bottom bar shows a **console layout** below the stage (ADR-0041) — the same format,
 on a canvas **912 wide and 390 tall**, chosen in **Settings ▸ Themes ▸ CONSOLE LAYOUT** like the
 stage and the climate panel. Yours live in `%LOCALAPPDATA%\DashDeck\console\`; `console\examples\`
-has the built-in **Clean** console (`clean.json`), **Modern** and the shipped LCARS one. A theme names its own
-with `"consoleLayout": "lcars"`. Your cards are on the stage now, behind **CARDS**.
+has the built-in **Modern** console (`modern.json`) and the Glass theme's arcs-and-frost **Glass** one.
+A theme names its own with `"consoleLayout": "glass"`. Your cards are on the stage now, behind **CARDS**.
 
 Signals worth knowing for a console: `vehicle.speed`, `engine.rpm`, `vehicle.odometer`,
 `fuel.levelPercent`, `engine.coolantTemp`, `fuel.economy` and `fuel.range` (placeholders until the

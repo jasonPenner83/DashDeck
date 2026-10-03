@@ -42,7 +42,7 @@ public sealed class ConsoleLayoutTests : IDisposable
         var modern = StageLayout.BuiltInConsole;
 
         Assert.Empty(modern.Problems);
-        Assert.Equal("builtin/clean", modern.Id);
+        Assert.Equal("builtin/modern", modern.Id);
         Assert.Same(LayoutCanvas.Console, modern.Canvas);
         Assert.All(modern.Elements, e => Assert.True(
             e.X >= 0 && e.Y >= 0 && e.X + e.Width <= 912 && e.Y + e.Height <= 390, e.Id));
@@ -81,8 +81,9 @@ public sealed class ConsoleLayoutTests : IDisposable
     [Fact]
     public void The_lcars_theme_brings_its_console()
     {
-        var library = new StageLayoutLibrary(Shipped("console"), Path.Combine(_folder, "yours"), LayoutCanvas.Console, StageLayout.ConsoleBuiltIns);
-        var themes = new ThemeLibrary(Shipped("themes"), Path.Combine(_folder, "themes"));
+        // LCARS is an extra since ADR-0043: read from catalog/extras as if it shipped.
+        var library = new StageLayoutLibrary(Shipped(Path.Combine("extras", "lcars", "console")), Path.Combine(_folder, "yours"), LayoutCanvas.Console, StageLayout.ConsoleBuiltIns);
+        var themes = new ThemeLibrary(Shipped(Path.Combine("extras", "lcars", "themes")), Path.Combine(_folder, "themes"));
 
         Assert.Equal("lcars", themes.Find("shipped/lcars-inspired")!.ConsoleLayout);
         Assert.NotNull(library.FindForTheme("lcars"));
@@ -134,21 +135,21 @@ public sealed class ConsoleLayoutTests : IDisposable
         var library = new StageLayoutLibrary(null, Path.Combine(_folder, "console"), LayoutCanvas.Console, StageLayout.ConsoleBuiltIns);
 
         Assert.Null(library.WriteExamples());
-        var example = File.ReadAllText(Path.Combine(library.ExamplesFolder, "clean.json"));
+        var example = File.ReadAllText(Path.Combine(library.ExamplesFolder, "modern.json"));
         Assert.Empty(StageLayout.Parse(example, null, LayoutOrigin.Yours, LayoutCanvas.Console).Problems);
     }
 
-    // ── Clean: type over shapes ──────────────────────────────────────────────
+    // ── Modern: type over shapes ──────────────────────────────────────────────
 
     [Theory]
     [InlineData("console")]
     [InlineData("climate")]
-    public void The_clean_defaults_are_type_not_boxes(string which)
+    public void The_modern_defaults_are_type_not_boxes(string which)
     {
         var clean = which == "console" ? StageLayout.BuiltInConsole : StageLayout.BuiltInClimate;
 
-        Assert.Equal("Clean", clean.Name);
-        Assert.Equal($"builtin/clean", clean.Id);
+        Assert.Equal("Modern", clean.Name);
+        Assert.Equal($"builtin/modern", clean.Id);
         Assert.Empty(clean.Problems);
         Assert.DoesNotContain(clean.Elements, e => e.Type is StageElementType.Glass or StageElementType.Panel);
         Assert.DoesNotContain(clean.Elements, e => e.Type is StageElementType.Indicator && e.Text("style", "pill") != "text");
@@ -157,13 +158,14 @@ public sealed class ConsoleLayoutTests : IDisposable
     }
 
     [Fact]
-    public void The_old_defaults_ship_as_choices()
+    public void The_glass_layouts_ship_for_the_glass_theme()
     {
         var consoles = new StageLayoutLibrary(Shipped("console"), Path.Combine(_folder, "c"), LayoutCanvas.Console, StageLayout.ConsoleBuiltIns);
         var climates = new StageLayoutLibrary(Shipped("climate"), Path.Combine(_folder, "k"), LayoutCanvas.Climate, StageLayout.ClimateBuiltIns);
 
-        Assert.Equal("Modern", consoles.FindForTheme("modern")?.Name);
+        Assert.Equal("Glass", consoles.FindForTheme("glass")?.Name);
         Assert.Equal("Glass", climates.FindForTheme("glass")?.Name);
+        Assert.Equal("Modern", consoles.FindForTheme("modern")?.Name);   // the built-in
         Assert.Empty(consoles.Problems);
         Assert.Empty(climates.Problems);
     }

@@ -117,7 +117,9 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
 
         // A theme that has gone — deleted, or a shipped one a later build dropped — falls back
         // to the DashDeck look rather than leaving the screen undressed.
-        _current = Library.Find(stored.ThemeId) ?? ThemeDefinition.BuiltIn;
+        // A theme that moved from the shipped set to the user's folder (LCARS, ADR-0043) is still the
+        // one being worn.
+        _current = Library.Find(stored.ThemeId) ?? Library.Find(ExtrasInstaller.Moved(stored.ThemeId)) ?? ThemeDefinition.BuiltIn;
 
         Layouts = new Stage.Gauges.StageLayoutService(
             new Stage.Gauges.StageLayoutLibrary(CatalogPath.FindFolder("stage"), JsonFile.InLocalAppData("stage")),

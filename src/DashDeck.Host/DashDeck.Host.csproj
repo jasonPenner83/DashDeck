@@ -18,6 +18,8 @@
     <Content Include="..\..\catalog\**\*.json" Link="catalog\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <!-- Themes carry their own fonts and the fonts' licences (ADR-0036). -->
     <Content Include="..\..\catalog\themes\*.ttf;..\..\catalog\themes\*.otf;..\..\catalog\themes\*.txt" Link="catalog\themes\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The extras (LCARS, ADR-0043) travel with the binary too: installed into the user's folders once. -->
+    <Content Include="..\..\catalog\extras\**\*.ttf;..\..\catalog\extras\**\*.otf;..\..\catalog\extras\**\*.txt" Link="catalog\extras\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
@@ -67,4 +69,12 @@
     <InternalsVisibleTo Include="DashDeck.Host.Tests" />
   </ItemGroup>
 
+  <!--
+    The catalog is copied fresh each build. Copying only ever adds and updates, so a file that moved
+    (LCARS left catalog/themes for catalog/extras, ADR-0043) would otherwise linger in bin/ and load
+    twice. Clearing the output's catalog first makes it match the repository.
+  -->
+  <Target Name="ClearCopiedCatalog" BeforeTargets="BeforeBuild">
+    <RemoveDir Directories="$(OutDir)catalog" />
+  </Target>
 </Project>

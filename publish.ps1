@@ -23,6 +23,11 @@ Set-Location $PSScriptRoot
 
 Write-Output "Publishing $Runtime self-contained to $Output ..."
 
+# The catalog is copied fresh: a file that moved (LCARS to catalog\extras, ADR-0043) must not linger
+# from an earlier deploy and load twice.
+$oldCatalog = Join-Path $Output "catalog"
+if (Test-Path $oldCatalog) { Remove-Item $oldCatalog -Recurse -Force }
+
 dotnet publish src\DashDeck.Host\DashDeck.Host.csproj `
     --configuration Release `
     --runtime $Runtime `

@@ -1,5 +1,5 @@
-// Glass (ADR-0040) — frosted zones for driver and passenger, the fan and airflow between them, and
-// the switches below. It was the built-in climate panel before Clean took its place; choose it in
+// Glass (ADR-0040, ADR-0043) — frosted zones for driver and passenger, the fan and airflow between
+// them, and the switches below. The Glass theme's climate panel; it can also be chosen on its own in
 // Settings ▸ Themes ▸ CLIMATE LAYOUT. Read only: it shows what the truck reports and changes nothing.
 {
   "name": "Glass",

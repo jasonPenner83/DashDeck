@@ -34,7 +34,7 @@ public sealed class ClimateLayoutTests : IDisposable
         var glass = StageLayout.BuiltInClimate;
 
         Assert.Empty(glass.Problems);
-        Assert.Equal("builtin/clean", glass.Id);
+        Assert.Equal("builtin/modern", glass.Id);
         Assert.Same(LayoutCanvas.Climate, glass.Canvas);
         Assert.All(glass.Elements, e => Assert.True(
             e.X >= 0 && e.Y >= 0 && e.X + e.Width <= 912 && e.Y + e.Height <= 390, e.Id));
@@ -103,10 +103,10 @@ public sealed class ClimateLayoutTests : IDisposable
         var library = new StageLayoutLibrary(null, _folder, LayoutCanvas.Climate, StageLayout.ClimateBuiltIns);
 
         Assert.Same(StageLayout.BuiltInClimate, library.Default);
-        Assert.Equal(["builtin/clean"], library.Layouts.Select(l => l.Id));
+        Assert.Equal(["builtin/modern"], library.Layouts.Select(l => l.Id));
         Assert.Null(library.WriteExamples());
 
-        var example = StageLayout.Parse(File.ReadAllText(Path.Combine(library.ExamplesFolder, "clean.json")), null, LayoutOrigin.Yours, LayoutCanvas.Climate);
+        var example = StageLayout.Parse(File.ReadAllText(Path.Combine(library.ExamplesFolder, "modern.json")), null, LayoutOrigin.Yours, LayoutCanvas.Climate);
         Assert.Empty(example.Problems);
         Assert.False(File.Exists(Path.Combine(library.ExamplesFolder, "f150-cluster.json")));
     }
@@ -138,7 +138,7 @@ public sealed class ClimateLayoutTests : IDisposable
 
         Assert.Same(StageLayout.BuiltInClimate, service.Current);
         Assert.Contains("climate panel folders", service.Reason, StringComparison.Ordinal);
-        Assert.Contains("Clean", service.Reason, StringComparison.Ordinal);
+        Assert.Contains("Modern", service.Reason, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -184,7 +184,8 @@ public sealed class ClimateLayoutTests : IDisposable
     [Fact]
     public void The_shipped_lcars_climate_panel_reads_cleanly_and_the_lcars_theme_names_it()
     {
-        var library = new StageLayoutLibrary(ShippedFolder("climate"), Path.Combine(_folder, "yours"), LayoutCanvas.Climate, StageLayout.ClimateBuiltIns);
+        // LCARS is an extra since ADR-0043: read from catalog/extras as if it shipped.
+        var library = new StageLayoutLibrary(ShippedFolder(Path.Combine("extras", "lcars", "climate")), Path.Combine(_folder, "yours"), LayoutCanvas.Climate, StageLayout.ClimateBuiltIns);
 
         Assert.Empty(library.Problems);
         var lcars = library.FindForTheme("lcars");
@@ -194,7 +195,7 @@ public sealed class ClimateLayoutTests : IDisposable
         Assert.Contains(lcars.Elements, e => e.Type is StageElementType.Setpoint);
         Assert.Contains(lcars.Elements, e => e.Source.Signal == "steeringWheel.heat");
 
-        var themes = new ThemeLibrary(ShippedFolder("themes"), Path.Combine(_folder, "themes"));
+        var themes = new ThemeLibrary(ShippedFolder(Path.Combine("extras", "lcars", "themes")), Path.Combine(_folder, "themes"));
         Assert.Equal("lcars", themes.Find("shipped/lcars-inspired")!.ClimateLayout);
     }
 
