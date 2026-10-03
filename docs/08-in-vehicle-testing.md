@@ -595,7 +595,7 @@ adapter, **parked**, engine **running**, then a short drive.
 10. **ODOMETER**: a number that matches the truck's odometer, or a dash with a grey dot if the
     truck does not answer PID A6 — tell me which.
 11. Drive a short way. **Expect:** the speed number and arc follow the truck's speedometer (within a
-    km/h or two, and the console never rearranges.
+    km/h or two), and the console never rearranges.
 
 **A failure looks like:** a placeholder light lit, or one of the real ones lit with nothing wrong; the
 cards still showing below the stage; cards on a page you can't see still costing requests (the
