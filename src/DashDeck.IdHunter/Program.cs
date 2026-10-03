@@ -75,34 +75,32 @@ try
         if (port is null || baud is null)
         {
             Console.WriteLine("Looking for the adapter… (close DashDeck and FORScan first: only one program can hold it)");
-            var found = new List<PortTestResult>();
-            foreach (var candidate in port is null ? SerialPortTransport.AvailablePorts() : [port])
+
+            // The dash's own settings say where the adapter was, at what rate, and which port is the
+            // phone's GPS — so the hunter looks the way the dash does (ADR-0034), not blind.
+            var dash = DashSettings.Read(DashSettings.DefaultPath);
+            if (dash.Port is not null)
             {
-                var result = await PortTester.TestAsync(candidate, (p, r) => new SerialPortTransport(p, r), baud, cts.Token);
-                Console.WriteLine($"  {result.Port,-6} {result.Outcome,-11} {result.Identity ?? result.Detail} {result.Voltage}");
-                if (result.Outcome == PortTestOutcome.Adapter)
-                {
-                    found.Add(result);
-                }
+                Console.WriteLine($"  DashDeck last used {dash.Port}{(dash.BaudRate is { } r ? $" at {r} baud" : "")}{(dash.Identity is { } id ? $" ({id})" : "")}.");
             }
 
-            if (found.Count == 0)
+            var found = await FindAdapterAsync(port ?? dash.Port, baud ?? dash.BaudRate, dash.GpsPort, cts.Token);
+            if (found is null)
             {
-                Console.WriteLine("No adapter answered. Is it plugged in, and is DashDeck closed (three-dot menu ▸ CLOSE DASHDECK)?");
+                Console.WriteLine();
+                Console.WriteLine("No adapter answered. Check:");
+                Console.WriteLine("  - DashDeck is closed (three-dot menu > CLOSE DASHDECK), and Task Manager shows no DashDeck.Host left running;");
+                Console.WriteLine("  - FORScan and OBDwiz are closed;");
+                Console.WriteLine("  - the USB cable is in. Unplug it, wait 10 s, plug it back in and try again.");
+                Console.WriteLine("If DashDeck's Settings > Vehicle shows the adapter on a port, say so: IdHunter --port COMn");
                 Console.WriteLine("To learn the guide without the truck: IdHunter --simulate");
+                Console.WriteLine();
+                Console.Write("Press Enter to close.");
+                Console.ReadLine();
                 return 1;
             }
 
-            var chosen = found[0];
-            if (found.Count > 1)
-            {
-                Console.Write($"More than one adapter. Which port [{chosen.Port}]: ");
-                var typed = Console.ReadLine()?.Trim();
-                chosen = found.FirstOrDefault(f => f.Port.Equals(typed, StringComparison.OrdinalIgnoreCase)) ?? chosen;
-            }
-
-            port = chosen.Port;
-            baud = chosen.BaudRate ?? SerialPortTransport.DefaultBaudRate;
+            (port, baud) = found.Value;
         }
 
         session = await HuntSession.OpenAsync(new SerialPortTransport(port, baud.Value) { ResponseTimeout = TimeSpan.FromSeconds(2) }, cts.Token);
@@ -111,6 +109,8 @@ try
 catch (IOException ex)
 {
     Console.WriteLine(ex.Message);
+    Console.Write("Press Enter to close.");
+    Console.ReadLine();
     return 1;
 }
 catch (OperationCanceledException)
@@ -124,6 +124,57 @@ await using (session)
 }
 
 return 0;
+
+// Find the adapter the way the dash does (ADR-0034) — its own handshake and its full list of rates —
+// starting with the port and rate the dash last used, then every other port, never the phone's GPS.
+static async Task<(string Port, int Baud)?> FindAdapterAsync(string? preferred, int? knownBaud, string? gpsPort, CancellationToken ct)
+{
+    var ports = SerialPortTransport.AvailablePorts();
+    if (ports.Count == 0)
+    {
+        Console.WriteLine("  Windows lists no serial (COM) ports at all. Is the adapter's USB cable in?");
+        return null;
+    }
+
+    var order = (preferred is null ? [] : new[] { preferred })
+        .Concat(ports.Where(p => !p.Equals(preferred, StringComparison.OrdinalIgnoreCase)))
+        .ToList();
+
+    foreach (var candidate in order)
+    {
+        if (gpsPort is not null && candidate.Equals(gpsPort, StringComparison.OrdinalIgnoreCase))
+        {
+            Console.WriteLine($"  {candidate,-6} skipped — DashDeck's phone GPS port");
+            continue;
+        }
+
+        Console.Write($"  {candidate,-6} testing… ");
+
+        var link = AdapterLinkTransport.ForSerialPorts(new AdapterLinkOptions
+        {
+            PreferredPort = candidate,
+            KnownBaudRate = knownBaud,
+            Relocate = false,
+        });
+
+        try
+        {
+            if (await link.TryLocateAsync(ct, relocate: false) is { } location)
+            {
+                Console.WriteLine($"{location.Identity} at {location.BaudRate} baud");
+                return (location.Port, location.BaudRate);
+            }
+
+            Console.WriteLine(link.LastProblem ?? "no answer");
+        }
+        finally
+        {
+            await link.DisposeAsync();
+        }
+    }
+
+    return null;
+}
 
 static string? FindCatalogFolder(string name)
 {

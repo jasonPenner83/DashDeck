@@ -701,7 +701,10 @@ The guide itself: [id-hunter](id-hunter.md).
      about 12 V;
    - the checklist of 21 targets with **S**, **L** and **Q** below.
 
-   If it says no adapter answered, DashDeck is probably still open.
+   It prints *DashDeck last used COMn…* and a line per port it tried. If it says no adapter answered,
+   the window stays open: read the line for each port. *In use* means DashDeck (check Task Manager
+   for a leftover `DashDeck.Host`) or FORScan still holds it. Send me that screen if it is anything
+   else.
 3. Choose **S**, press Enter. **Expect:**
    - about half a minute of progress;
    - a list of modules on HS-CAN and MS-CAN: `7E0 PCM — powertrain control (likely)` with a part

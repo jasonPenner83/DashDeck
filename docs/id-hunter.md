@@ -14,8 +14,14 @@ It lives beside the dash, in `IdHunter\` in the DashDeck folder.
 
 1. **Close DashDeck** (three-dot menu ▸ CLOSE DASHDECK, two taps) and FORScan. Only one program can
    hold the adapter.
-2. Double-click `IdHunter\IdHunter.exe`. A terminal window opens, finds the adapter by itself and
-   shows the checklist.
+2. Double-click `IdHunter\IdHunter.exe`. A terminal window opens and finds the adapter **the way the
+   dash does**:
+   - it starts from the port, rate and identity in DashDeck's own `settings.json`;
+   - then it tries every other port at every rate the dash would;
+   - it never opens the phone-GPS port.
+
+   It prints a line per port as it goes, then shows the checklist. If nothing answers, it says what to
+   check and waits for Enter, so you can read why. Send that screen if you need help.
 
 To learn it at a desk without the truck: open a terminal in that folder and run
 `IdHunter.exe --simulate`. Everything works against the synthetic truck, whose identifiers are
