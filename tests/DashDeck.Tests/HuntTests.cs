@@ -136,6 +136,58 @@ public class HuntTests
         public ValueTask DisposeAsync() => inner.DisposeAsync();
     }
 
+    [Fact]
+    public async Task A_bus_busier_than_the_link_is_heard_in_bursts_not_once()
+    {
+        var truck = Truck();
+        truck.MonitorBufferFrames = 10;
+        await truck.ConnectAsync(CancellationToken.None);
+        var monitor = new CanMonitor(truck);
+
+        using var cts = new CancellationTokenSource(1200);
+        var frames = 0;
+        await foreach (var _ in monitor.ListenAsync(CanBus.Hs, null, cts.Token))
+        {
+            frames++;
+        }
+
+        Assert.True(monitor.Restarts >= 2, $"restarts {monitor.Restarts}");
+        Assert.True(frames > 20, $"frames {frames}");
+        Assert.Null(monitor.Problem);
+    }
+
+    [Fact]
+    public async Task At_the_wrong_rate_pins_3_and_11_are_silent_and_requests_there_fail()
+    {
+        var truck = Truck();
+        truck.Pins311BitRate = 500000;
+        await truck.ConnectAsync(CancellationToken.None);
+        var monitor = new CanMonitor(truck);
+
+        async Task<int> Heard(int rate)
+        {
+            using var cts = new CancellationTokenSource(300);
+            var n = 0;
+            await foreach (var _ in monitor.ListenAsync(CanBus.Ms, null, cts.Token, rate))
+            {
+                n++;
+            }
+
+            return n;
+        }
+
+        Assert.Equal(0, await Heard(125000));
+        Assert.True(await Heard(500000) > 0);
+
+        var adapter = new ElmAdapter(truck);
+        await adapter.InitializeAsync(CancellationToken.None);
+        var request = new PidRequest(0x22, 0xF113, CanBus.Ms, 0x726);
+        Assert.Equal(PidFailure.BusError, (await adapter.RequestAsync(request, CancellationToken.None)).Failure);
+
+        adapter.Pins311BitRate = 500000;
+        Assert.True((await adapter.RequestAsync(request, CancellationToken.None)).IsSuccess);
+    }
+
     // ── Ranking a listen ──────────────────────────────────────────────────────
 
     private static CanFrame F(double seconds, uint id, params byte[] data) =>

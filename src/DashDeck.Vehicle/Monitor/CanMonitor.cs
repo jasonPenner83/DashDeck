@@ -45,28 +45,47 @@ public sealed class CanMonitor
     /// <summary>Why the last listen ended early, or null.</summary>
     public string? Problem { get; private set; }
 
+    /// <summary>How many times the last listen was restarted after the adapter's buffer filled.</summary>
+    public int Restarts { get; private set; }
+
     /// <summary>
     /// Listen to <paramref name="bus"/> until <paramref name="ct"/> is cancelled, yielding each
     /// frame. With <paramref name="onlyId"/>, the adapter passes that identifier alone, which keeps
-    /// a busy bus within what the serial link can carry.
+    /// a busy bus within what the serial link can carry. <paramref name="pins311BitRate"/> sets the
+    /// rate of the bus on pins 3 and 11 when it is not the 125 kbit/s the adapter assumes.
     /// </summary>
-    public async IAsyncEnumerable<CanFrame> ListenAsync(CanBus bus, uint? onlyId, [EnumeratorCancellation] CancellationToken ct)
+    /// <remarks>
+    /// A busy bus outruns the serial link: the adapter fills its buffer, says so, and stops. It is
+    /// started again straight away, so the listen becomes a run of bursts — each a fair sample of
+    /// what the bus is saying — rather than ending after the first.
+    /// </remarks>
+    public async IAsyncEnumerable<CanFrame> ListenAsync(
+        CanBus bus,
+        uint? onlyId,
+        [EnumeratorCancellation] CancellationToken ct,
+        int? pins311BitRate = null)
     {
         Unreadable = 0;
         Overflows = 0;
         Frames = 0;
+        Restarts = 0;
         Problem = null;
 
-        string[] setup =
+        var setup = new List<string> { bus == CanBus.Ms ? "STP53" : "STP33" };
+        if (bus == CanBus.Ms && pins311BitRate is { } rate and not 125000)
+        {
+            setup.Add($"STPBR{rate}");
+        }
+
+        setup.AddRange(
         [
-            bus == CanBus.Ms ? "STP53" : "STP33",
             "ATCSM1",   // silent: acknowledge nothing
             "ATH1",     // headers on
-            "ATS1",     // spaces on
+            "ATS0",     // spaces off: a third fewer characters a frame over the serial link
             "ATCAF0",   // CAN formatting off: every byte, raw
             "ATD0",     // no length byte
             onlyId is { } id ? (id > 0x7FF ? $"ATCRA{id:X8}" : $"ATCRA{id:X3}") : "ATAR",
-        ];
+        ]);
 
         foreach (var command in setup)
         {
@@ -80,19 +99,20 @@ public sealed class CanMonitor
 
         var start = _clock.UtcNow;
         StartedAt = start;
-        var command2 = "STMA";
+        var monitor = "STMA";
         var first = true;
 
-        while (true)
+        while (!ct.IsCancellationRequested)
         {
-            var retry = false;
+            var notStn = false;
+            var overflowed = false;
 
-            await foreach (var line in _transport.StreamAsync(command2, ct).ConfigureAwait(false))
+            await foreach (var line in _transport.StreamAsync(monitor, ct).ConfigureAwait(false))
             {
-                if (first && line.Trim() == "?" && command2 == "STMA")
+                if (first && line.Trim() == "?" && monitor == "STMA")
                 {
                     // Not an STN: the plain ELM monitor does the same, more slowly.
-                    retry = true;
+                    notStn = true;
                     break;
                 }
 
@@ -106,6 +126,7 @@ public sealed class CanMonitor
                 else if (MonitorLine.IsOverflow(line))
                 {
                     Overflows++;
+                    overflowed = true;
                 }
                 else
                 {
@@ -113,20 +134,26 @@ public sealed class CanMonitor
                 }
             }
 
-            if (!retry)
+            if (notStn)
+            {
+                monitor = "ATMA";
+                first = false;
+                continue;
+            }
+
+            if (ct.IsCancellationRequested)
             {
                 break;
             }
 
-            command2 = "ATMA";
-            first = false;
-        }
+            if (overflowed)
+            {
+                Restarts++;
+                continue;
+            }
 
-        if (!ct.IsCancellationRequested && Problem is null)
-        {
-            Problem = Overflows > 0
-                ? "The adapter stopped listening: its buffer filled. Listen to fewer identifiers."
-                : "The adapter stopped listening by itself.";
+            Problem = "The adapter stopped listening by itself.";
+            break;
         }
     }
 

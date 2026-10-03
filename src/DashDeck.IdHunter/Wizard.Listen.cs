@@ -19,9 +19,19 @@ internal sealed partial class Wizard
             return;
         }
 
-        foreach (var busName in target.Buses)
+        var buses = target.Buses
+            .Select(name => name.Equals("hs", StringComparison.OrdinalIgnoreCase) ? CanBus.Hs : CanBus.Ms)
+            .Where(bus => bus == CanBus.Hs || _session.Pins311BitRate is not null)
+            .Distinct()
+            .ToList();
+
+        if (buses.Count < target.Buses.Count)
         {
-            var bus = busName.Equals("hs", StringComparison.OrdinalIgnoreCase) ? CanBus.Hs : CanBus.Ms;
+            _io.WriteLine("Pins 3/11 were silent at start-up, so this listens on HS-CAN only.");
+        }
+
+        foreach (var bus in buses)
+        {
             var outcome = await ListenOnAsync(target, target.Steps, bus, ct).ConfigureAwait(false);
 
             if (outcome is "confirmed" or "stopped")
@@ -29,13 +39,15 @@ internal sealed partial class Wizard
                 return;
             }
 
-            if (busName != target.Buses[^1] &&
-                !Proceed($"Try {Bus(bus == CanBus.Ms ? CanBus.Hs : CanBus.Ms)} too? Press Enter for yes, B for no"))
+            if (bus != buses[^1] &&
+                !Proceed($"Try {Bus(buses[^1])} too? Press Enter for yes, B for no"))
             {
                 return;
             }
         }
     }
+
+    private int? Rate(CanBus bus) => bus == CanBus.Ms ? _session.Pins311BitRate : null;
 
     private int Hold(HuntTarget target) => HoldSeconds ?? Math.Max(2, target.Hold);
 
@@ -50,8 +62,12 @@ internal sealed partial class Wizard
             return;
         }
 
-        var busName = Ask("Which bus — MS or HS [MS]").ToUpperInvariant();
-        var bus = busName == "HS" ? CanBus.Hs : CanBus.Ms;
+        var bus = CanBus.Hs;
+        if (_session.Pins311BitRate is not null)
+        {
+            var busName = Ask($"Which bus — 1 for {Bus(CanBus.Ms)}, 2 for HS-CAN [1]");
+            bus = busName == "2" ? CanBus.Hs : CanBus.Ms;
+        }
 
         var target = new HuntTarget { Id = "free-" + new string(name.Where(char.IsLetterOrDigit).Take(20).ToArray()), Name = name, Method = "listen", Hold = 5 };
         HuntStep Step(int state) => new()
@@ -81,7 +97,7 @@ internal sealed partial class Wizard
         {
             try
             {
-                await foreach (var frame in _session.Monitor.ListenAsync(bus, null, stop.Token).ConfigureAwait(false))
+                await foreach (var frame in _session.Monitor.ListenAsync(bus, null, stop.Token, Rate(bus)).ConfigureAwait(false))
                 {
                     lock (frames)
                     {
@@ -144,7 +160,7 @@ internal sealed partial class Wizard
 
         await stop.CancelAsync().ConfigureAwait(false);
         await listening.ConfigureAwait(false);
-        var overflows = _session.Monitor.Overflows;
+        var bursts = _session.Monitor.Restarts;
         await _session.RestoreAsync(ct).ConfigureAwait(false);
 
         List<CanFrame> heardFrames;
@@ -165,9 +181,9 @@ internal sealed partial class Wizard
 
         _io.WriteLine(string.Create(CultureInfo.InvariantCulture,
             $"Heard {heardFrames.Count} frames from {heardFrames.Select(f => f.Id).Distinct().Count()} identifiers."));
-        if (overflows > 0)
+        if (bursts > 0)
         {
-            _io.WriteLine($"The adapter lost frames {overflows} time(s) — the bus was busier than the link. Results may be thinner.");
+            _io.WriteLine($"The bus is busier than the adapter's link, so it was heard in {bursts + 1} bursts rather than continuously. That is enough for frames sent every second or faster.");
         }
 
         if (stopped || phases.Count < 2)
@@ -250,7 +266,7 @@ internal sealed partial class Wizard
             int? last = null;
             try
             {
-                await foreach (var frame in _session.Monitor.ListenAsync(bus, candidate.Id, stop.Token).ConfigureAwait(false))
+                await foreach (var frame in _session.Monitor.ListenAsync(bus, candidate.Id, stop.Token, Rate(bus)).ConfigureAwait(false))
                 {
                     var value = candidate.Read(frame.Data);
                     if (value != last)
