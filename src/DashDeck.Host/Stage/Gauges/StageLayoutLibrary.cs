@@ -128,7 +128,12 @@ public sealed class StageLayoutLibrary
         {
             Directory.CreateDirectory(ExamplesFolder);
 
-            if (Canvas == LayoutCanvas.Climate)
+            if (Canvas == LayoutCanvas.Console)
+            {
+                Write("README.txt", ConsoleReadme);
+                Write("modern.json", ConsoleHeader + StageLayout.BuiltInConsoleJson + Environment.NewLine);
+            }
+            else if (Canvas == LayoutCanvas.Climate)
             {
                 Write("README.txt", ClimateReadme);
                 Write("glass.json", ClimateHeader + StageLayout.BuiltInClimateJson + Environment.NewLine);
@@ -164,6 +169,35 @@ public sealed class StageLayoutLibrary
             }
         }
     }
+
+    private const string ConsoleHeader = """
+        // The built-in console, Modern, written out as a reference (ADR-0041). DashDeck draws it
+        // from code, so this copy is only for reading — editing it here changes nothing, and it is
+        // put back at the next launch. To make your own: copy it up one folder (into console\),
+        // keep the name modern.json to replace it, or rename it and choose it in Settings ▸ Themes ▸
+        // CONSOLE LAYOUT. The canvas is 912 × 390. Every field is explained in
+        // docs/writing-a-stage-layout.md.
+
+        """;
+
+    private const string ConsoleReadme = """
+        DashDeck console examples
+        =========================
+
+        The console (DASH in the bottom bar) is drawn from a layout file, the same format as the
+        stage (docs/writing-a-stage-layout.md), on a canvas 912 wide and 390 tall.
+
+          modern.json         the built-in Modern console
+
+        These are NOT loaded from this folder, and they are rewritten every time DashDeck starts.
+        To make your own: copy one up a folder into  ...\DashDeck\console\, edit it, and choose
+        it in Settings > Themes > CONSOLE LAYOUT (or keep the name modern.json to replace Modern).
+
+        Warning lights for oil pressure, seatbelt, door, brake and tyres are placeholders until
+        the truck's own are found: on the truck they stay dark with a grey dot. Check engine, low
+        fuel, engine temperature and battery are real.
+
+        """;
 
     private const string ClimateHeader = """
         // The built-in climate panel, Glass, written out as a reference (ADR-0040). DashDeck draws it

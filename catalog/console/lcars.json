@@ -1,0 +1,87 @@
+// The LCARS (inspired) console (ADR-0041) — worn with the LCARS (inspired) theme, which names it
+// with "consoleLayout": "lcars". A fan homage; not affiliated with Paramount.
+//
+// The console is 912 × 390 — the two bands below the stage when DASH is chosen. Drawn in order,
+// later on top: the frame, the black cut-outs that make the elbows, the text, then the readings.
+//
+// Edit it by hand: Settings ▸ Themes ▸ CONSOLE LAYOUT, SAVE AS makes your own copy in
+// %LOCALAPPDATA%\DashDeck\console\ — save it as "lcars" and it replaces this one for the theme.
+{
+  "name": "LCARS (inspired) console",
+  "description": "Helm status, LCARS fashion: speed in the middle, engine, fuel and temperature as segmented bars, warning lights and a strip of odometer and economy inside a frame of elbows.",
+  "author": "DashDeck",
+  "background": "#000000",
+  "elements": [
+    // ── The frame ────────────────────────────────────────────────────────────────────────
+    { "type": "panel", "id": "top-elbow",    "x": 0,   "y": 0,   "width": 200, "height": 60,  "colour": "#FF9966", "radius": "40,0,0,0" },
+    { "type": "panel", "id": "top-bar",      "x": 206, "y": 0,   "width": 706, "height": 18,  "colour": "#CC99CC", "radius": "0,9,9,0" },
+    { "type": "panel", "id": "left-bar",     "x": 0,   "y": 66,  "width": 100, "height": 258, "colour": "#FF9966" },
+    { "type": "panel", "id": "bottom-elbow", "x": 0,   "y": 330, "width": 200, "height": 60,  "colour": "#9999CC", "radius": "0,0,0,40" },
+    { "type": "panel", "id": "bottom-bar",   "x": 206, "y": 372, "width": 706, "height": 18,  "colour": "#9999CC", "radius": "0,9,9,0" },
+    { "type": "panel", "id": "top-cut",    "x": 100, "y": 18,  "width": 100, "height": 42, "colour": "#000000", "radius": "22,0,0,0" },
+    { "type": "panel", "id": "bottom-cut", "x": 100, "y": 330, "width": 100, "height": 42, "colour": "#000000", "radius": "0,0,0,22" },
+
+    { "type": "text", "id": "code-1", "x": 6, "y": 72,  "width": 88, "height": 24, "content": "HELM 01", "colour": "#000000", "fontSize": 16, "align": "right" },
+    { "type": "text", "id": "code-2", "x": 6, "y": 296, "width": 88, "height": 24, "content": "DASH",    "colour": "#000000", "fontSize": 16, "align": "right" },
+    { "type": "text", "id": "title", "x": 214, "y": 24, "width": 300, "height": 36, "content": "HELM STATUS", "colour": "#FF9966", "fontSize": 26, "font": "ui" },
+
+    // ── Speed ──
+    { "id": "speed", "type": "setpoint", "x": 116, "y": 58, "width": 236, "height": 200,
+      "label": "KM/H", "format": "0", "min": 0, "max": 200,
+      "source": { "signal": "vehicle.speed", "rateHz": 4 },
+      "parts": { "arcColour": "#FF9966", "trackColour": "#1A1A2A", "thickness": 8, "glow": "none",
+                 "valueSize": 76, "valueColour": "#FFCC99", "labelColour": "#CC99CC" } },
+
+    // ── Engine, fuel, temperature as LCARS bars ──
+    { "id": "rpm", "style": "lcarsBar", "x": 370, "y": 64, "width": 520, "height": 52,
+      "label": "RPM", "format": "0", "min": 0, "max": 6500,
+      "source": { "signal": "engine.rpm", "rateHz": 3 },
+      "zones": [ { "from": 5800, "to": 6500, "colour": "#CC6666" } ],
+      "parts": { "segments": 20, "capColour": "#FF9966", "fillColour": "#FF9966", "trackColour": "#1A1A2A", "thickness": 28 } },
+    { "id": "fuel", "style": "lcarsBar", "x": 370, "y": 124, "width": 520, "height": 52,
+      "label": "FUEL", "format": "0", "min": 0, "max": 100,
+      "source": { "signal": "fuel.levelPercent", "rateHz": 0.2 },
+      "zones": [ { "from": 0, "to": 12, "colour": "#CC6666" } ],
+      "parts": { "segments": 20, "capColour": "#CC99CC", "fillColour": "#CC99CC", "trackColour": "#1A1A2A", "thickness": 28 } },
+    { "id": "coolant", "style": "lcarsBar", "x": 370, "y": 184, "width": 520, "height": 52,
+      "label": "TEMP", "format": "0", "min": 40, "max": 130,
+      "source": { "signal": "engine.coolantTemp", "rateHz": 0.5 },
+      "zones": [ { "from": 112, "to": 130, "colour": "#CC6666" } ],
+      "parts": { "segments": 20, "capColour": "#9999CC", "fillColour": "#9999CC", "trackColour": "#1A1A2A", "thickness": 28 } },
+
+    // ── Warning lights ──
+    { "id": "checkEngine", "type": "warning", "x": 380, "y": 246, "width": 32, "height": 32,
+      "source": { "signal": "diagnostics.checkEngine", "rateHz": 0.2 }, "parts": { "icon": "checkEngine", "litColour": "#FF9966", "unlitColour": "#26CC99CC" } },
+    { "id": "oil", "type": "warning", "x": 420, "y": 246, "width": 32, "height": 32,
+      "source": { "signal": "warning.oilPressure", "rateHz": 0.5 }, "parts": { "icon": "oil", "litColour": "#CC6666", "unlitColour": "#26CC99CC" } },
+    { "id": "battery", "type": "warning", "x": 460, "y": 246, "width": 32, "height": 32,
+      "source": { "signal": "vehicle.controlModuleVoltage", "rateHz": 0.5 }, "parts": { "icon": "battery", "below": 11.8, "litColour": "#CC6666", "unlitColour": "#26CC99CC" } },
+    { "id": "hot", "type": "warning", "x": 500, "y": 246, "width": 32, "height": 32,
+      "source": { "signal": "engine.coolantTemp", "rateHz": 0.5 }, "parts": { "icon": "coolant", "onAt": 112, "litColour": "#CC6666", "unlitColour": "#26CC99CC" } },
+    { "id": "lowFuel", "type": "warning", "x": 540, "y": 246, "width": 32, "height": 32,
+      "source": { "signal": "fuel.levelPercent", "rateHz": 0.2 }, "parts": { "icon": "fuel", "below": 12, "litColour": "#FF9966", "unlitColour": "#26CC99CC" } },
+    { "id": "seatbelt", "type": "warning", "x": 580, "y": 246, "width": 32, "height": 32,
+      "source": { "signal": "warning.seatbelt", "rateHz": 0.5 }, "parts": { "icon": "seatbelt", "litColour": "#CC6666", "unlitColour": "#26CC99CC" } },
+    { "id": "door", "type": "warning", "x": 620, "y": 246, "width": 32, "height": 32,
+      "source": { "signal": "warning.doorAjar", "rateHz": 0.5 }, "parts": { "icon": "door", "litColour": "#CC6666", "unlitColour": "#26CC99CC" } },
+    { "id": "brake", "type": "warning", "x": 660, "y": 246, "width": 32, "height": 32,
+      "source": { "signal": "warning.parkingBrake", "rateHz": 0.5 }, "parts": { "icon": "brake", "litColour": "#CC6666", "unlitColour": "#26CC99CC" } },
+    { "id": "tyres", "type": "warning", "x": 700, "y": 246, "width": 32, "height": 32,
+      "source": { "signal": "warning.tirePressure", "rateHz": 0.2 }, "parts": { "icon": "tpms", "litColour": "#FF9966", "unlitColour": "#26CC99CC" } },
+
+    // ── The strip ──
+    // Economy and range are placeholders until the truck's own are found (ADR-0041): a dash on the truck.
+    { "id": "odometer", "style": "digital", "x": 214, "y": 292, "width": 210, "height": 72,
+      "label": "ODOMETER", "unit": "km", "format": "#,0", "min": 0, "max": 2000000,
+      "source": { "signal": "vehicle.odometer", "rateHz": 0.05 },
+      "parts": { "valueSize": 20, "valueColour": "#FFCC99", "labelColour": "#CC99CC" } },
+    { "id": "economy", "style": "digital", "x": 430, "y": 292, "width": 210, "height": 72,
+      "label": "ECONOMY", "unit": "L/100km", "format": "0.0", "min": 0, "max": 99.9,
+      "source": { "signal": "fuel.economy", "rateHz": 1 },
+      "parts": { "valueSize": 20, "valueColour": "#FFCC99", "labelColour": "#CC99CC" } },
+    { "id": "range", "style": "digital", "x": 646, "y": 292, "width": 246, "height": 72,
+      "label": "RANGE", "unit": "km", "format": "0", "min": 0, "max": 2000,
+      "source": { "signal": "fuel.range", "rateHz": 0.5 },
+      "parts": { "valueSize": 24, "valueColour": "#FFCC99", "labelColour": "#CC99CC" } }
+  ]
+}

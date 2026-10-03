@@ -43,6 +43,12 @@ public enum StageElementType
 
     /// <summary>A frosted glass panel: a translucent tint, a sheen across the top, a soft shadow (ADR-0040).</summary>
     Glass,
+
+    /// <summary>
+    /// A warning light: an icon that lights when its signal says so — check engine, low fuel, a
+    /// door (ADR-0041). Dark when off; dimmer still, with a grey dot, when the truck has not said.
+    /// </summary>
+    Warning,
 }
 
 /// <summary>
@@ -56,6 +62,9 @@ public sealed record LayoutCanvas(string Name, double Width, double Height)
 
     /// <summary>The climate panel: the two bands where the cards are.</summary>
     public static LayoutCanvas Climate { get; } = new("climate panel", 912, 390);
+
+    /// <summary>The console: the two bands below the stage when DASH is chosen (ADR-0041).</summary>
+    public static LayoutCanvas Console { get; } = new("console", 912, 390);
 }
 
 /// <summary>How a gauge is drawn.</summary>
@@ -279,6 +288,7 @@ public static class GaugeParts
         [StageElementType.Indicator] = new Dictionary<string, string>
         {
             ["onAt"] = "lit when the value is at least this — default 1",
+            ["below"] = "lit when the value is below this instead",
             ["equals"] = "lit only when the value is exactly this (an airflow setting, say)",
             ["bit"] = "lit when this bit of the value is set — 0 for the lowest",
             ["litColour"] = "fill when lit — default the accent",
@@ -286,6 +296,16 @@ public static class GaugeParts
             ["unlitColour"] = "text and outline when off",
             ["radius"] = "corner radius, px — default half the height (a pill)",
             ["fontSize"] = "text size, px",
+        },
+        [StageElementType.Warning] = new Dictionary<string, string>
+        {
+            ["icon"] = "checkEngine, oil, battery, coolant, fuel, seatbelt, door, brake or tpms — or your own as SVG path data on a 24 × 24 grid",
+            ["onAt"] = "lit when the value is at least this — default 1",
+            ["below"] = "lit when the value is below this instead — low fuel, low voltage",
+            ["equals"] = "lit only when the value is exactly this",
+            ["bit"] = "lit when this bit of the value is set — 0 for the lowest",
+            ["litColour"] = "the icon when lit — default amber",
+            ["unlitColour"] = "the icon when off — default a faint white",
         },
         [StageElementType.Glass] = new Dictionary<string, string>
         {
@@ -572,6 +592,8 @@ public sealed record StageLayout
                 return null;
             case StageElementType.Levels when g.Number("steps", 7) is < 1 or > 20:
                 return "steps must be 1 to 20";
+            case StageElementType.Warning when !WarningIcons.IsKnown(g.Text("icon", "")):
+                return $"icon '{g.Text("icon", "")}' is not one of {string.Join(", ", WarningIcons.Names)} or SVG path data";
             case StageElementType.Compass when !string.IsNullOrWhiteSpace(g.Source.Signal):
                 return "a compass reads a sensor (source.sensor), not a signal";
             case StageElementType.Compass:
@@ -752,6 +774,112 @@ public sealed record StageLayout
 
     /// <summary>The climate layouts compiled in.</summary>
     public static IReadOnlyList<StageLayout> ClimateBuiltIns { get; } = [BuiltInClimate];
+
+    /// <summary>
+    /// The console (ADR-0041): speed large in the middle on a glowing arc, rpm beside it, fuel,
+    /// temperature and range on the right, a row of warning lights, and a strip of odometer and
+    /// economy below — what DASH shows in the two bands under the stage. A console layout of yours
+    /// called <c>modern</c>, or the one a theme names, replaces it.
+    /// </summary>
+    public static StageLayout BuiltInConsole { get; } =
+        Parse(BuiltInConsoleJson, null, LayoutOrigin.BuiltIn, LayoutCanvas.Console) with { BuiltInSlug = ConsoleSlug };
+
+    /// <summary>What the built-in console layout is called.</summary>
+    public const string ConsoleSlug = "modern";
+
+    /// <summary>The console layouts compiled in.</summary>
+    public static IReadOnlyList<StageLayout> ConsoleBuiltIns { get; } = [BuiltInConsole];
+
+    /// <summary>The console layout as text, comments and all — what <c>console\examples\modern.json</c> holds.</summary>
+    internal const string BuiltInConsoleJson = """
+    {
+      "name": "Modern",
+      "description": "Speed large on a glowing arc, rpm beside it, fuel, temperature and range, a row of warning lights, and odometer, economy, codes and outside air below.",
+      "author": "DashDeck",
+      "background": "#04070B",
+      "elements": [
+        // ── The glass ──
+        { "id": "mainGlass", "type": "glass", "x": 16, "y": 8, "width": 880, "height": 278, "radius": "34",
+          "parts": { "opacity": 0.045, "tint": "#CFE6FF" } },
+        { "id": "stripGlass", "type": "glass", "x": 16, "y": 298, "width": 880, "height": 84, "radius": "26",
+          "parts": { "opacity": 0.04, "sheen": 0.06 } },
+
+        // ── Speed ── the number large, on an arc to 200 with a bright point where you are.
+        { "id": "speed", "type": "setpoint", "x": 316, "y": 14, "width": 280, "height": 228,
+          "label": "KM/H", "format": "0", "min": 0, "max": 200,
+          "source": { "signal": "vehicle.speed", "rateHz": 4 },
+          "parts": { "arcColour": "#7FD6FF", "glow": "#3FA9E8", "thickness": 6, "sweep": 250,
+                     "valueSize": 92, "valueColour": "#F4F8FB", "labelColour": "#8A97A4", "labelSize": 13 } },
+
+        // ── Engine ── rpm on a quieter arc.
+        { "id": "rpm", "type": "setpoint", "x": 40, "y": 30, "width": 236, "height": 210,
+          "label": "RPM", "format": "0", "min": 0, "max": 6500,
+          "source": { "signal": "engine.rpm", "rateHz": 3 },
+          "parts": { "arcColour": "#C9D4DF", "glow": "none", "thickness": 4, "valueSize": 40,
+                     "valueColour": "#DDE6EE", "labelColour": "#8A97A4" } },
+
+        // ── Fuel, temperature, range ──
+        { "id": "fuel", "style": "bar", "x": 636, "y": 30, "width": 240, "height": 62,
+          "label": "FUEL", "unit": "%", "format": "0", "min": 0, "max": 100,
+          "source": { "signal": "fuel.levelPercent", "rateHz": 0.2 },
+          "zones": [ { "from": 0, "to": 12, "colour": "#FFB020" } ],
+          "parts": { "fillColour": "#7FD6FF", "trackColour": "#1AFFFFFF", "thickness": 8, "radius": 4,
+                     "labelColour": "#8A97A4", "valueColour": "#F4F8FB" } },
+        { "id": "coolant", "style": "bar", "x": 636, "y": 104, "width": 240, "height": 62,
+          "label": "ENGINE TEMP", "unit": "°C", "format": "0", "min": 40, "max": 130,
+          "source": { "signal": "engine.coolantTemp", "rateHz": 0.5 },
+          "zones": [ { "from": 112, "to": 130, "colour": "#FF4D4D" } ],
+          "parts": { "fillColour": "#C9D4DF", "trackColour": "#1AFFFFFF", "thickness": 8, "radius": 4,
+                     "labelColour": "#8A97A4", "valueColour": "#F4F8FB" } },
+        // Distance to empty — a placeholder until the truck's own is found (ADR-0041).
+        { "id": "range", "style": "digital", "x": 636, "y": 176, "width": 240, "height": 66,
+          "label": "RANGE", "unit": "km", "format": "0", "min": 0, "max": 2000,
+          "source": { "signal": "fuel.range", "rateHz": 0.5 },
+          "parts": { "valueSize": 30, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
+
+        // ── Warning lights ── dark when off, lit when on, and a grey dot when the truck has not said.
+        // Check engine is real (PID 01); fuel, temperature and battery are worked out from signals
+        // the truck gives; oil, seatbelt, door, brake and tyres are placeholders until found.
+        { "id": "checkEngine", "type": "warning", "x": 278, "y": 244, "width": 34, "height": 34,
+          "source": { "signal": "diagnostics.checkEngine", "rateHz": 0.2 }, "parts": { "icon": "checkEngine", "litColour": "#FFB020" } },
+        { "id": "oil", "type": "warning", "x": 318, "y": 244, "width": 34, "height": 34,
+          "source": { "signal": "warning.oilPressure", "rateHz": 0.5 }, "parts": { "icon": "oil", "litColour": "#FF4D4D" } },
+        { "id": "battery", "type": "warning", "x": 358, "y": 244, "width": 34, "height": 34,
+          "source": { "signal": "vehicle.controlModuleVoltage", "rateHz": 0.5 }, "parts": { "icon": "battery", "below": 11.8, "litColour": "#FF4D4D" } },
+        { "id": "hot", "type": "warning", "x": 398, "y": 244, "width": 34, "height": 34,
+          "source": { "signal": "engine.coolantTemp", "rateHz": 0.5 }, "parts": { "icon": "coolant", "onAt": 112, "litColour": "#FF4D4D" } },
+        { "id": "lowFuel", "type": "warning", "x": 438, "y": 244, "width": 34, "height": 34,
+          "source": { "signal": "fuel.levelPercent", "rateHz": 0.2 }, "parts": { "icon": "fuel", "below": 12, "litColour": "#FFB020" } },
+        { "id": "seatbelt", "type": "warning", "x": 478, "y": 244, "width": 34, "height": 34,
+          "source": { "signal": "warning.seatbelt", "rateHz": 0.5 }, "parts": { "icon": "seatbelt", "litColour": "#FF4D4D" } },
+        { "id": "door", "type": "warning", "x": 518, "y": 244, "width": 34, "height": 34,
+          "source": { "signal": "warning.doorAjar", "rateHz": 0.5 }, "parts": { "icon": "door", "litColour": "#FF4D4D" } },
+        { "id": "brake", "type": "warning", "x": 558, "y": 244, "width": 34, "height": 34,
+          "source": { "signal": "warning.parkingBrake", "rateHz": 0.5 }, "parts": { "icon": "brake", "litColour": "#FF4D4D" } },
+        { "id": "tyres", "type": "warning", "x": 598, "y": 244, "width": 34, "height": 34,
+          "source": { "signal": "warning.tirePressure", "rateHz": 0.2 }, "parts": { "icon": "tpms", "litColour": "#FFB020" } },
+
+        // ── The strip ──
+        { "id": "odometer", "style": "digital", "x": 32, "y": 306, "width": 230, "height": 68,
+          "label": "ODOMETER", "unit": "km", "format": "#,0", "min": 0, "max": 2000000,
+          "source": { "signal": "vehicle.odometer", "rateHz": 0.05 },
+          "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
+        // Economy — a placeholder until the truck's own is found (ADR-0041): a dash on the truck.
+        { "id": "economy", "style": "digital", "x": 272, "y": 306, "width": 230, "height": 68,
+          "label": "ECONOMY", "unit": "L/100km", "format": "0.0", "min": 0, "max": 99.9,
+          "source": { "signal": "fuel.economy", "rateHz": 1 },
+          "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
+        { "id": "codes", "style": "digital", "x": 512, "y": 306, "width": 150, "height": 68,
+          "label": "CODES", "format": "0", "min": 0, "max": 127,
+          "source": { "signal": "diagnostics.dtcCount", "rateHz": 0.1 },
+          "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
+        { "id": "outside", "style": "digital", "x": 672, "y": 306, "width": 208, "height": 68,
+          "label": "OUTSIDE", "unit": "°C", "format": "0", "min": -50, "max": 60,
+          "source": { "signal": "ambient.airTemp", "rateHz": 0.1 },
+          "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } }
+      ]
+    }
+    """;
 
     /// <summary>The climate layout as text, comments and all — what <c>climate\examples\glass.json</c> holds.</summary>
     internal const string BuiltInClimateJson = """

@@ -28,7 +28,10 @@ public sealed class StageLauncherTests : IDisposable
 
     // ── The built-in list ─────────────────────────────────────────────────────
 
-    /// <summary>The list that was in code before, in the same order — nothing moved by becoming a file.</summary>
+    /// <summary>
+    /// The list that was in code before, in the same order — nothing moved by becoming a file —
+    /// with CARDS second since the cards moved onto the stage (ADR-0041).
+    /// </summary>
     [Fact]
     public void The_built_in_launcher_offers_what_the_code_did_in_the_same_order()
     {
@@ -36,7 +39,7 @@ public sealed class StageLauncherTests : IDisposable
 
         Assert.Empty(launcher.Problems);
         Assert.Equal(
-            ["GAUGES", "CLOCK", "COMPASS", "PHONE", "VIDEO", "MAPS", "SPOTIFY", "MUSIC", "NUVIO", "STREMIO", "PROBE"],
+            ["GAUGES", "CARDS", "CLOCK", "COMPASS", "PHONE", "VIDEO", "MAPS", "SPOTIFY", "MUSIC", "NUVIO", "STREMIO", "PROBE"],
             launcher.Offered.Where(e => e.Type != LauncherTypes.UserApps).Select(e => e.Name));
         Assert.Equal(LauncherTypes.UserApps, launcher.Entries[^1].Type);
         Assert.Equal("GAUGES", launcher.StartOn);
@@ -321,5 +324,25 @@ public sealed class StageLauncherTests : IDisposable
         public void OpenFolder(string folder)
         {
         }
+    }
+
+    // ── The cards on the stage (ADR-0041) ─────────────────────────────────────
+
+    [Fact]
+    public void The_built_in_quick_bar_has_the_cards_beside_the_gauges()
+    {
+        Assert.Equal(["GAUGES", "CARDS", "CLOCK", "COMPASS", "PHONE"], StageLauncher.BuiltIn.QuickBar);
+        Assert.Equal(LauncherTypes.Cards, StageLauncher.BuiltIn.Entries.Single(e => e.Name == "CARDS").Type);
+    }
+
+    [Fact]
+    public void A_cards_entry_is_read_like_any_other()
+    {
+        var launcher = StageLauncher.Parse("""
+            { "entries": [ { "name": "Tiles", "type": "cards", "detail": "mine" }, { "name": "CLOCK", "type": "clock" } ] }
+            """);
+
+        Assert.Empty(launcher.Problems);
+        Assert.Equal(("TILES", LauncherTypes.Cards), (launcher.Entries[0].Name, launcher.Entries[0].Type));
     }
 }

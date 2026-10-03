@@ -10,13 +10,18 @@ namespace DashDeck.Core.Catalog;
 /// <param name="Scale">Multiplier applied to the raw value.</param>
 /// <param name="Offset">Added after scaling. Temperatures use -40 here.</param>
 /// <param name="Unit">Unit symbol carried on every reading.</param>
+/// <param name="Mask">
+/// Bits to keep from the raw value before anything else, or null for all of them — PID 01 packs
+/// the check-engine light (<c>0x80</c>) and the stored-code count (<c>0x7F</c>) into one byte.
+/// </param>
 public sealed record DecodeSpec(
     int ByteOffset,
     int ByteLength,
     bool Signed,
     double Scale,
     double Offset,
-    string Unit)
+    string Unit,
+    long? Mask = null)
 {
     /// <summary>Decode payload bytes, or null when the response is too short to trust.</summary>
     public double? Decode(ReadOnlySpan<byte> payload)
@@ -30,6 +35,11 @@ public sealed record DecodeSpec(
         for (var i = 0; i < ByteLength; i++)
         {
             raw = (raw << 8) | payload[ByteOffset + i];
+        }
+
+        if (Mask is { } mask)
+        {
+            raw &= mask;
         }
 
         if (Signed)

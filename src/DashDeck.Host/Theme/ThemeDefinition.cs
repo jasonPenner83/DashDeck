@@ -57,6 +57,12 @@ public sealed record ThemeDefinition
     /// </summary>
     public string ClimateLayout { get; init; } = "";
 
+    /// <summary>
+    /// The console layout that comes with the theme (ADR-0041), by file name, or empty for the
+    /// built-in Modern console.
+    /// </summary>
+    public string ConsoleLayout { get; init; } = "";
+
     /// <summary>Font files beside the theme file, carried with it.</summary>
     public IReadOnlyList<string> FontFiles { get; init; } = [];
 
@@ -134,6 +140,7 @@ public sealed record ThemeDefinition
                 Author = Text(root, "author")?.Trim() ?? "",
                 StageLayout = Text(root, "stageLayout")?.Trim() ?? "",
                 ClimateLayout = Text(root, "climateLayout")?.Trim() ?? "",
+                ConsoleLayout = Text(root, "consoleLayout")?.Trim() ?? "",
                 FontFiles = Strings(root, "fontFiles"),
                 Tokens = Values(root, "tokens"),
                 Night = Values(root, "night"),
@@ -176,6 +183,11 @@ public sealed record ThemeDefinition
             if (ClimateLayout.Length > 0)
             {
                 writer.WriteString("climateLayout", ClimateLayout);
+            }
+
+            if (ConsoleLayout.Length > 0)
+            {
+                writer.WriteString("consoleLayout", ConsoleLayout);
             }
 
             if (FontFiles.Count > 0)

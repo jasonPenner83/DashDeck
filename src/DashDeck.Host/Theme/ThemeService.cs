@@ -67,10 +67,14 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
     /// <summary>Which climate panel layout shows: the theme's, or one chosen (ADR-0040).</summary>
     public Stage.Gauges.StageLayoutService ClimateLayouts { get; }
 
+    /// <summary>Which console layout DASH shows: the theme's, or one chosen (ADR-0041).</summary>
+    public Stage.Gauges.StageLayoutService ConsoleLayouts { get; }
+
     partial void OnCurrentChanged(ThemeDefinition value)
     {
         Layouts?.ThemeChanged();
         ClimateLayouts?.ThemeChanged();
+        ConsoleLayouts?.ThemeChanged();
     }
 
     [ObservableProperty]
@@ -132,10 +136,22 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
             stored.ClimateLayout,
             choice => SettingsStore.Update(s => s with { ClimateLayout = choice }));
 
+        // The console is a layout as well (ADR-0041): DASH draws it where the cards used to be.
+        ConsoleLayouts = new Stage.Gauges.StageLayoutService(
+            new Stage.Gauges.StageLayoutLibrary(
+                CatalogPath.FindFolder("console"),
+                JsonFile.InLocalAppData("console"),
+                Stage.Gauges.LayoutCanvas.Console,
+                Stage.Gauges.StageLayout.ConsoleBuiltIns),
+            () => Current.ConsoleLayout,
+            stored.ConsoleLayout,
+            choice => SettingsStore.Update(s => s with { ConsoleLayout = choice }));
+
         // The shipped themes and layouts as files beside yours, to read and copy from.
         Library.WriteExamples();
         Layouts.Library.WriteExamples();
         ClimateLayouts.Library.WriteExamples();
+        ConsoleLayouts.Library.WriteExamples();
 
         // Re-checked on load, not just on entry. A stored colour was validated against the
         // quality palette of whatever build wrote it; if a later build moves one of those

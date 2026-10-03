@@ -348,7 +348,8 @@ public partial class App : Application
                 if (_shell?.DescribeStage() is { } state)
                 {
                     var climate = _shell.DescribeClimate() is { } c ? $"{Environment.NewLine}climate: {c}" : "";
-                    System.IO.File.WriteAllText(shotPath + ".txt", state + climate);
+                    var console = _shell.DescribeConsole() is { } d ? $"{Environment.NewLine}console: {d}" : "";
+                    System.IO.File.WriteAllText(shotPath + ".txt", state + climate + console);
                 }
 
                 Shutdown();

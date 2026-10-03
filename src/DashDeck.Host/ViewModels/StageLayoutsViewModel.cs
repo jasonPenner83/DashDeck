@@ -46,19 +46,25 @@ public sealed partial class StageLayoutsViewModel : ObservableObject
 
     private bool IsClimate => _layouts.Library.Canvas == LayoutCanvas.Climate;
 
+    private bool IsConsole => _layouts.Library.Canvas == LayoutCanvas.Console;
+
     /// <summary>What this surface is called in a sentence: the stage, the climate panel.</summary>
     private string Surface => _layouts.Library.Canvas.Name;
 
     /// <summary>The block's heading.</summary>
-    public string Heading => IsClimate ? "CLIMATE LAYOUT" : "STAGE LAYOUT";
+    public string Heading => IsConsole ? "CONSOLE LAYOUT" : IsClimate ? "CLIMATE LAYOUT" : "STAGE LAYOUT";
 
     /// <summary>What the block is for.</summary>
-    public string Intro => IsClimate
+    public string Intro => IsConsole
+        ? "What DASH draws below the stage: speed, rpm, fuel, range, warning lights, odometer and economy, where each sits and how it looks — a JSON file like the stage's. Your cards are on the stage now, behind the CARDS button."
+        : IsClimate
         ? "What the CLIMATE panel draws in place of the cards: set temperatures, fan, airflow, seats and switches, where each sits and how it looks — a JSON file like the stage's. It shows what the truck reports and changes nothing."
         : "What the GAUGES stage draws: every gauge, label, clock and panel, where it sits, what it reads and how it looks — a JSON file, like a Home Assistant dashboard. A theme can bring its own.";
 
     /// <summary>Where the files are, and how to make your own.</summary>
-    public string FolderNote => IsClimate
+    public string FolderNote => IsConsole
+        ? $"Your console layouts are kept in {UserFolder}. The examples folder inside it has the built-in Modern console and every shipped one as a file to copy from. Save as the name a theme uses (lcars) to replace its console. The console is {_layouts.Library.Canvas.Width:0} × {_layouts.Library.Canvas.Height:0}."
+        : IsClimate
         ? $"Your climate layouts are kept in {UserFolder}. The examples folder inside it has the built-in Glass panel and every shipped one as a file to copy from. Save as the name a theme uses (lcars) to replace its panel. The panel is {_layouts.Library.Canvas.Width:0} × {_layouts.Library.Canvas.Height:0}."
         : $"Your layouts are kept in {UserFolder}. The examples folder inside it has every shipped layout as a file to copy from. Save as the name a theme uses (lcars) to replace its stage. The stage is {_layouts.Library.Canvas.Width:0} × {_layouts.Library.Canvas.Height:0}; RELOAD STAGE LAYOUT in the three-dot menu redraws it without leaving the stage.";
 
@@ -171,7 +177,9 @@ public sealed partial class StageLayoutsViewModel : ObservableObject
     private void Rebuild()
     {
         Rows.Clear();
-        Rows.Add(new StageLayoutRowViewModel(StageLayoutService.FollowTheme, "FOLLOW THE THEME", IsClimate
+        Rows.Add(new StageLayoutRowViewModel(StageLayoutService.FollowTheme, "FOLLOW THE THEME", IsConsole
+            ? "Each theme can bring its own console — LCARS brings an LCARS one; the rest wear Modern."
+            : IsClimate
             ? "Each theme can bring its own climate panel — LCARS brings an LCARS one; the rest wear Glass."
             : "Each theme brings its own stage — LCARS brings the LCARS stage, the DashDeck look the F-150 cluster.", null));
 

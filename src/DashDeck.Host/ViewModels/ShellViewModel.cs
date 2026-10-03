@@ -122,6 +122,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsSourceVisible))]
     [NotifyPropertyChangedFor(nameof(IsFullScreenOpen))]
     [NotifyPropertyChangedFor(nameof(IsDashVisible))]
+    [NotifyPropertyChangedFor(nameof(IsClimateVisible))]
     [NotifyPropertyChangedFor(nameof(StageRunningButHidden))]
     [NotifyPropertyChangedFor(nameof(HiddenOccupantName))]
     private string _activeDestination = "DASH";
@@ -290,6 +291,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             ValueChoice.All(vehicle.Catalog, Sensors.Catalog),
             components);
 
+        // The cards are on the stage now (ADR-0041): the stage's picture is their region, and
+        // until CARDS is the occupant no page of them is on screen, so none asks for anything.
+        Dashboard.RegionHeight = BandGrid.StageOccupantHeight;
+        Dashboard.IsShown = false;
+
         // Start on whatever was asked for at launch, then on what the launcher file names, and
         // otherwise on the gauges (F12/B6): a truck's idle stage wanting gauges beats a clock, and
         // it settles the "what do we open on" question without restoring an arbitrary last
@@ -314,6 +320,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // wrong number of bands.
         SyncWidgetBands();
 
+        // DASH is where the shell opens, and choosing it is what makes the console — so make it.
+        SyncPanels();
+
         Dashboard.PropertyChanged += (_, e) =>
         {
             // The card editor is a full-screen view, so it claims the stage the way Settings
@@ -328,6 +337,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(IsCardEditorOpen));
                 OnPropertyChanged(nameof(IsComponentDetailOpen));
                 OnPropertyChanged(nameof(IsDashVisible));
+                OnPropertyChanged(nameof(IsClimateVisible));
                 OnPropertyChanged(nameof(IsFullScreenOpen));
                 OnPropertyChanged(nameof(IsDashEditing));
                 OnPropertyChanged(nameof(IsNavVisible));
@@ -413,9 +423,18 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private FrameworkElement? _climateContent;
 
-    partial void OnActiveDestinationChanged(string value) => SyncClimate();
+    /// <summary>
+    /// The console (ADR-0041), drawn from the console layout where the cards used to be — or null
+    /// whenever DASH is not the destination. Made and disposed like the climate panel, so it asks
+    /// the truck for nothing while it is not on screen.
+    /// </summary>
+    [ObservableProperty]
+    private FrameworkElement? _consoleContent;
 
-    private void SyncClimate()
+    partial void OnActiveDestinationChanged(string value) => SyncPanels();
+
+    /// <summary>Make the panel for the destination now chosen, and dispose the one left.</summary>
+    private void SyncPanels()
     {
         if (IsClimateActive && ClimateContent is null)
         {
@@ -426,7 +445,20 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             ClimateContent = null;
             climate.Dispose();
         }
+
+        if (IsDashActive && ConsoleContent is null)
+        {
+            ConsoleContent = new StageLayoutView(_theme.ConsoleLayouts, _vehicle.Signals, _clock, Sensors);
+        }
+        else if (!IsDashActive && ConsoleContent is StageLayoutView console)
+        {
+            ConsoleContent = null;
+            console.Dispose();
+        }
     }
+
+    /// <summary>What the console is showing, for <c>--shot</c>, or null when it is not open.</summary>
+    public string? DescribeConsole() => (ConsoleContent as StageLayoutView)?.Describe();
 
     /// <summary>What the climate panel is showing, for <c>--shot</c>, or null when it is not open.</summary>
     public string? DescribeClimate() => (ClimateContent as StageLayoutView)?.Describe();
@@ -494,7 +526,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         StageOptions.Clear();
 
         foreach (var option in StageOption.FromLauncher(
-            _launcher.Current, _videoPath, _clock, _vehicle.Signals, Sensors, Weather, Display, _userApps.Apps, _theme.Layouts))
+            _launcher.Current, _videoPath, _clock, _vehicle.Signals, Sensors, Weather, Display, _userApps.Apps, _theme.Layouts,
+            () => Dashboard is null ? null : new CardsStageOccupant(Dashboard)))
         {
             StageOptions.Add(new StageOptionViewModel(option));
         }
@@ -626,6 +659,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public bool IsDashVisible => IsDashActive && !IsCardEditorOpen && !IsComponentDetailOpen;
 
     /// <summary>
+    /// Whether the climate panel is showing: CLIMATE, with no card editor or component detail
+    /// over it — the cards are on the stage now (ADR-0041), so either can open from CLIMATE too.
+    /// </summary>
+    public bool IsClimateVisible => IsClimateActive && !IsCardEditorOpen && !IsComponentDetailOpen;
+
+    /// <summary>
     /// Whether the destination strip is showing.
     /// </summary>
     /// <remarks>
@@ -723,9 +762,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// </remarks>
     private void SyncWidgetBands()
     {
-        if (IsDashActive && !IsCardEditorOpen)
+        // The cards are on the stage (ADR-0041), whose picture does not change size.
+        if (!IsCardEditorOpen)
         {
-            Dashboard.WidgetBands = WidgetBands;
+            Dashboard.RegionHeight = BandGrid.StageOccupantHeight;
         }
     }
 
@@ -840,7 +880,19 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private void EditDash()
     {
         IsMenuOpen = false;
-        ActiveDestination = "DASH";
+
+        // The cards are on the stage (ADR-0041): editing them starts by putting them there.
+        var cards = _launcher.Current.Entries.FirstOrDefault(e => e.Type == Stage.Launcher.LauncherTypes.Cards)?.Name;
+        if (cards is not null && !string.Equals(Foreground?.Name, cards, StringComparison.OrdinalIgnoreCase)
+            && StageOptions.FirstOrDefault(o => string.Equals(o.Name, cards, StringComparison.OrdinalIgnoreCase)) is { } option)
+        {
+            SetStage(option);
+        }
+
+        if (IsSettingsActive)
+        {
+            ActiveDestination = "DASH";
+        }
 
         if (!Dashboard.IsEditing)
         {
@@ -1054,6 +1106,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _screen?.Dispose();
         _source?.Dispose();
         (ClimateContent as IDisposable)?.Dispose();
+        (ConsoleContent as IDisposable)?.Dispose();
     }
 
     private void Refresh()

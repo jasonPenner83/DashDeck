@@ -557,3 +557,47 @@ the adapter, **parked**, ignition **on** or engine running. No internet.
 **A failure looks like:** a climate element showing a number on the real truck (a placeholder must
 never pass for a reading); the cards and the panel both showing; the panel staying after leaving
 CLIMATE; anything about the truck's own climate behaving differently with DashDeck running.
+
+## The console dash, and the cards on the stage (ADR-0041)
+
+**You need:** the tablet at a desk first (no adapter — the synthetic truck), then the truck with the
+adapter, **parked**, engine **running**, then a short drive.
+
+**At the desk (synthetic truck):**
+
+1. Start DashDeck. **Expect:** below the stage, where the cards were, the **Modern** console: a big
+   speed number on a blue arc with a bright point, RPM on a quieter arc to its left, FUEL and ENGINE
+   TEMP bars and RANGE on the right, a row of nine dim warning icons under the speed, and a strip of
+   ODOMETER, ECONOMY, CODES and OUTSIDE. As the synthetic drive moves, the speed and
+   rpm follow it. Dots are blue (Simulated). ODOMETER reads about 48,213 km and climbs.
+2. Look at the warning icons. **Expect:** all dark — nothing is wrong with the synthetic truck.
+3. Tap **CARDS** on the bar below the stage. **Expect:** your cards on the stage, up to five rows a
+   page, swiping sideways as before. The console stays below.
+4. Three-dot menu ▸ **MODIFY WIDGETS**. **Expect:** edit mode on the cards (the add/reset bar replaces
+   the nav). Add a card, then **DONE**. Tap **GAUGES**: the cards go; **CARDS** brings them back on the
+   same page.
+5. Tap a card while editing to open its editor. **Expect:** the full-screen editor, as before; back
+   out and you are on CARDS.
+6. **Settings ▸ Themes**, wear **LCARS (inspired)**, tap **DASH**. **Expect:** the LCARS console —
+   HELM STATUS, segmented RPM, FUEL and TEMP bars. Wear DashDeck again: Modern is back.
+7. **Settings ▸ Themes ▸ CONSOLE LAYOUT**. **Expect:** SHOWING MODERN, FOLLOW THE THEME / MODERN
+   (BUILT IN) / LCARS (INSPIRED) CONSOLE (SHIPPED), SAVE AS, RELOAD and OPEN FOLDER as for the stage.
+
+**In the truck (real adapter):**
+
+8. Engine running, parked. Tap **DASH**. **Expect:** speed 0, rpm near 670 with a **green** dot,
+   FUEL and ENGINE TEMP with green dots, OUTSIDE reading. **RANGE and ECONOMY read a dash with a
+   grey dot** — placeholders until the truck's own figures are found.
+9. The warning icons. **Expect:** **check engine, low fuel, engine hot and battery** dark with no dot
+   (they are real and off). **Oil, seatbelt, door, brake and tyres** dark **with a small grey dot**
+   — placeholders, not yet found on this truck. **CODES** shows the number of stored codes (FORScan
+   will agree).
+10. **ODOMETER**: a number that matches the truck's odometer, or a dash with a grey dot if the
+    truck does not answer PID A6 — tell me which.
+11. Drive a short way. **Expect:** the speed number and arc follow the truck's speedometer (within a
+    km/h or two, and the console never rearranges.
+
+**A failure looks like:** a placeholder light lit, or one of the real ones lit with nothing wrong; the
+cards still showing below the stage; cards on a page you can't see still costing requests (the
+`req/s` does not show this — say if the dash feels slower with CARDS off the stage); a launcher file
+of yours with no CARDS anywhere in the grid.

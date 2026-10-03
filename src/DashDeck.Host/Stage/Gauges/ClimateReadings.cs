@@ -28,8 +28,9 @@ public static class ClimateReadings
     }
 
     /// <summary>
-    /// Whether a value lights an indicator: a <c>bit</c> of it set, exactly <c>equals</c>, or at
-    /// least <c>onAt</c> (1 unless said) — checked in that order. No value is never on.
+    /// Whether a value lights an indicator or a warning light: a <c>bit</c> of it set, under
+    /// <c>below</c>, exactly <c>equals</c>, or at least <c>onAt</c> (1 unless said) — checked in that
+    /// order. No value is never on.
     /// </summary>
     public static bool IsOn(GaugeSpec spec, double value)
     {
@@ -42,6 +43,11 @@ public static class ClimateReadings
         {
             var bit = (int)Math.Clamp(spec.Number("bit", 0), 0, 62);
             return (((long)Math.Round(value) >> bit) & 1) == 1;
+        }
+
+        if (spec.Parts.ContainsKey("below"))
+        {
+            return value < spec.Number("below", 0);
         }
 
         if (spec.Parts.ContainsKey("equals"))

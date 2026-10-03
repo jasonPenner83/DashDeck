@@ -140,6 +140,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Themes = new ThemesViewModel(theme, dialogs);
         StageLayouts = new StageLayoutsViewModel(theme.Layouts, dialogs);
         ClimateLayouts = new StageLayoutsViewModel(theme.ClimateLayouts, dialogs);
+        ConsoleLayouts = new StageLayoutsViewModel(theme.ConsoleLayouts, dialogs);
         Inventory = inventory;
         Vehicle = vehicle;
         Display = display;
@@ -180,6 +181,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Settings ▸ Themes ▸ CLIMATE LAYOUT (ADR-0040).</summary>
     public StageLayoutsViewModel ClimateLayouts { get; }
+
+    /// <summary>Settings ▸ Themes ▸ CONSOLE LAYOUT (ADR-0041).</summary>
+    public StageLayoutsViewModel ConsoleLayouts { get; }
 
     /// <summary>Every signal and sensor, the scan that finds missing ones, and the editor (ADR-0032).</summary>
     public SensorInventoryViewModel Inventory { get; }

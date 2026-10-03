@@ -104,9 +104,9 @@ public sealed class StageLayoutView : UserControl, IDisposable
         {
             var visual = element.Type switch
             {
-                StageElementType.Gauge or StageElementType.Setpoint or StageElementType.Levels or StageElementType.Indicator
+                StageElementType.Gauge or StageElementType.Setpoint or StageElementType.Levels or StageElementType.Indicator or StageElementType.Warning
                     when element.Source.IsSensor => SensorGauge(element, FaceFor(element)),
-                StageElementType.Gauge or StageElementType.Setpoint or StageElementType.Levels or StageElementType.Indicator
+                StageElementType.Gauge or StageElementType.Setpoint or StageElementType.Levels or StageElementType.Indicator or StageElementType.Warning
                     => Gauge(element, FaceFor(element)),
                 StageElementType.Glass => new GlassFace(element),
                 StageElementType.Text => Text(element, element.Content),
@@ -136,6 +136,7 @@ public sealed class StageLayoutView : UserControl, IDisposable
         StageElementType.Setpoint => new SetpointFace(spec),
         StageElementType.Levels => new LevelsFace(spec),
         StageElementType.Indicator => new IndicatorFace(spec),
+        StageElementType.Warning => new WarningFace(spec),
         _ => new GaugeFace(spec),
     };
 

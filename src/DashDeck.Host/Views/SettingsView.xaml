@@ -448,6 +448,10 @@
                     <ContentControl Margin="0,30,0,0" ContentTemplate="{StaticResource LayoutChooser}"
                                     Content="{Binding DataContext.StageLayouts, RelativeSource={RelativeSource AncestorType=UserControl}}" />
 
+                    <!-- ── CONSOLE LAYOUT (ADR-0041): what DASH draws below the stage. ── -->
+                    <ContentControl Margin="0,30,0,0" ContentTemplate="{StaticResource LayoutChooser}"
+                                    Content="{Binding DataContext.ConsoleLayouts, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+
                     <!-- ── CLIMATE LAYOUT (ADR-0040): what the CLIMATE panel draws, the same way. ── -->
                     <ContentControl Margin="0,30,0,0" ContentTemplate="{StaticResource LayoutChooser}"
                                     Content="{Binding DataContext.ClimateLayouts, RelativeSource={RelativeSource AncestorType=UserControl}}" />
