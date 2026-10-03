@@ -63,7 +63,7 @@ These work on every entry:
 | `phone` | Android Auto and CarPlay through the dongle (ADR-0019). | — |
 | `video` | A video file, played by VLC. | `path` — the file. Left out or missing: it asks when chosen. |
 | `web` | A web page in WebView2. | `url` — `https://…` (or `http://`). `zoom` — 0.25 to 5 (1 is 100 %). Left out: Settings ▸ Display ▸ web scale decides. |
-| `app` | A Windows program, placed over the stage where that works (ADR-0021). | `paths` — where it might be, most likely first; the first that exists is launched. `%LOCALAPPDATA%`, `%ProgramFiles%` and the like are expanded. Remember `\\` for each `\` in JSON. `arguments` — its command line. |
+| `app` | A Windows program, placed over the stage where that works (ADR-0021). | `paths` — where it might be, most likely first; the first that exists is launched. `%LOCALAPPDATA%`, `%ProgramFiles%` and the like are expanded. Remember `\\` for each `\` in JSON. `arguments` — its command line. `scrollStrip` — `right` (default), `left` or `off`: the strip beside the program that scrolls it for a finger (ADR-0046). `scrollBy` — `message` (default) or `input`: try `input` if the strip does nothing. |
 | `userApps` | Not an entry: **where the apps added in Settings ▸ Apps go**. No name. Left out, they go last. Give it a `group` to head them differently. |
 
 ## Examples
