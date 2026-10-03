@@ -48,6 +48,24 @@ public sealed class SyntheticTransport : IStreamingTransport
     /// <summary>The identifier the monitor passes alone (ATCRA), or null for all.</summary>
     private uint? _receiveFilter;
 
+    /// <summary>The rate the adapter has pins 3 and 11 at: 125 kbit/s after STP53, or what STPBR set.</summary>
+    private int _pins311Rate = 125000;
+
+    /// <summary>
+    /// The rate the synthetic truck's bus on pins 3 and 11 runs at. 125 kbit/s (MS-CAN) unless a test
+    /// says otherwise. When the adapter is set to another rate it hears nothing there, and a request
+    /// sent there is a CAN ERROR — what a real adapter at the wrong rate reports.
+    /// </summary>
+    public int Pins311BitRate { get; set; } = 125000;
+
+    /// <summary>
+    /// When set, the monitor says BUFFER FULL and stops after this many frames, the way a real
+    /// adapter does when a busy bus outruns its serial link.
+    /// </summary>
+    public int? MonitorBufferFrames { get; set; }
+
+    private bool Pins311Mismatched => _bus == CanBus.Ms && _pins311Rate != Pins311BitRate;
+
     public TransportState State { get; private set; } = TransportState.Disconnected;
 
     public string Description => "Synthetic 2019 F-150 (simulated data)";
@@ -121,6 +139,11 @@ public sealed class SyntheticTransport : IStreamingTransport
 
         RequestCount++;
 
+        if (Pins311Mismatched)
+        {
+            return "CAN ERROR\r\r>";
+        }
+
         if (_truck.Random.NextDouble() < _faults.DropProbability)
         {
             DroppedCount++;
@@ -158,6 +181,18 @@ public sealed class SyntheticTransport : IStreamingTransport
             _header = null;
             _bus = CanBus.Hs;
             _receiveFilter = null;
+            _pins311Rate = 125000;
+        }
+
+        if (command.StartsWith("STPBR", StringComparison.Ordinal))
+        {
+            if (!int.TryParse(command.AsSpan(5), NumberStyles.Integer, CultureInfo.InvariantCulture, out var rate))
+            {
+                return "?\r\r>";
+            }
+
+            _pins311Rate = rate;
+            return "OK\r\r>";
         }
 
         // The receive filter only matters to the monitor: requests are answered by address.
@@ -203,6 +238,11 @@ public sealed class SyntheticTransport : IStreamingTransport
         }
 
         _bus = bus;
+        if (bus == CanBus.Ms)
+        {
+            _pins311Rate = 125000;
+        }
+
         return "OK\r\r>";
     }
 
@@ -587,6 +627,7 @@ public sealed class SyntheticTransport : IStreamingTransport
 
         var last = new Dictionary<uint, DateTimeOffset>();
         byte counter = 0;
+        var sent = 0;
         var lastPassenger = (bool?)null;
 
         while (!ct.IsCancellationRequested && !_unplugged)
@@ -616,7 +657,11 @@ public sealed class SyntheticTransport : IStreamingTransport
 
             var cabin = _truck.Cabin;
 
-            if (_bus == CanBus.Ms)
+            if (Pins311Mismatched)
+            {
+                // The wrong rate: silence.
+            }
+            else if (_bus == CanBus.Ms)
             {
                 if (Due(0x3B3, 100))
                 {
@@ -668,6 +713,12 @@ public sealed class SyntheticTransport : IStreamingTransport
 
             foreach (var line in lines)
             {
+                if (MonitorBufferFrames is { } limit && ++sent > limit)
+                {
+                    yield return "BUFFER FULL";
+                    yield break;
+                }
+
                 yield return line;
             }
 

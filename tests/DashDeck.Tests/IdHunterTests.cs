@@ -187,7 +187,7 @@ public sealed class IdHunterTests : IDisposable
             "q");
 
         Assert.Contains("FRONT LEFT — likeliest first:\n  #   ID     READ     DECODE                  GIVES     MATCHED\n  1   4301", io.Output.Replace("\r", "", StringComparison.Ordinal));
-        Assert.Contains("match,MS-CAN,726,,4303,REAR LEFT", findings);
+        Assert.Contains("match,pins 3/11 (125 kbit/s),726,,4303,REAR LEFT", findings);
     }
 
     [Fact]
@@ -239,5 +239,39 @@ public sealed class IdHunterTests : IDisposable
 
         File.WriteAllText(path, "not json");
         Assert.Equal(new DashSettings(null, null, null, null), DashSettings.Read(path));
+    }
+
+    [Fact]
+    public async Task Pins_3_and_11_are_measured_by_listening_before_anything_is_sent_there()
+    {
+        var (targets, _) = HuntTargetFile.Load(TargetsFile());
+        var truck = new DashDeck.Simulator.SimulatedF150(DashDeck.Simulator.Drives.Idle);
+        var transport = new DashDeck.Simulator.SyntheticTransport(truck, faults: DashDeck.Simulator.SyntheticFaults.Perfect) { Pins311BitRate = 500000 };
+        await using var session = await HuntSession.ForAsync(transport, truck, CancellationToken.None);
+
+        var io = new Script("S", "", "q");
+        await new Wizard(io, session, targets, new HuntOutput(_folder, DashDeck.Abstractions.SystemClock.Instance), Array.Empty<VehiclePack>())
+            .RunAsync(CancellationToken.None);
+
+        Assert.Contains("Pins 3/11 carry a 500 kbit/s bus", io.Output);
+        Assert.Contains("pins 3/11 (500 kbit/s)  726", io.Output);
+        Assert.Equal(500000, session.Adapter.Pins311BitRate);
+    }
+
+    [Fact]
+    public async Task Silent_pins_3_and_11_are_never_asked()
+    {
+        var (targets, _) = HuntTargetFile.Load(TargetsFile());
+        var truck = new DashDeck.Simulator.SimulatedF150(DashDeck.Simulator.Drives.Idle);
+        var transport = new DashDeck.Simulator.SyntheticTransport(truck, faults: DashDeck.Simulator.SyntheticFaults.Perfect) { Pins311BitRate = 250000 };
+        await using var session = await HuntSession.ForAsync(transport, truck, CancellationToken.None);
+
+        var io = new Script("S", "", "q");
+        await new Wizard(io, session, targets, new HuntOutput(_folder, DashDeck.Abstractions.SystemClock.Instance), Array.Empty<VehiclePack>())
+            .RunAsync(CancellationToken.None);
+
+        Assert.Contains("Nothing heard on pins 3/11", io.Output);
+        Assert.Contains("only HS-CAN is asked", io.Output);
+        Assert.DoesNotContain("pins 3/11 (", io.Output);
     }
 }

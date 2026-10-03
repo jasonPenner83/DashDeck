@@ -23,6 +23,18 @@ It lives beside the dash, in `IdHunter\` in the DashDeck folder.
    It prints a line per port as it goes, then shows the checklist. If nothing answers, it says what to
    check and waits for Enter, so you can read why. Send that screen if you need help.
 
+**First, it checks the bus on OBD pins 3 and 11.** Older Fords have a 125 kbit/s MS-CAN there; newer
+trucks have a 500 kbit/s bus. Sending at the wrong speed puts error frames on that bus. So the hunter
+listens silently at each speed first and uses whichever one it hears:
+
+> Pins 3/11 carry a 500 kbit/s bus. The guide will use it at that speed.
+
+If it hears nothing at either speed, it uses HS-CAN only and sends nothing on pins 3/11.
+
+**A busy bus is heard in bursts.** HS-CAN carries far more than the adapter's USB link can pass on.
+The adapter fills its buffer, stops, and is started again straight away. You will see *heard in N
+bursts*. That is enough for anything a module sends every second or faster.
+
 To learn it at a desk without the truck: open a terminal in that folder and run
 `IdHunter.exe --simulate`. Everything works against the synthetic truck, whose identifiers are
 invented. Other options: `--port COM5`, `--out <folder>`, `--targets <file>`.

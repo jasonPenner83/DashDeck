@@ -705,6 +705,9 @@ The guide itself: [id-hunter](id-hunter.md).
    the window stays open: read the line for each port. *In use* means DashDeck (check Task Manager
    for a leftover `DashDeck.Host`) or FORScan still holds it. Send me that screen if it is anything
    else.
+   Before the checklist it says *Checking the bus on OBD pins 3 and 11…* and then either *Pins 3/11
+   carry a 125 kbit/s bus*, *…a 500 kbit/s bus*, or *Nothing heard on pins 3/11*. **Tell me which** —
+   it decides how DashDeck itself must talk on those pins (open question Q21).
 3. Choose **S**, press Enter. **Expect:**
    - about half a minute of progress;
    - a list of modules on HS-CAN and MS-CAN: `7E0 PCM — powertrain control (likely)` with a part
@@ -715,7 +718,8 @@ The guide itself: [id-hunter](id-hunter.md).
    STEP: shut, open, shut, open, shut, pressing Enter after each and holding still for the countdown.
    **Expect:**
    - *Hearing MS-CAN*;
-   - after the last step, *Heard N frames from M identifiers* — thousands from dozens;
+   - after the last step, *Heard N frames from M identifiers* — thousands from dozens — and, on
+     HS-CAN, *heard in N bursts*;
    - a ranked table.
 
    If a row reads `0 1 0 1 0` (or `1 0 1 0 1`), type its number, open and shut the door a few times,

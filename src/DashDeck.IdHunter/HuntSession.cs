@@ -31,6 +31,61 @@ internal sealed class HuntSession : IAsyncDisposable
 
     public bool Simulated => Truck is not null;
 
+    /// <summary>
+    /// The rate the bus on OBD pins 3 and 11 was heard at — 125 or 500 kbit/s — or null when nothing
+    /// was heard there at either. Nothing is ever sent on pins 3/11 until this is known.
+    /// </summary>
+    public int? Pins311BitRate { get; private set; }
+
+    /// <summary>The buses it is safe to send requests on: HS-CAN always, pins 3/11 once its rate is known.</summary>
+    public IReadOnlyList<CanBus> RequestBuses => Pins311BitRate is null ? [CanBus.Hs] : [CanBus.Hs, CanBus.Ms];
+
+    /// <summary>
+    /// Find the rate of the bus on pins 3 and 11 by listening only — silently, so nothing is sent
+    /// whichever rate is wrong. 125 kbit/s is Ford's MS-CAN; newer trucks put a 500 kbit/s bus there.
+    /// </summary>
+    public async Task<int?> DetectPins311Async(CancellationToken ct)
+    {
+        Pins311BitRate = null;
+
+        foreach (var rate in (int[])[125000, 500000])
+        {
+            var heard = 0;
+            using var window = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            window.CancelAfter(TimeSpan.FromSeconds(1.5));
+
+            try
+            {
+                await foreach (var _ in Monitor.ListenAsync(CanBus.Ms, null, window.Token, rate).ConfigureAwait(false))
+                {
+                    if (++heard >= 20)
+                    {
+                        break;
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+            }
+
+            await RestoreAsync(ct).ConfigureAwait(false);
+
+            if (heard > 0)
+            {
+                Pins311BitRate = rate;
+                Adapter.Pins311BitRate = rate;
+                return rate;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>What a bus is called on screen.</summary>
+    public string BusName(CanBus bus) => bus == CanBus.Hs
+        ? "HS-CAN"
+        : Pins311BitRate is { } rate ? $"pins 3/11 ({rate / 1000} kbit/s)" : "pins 3/11";
+
     /// <summary>Modules found by a scan this session, by address, with their bus.</summary>
     public Dictionary<ushort, CanBus> KnownModules { get; } = [];
 
@@ -94,7 +149,7 @@ internal sealed class HuntSession : IAsyncDisposable
             return known;
         }
 
-        foreach (var bus in (CanBus[])[CanBus.Hs, CanBus.Ms])
+        foreach (var bus in RequestBuses)
         {
             var response = await RequestAsync(new PidRequest(0x22, 0xF113, bus, address), ct).ConfigureAwait(false);
             if (response.ModuleAnswered)

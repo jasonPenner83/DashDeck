@@ -44,6 +44,12 @@ internal sealed partial class Wizard
         _io.WriteLine();
         _io.WriteLine($"Adapter:  {_session.Description}");
         _io.WriteLine($"Writing:  {_output.Folder}");
+        _io.WriteLine();
+        _io.WriteLine("Checking the bus on OBD pins 3 and 11 — listening only, so nothing is sent at a wrong speed…");
+        var pins311 = await _session.DetectPins311Async(ct).ConfigureAwait(false);
+        _io.WriteLine(pins311 is { } rate
+            ? $"Pins 3/11 carry a {rate / 1000} kbit/s bus{(rate == 125000 ? " (MS-CAN)" : "")}. The guide will use it at that speed."
+            : "Nothing heard on pins 3/11 at 125 or 500 kbit/s (is the ignition on?). The guide uses HS-CAN only, and sends nothing on pins 3/11.");
 
         while (!ct.IsCancellationRequested)
         {
@@ -168,7 +174,7 @@ internal sealed partial class Wizard
 
     private static string Hex(ushort value) => value.ToString("X3", CultureInfo.InvariantCulture);
 
-    private static string Bus(CanBus bus) => bus == CanBus.Ms ? "MS-CAN" : "HS-CAN";
+    private string Bus(CanBus bus) => _session.BusName(bus);
 
     // ── Modules ──────────────────────────────────────────────────────────────
 
@@ -183,7 +189,12 @@ internal sealed partial class Wizard
         }
 
         var progress = new Progress(_io);
-        var result = await ModuleScanner.ScanAsync(_session.RequestAsync, [CanBus.Hs, CanBus.Ms], progress, ct).ConfigureAwait(false);
+        if (_session.Pins311BitRate is null)
+        {
+            _io.WriteLine("Pins 3/11 were silent, so only HS-CAN is asked.");
+        }
+
+        var result = await ModuleScanner.ScanAsync(_session.RequestAsync, _session.RequestBuses, progress, ct).ConfigureAwait(false);
         progress.Done();
 
         using var capture = _output.Capture($"modules-{_clock.UtcNow.ToLocalTime():HHmmss}", "bus,module,likely,part_number,refusal");

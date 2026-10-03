@@ -38,6 +38,29 @@ public sealed class ElmAdapter : IVehicleAdapter
 
     private CanBus _selectedBus = CanBus.Hs;
 
+    private int _pins311BitRate = 125000;
+
+    /// <summary>
+    /// The rate of the bus on OBD pins 3 and 11, which <c>STP53</c> opens at 125 kbit/s — Ford's
+    /// MS-CAN. Newer trucks put a 500 kbit/s bus there; sending at the wrong rate makes error frames
+    /// on it, so a caller that has measured the rate (by listening, ADR-0044) sets it here.
+    /// </summary>
+    public int Pins311BitRate
+    {
+        get => _pins311BitRate;
+        set
+        {
+            if (_pins311BitRate != value)
+            {
+                _pins311BitRate = value;
+                if (_initialized)
+                {
+                    _needsConfigure = true;
+                }
+            }
+        }
+    }
+
     /// <summary>The module the adapter is addressing, or null for the broadcast it starts on.</summary>
     private ushort? _selectedHeader;
 
@@ -160,6 +183,12 @@ public sealed class ElmAdapter : IVehicleAdapter
 
         await _transport.ExchangeAsync(bus == CanBus.Ms ? MsCanCommand : HsCanCommand, ct)
             .ConfigureAwait(false);
+
+        if (bus == CanBus.Ms && _pins311BitRate != 125000)
+        {
+            await _transport.ExchangeAsync($"STPBR{_pins311BitRate}", ct).ConfigureAwait(false);
+        }
+
         _selectedBus = bus;
     }
 
