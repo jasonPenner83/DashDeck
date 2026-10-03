@@ -48,6 +48,8 @@ public sealed class GaugeFace : Canvas, IReadingFace
     private TextBlock? _value;
     private Ellipse? _dot;
     private TextBlock? _source;
+    private TextBlock? _caption;
+    private TextAlignment _captionAlign;
     private GaugeReading _reading = new(double.NaN, SignalQuality.Unavailable);
     private bool _unknown;
     private string _unknownText = "UNKNOWN SIGNAL";
@@ -186,12 +188,12 @@ public sealed class GaugeFace : Canvas, IReadingFace
         }
 
         // The quality dot, in the top-right corner of every gauge, on top of everything.
-        _dot = new Ellipse { Width = 9, Height = 9, Fill = QualityPalette.Unavailable };
-
-        // A right-aligned readout ends its caption at the right edge, where the dot would sit on it.
-        var rightAligned = _spec.Style is GaugeStyle.Digital && _spec.Text("align", "").Equals("right", StringComparison.OrdinalIgnoreCase);
-        Place(_dot, rightAligned ? 0 : _spec.Width - 13, 4);
+        // Beside the caption on a typographic readout (and smaller); otherwise the top-right corner.
+        var size = _caption is not null ? 6 : 9;
+        _dot = new Ellipse { Width = size, Height = size, Fill = QualityPalette.Unavailable };
+        Place(_dot, _spec.Width - 13, 4);
         Children.Add(_dot);
+        PlaceCaptionAndDot();
 
         Show(_reading);
     }
@@ -663,24 +665,52 @@ public sealed class GaugeFace : Canvas, IReadingFace
             _ => TextAlignment.Center,
         };
         var labelSize = _spec.Number("labelSize", 12);
-        var top = 0.0;
-
-        if (_spec.Flag("showLabel", true) && _spec.Label.Length > 0)
-        {
-            var caption = Label(_spec.Label, labelSize, "mono", _spec.Text("labelColour", ""), "@caption", FaceDraw.Weight(_spec, "labelWeight", FontWeights.Normal));
-            caption.Width = _spec.Width;
-            caption.TextAlignment = align;
-            Place(caption, 0, 0);
-            top = labelSize + _spec.Number("labelGap", 6);
-        }
+        var valueSize = _spec.Number("valueSize", 28);
+        var gap = _spec.Number("labelGap", 6);
+        var below = _spec.Text("labelPosition", "above").Equals("below", StringComparison.OrdinalIgnoreCase);
+        var hasLabel = _spec.Flag("showLabel", true) && _spec.Label.Length > 0;
 
         if (_spec.Flag("showValue", true))
         {
-            _value = Label("", _spec.Number("valueSize", 28), "ui", _spec.Text("valueColour", ""), "@textHigh", FaceDraw.Weight(_spec, "valueWeight", FontWeights.Light));
+            _value = Label("", valueSize, "ui", _spec.Text("valueColour", ""), "@textHigh", FaceDraw.Weight(_spec, "valueWeight", FontWeights.Light));
             _value.Width = _spec.Width;
             _value.TextAlignment = align;
-            Place(_value, 0, top);
+            Place(_value, 0, hasLabel && !below ? labelSize + gap : 0);
         }
+
+        if (hasLabel)
+        {
+            // Sized to its own text, not the box, so the quality dot can sit right beside it.
+            _caption = Label(_spec.Label, labelSize, "mono", _spec.Text("labelColour", ""), "@caption", FaceDraw.Weight(_spec, "labelWeight", FontWeights.Normal));
+            _captionAlign = align;
+            Place(_caption, 0, below ? (valueSize * 1.3) + gap : 0);
+            _caption.SizeChanged += (_, _) => PlaceCaptionAndDot();
+        }
+    }
+
+    /// <summary>
+    /// Put the caption against its edge and the quality dot right beside it — after the word, or
+    /// before it when the caption ends at the right edge. A dot at the far corner of a wide box
+    /// is a dot nobody can tell belongs to anything.
+    /// </summary>
+    private void PlaceCaptionAndDot()
+    {
+        if (_caption is null || _dot is null)
+        {
+            return;
+        }
+
+        var w = _caption.ActualWidth;
+        var left = _captionAlign switch
+        {
+            TextAlignment.Right => _spec.Width - w,
+            TextAlignment.Center => (_spec.Width - w) / 2,
+            _ => 0,
+        };
+
+        SetLeft(_caption, left);
+        Place(_dot, _captionAlign is TextAlignment.Right ? left - _dot.Width - 6 : left + w + 6,
+            GetTop(_caption) + ((_caption.ActualHeight - _dot.Height) / 2));
     }
 
     /// <summary>Caption above, number below, centred on a point — the arc's and the digital gauge's middle.</summary>

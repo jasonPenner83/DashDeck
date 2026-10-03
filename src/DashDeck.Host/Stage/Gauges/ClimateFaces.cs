@@ -290,7 +290,7 @@ public sealed class LevelsFace : Canvas, IReadingFace
             Shape shape;
             if (dots)
             {
-                var d = Math.Min(cell, area);
+                var d = Math.Min(spec.Number("size", Math.Min(cell, area)), Math.Min(cell, area));
                 shape = new Ellipse { Width = d, Height = d };
                 FaceDraw.Place(shape, (i * (cell + gap)) + ((cell - d) / 2), head + ((area - d) / 2));
             }
@@ -398,15 +398,30 @@ public sealed class IndicatorFace : Grid, IReadingFace
         {
             CornerRadius = new CornerRadius(spec.Number("radius", spec.Height / 2)),
             BorderThickness = new Thickness(_textOnly ? 0 : 1),
-            Child = _text,
         };
 
         Children.Add(_pill);
 
-        _dot.HorizontalAlignment = HorizontalAlignment.Right;
-        _dot.VerticalAlignment = VerticalAlignment.Top;
-        _dot.Margin = new Thickness(0, 5, Math.Max(8, spec.Number("radius", spec.Height / 2) * 0.55), 0);
-        Children.Add(_dot);
+        if (_textOnly)
+        {
+            // Just the word, with the quality dot right after it — not in the far corner of the box.
+            _dot.Width = _dot.Height = 5;
+            _dot.Margin = new Thickness(5, 0, 0, 0);
+            _dot.VerticalAlignment = VerticalAlignment.Center;
+            var word = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = _text.HorizontalAlignment, VerticalAlignment = VerticalAlignment.Center };
+            _text.HorizontalAlignment = HorizontalAlignment.Left;
+            word.Children.Add(_text);
+            word.Children.Add(_dot);
+            _pill.Child = word;
+        }
+        else
+        {
+            _pill.Child = _text;
+            _dot.HorizontalAlignment = HorizontalAlignment.Right;
+            _dot.VerticalAlignment = VerticalAlignment.Top;
+            _dot.Margin = new Thickness(0, 5, Math.Max(8, spec.Number("radius", spec.Height / 2) * 0.55), 0);
+            Children.Add(_dot);
+        }
 
         Show(new GaugeReading(double.NaN, SignalQuality.Unavailable));
     }

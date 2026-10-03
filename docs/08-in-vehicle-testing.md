@@ -609,7 +609,9 @@ of yours with no CARDS anywhere in the grid.
 1. With the DashDeck theme, tap **DASH**. **Expect:** the Clean console as in *The console dash*
    step 1 — no panels, arcs or boxes; groups separated by space and by the size and weight of the
    type. Captions are small and grey, numbers large and thin, units smaller than their numbers
-   (*88* then a small *°C*).
+   (*88* then a small *°C*). The console's background is the same as the stage's above it — no
+   darker block. Each reading's small quality dot sits right beside its caption (after it, or before
+   it on the right-hand column), not out in the middle of the screen.
 2. Tap **CLIMATE**. **Expect:** the Clean panel as in *The climate panel* step 2 — the switches are
    words, not pills.
 3. Look at the type itself. **Expect:** a clean sans-serif (Segoe UI) throughout both — not the
@@ -620,7 +622,8 @@ of yours with no CARDS anywhere in the grid.
    effectively invisible until one is lit; nothing glaring at night (it is white type on black — if it
    is too bright, the display's night dimming applies as for the rest of the dash).
 
-**A failure looks like:** a box, glass panel or pill on either default; a number in the wrong
-typeface; a unit as large as its number; any text running into another; a dark warning icon that
+**A failure looks like:** a box, glass panel or pill on either default; a visible edge where the
+console or climate panel meets the stage; a quality dot that is not next to its caption; a number in
+the wrong typeface; a unit as large as its number; any text running into another; a dark warning icon that
 draws the eye.
 

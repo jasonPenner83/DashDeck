@@ -153,6 +153,7 @@ public sealed class ConsoleLayoutTests : IDisposable
         Assert.DoesNotContain(clean.Elements, e => e.Type is StageElementType.Glass or StageElementType.Panel);
         Assert.DoesNotContain(clean.Elements, e => e.Type is StageElementType.Indicator && e.Text("style", "pill") != "text");
         Assert.Equal("Segoe UI Variable Display, Segoe UI", clean.Fonts?.Ui);
+        Assert.Null(clean.Background);   // the theme's canvas: no seam against the stage above
     }
 
     [Fact]
