@@ -207,7 +207,7 @@ public sealed class StageLayoutTests : IDisposable
         Assert.Equal("broken.json", Assert.Single(library.Problems).File);
     }
 
-    // ── The shipped LCARS stage ───────────────────────────────────────────────
+    // ── The LCARS stage (an extra since ADR-0043; read from catalog/extras as a shipped folder) ───────────────────────────────────────────────
 
     private static string ShippedFolder(string name, [System.Runtime.CompilerServices.CallerFilePath] string here = "") =>
         Path.Combine(Path.GetDirectoryName(here)!, "..", "..", "catalog", name);
@@ -215,7 +215,7 @@ public sealed class StageLayoutTests : IDisposable
     [Fact]
     public void The_shipped_lcars_stage_reads_cleanly_and_the_lcars_theme_names_it()
     {
-        var library = new StageLayoutLibrary(ShippedFolder("stage"), Path.Combine(_dir, "yours"));
+        var library = new StageLayoutLibrary(ShippedFolder(Path.Combine("extras", "lcars", "stage")), Path.Combine(_dir, "yours"));
 
         Assert.Empty(library.Problems);
         var lcars = library.FindForTheme("lcars");
@@ -224,14 +224,14 @@ public sealed class StageLayoutTests : IDisposable
         Assert.Equal(6, lcars.Gauges.Count());
         Assert.All(lcars.Gauges, g => Assert.Equal(GaugeStyle.LcarsBar, g.Style));
 
-        var themes = new DashDeck.Host.Theme.ThemeLibrary(ShippedFolder("themes"), Path.Combine(_dir, "themes"));
+        var themes = new DashDeck.Host.Theme.ThemeLibrary(ShippedFolder(Path.Combine("extras", "lcars", "themes")), Path.Combine(_dir, "themes"));
         Assert.Equal("lcars", themes.Find("shipped/lcars-inspired")!.StageLayout);
     }
 
     [Fact]
     public void The_stage_follows_the_theme_until_one_is_chosen()
     {
-        var library = new StageLayoutLibrary(ShippedFolder("stage"), Path.Combine(_dir, "yours"));
+        var library = new StageLayoutLibrary(ShippedFolder(Path.Combine("extras", "lcars", "stage")), Path.Combine(_dir, "yours"));
         var themeLayout = "lcars";
         string? saved = null;
         var service = new StageLayoutService(library, () => themeLayout, StageLayoutService.FollowTheme, c => saved = c);
@@ -260,13 +260,13 @@ public sealed class StageLayoutTests : IDisposable
     [Fact]
     public void The_shipped_layouts_are_written_out_as_examples_that_are_not_loaded()
     {
-        var library = new StageLayoutLibrary(ShippedFolder("stage"), Path.Combine(_dir, "yours"));
+        var library = new StageLayoutLibrary(ShippedFolder(Path.Combine("extras", "lcars", "stage")), Path.Combine(_dir, "yours"));
 
         Assert.Null(library.WriteExamples());
 
         var lcars = Path.Combine(library.ExamplesFolder, "lcars.json");
         var cluster = Path.Combine(library.ExamplesFolder, "f150-cluster.json");
-        Assert.Equal(File.ReadAllText(Path.Combine(ShippedFolder("stage"), "lcars.json")), File.ReadAllText(lcars));
+        Assert.Equal(File.ReadAllText(Path.Combine(ShippedFolder(Path.Combine("extras", "lcars", "stage")), "lcars.json")), File.ReadAllText(lcars));
         Assert.True(File.Exists(Path.Combine(library.ExamplesFolder, "README.txt")));
 
         // The written-out cluster is a real layout: copied up a folder, it loads cleanly.
@@ -282,5 +282,20 @@ public sealed class StageLayoutTests : IDisposable
         File.WriteAllText(lcars, "{ edited }");
         library.WriteExamples();
         Assert.NotEqual("{ edited }", File.ReadAllText(lcars));
+    }
+
+    /// <summary>The Modern theme's stage (ADR-0043): shipped, clean, and named by the built-in theme.</summary>
+    [Fact]
+    public void The_modern_stage_ships_and_the_built_in_theme_names_it()
+    {
+        var library = new StageLayoutLibrary(ShippedFolder("stage"), Path.Combine(_dir, "yours"));
+        var modern = library.FindForTheme(DashDeck.Host.Theme.ThemeDefinition.BuiltIn.StageLayout);
+
+        Assert.Empty(library.Problems);
+        Assert.NotNull(modern);
+        Assert.Equal("shipped/modern", modern!.Id);
+        Assert.Empty(modern.Problems);
+        Assert.DoesNotContain(modern.Elements, e => e.Type is StageElementType.Panel or StageElementType.Glass);
+        Assert.Equal("Segoe UI Variable Display, Segoe UI", modern.Fonts?.Ui);
     }
 }

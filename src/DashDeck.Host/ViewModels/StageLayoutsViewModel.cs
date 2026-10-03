@@ -63,9 +63,9 @@ public sealed partial class StageLayoutsViewModel : ObservableObject
 
     /// <summary>Where the files are, and how to make your own.</summary>
     public string FolderNote => IsConsole
-        ? $"Your console layouts are kept in {UserFolder}. The examples folder inside it has the built-in Clean console and every shipped one as a file to copy from. Save as the name a theme uses (lcars) to replace its console. The console is {_layouts.Library.Canvas.Width:0} × {_layouts.Library.Canvas.Height:0}."
+        ? $"Your console layouts are kept in {UserFolder}. The examples folder inside it has the built-in Modern console and every shipped one as a file to copy from. Save as the name a theme uses (lcars) to replace its console. The console is {_layouts.Library.Canvas.Width:0} × {_layouts.Library.Canvas.Height:0}."
         : IsClimate
-        ? $"Your climate layouts are kept in {UserFolder}. The examples folder inside it has the built-in Clean panel and every shipped one as a file to copy from. Save as the name a theme uses (lcars) to replace its panel. The panel is {_layouts.Library.Canvas.Width:0} × {_layouts.Library.Canvas.Height:0}."
+        ? $"Your climate layouts are kept in {UserFolder}. The examples folder inside it has the built-in Modern panel and every shipped one as a file to copy from. Save as the name a theme uses (lcars) to replace its panel. The panel is {_layouts.Library.Canvas.Width:0} × {_layouts.Library.Canvas.Height:0}."
         : $"Your layouts are kept in {UserFolder}. The examples folder inside it has every shipped layout as a file to copy from. Save as the name a theme uses (lcars) to replace its stage. The stage is {_layouts.Library.Canvas.Width:0} × {_layouts.Library.Canvas.Height:0}; RELOAD STAGE LAYOUT in the three-dot menu redraws it without leaving the stage.";
 
     /// <summary>The layout showing, in capitals.</summary>
@@ -178,10 +178,10 @@ public sealed partial class StageLayoutsViewModel : ObservableObject
     {
         Rows.Clear();
         Rows.Add(new StageLayoutRowViewModel(StageLayoutService.FollowTheme, "FOLLOW THE THEME", IsConsole
-            ? "Each theme can bring its own console — LCARS brings an LCARS one; the rest wear Clean."
+            ? "Each theme brings its own console — Modern its typographic one, Glass the arcs and frosted strip, LCARS its own."
             : IsClimate
-            ? "Each theme can bring its own climate panel — LCARS brings an LCARS one; the rest wear Clean."
-            : "Each theme brings its own stage — LCARS brings the LCARS stage, the DashDeck look the F-150 cluster.", null));
+            ? "Each theme brings its own climate panel — Modern its typographic one, Glass the frosted zones, LCARS its own."
+            : "Each theme brings its own stage — Modern its typographic one, Glass the chrome F-150 cluster, LCARS its own.", null));
 
         foreach (var layout in _layouts.Library.Layouts)
         {

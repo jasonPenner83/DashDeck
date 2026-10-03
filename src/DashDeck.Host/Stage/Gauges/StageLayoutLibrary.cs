@@ -131,12 +131,12 @@ public sealed class StageLayoutLibrary
             if (Canvas == LayoutCanvas.Console)
             {
                 Write("README.txt", ConsoleReadme);
-                Write("clean.json", ConsoleHeader + StageLayout.BuiltInConsoleJson + Environment.NewLine);
+                Write("modern.json", ConsoleHeader + StageLayout.BuiltInConsoleJson + Environment.NewLine);
             }
             else if (Canvas == LayoutCanvas.Climate)
             {
                 Write("README.txt", ClimateReadme);
-                Write("clean.json", ClimateHeader + StageLayout.BuiltInClimateJson + Environment.NewLine);
+                Write("modern.json", ClimateHeader + StageLayout.BuiltInClimateJson + Environment.NewLine);
             }
             else
             {
@@ -171,10 +171,10 @@ public sealed class StageLayoutLibrary
     }
 
     private const string ConsoleHeader = """
-        // The built-in console, Clean, written out as a reference (ADR-0041). DashDeck draws it
+        // The built-in console, Modern, written out as a reference (ADR-0041). DashDeck draws it
         // from code, so this copy is only for reading — editing it here changes nothing, and it is
         // put back at the next launch. To make your own: copy it up one folder (into console\),
-        // keep the name clean.json to replace it, or rename it and choose it in Settings ▸ Themes ▸
+        // keep the name modern.json to replace it, or rename it and choose it in Settings ▸ Themes ▸
         // CONSOLE LAYOUT. The canvas is 912 × 390. Every field is explained in
         // docs/writing-a-stage-layout.md.
 
@@ -187,13 +187,12 @@ public sealed class StageLayoutLibrary
         The console (DASH in the bottom bar) is drawn from a layout file, the same format as the
         stage (docs/writing-a-stage-layout.md), on a canvas 912 wide and 390 tall.
 
-          clean.json          the built-in Clean console — type, not boxes
-          modern.json         Modern: arcs and glass
-          lcars.json          the LCARS (inspired) console
+          modern.json         the built-in Modern console — type, not boxes
+          glass.json          Glass: arcs and a frosted strip, the Glass theme's
 
         These are NOT loaded from this folder, and they are rewritten every time DashDeck starts.
         To make your own: copy one up a folder into  ...\DashDeck\console\, edit it, and choose
-        it in Settings > Themes > CONSOLE LAYOUT (or keep the name clean.json to replace Clean).
+        it in Settings > Themes > CONSOLE LAYOUT (or keep the name modern.json to replace Modern).
 
         Warning lights for oil pressure, seatbelt, door, brake and tyres are placeholders until
         the truck's own are found: on the truck they stay dark with a grey dot. Check engine, low
@@ -202,10 +201,10 @@ public sealed class StageLayoutLibrary
         """;
 
     private const string ClimateHeader = """
-        // The built-in climate panel, Clean, written out as a reference (ADR-0040). DashDeck draws it
+        // The built-in climate panel, Modern, written out as a reference (ADR-0040). DashDeck draws it
         // from code, so this copy is only for reading — editing it here changes nothing, and it is
         // put back at the next launch. To make your own: copy it up one folder (into climate\),
-        // keep the name clean.json to replace it, or rename it and choose it in Settings ▸ Themes ▸
+        // keep the name modern.json to replace it, or rename it and choose it in Settings ▸ Themes ▸
         // CLIMATE LAYOUT. The canvas is 912 × 390. Every field is explained in
         // docs/writing-a-stage-layout.md. Read only: nothing here changes the truck's climate.
 
@@ -218,13 +217,12 @@ public sealed class StageLayoutLibrary
         The climate panel (CLIMATE in the bottom bar) is drawn from a layout file, the same format
         as the stage (docs/writing-a-stage-layout.md), on a canvas 912 wide and 390 tall.
 
-          clean.json          the built-in Clean panel — type, not boxes
-          glass.json          Glass: frosted panels
-          lcars.json          the LCARS (inspired) climate panel
+          modern.json         the built-in Modern panel — type, not boxes
+          glass.json          Glass: frosted panels, the Glass theme's
 
         These are NOT loaded from this folder, and they are rewritten every time DashDeck starts.
         To make your own: copy one up a folder into  ...\DashDeck\climate\, edit it, and choose
-        it in Settings > Themes > CLIMATE LAYOUT (or keep the name clean.json to replace Clean).
+        it in Settings > Themes > CLIMATE LAYOUT (or keep the name modern.json to replace Modern).
 
         It only shows what the truck reports. The climate signals (hvac.*) are placeholders until
         the truck's HVAC module is found, so on the truck they read a dash; on the synthetic truck

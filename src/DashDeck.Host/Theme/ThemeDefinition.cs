@@ -53,13 +53,13 @@ public sealed record ThemeDefinition
 
     /// <summary>
     /// The climate panel layout that comes with the theme (ADR-0040), by file name, or empty for
-    /// the built-in Clean panel.
+    /// the built-in Modern panel.
     /// </summary>
     public string ClimateLayout { get; init; } = "";
 
     /// <summary>
     /// The console layout that comes with the theme (ADR-0041), by file name, or empty for the
-    /// built-in Clean console.
+    /// built-in Modern console.
     /// </summary>
     public string ConsoleLayout { get; init; } = "";
 
@@ -80,19 +80,59 @@ public sealed record ThemeDefinition
     /// <summary>The file it was read from, or null for the built-in one.</summary>
     public string? FilePath { get; init; }
 
-    /// <summary>What the stored choice names: <c>shipped/lcars</c>, <c>yours/my-lcars</c>, <c>builtin/dashdeck</c>.</summary>
-    public string Id => $"{Origin.ToString().ToLowerInvariant()}/{(FilePath is null ? "dashdeck" : Path.GetFileNameWithoutExtension(FilePath).ToLowerInvariant())}";
+    /// <summary>What the stored choice names: <c>shipped/glass</c>, <c>yours/lcars-inspired</c>, <c>builtin/modern</c>.</summary>
+    public string Id => $"{Origin.ToString().ToLowerInvariant()}/{(FilePath is null ? BuiltInSlug : Path.GetFileNameWithoutExtension(FilePath).ToLowerInvariant())}";
 
     /// <summary>The folder its font files are in, or null.</summary>
     public string? Folder => FilePath is null ? null : Path.GetDirectoryName(FilePath);
 
-    /// <summary>The DashDeck look itself: no tokens changed.</summary>
+    /// <summary>
+    /// Modern, the built-in theme and the default (ADR-0043): its own values over the token defaults —
+    /// cool greys, a light-blue accent, Segoe UI — and the Modern stage; its console and climate panel
+    /// are the built-in ones. Glass ships beside it as a file.
+    /// </summary>
     public static ThemeDefinition BuiltIn { get; } = new()
     {
-        Name = "DashDeck",
-        Description = "The default: warm dark surfaces and one accent.",
+        Name = "Modern",
+        Description = "The default: quiet cool greys, one light-blue accent, Segoe UI, and type rather than boxes on the stage, the console and the climate panel.",
         Author = "DashDeck",
+        StageLayout = "modern",
+        Tokens = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["canvas"] = "#0A0B0D",
+            ["surface"] = "#14161A",
+            ["raised"] = "#1B1E23",
+            ["hairline"] = "#24282E",
+            ["hairlineStrong"] = "#313740",
+            ["textHigh"] = "#F2F4F6",
+            ["textMid"] = "#9AA2AB",
+            ["textLow"] = "#646B73",
+            ["textFaint"] = "#454B52",
+            ["accent"] = "#5AC8FA",
+            ["accentWash"] = "0.10",
+            ["onAccent"] = "#04121A",
+            ["buttonRadius"] = "10",
+            ["cardRadius"] = "12",
+            ["panelRadius"] = "10",
+            ["uiFont"] = "Segoe UI Variable Display, Segoe UI",
+            ["monoFont"] = "Segoe UI Variable Text, Segoe UI",
+        },
+        Night = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["canvas"] = "#050607",
+            ["surface"] = "#0C0D10",
+            ["raised"] = "#111317",
+            ["hairline"] = "#181B1F",
+            ["hairlineStrong"] = "#22262C",
+            ["textHigh"] = "#B8BCC1",
+            ["textMid"] = "#6F767D",
+            ["textLow"] = "#60676E",
+            ["textFaint"] = "#33373C",
+        },
     };
+
+    /// <summary>The built-in theme's file name: <c>builtin/modern</c>, and <c>modern.json</c> among the examples.</summary>
+    public const string BuiltInSlug = "modern";
 
     // ── Reading and writing ───────────────────────────────────────────────────
 

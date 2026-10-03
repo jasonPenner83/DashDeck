@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **576 tests green** — 194 engine, 382 shell.
+(ADR-0010). **586 tests green** — 194 engine, 392 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -95,7 +95,7 @@ DashDeck look (the built-in theme is pixel-identical to before). Shipped themes 
 after a hand edit; [`docs/writing-a-theme.md`](docs/writing-a-theme.md) is the reference. Night is
 derived by dimming; a bad value costs one token and a warning, never the dash. **The quality
 colours are not tokens**, and a theme's accent passes the same check a hand-picked one does.
-*LCARS (inspired)* ships first, lettered in Antonio (OFL). **Fonts, radii and border width are
+*LCARS (inspired)*, lettered in Antonio (OFL), came first; it is now an extra the user owns (ADR-0043). **Fonts, radii and border width are
 `DynamicResource` now, like colours** — a view that reaches `UiFont` by `StaticResource` will not
 follow the theme.
 
@@ -139,9 +139,9 @@ and a `compass.json` of the user's in `stage\` replaces it. `CompassView`/`Compa
 the stage's engine. Four new elements work on either: **`setpoint`** (a set temperature on a thin
 glowing arc), **`levels`** (steps lit to the value; below zero in `negativeColour`, for a seat that
 heats and cools — `positiveText`/`negativeText` make it read HEAT 2 / COOL 1), **`indicator`** (a pill lit by a `bit`, `equals` or `onAt`; no reading is dimmed
-with a dash, never "off") and **`glass`** (painted frost). The built-in is **Clean** (ADR-0042; Glass
-ships as `catalog/climate/glass.json`); LCARS ships
-`catalog/climate/lcars.json` and names it (`"climateLayout"`); the user's live in
+with a dash, never "off") and **`glass`** (painted frost). The built-in is **Modern** (ADR-0042/0043; the Glass
+theme's frosted panel ships as `catalog/climate/glass.json`); a theme names its own
+(`"climateLayout"`); the user's live in
 `%LOCALAPPDATA%\DashDeck\climate\`, chosen in **Settings ▸ Themes ▸ CLIMATE LAYOUT** (the stage's
 block, one template). The panel is **made when CLIMATE is chosen and disposed when left**, so it
 declares signals only while visible. Its thirteen `hvac.*` / `seat.*.climate` / `steeringWheel.heat`
@@ -151,9 +151,9 @@ signals are
 Phase 3 (ADR-0006).
 
 **DASH is a console, and the cards are on the stage** (ADR-0041). The console is a layout on a
-**912 × 390** canvas (`LayoutCanvas.Console`), made when DASH is chosen; the built-in is **Clean**
-(ADR-0042; Modern ships as `catalog/console/modern.json`),
-LCARS ships `catalog/console/lcars.json` (`"consoleLayout"`), yours live in
+**912 × 390** canvas (`LayoutCanvas.Console`), made when DASH is chosen; the built-in is **Modern**
+(ADR-0042/0043; the Glass theme's arcs console ships as `catalog/console/glass.json`), a theme names
+its own (`"consoleLayout"`), yours live in
 `%LOCALAPPDATA%\DashDeck\console\` (Settings ▸ Themes ▸ CONSOLE LAYOUT). A **`warning`** element
 draws one of nine original icons (path data, `WarningIcons`) lit by `bit`/`below`/`equals`/`onAt`.
 Real lights: check engine (`diagnostics.checkEngine`, PID 01 bit 7 — **decodes can `mask`**, so
@@ -165,7 +165,16 @@ while it is off the stage, so no card declares; MODIFY WIDGETS puts CARDS on the
 launcher file that never mentions `cards` gets it at the end of the grid. The card editor and
 component details can open over CLIMATE now, so both panels hide beneath them.
 
-**The defaults are Clean — type over shapes** (ADR-0042): on black, no panels, arcs or pills; a small
+**Two looks, Modern and Glass; LCARS is yours** (ADR-0043). **Modern** is the built-in theme
+(`builtin/modern`: cool greys, accent `#5AC8FA`, Segoe UI Variable) and names the Modern stage
+(`catalog/stage/modern.json`), console and climate panel; **Glass** ships (`catalog/themes/glass.json`)
+and names the Glass console and climate panel and the F-150 cluster. Every screen follows the theme
+unless a layout is picked by hand. **LCARS is an extra** in `catalog/extras/lcars/`, copied **once**
+into the user's folders by `ExtrasInstaller` (recorded as `installedExtras` in settings), so it is
+YOURS — editable, deletable, and deleted stays deleted; a stored `shipped/x` choice finds `yours/x`.
+The build and `publish.ps1` clear the output `catalog` first, so a moved file never lingers twice.
+
+**The defaults are type over shapes** (ADR-0042, named *Clean* then, *Modern* now): on black, no panels, arcs or pills; a small
 caption over a large light number aligned to its edge, units smaller than numbers, switches as words
 that light, warning icons near-invisible until lit; text colours are theme tokens so they dim at
 night. Layouts can now name their own **`fonts`** (`{ "ui", "mono" }`, set as canvas resources that
@@ -394,7 +403,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Forty-two exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Forty-three exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -417,7 +426,8 @@ and the stage as a file of gauges, text, clock and panels that a theme can bring
 the launcher as a file — every stage option, web page and program, in order, and the quick bar, and
 the compass as layout elements — sensor-sourced gauges, a rose and a G meter, and a read-only
 climate panel drawn from a layout file in place of the cards, and DASH as a console layout with
-warning lights while the cards move onto the stage, and clean, typographic defaults for both.
+warning lights while the cards move onto the stage, and clean, typographic defaults for both, and two default themes, Modern and Glass, with LCARS made
+the user's own.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

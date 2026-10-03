@@ -1,0 +1,42 @@
+// Modern (ADR-0043) — the Modern theme's stage: the same typographic idea as its console and climate
+// panel. Boost and engine temperature as thin arcs with the number large inside; volts, intake air,
+// throttle and load as captions over numbers. No bezels, no boxes. The stage is 912 × 636.
+{
+  "name": "Modern",
+  "description": "Boost and engine temperature on thin arcs, volts, intake, throttle and load as type. Comes with the Modern theme.",
+  "author": "DashDeck",
+  "fonts": { "ui": "Segoe UI Variable Display, Segoe UI", "mono": "Segoe UI Variable Text, Segoe UI" },
+  "elements": [
+    { "id": "boost", "type": "setpoint", "x": 46, "y": 40, "width": 390, "height": 330,
+      "label": "BOOST", "unit": " psi", "format": "0.0", "min": -15, "max": 25,
+      "source": { "signal": "engine.intakeManifoldPressure", "minus": "engine.barometricPressure", "minusFallback": 101.325, "scale": 0.1450377, "rateHz": 3 },
+      "parts": { "arcColour": "@accent", "trackColour": "@hairlineStrong", "thickness": 3, "sweep": 260, "glow": "none",
+                 "valueSize": 88, "valueWeight": "light", "valueColour": "@textHigh", "labelColour": "@textMid", "labelSize": 14, "labelWeight": "regular" } },
+    { "id": "engine", "type": "setpoint", "x": 476, "y": 40, "width": 390, "height": 330,
+      "label": "ENGINE", "unit": "°", "format": "0", "min": 40, "max": 130,
+      "source": { "signal": "engine.coolantTemp", "rateHz": 0.5 },
+      "parts": { "arcColour": "@accent", "trackColour": "@hairlineStrong", "thickness": 3, "sweep": 260, "glow": "none",
+                 "valueSize": 88, "valueWeight": "light", "valueColour": "@textHigh", "labelColour": "@textMid", "labelSize": 14, "labelWeight": "regular" } },
+
+    { "id": "volts", "style": "digital", "x": 66, "y": 440, "width": 180, "height": 90,
+      "label": "VOLTS", "unit": "V", "format": "0.0", "min": 8, "max": 18,
+      "source": { "signal": "vehicle.controlModuleVoltage", "rateHz": 1 },
+      "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                 "valueSize": 40, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 18, "unitColour": "@textMid", "noData": "–" } },
+    { "id": "intake", "style": "digital", "x": 266, "y": 440, "width": 180, "height": 90,
+      "label": "INTAKE", "unit": "°", "format": "0", "min": -20, "max": 60,
+      "source": { "signal": "engine.intakeAirTemp", "rateHz": 0.5 },
+      "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                 "valueSize": 40, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 18, "unitColour": "@textMid", "noData": "–" } },
+    { "id": "throttle", "style": "digital", "x": 466, "y": 440, "width": 180, "height": 90,
+      "label": "THROTTLE", "unit": "%", "format": "0", "min": 0, "max": 100,
+      "source": { "signal": "engine.throttlePosition", "rateHz": 4 },
+      "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                 "valueSize": 40, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 18, "unitColour": "@textMid", "noData": "–" } },
+    { "id": "load", "style": "digital", "x": 666, "y": 440, "width": 180, "height": 90,
+      "label": "LOAD", "unit": "%", "format": "0", "min": 0, "max": 100,
+      "source": { "signal": "engine.load", "rateHz": 2 },
+      "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                 "valueSize": 40, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 18, "unitColour": "@textMid", "noData": "–" } }
+  ]
+}
