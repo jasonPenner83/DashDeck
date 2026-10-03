@@ -151,11 +151,20 @@ internal sealed class HuntSession : IAsyncDisposable
 
         foreach (var bus in RequestBuses)
         {
-            var response = await RequestAsync(new PidRequest(0x22, 0xF113, bus, address), ct).ConfigureAwait(false);
-            if (response.ModuleAnswered)
+            // Twice: one unanswered request is routine.
+            for (var attempt = 0; attempt < 2; attempt++)
             {
-                KnownModules[address] = bus;
-                return bus;
+                var response = await RequestAsync(new PidRequest(0x22, 0xF113, bus, address), ct).ConfigureAwait(false);
+                if (response.ModuleAnswered)
+                {
+                    KnownModules[address] = bus;
+                    return bus;
+                }
+
+                if (response.Failure != PidFailure.NoData && response.Failure != PidFailure.Timeout)
+                {
+                    break;
+                }
             }
         }
 

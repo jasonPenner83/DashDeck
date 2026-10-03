@@ -154,7 +154,13 @@ internal sealed partial class Wizard
     /// <summary>Refuse to go on while the truck is moving; warn when it does not say.</summary>
     private async Task<bool> ParkedAsync(CancellationToken ct)
     {
-        var speed = await _session.SpeedAsync(ct).ConfigureAwait(false);
+        // Asked up to three times: one unanswered request is routine, and should not stop the guide.
+        double? speed = null;
+        for (var attempt = 0; attempt < 3 && speed is null; attempt++)
+        {
+            speed = await _session.SpeedAsync(ct).ConfigureAwait(false);
+        }
+
         if (speed is > 0)
         {
             _io.WriteLine($"The truck says it is moving ({speed} km/h). Stop and park first — this is never done on the road.");
