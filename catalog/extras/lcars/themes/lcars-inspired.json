@@ -13,6 +13,8 @@
   "description": "Black, pill-shaped buttons in peach and lavender, condensed capitals. A fan homage; not affiliated with Paramount.",
   "author": "DashDeck",
   "stageLayout": "lcars",
+  "climateLayout": "lcars",
+  "consoleLayout": "lcars",
   "fontFiles": [ "Antonio-Regular.ttf", "Antonio-Bold.ttf" ],
   "tokens": {
     "canvas": "#000000",

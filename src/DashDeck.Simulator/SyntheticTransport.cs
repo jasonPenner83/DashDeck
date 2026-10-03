@@ -228,7 +228,7 @@ public sealed class SyntheticTransport : IVehicleTransport
 
         // Mode 01 support bitmaps. A real ECU answers these, and they are how the vehicle
         // tells us which PIDs it implements rather than us assuming.
-        if (pid is 0x00 or 0x20 or 0x40 or 0x60 or 0x80)
+        if (pid is 0x00 or 0x20 or 0x40 or 0x60 or 0x80 or 0xA0)
         {
             if (_bus == CanBus.Ms)
             {
@@ -290,6 +290,9 @@ public sealed class SyntheticTransport : IVehicleTransport
         0x3C, 0x42, 0x43, 0x45, 0x46, 0x47, 0x49, 0x4A, 0x4C, 0x52,
         0x5C, 0x5E, 0x61, 0x62, 0x63,
 
+        // The check-engine light and code count, and the odometer (ADR-0041).
+        0x01, 0xA6,
+
         // Answered but not in the shipped catalog — what a Settings ▸ Sensors scan turns up
         // as missing (ADR-0032).
         0x08, 0x09, 0x21, 0x3D, 0x44,
@@ -343,6 +346,8 @@ public sealed class SyntheticTransport : IVehicleTransport
         0x0C => TwoByte((ushort)Math.Clamp(_truck.Jitter(_truck.Rpm, 8) * 4, 0, 65535)),
         0x0D => [(byte)Math.Clamp(Math.Round(_truck.SpeedKph), 0, 255)],
         0x0F => [Temp(_truck.IntakeAirTempC)],
+        0x01 => [(byte)((_truck.CheckEngine ? 0x80 : 0) | Math.Min(_truck.StoredCodes, 0x7F)), 0x07, 0xE5, 0x00],  // monitor status
+        0xA6 => FourByte((uint)Math.Clamp(Math.Round(_truck.OdometerKm * 10), 0, uint.MaxValue)),            // odometer, 0.1 km
         0x10 => TwoByte((ushort)Math.Clamp(_truck.Jitter(_truck.MafGramsPerSecond, 0.3) * 100, 0, 65535)),
         0x11 => [Scale255(_truck.ThrottlePercent)],
         0x1F => TwoByte((ushort)Math.Clamp(_truck.RunTimeSeconds, 0, 65535)),
@@ -390,18 +395,42 @@ public sealed class SyntheticTransport : IVehicleTransport
     };
 
     /// <summary>
-    /// MS-CAN body-module PIDs. Only the per-wheel TPMS placeholders, for now (see catalog).
+    /// MS-CAN body-module PIDs: the per-wheel TPMS placeholders, and the climate ones (ADR-0040).
     /// </summary>
     /// <remarks>
     /// 0.25 psi per count, with a touch of jitter so the readout is never suspiciously still.
     /// The rear left comes back low on purpose, so the overhead view has a corner to light.
     /// </remarks>
+    private static byte HalfDegree(double celsius) => (byte)Math.Clamp(Math.Round(celsius * 2), 0, 255);
+
     private byte[]? EncodeMsPid(byte pid) => pid switch
     {
         0xC0 => [Psi(_truck.Jitter(_truck.TirePsiFrontLeft, 0.1))],
         0xC1 => [Psi(_truck.Jitter(_truck.TirePsiFrontRight, 0.1))],
         0xC2 => [Psi(_truck.Jitter(_truck.TirePsiRearLeft, 0.1))],
         0xC3 => [Psi(_truck.Jitter(_truck.TirePsiRearRight, 0.1))],
+
+        // Climate placeholders (ADR-0040; see the catalog for each encoding).
+        0xC4 => [HalfDegree(_truck.DriverSetTempC)],
+        0xC5 => [HalfDegree(_truck.PassengerSetTempC)],
+        0xC6 => [(byte)Math.Clamp(Math.Round((_truck.CabinTempC + 40) * 2), 0, 255)],
+        0xC7 => [(byte)_truck.FanSpeed],
+        0xC8 => [_truck.AirConditioning ? (byte)1 : (byte)0],
+        0xC9 => [_truck.AutoMode ? (byte)1 : (byte)0],
+        0xCA => [_truck.Recirculate ? (byte)1 : (byte)0],
+        0xCB => [_truck.FrontDefrost ? (byte)1 : (byte)0],
+        0xCC => [_truck.RearDefrost ? (byte)1 : (byte)0],
+        0xCD => [(byte)_truck.Airflow],
+        0xCE => [unchecked((byte)(sbyte)_truck.DriverSeat)],
+        0xCF => [unchecked((byte)(sbyte)_truck.PassengerSeat)],
+        0xD0 => [_truck.SteeringWheelHeat ? (byte)1 : (byte)0],
+
+        // Warning-light placeholders (ADR-0041): all off on the synthetic truck.
+        0xD1 or 0xD2 or 0xD3 or 0xD4 or 0xD5 => [0],
+
+        // Economy and range placeholders (ADR-0041), from the synthetic engine's own fuel rate.
+        0xD6 => TwoByte((ushort)Math.Clamp(Math.Round(_truck.EconomyL100 * 10), 0, 999)),
+        0xD7 => TwoByte((ushort)Math.Clamp(Math.Round(_truck.RangeKm), 0, 2000)),
         _ => null,
     };
 
@@ -506,6 +535,8 @@ public sealed class SyntheticTransport : IVehicleTransport
     private static byte Psi(double psi) => (byte)Math.Clamp(Math.Round(psi * 4.0), 0, 255);
 
     private static byte[] TwoByte(ushort value) => [(byte)(value >> 8), (byte)(value & 0xFF)];
+
+    private static byte[] FourByte(uint value) => [(byte)(value >> 24), (byte)(value >> 16), (byte)(value >> 8), (byte)(value & 0xFF)];
 
     /// <summary>Format a positive response exactly as an ELM327 with spaces and echo off.</summary>
     private static string Respond(byte mode, byte pid, byte[] payload)

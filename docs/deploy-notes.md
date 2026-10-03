@@ -17,7 +17,9 @@ powershell -ExecutionPolicy Bypass -File publish.ps1 -Shortcut   # or pwsh, if P
 
 Produces `dist/DashDeck/` — a self-contained folder: its own .NET runtime, the signal catalog,
 LibVLC, and every component under `plugins/`. Copy the whole folder to the Surface (or launch it
-in place) and run `DashDeck.lnk` / `DashDeck.Host.exe`. Escape closes it. Uninstalling is
+in place) and run `DashDeck.lnk` / `DashDeck.Host.exe`. Tap it **once** — it takes a few seconds
+to find the adapter, and a second tap now just brings the same dash forward. **CLOSE DASHDECK** in
+the three-dot menu (two taps) closes it. Uninstalling is
 deleting the folder (constraint C1).
 
 The publish summary should read: catalog `included`, libvlc `included`, components `5 included`.
@@ -28,12 +30,73 @@ To confirm the loader in the deployed folder without opening the shell:
 To attach the build to its GitHub Release (rollback is unzipping the previous one):
 
 ```powershell
-Compress-Archive -Path dist\DashDeck\* -DestinationPath dist\DashDeck-v0.4.0-win-x64.zip -Force
+Compress-Archive -Path dist\DashDeck\* -DestinationPath dist\DashDeck-v0.6.0-win-x64.zip -Force
 ```
 
 ## What this build contains
 
-**`v0.4.0`** — released 2026-10-02 from `main`. It adds the following to `v0.3.0`:
+**`v0.6.0`** — released from `main` (the tag goes on the release merge; see the release steps). It
+adds the following to `v0.5.0`:
+
+- **The launcher is a file** (ADR-0038). `%LOCALAPPDATA%\DashDeck\launcher.json` lists every stage
+  option — screens, web pages (with their own zoom), Windows programs — in order, with the five
+  buttons below the stage and the opening stage. **Settings ▸ Apps ▸ STAGE LAUNCHER** shows it, with
+  MAKE IT MINE, OPEN FOLDER and RELOAD. Without a file, the launcher is exactly as before.
+  Reference: [writing-a-launcher](writing-a-launcher.md).
+- **COMPASS is a stage layout** (ADR-0039): a rose, a G meter, and gauges that read the tablet's
+  sensors with their source written under them. Copy `stage\examples\compass.json` up into
+  `stage\` to change it. RESET PEAK G is in the three-dot menu on COMPASS.
+- **One DashDeck at a time.** A second launch brings the running one forward instead of starting a
+  copy with no truck.
+- **Module scans and sweeps are kept** in `%LOCALAPPDATA%\DashDeck\discovery.json` and shown again at
+  launch, marked SAVED. The file can hold the VIN — keep it on the tablet.
+- **The signal editor's TEST button is on screen** again (it was pushed off the right edge).
+- **WATCH** (Settings ▸ Sensors ▸ MODULES, on a swept module): re-asks the identifiers a sweep found
+  until STOP and ranks them by how often they changed since the watch began, with a likely
+  temperature beside each. Every watch is **recorded** to
+  `%LOCALAPPDATA%\DashDeck\watch\watch-<module>-<range>-<time>.csv` to lay beside a FORScan log. Refused
+  while moving, and stops if the truck moves.
+- **CLIMATE** in the bottom bar (ADR-0040): a read-only climate panel in place of the cards — set
+  temperatures, fan, airflow, seat heat/cool, heated wheel, AUTO/A/C/RECIRC/DEFROST/REAR, outside air.
+  **On the real truck every climate value reads a dash** (placeholders until the HVAC module is found);
+  only OUTSIDE is live. Nothing is sent to the truck.
+- **DASH is a console** (ADR-0041): speed, rpm, fuel, engine temperature, range, economy, odometer,
+  stored codes and nine warning lights. **The cards moved onto the stage, behind CARDS.** Range,
+  economy and five of the lights (oil, seatbelt, door, brake, tyres) are placeholders and read a dash
+  with a grey dot until Ford's identifiers are found; check engine, low fuel, hot coolant and low
+  voltage are real.
+- **Two looks, Modern and Glass** (ADR-0042, ADR-0043). **Modern** is the new default — cool greys, one
+  light-blue accent, Segoe UI, and type rather than boxes on the stage, console and climate panel.
+  **Glass** is blue-black with frosted panels, an arcs console and the chrome F-150 cluster. Every
+  screen follows the theme unless a layout is chosen by hand in Settings ▸ Themes.
+- **LCARS is yours now.** The first launch copies it into `%LOCALAPPDATA%\DashDeck\themes\` (and its
+  stage, console and climate layouts into theirs), so it can be edited or deleted; if you wore it, you
+  still do. A spare copy stays in `catalog\extras\lcars\`.
+
+Check in the truck: the walkthroughs in [08-in-vehicle-testing](08-in-vehicle-testing.md) —
+*The launcher as a file*, *COMPASS as a stage layout*, *One DashDeck at a time*, *Module scans and
+sweeps are kept across a restart*, *The signal editor's TEST button is on screen*, *WATCH*, *WATCH
+recordings*, *The climate panel*, *The console dash, and the cards on the stage*, *The Modern
+defaults* and *Two looks, Modern and Glass — and LCARS is yours*.
+
+And from **`v0.5.0`** — released 2026-10-02 from `main` (tag on the #27 merge, `ee8911b`):
+
+- **The stage as a file** (ADR-0037). The GAUGES stage is drawn from a JSON layout of gauges
+  (dial, arc, bar, LCARS bar, digital), text, a clock and panels on a 912 × 636 canvas.
+  - A theme brings its stage: LCARS brings the LCARS stage.
+  - **Settings ▸ Themes ▸ STAGE LAYOUT** chooses a layout, or follows the theme, and has SAVE AS,
+    DELETE, OPEN FOLDER and RELOAD. RELOAD STAGE LAYOUT is in the three-dot menu.
+  - Your layouts are in `%LOCALAPPDATA%\DashDeck\stage\`.
+  - Writing one: [writing-a-stage-layout](writing-a-stage-layout.md).
+- **Honest gauges.** No reading means no needle and NO DATA; Stale is dimmed; every gauge has a
+  quality dot. On the truck, **OIL TEMP reads NO DATA**, which is correct: the truck doesn't report
+  oil temperature.
+- **Examples** are written to `themes\examples\` and `stage\examples\` on every launch: the
+  shipped files, plus the built-in theme and cluster as JSON. They're references only, never loaded.
+- **CLOSE DASHDECK** in the three-dot menu (from v0.4.1): two taps to quit, and quitting now ends the
+  process and frees the adapter's port.
+
+And from **`v0.4.0`** (released 2026-10-02):
 
 - **Themes** (Settings ▸ Themes, ADR-0036). A theme restyles the whole dash; tap one to wear it.
   IMPORT, EXPORT, SAVE AS, DELETE (yours only), OPEN FOLDER and RELOAD.
@@ -75,9 +138,10 @@ And from **`v0.3.0`**, the first build that reads the real truck:
   - the five components in `plugins/`;
   - Settings sections for Appearance, Mount, Display, Vehicle and Diagnostics.
 
-Check the deploy carried the theme: the publish copies `catalog/themes/` (JSON, fonts and the
-font licence) beside the executable. If LCARS appears in Settings ▸ Themes but its lettering is wide
-and ordinary, the `.ttf` files did not make it into the folder.
+Check the deploy carried the themes: the publish clears and re-copies `catalog\` beside the
+executable — `catalog\themes\glass.json`, and LCARS with its Antonio fonts and licence in
+`catalog\extras\lcars\`. The first launch copies LCARS into your own themes folder; if it then appears
+in Settings ▸ Themes with wide, ordinary lettering, the `.ttf` files did not make it across.
 
 ## Known limits — read before deciding something is broken
 
@@ -112,6 +176,9 @@ Step-by-step walkthroughs, with what to expect and what a failure looks like, ar
   the truck*. Check TEST rpm against the tachometer.
 - **VIN lookup**: read from the truck, and decoded as a 2019 Ford F-150 with the 2.7 L.
 - **Settings ▸ Themes**: passed on the tablet 2026-10-02 (LCARS approved).
+- **Closing by touch**: passed on the Surface 2026-10-02. Nothing left in Task Manager.
+- **The stage as a file**: ran on the PC on 2026-10-02. In the truck, with the engine running,
+  OIL TEMP should read NO DATA and the other gauges should move.
 - **Settings ▸ Sensors ▸ Modules**: **not yet walked through** — the next thing to do in the truck.
   Close FORScan first; send the module list it finds (cover the `22 F190` row, the VIN).
 

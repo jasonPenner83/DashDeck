@@ -18,10 +18,21 @@ public partial class App : Application
     private ShellViewModel? _shell;
     private Theme.ThemeService? _theme;
     private Stage.WeatherService? _weather;
+    private Shell.SingleInstance? _instance;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // One DashDeck at a time, before anything opens the adapter: the serial port can only be
+        // held once, and a second tap on the icon during a slow start used to make a second dash
+        // on no truck. Another one running is brought forward instead.
+        _instance = Shell.SingleInstance.Claim();
+        if (_instance is null)
+        {
+            Shutdown(0);
+            return;
+        }
 
         // Never fail silently. A dash that vanishes tells you nothing; one that leaves a
         // log can be diagnosed later, from the passenger seat or the kitchen table.
@@ -145,6 +156,15 @@ public partial class App : Application
         // One weather fetch for the whole application. Built before the theme, because Auto
         // day/night reads sunrise and sunset from it rather than fetching its own.
         _weather = new Stage.WeatherService(SystemClock.Instance);
+        // The extras (LCARS, ADR-0043) go into the user's own folders the first time this version
+        // runs — before the themes are read, so a dash that wore LCARS still does.
+        var extras = Theme.ExtrasInstaller.InstallNew(
+            CatalogPath.FindFolder("extras"), Settings.JsonFile.InLocalAppData, Settings.SettingsStore.Load().InstalledExtras);
+        if (extras.Installed.Count > 0)
+        {
+            Settings.SettingsStore.Update(s => s with { InstalledExtras = [.. s.InstalledExtras, .. extras.Installed] });
+        }
+
         _theme = new Theme.ThemeService(SystemClock.Instance, _weather);
 
         // --theme <DAY|NIGHT|AUTO> forces a palette, for looking at one without waiting for
@@ -336,7 +356,9 @@ public partial class App : Application
                 // render, so record what the player says it is doing beside the image.
                 if (_shell?.DescribeStage() is { } state)
                 {
-                    System.IO.File.WriteAllText(shotPath + ".txt", state);
+                    var climate = _shell.DescribeClimate() is { } c ? $"{Environment.NewLine}climate: {c}" : "";
+                    var console = _shell.DescribeConsole() is { } d ? $"{Environment.NewLine}console: {d}" : "";
+                    System.IO.File.WriteAllText(shotPath + ".txt", state + climate + console);
                 }
 
                 Shutdown();
@@ -512,6 +534,10 @@ public partial class App : Application
                 Fail("Shutdown", ex.InnerException ?? ex);
             }
         }
+
+        // The port is closed (or abandoned to the backstop): let a successor in. Released before the
+        // restart below starts one, so RESTART NOW never waits on itself.
+        _instance?.Release();
 
         if (_restartRequested && Environment.ProcessPath is { } exe)
         {

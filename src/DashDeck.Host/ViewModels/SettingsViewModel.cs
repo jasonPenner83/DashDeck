@@ -61,7 +61,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly ThemeService _theme;
     private readonly DashDeck.Host.Sensors.SensorService _sensors;
     private readonly DashDeck.Host.Stage.UserAppStore _userApps;
-    private readonly IReadOnlyList<string> _reservedNames;
+    private readonly DashDeck.Host.Stage.Launcher.StageLauncherStore _launcher;
 
     /// <summary>
     /// The settings tabs. One long scroll became a rail and a pane once the sections stopped
@@ -129,7 +129,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         DashDeck.Host.Settings.DisplaySettings display,
         DashDeck.Host.Sensors.SensorService sensors,
         DashDeck.Host.Stage.UserAppStore userApps,
-        IReadOnlyList<string> reservedNames,
+        DashDeck.Host.Stage.Launcher.StageLauncherStore launcher,
         SensorInventoryViewModel inventory,
         VehicleIdentityViewModel vehicle,
         AdapterPortsViewModel adapter)
@@ -139,12 +139,15 @@ public sealed partial class SettingsViewModel : ObservableObject
         var dialogs = new ThemeDialogs();
         Themes = new ThemesViewModel(theme, dialogs);
         StageLayouts = new StageLayoutsViewModel(theme.Layouts, dialogs);
+        ClimateLayouts = new StageLayoutsViewModel(theme.ClimateLayouts, dialogs);
+        ConsoleLayouts = new StageLayoutsViewModel(theme.ConsoleLayouts, dialogs);
         Inventory = inventory;
         Vehicle = vehicle;
         Display = display;
         _sensors = sensors;
         _userApps = userApps;
-        _reservedNames = reservedNames;
+        _launcher = launcher;
+        Launcher = new LauncherSettingsViewModel(launcher, dialogs);
 
         WebScales = [.. DashDeck.Host.Settings.DisplaySettings.Choices.Select(s => new WebScaleOption(s))];
         display.PropertyChanged += (_, _) => SyncScales();
@@ -175,6 +178,12 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Which layout the stage shows, and writing your own (ADR-0037).</summary>
     public StageLayoutsViewModel StageLayouts { get; }
+
+    /// <summary>Settings ▸ Themes ▸ CLIMATE LAYOUT (ADR-0040).</summary>
+    public StageLayoutsViewModel ClimateLayouts { get; }
+
+    /// <summary>Settings ▸ Themes ▸ CONSOLE LAYOUT (ADR-0041).</summary>
+    public StageLayoutsViewModel ConsoleLayouts { get; }
 
     /// <summary>Every signal and sensor, the scan that finds missing ones, and the editor (ADR-0032).</summary>
     public SensorInventoryViewModel Inventory { get; }
@@ -426,16 +435,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     public string AppsPath => _userApps.Path;
 
     /// <summary>
-    /// The apps that ship with DashDeck — Nuvio, Stremio and the Probe — listed for reference but
-    /// not editable. Their value is the curated multi-candidate install paths, which is exactly
-    /// why they stay in code rather than in the store (ADR-0024).
+    /// The launcher file (ADR-0038): every stage option in order, the quick bar, and where the
+    /// apps added here sit among them. It replaced the read-only built-in list — NUVIO, STREMIO
+    /// and PROBE are entries in it now, with their install paths.
     /// </summary>
-    public IReadOnlyList<BuiltInAppRow> BuiltInApps { get; } =
-    [
-        BuiltInAppRow.From(DashDeck.Host.Stage.AppLaunchSpec.Nuvio),
-        BuiltInAppRow.From(DashDeck.Host.Stage.AppLaunchSpec.Stremio),
-        BuiltInAppRow.From(DashDeck.Host.Stage.AppLaunchSpec.Probe),
-    ];
+    public LauncherSettingsViewModel Launcher { get; }
 
     /// <summary>The name for the app being added.</summary>
     [ObservableProperty]
@@ -476,7 +480,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         get
         {
             var name = NewAppName.Trim();
-            return _reservedNames.Any(r => string.Equals(r, name, StringComparison.OrdinalIgnoreCase))
+            return _launcher.Current.Entries.Any(e => string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase))
                 || _userApps.Apps.Any(a => string.Equals(a.Name.Trim(), name, StringComparison.OrdinalIgnoreCase));
         }
     }
@@ -598,13 +602,6 @@ public sealed partial class SerialPortOption(string name) : ObservableObject
 
     [ObservableProperty]
     private bool _isSelected;
-}
-
-/// <summary>One shipped app, for the read-only Built-in list.</summary>
-public sealed record BuiltInAppRow(string Name, string Detail)
-{
-    public static BuiltInAppRow From(DashDeck.Host.Stage.AppLaunchSpec spec) =>
-        new(spec.Name, spec.IsInstalled ? spec.Detail : $"{spec.Detail} — not installed");
 }
 
 /// <summary>One web-scale chip.</summary>

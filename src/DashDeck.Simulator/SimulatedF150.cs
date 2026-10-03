@@ -106,6 +106,73 @@ public sealed class SimulatedF150
     /// <summary>Rear-right tyre pressure, psi.</summary>
     public double TirePsiRearRight => ColdRearRightPsi + _tireWarmthPsi;
 
+    // ── Climate (ADR-0040) ─────────────────────────────────────────────────────
+    // A believable automatic climate system, derived from the drive rather than stepped: the
+    // driver has asked for 21.5 °C and the passenger 22, AUTO is on, and the cabin pulls from
+    // the outside temperature toward the set point — slowly when heating, because heat has to
+    // wait for the coolant. Placeholder signals carry it (see the catalog); a real truck's HVAC
+    // module is undiscovered, so none of this is a claim about a real Ford.
+
+    /// <summary>The driver's set temperature, °C.</summary>
+    public double DriverSetTempC => 21.5;
+
+    /// <summary>The passenger's set temperature, °C.</summary>
+    public double PassengerSetTempC => 22.0;
+
+    /// <summary>The cabin's own temperature: outside air, pulled toward the set point.</summary>
+    public double CabinTempC
+    {
+        get
+        {
+            var heating = DriverSetTempC > AmbientTempC;
+            var heat = heating ? Math.Clamp((CoolantTempC - 30) / 50, 0, 1) : 1;
+            var progress = 1 - Math.Exp(-RunTimeSeconds / 420);
+            return AmbientTempC + ((DriverSetTempC - AmbientTempC) * progress * heat);
+        }
+    }
+
+    /// <summary>Fan step, 0–7: AUTO runs it hard while the cabin is far from the set point.</summary>
+    public int FanSpeed => (int)Math.Clamp(Math.Round(1 + (Math.Abs(DriverSetTempC - CabinTempC) / 2.5)), 1, 7);
+
+    /// <summary>A/C runs above 10 °C outside, as an automatic system does to dry the air.</summary>
+    public bool AirConditioning => AmbientTempC > 10;
+
+    public bool AutoMode => true;
+
+    /// <summary>Fresh air while warming up, then recirculation once the cabin is close.</summary>
+    public bool Recirculate => Math.Abs(DriverSetTempC - CabinTempC) < 2;
+
+    /// <summary>The rear window heater runs for the first ten minutes below 5 °C outside.</summary>
+    public bool RearDefrost => AmbientTempC < 5 && RunTimeSeconds < 600;
+
+    public bool FrontDefrost => false;
+
+    /// <summary>Where the air goes, as bits: 1 face, 2 feet, 4 windshield — feet and glass when heating hard.</summary>
+    public int Airflow => CabinTempC < DriverSetTempC - 3 ? 2 | 4 : 1 | 2;
+
+    /// <summary>Driver seat: heat 1–3 in the cold, cooling −1 to −3 in the heat, 0 otherwise.</summary>
+    public int DriverSeat => AmbientTempC < 10 ? 2 : AmbientTempC > 25 ? -1 : 0;
+
+    public int PassengerSeat => 0;
+
+    /// <summary>The heated steering wheel: on below 10 °C outside, as the driver's seat heat is.</summary>
+    public bool SteeringWheelHeat => AmbientTempC < 10;
+
+    /// <summary>The odometer: a plausible truck's mileage plus this drive.</summary>
+    public double OdometerKm => 48213 + DistanceKm;
+
+    /// <summary>Instant economy, L/100 km — what the cluster would show; a crawl reads high.</summary>
+    public double EconomyL100 => SpeedKph < 5 ? 0 : Math.Min(99.9, FuelRateLitresPerHour / SpeedKph * 100);
+
+    /// <summary>Distance to empty, at a steady 13 L/100 km — what the cluster would show.</summary>
+    public double RangeKm => FuelLevelLitres / 13.0 * 100;
+
+    /// <summary>The check-engine light. Off: a synthetic truck has nothing wrong with it.</summary>
+    public bool CheckEngine => false;
+
+    /// <summary>Stored trouble codes.</summary>
+    public int StoredCodes => 0;
+
     /// <summary>True once the scripted drive has run to completion.</summary>
     public bool IsFinished => _segmentIndex >= _drive.Segments.Count;
 

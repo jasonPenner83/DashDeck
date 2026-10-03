@@ -354,6 +354,18 @@
     "max": 255
   },
   {
+    // The odometer. Standard since 2019 (SAE J1979 PID A6), so a truck of that year may or may
+    // not answer it; if not, the console reads a dash and a Ford identifier is the next place to look.
+    "id": "vehicle.odometer",
+    "name": "Odometer",
+    "category": "Vehicle",
+    "pid": 166,
+    "decode": { "byteOffset": 0, "byteLength": 4, "signed": false, "scale": 0.1, "offset": 0, "unit": "km" },
+    "defaultRateHz": 0.05,
+    "min": 0,
+    "max": 2000000
+  },
+  {
     "id": "vehicle.distanceSinceClear",
     "name": "Distance Since Codes Cleared",
     "category": "Speed & Distance",
@@ -452,5 +464,214 @@
     "defaultRateHz": 0.2,
     "min": 0,
     "max": 60
+  },
+
+  // ── Diagnostics ───────────────────────────────────────────────────────────
+  // PID 01, byte A: the check-engine light is the top bit, the count of stored codes the rest.
+  // Two signals over one byte, each with a mask — a real, standard answer on every OBD-II truck.
+  {
+    "id": "diagnostics.checkEngine",
+    "name": "Check Engine Light (MIL)",
+    "category": "Diagnostics",
+    "pid": 1,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.0078125, "offset": 0, "unit": "", "mask": 128 },
+    "defaultRateHz": 0.2,
+    "min": 0,
+    "max": 1
+  },
+  {
+    "id": "diagnostics.dtcCount",
+    "name": "Stored Trouble Codes",
+    "category": "Diagnostics",
+    "pid": 1,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "", "mask": 127 },
+    "defaultRateHz": 0.1,
+    "min": 0,
+    "max": 127
+  },
+
+  // ── Warning lights (MS-CAN) ───────────────────────────────────────────────
+  // NOT standard OBD-II, and NOT discovered yet (ADR-0041). Like the tyres and the climate
+  // signals, mode/PID 0x01 0xD1-0xD5 are SIMULATION PLACEHOLDERS: the synthetic truck answers
+  // them (all off, flagged Simulated); a real truck reads Unavailable and the console shows each
+  // light dark with a grey dot — never lit by a guess, never claimed off. When the cluster or
+  // body module's identifiers are found (sweep and WATCH), each is a config edit in the pack.
+  // Encodings: 0 off, 1 on.
+  { "id": "warning.oilPressure", "name": "Warning — Low Oil Pressure", "category": "Warnings", "bus": "Ms", "pid": 209,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" }, "defaultRateHz": 0.5, "min": 0, "max": 1 },
+  { "id": "warning.seatbelt", "name": "Warning — Seatbelt", "category": "Warnings", "bus": "Ms", "pid": 210,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" }, "defaultRateHz": 0.5, "min": 0, "max": 1 },
+  { "id": "warning.doorAjar", "name": "Warning — Door Ajar", "category": "Warnings", "bus": "Ms", "pid": 211,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" }, "defaultRateHz": 0.5, "min": 0, "max": 1 },
+  { "id": "warning.parkingBrake", "name": "Warning — Parking Brake / Brake", "category": "Warnings", "bus": "Ms", "pid": 212,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" }, "defaultRateHz": 0.5, "min": 0, "max": 1 },
+  { "id": "warning.tirePressure", "name": "Warning — Low Tyre Pressure", "category": "Warnings", "bus": "Ms", "pid": 213,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" }, "defaultRateHz": 0.2, "min": 0, "max": 1 },
+
+  // ── Economy and range (MS-CAN) ────────────────────────────────────────────
+  // PLACEHOLDERS too, mode/PID 0x01 0xD6-0xD7 (ADR-0041). The truck reports no standard fuel rate,
+  // but its cluster shows instant economy and distance to empty, so it has them — likely as the
+  // cluster's identifiers, or fuel flow on 7E0 to work them out from. Until one is found, these read
+  // Unavailable on the truck and the console shows a dash; the synthetic truck answers them,
+  // flagged Simulated. Economy 0.1 L/100 km a count; range 1 km a count.
+  { "id": "fuel.economy", "name": "Fuel Economy — Instant", "category": "Fuel", "bus": "Ms", "pid": 214,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 0.1, "offset": 0, "unit": "L/100km" }, "defaultRateHz": 1, "min": 0, "max": 99.9 },
+  { "id": "fuel.range", "name": "Distance to Empty", "category": "Fuel", "bus": "Ms", "pid": 215,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 1, "offset": 0, "unit": "km" }, "defaultRateHz": 0.5, "min": 0, "max": 2000 },
+
+  // ── Climate (MS-CAN) ──────────────────────────────────────────────────────
+  // NOT standard OBD-II, and NOT discovered yet (ADR-0040). Like the tyres above, the
+  // mode/PID here (0x01, 0xC4-0xD0) are SIMULATION PLACEHOLDERS so the synthetic truck can
+  // drive the climate panel — values come back flagged Simulated and can never be mistaken
+  // for real. The truck's HVAC module has not been found (the module scan reached nothing on
+  // MS-CAN), so on a real truck these read Unavailable and the panel shows a dash, never a
+  // guess. When the real identifiers are found — the identifier sweep and WATCH, with a module
+  // address — each is a config edit here or in the vehicle pack. READ ONLY: DashDeck does not
+  // change the truck's climate until Phase 3 (ADR-0006).
+  // Encodings: set temperatures 0.5 °C a count; cabin 0.5 °C a count from −40; fan 0-7;
+  // switches 0/1; airflow bits 1 face, 2 feet, 4 windshield; seats signed, −3 cool to +3 heat;
+  // the heated steering wheel 0 off, 1 on.
+  {
+    "id": "hvac.driverSetTemp",
+    "name": "Climate — Driver Set Temperature",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 196,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.5, "offset": 0, "unit": "°C" },
+    "defaultRateHz": 0.5,
+    "min": 10,
+    "max": 35
+  },
+  {
+    "id": "hvac.passengerSetTemp",
+    "name": "Climate — Passenger Set Temperature",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 197,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.5, "offset": 0, "unit": "°C" },
+    "defaultRateHz": 0.5,
+    "min": 10,
+    "max": 35
+  },
+  {
+    "id": "hvac.cabinTemp",
+    "name": "Climate — Cabin Temperature",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 198,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 0.5, "offset": -40, "unit": "°C" },
+    "defaultRateHz": 0.5,
+    "min": -40,
+    "max": 80
+  },
+  {
+    "id": "hvac.fanSpeed",
+    "name": "Climate — Fan Speed",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 199,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 7
+  },
+  {
+    "id": "hvac.airConditioning",
+    "name": "Climate — A/C",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 200,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 1
+  },
+  {
+    "id": "hvac.auto",
+    "name": "Climate — AUTO",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 201,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 1
+  },
+  {
+    "id": "hvac.recirculate",
+    "name": "Climate — Recirculation",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 202,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 1
+  },
+  {
+    "id": "hvac.frontDefrost",
+    "name": "Climate — Front Defrost",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 203,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 1
+  },
+  {
+    "id": "hvac.rearDefrost",
+    "name": "Climate — Rear Defrost",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 204,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 1
+  },
+  {
+    "id": "hvac.airflow",
+    "name": "Climate — Airflow (bits: 1 face, 2 feet, 4 windshield)",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 205,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 7
+  },
+  {
+    "id": "seat.driver.climate",
+    "name": "Seat — Driver Heat/Cool",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 206,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": true, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.2,
+    "min": -3,
+    "max": 3
+  },
+  {
+    "id": "seat.passenger.climate",
+    "name": "Seat — Passenger Heat/Cool",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 207,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": true, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.2,
+    "min": -3,
+    "max": 3
+  },
+  {
+    "id": "steeringWheel.heat",
+    "name": "Steering Wheel — Heat",
+    "category": "Climate",
+    "bus": "Ms",
+    "pid": 208,
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "defaultRateHz": 0.2,
+    "min": 0,
+    "max": 1
   }
 ]

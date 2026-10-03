@@ -123,6 +123,55 @@ public class EndToEndTests
         Assert.InRange(reading.Value, 20.0, 33.0);
     }
 
+    /// <summary>
+    /// The climate panel's placeholders (ADR-0040) answer on MS-CAN from the synthetic truck,
+    /// decoded as the catalog says: a set temperature in half degrees, a seat that can go negative.
+    /// </summary>
+    [Theory]
+    [InlineData("hvac.driverSetTemp", 21.5, 21.5)]
+    [InlineData("hvac.passengerSetTemp", 22.0, 22.0)]
+    [InlineData("hvac.fanSpeed", 1, 7)]
+    [InlineData("hvac.auto", 1, 1)]
+    [InlineData("hvac.airflow", 1, 7)]
+    [InlineData("seat.driver.climate", -3, 3)]
+    [InlineData("steeringWheel.heat", 0, 1)]
+    [InlineData("warning.oilPressure", 0, 0)]      // the warning-light placeholders (ADR-0041): off
+    [InlineData("warning.doorAjar", 0, 0)]
+    [InlineData("fuel.range", 100, 2000)]          // economy and range placeholders (ADR-0041)
+    public async Task A_climate_placeholder_answers_on_the_ms_bus(string id, double min, double max)
+    {
+        var (service, _) = await StartAsync();
+        await using var _service = service;
+
+        using var demand = service.Bus.Require(id, SignalPriority.Low, 1);
+        await WaitUntilAsync(() => service.Bus.Current(id).IsUsable, TimeSpan.FromSeconds(8));
+
+        var reading = service.Bus.Current(id);
+        Assert.True(reading.IsUsable, $"{id} never answered on MS-CAN.");
+        Assert.InRange(reading.Value, min, max);
+    }
+
+    /// <summary>
+    /// The console's real readings (ADR-0041) answer from the synthetic truck on HS-CAN: the
+    /// odometer, and the check-engine light and code count, both masked out of PID 01's first byte.
+    /// </summary>
+    [Theory]
+    [InlineData("vehicle.odometer", 48000, 60000)]
+    [InlineData("diagnostics.checkEngine", 0, 0)]
+    [InlineData("diagnostics.dtcCount", 0, 0)]
+    public async Task A_console_reading_answers(string id, double min, double max)
+    {
+        var (service, _) = await StartAsync();
+        await using var _service = service;
+
+        using var demand = service.Bus.Require(id, SignalPriority.Normal, 1);
+        await WaitUntilAsync(() => service.Bus.Current(id).IsUsable, TimeSpan.FromSeconds(8));
+
+        var reading = service.Bus.Current(id);
+        Assert.True(reading.IsUsable, $"{id} never answered.");
+        Assert.InRange(reading.Value, min, max);
+    }
+
     [Fact]
     public async Task Plugging_the_adapter_back_in_recovers_without_a_restart()
     {

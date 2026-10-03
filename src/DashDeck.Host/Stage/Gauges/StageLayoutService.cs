@@ -28,6 +28,21 @@ public sealed partial class StageLayoutService : ObservableObject
         Resolve(raise: false);
     }
 
+    /// <summary>
+    /// A service that always shows one layout, by file name or id — what a launcher entry with
+    /// <c>"layout": "towing"</c> uses (ADR-0038). It shares the library, so RELOAD still picks up
+    /// a hand edit, and ignores the theme and the Settings choice.
+    /// </summary>
+    public static StageLayoutService Pinned(StageLayoutLibrary library, string layout)
+    {
+        var pinned = new StageLayoutService(library, () => layout, FollowTheme);
+        pinned._pinned = true;
+        pinned.Resolve(raise: false);
+        return pinned;
+    }
+
+    private bool _pinned;
+
     public StageLayoutLibrary Library { get; }
 
     /// <summary><see cref="FollowTheme"/>, or a layout id.</summary>
@@ -36,7 +51,7 @@ public sealed partial class StageLayoutService : ObservableObject
 
     /// <summary>The layout the stage shows.</summary>
     [ObservableProperty]
-    private StageLayout _current = StageLayout.BuiltIn;
+    private StageLayout _current = StageLayout.BuiltIn;  // replaced by Library.Default in the constructor
 
     /// <summary>Why it is this one, in words: "Following the theme", "Chosen", or why the wanted one is missing.</summary>
     [ObservableProperty]
@@ -73,15 +88,15 @@ public sealed partial class StageLayoutService : ObservableObject
     {
         if (Choice != FollowTheme)
         {
-            if (Library.Find(Choice) is { } chosen)
+            if ((Library.Find(Choice) ?? Library.Find(Theme.ExtrasInstaller.Moved(Choice))) is { } chosen)
             {
                 Current = chosen;
                 Reason = "Chosen in Settings.";
             }
             else
             {
-                Current = StageLayout.BuiltIn;
-                Reason = $"The chosen layout '{Choice}' is gone — showing the built-in cluster.";
+                Current = Library.Default;
+                Reason = $"The chosen layout '{Choice}' is gone — showing the built-in {Library.Default.Name}.";
             }
         }
         else if (_themeLayout() is { Length: > 0 } named)
@@ -89,17 +104,19 @@ public sealed partial class StageLayoutService : ObservableObject
             if (Library.FindForTheme(named) is { } themed)
             {
                 Current = themed;
-                Reason = "Following the theme.";
+                Reason = _pinned ? "Pinned by the launcher." : "Following the theme.";
             }
             else
             {
-                Current = StageLayout.BuiltIn;
-                Reason = $"The theme names '{named}', which is not in the stage folders — showing the built-in cluster.";
+                Current = Library.Default;
+                Reason = _pinned
+                    ? $"The launcher names '{named}', which is not in the {Library.Canvas.Name} folders — showing the built-in {Library.Default.Name}."
+                    : $"The theme names '{named}', which is not in the {Library.Canvas.Name} folders — showing the built-in {Library.Default.Name}.";
             }
         }
         else
         {
-            Current = StageLayout.BuiltIn;
+            Current = Library.Default;
             Reason = "Following the theme, which names no layout of its own.";
         }
 

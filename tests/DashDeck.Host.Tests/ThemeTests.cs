@@ -19,16 +19,23 @@ public sealed class ThemeTests : IDisposable
         }
     }
 
+    private static string CatalogThemes([System.Runtime.CompilerServices.CallerFilePath] string here = "") =>
+        Path.Combine(Path.GetDirectoryName(here)!, "..", "..", "catalog", "themes");
+
     private static ThemeDefinition Theme(string tokens, string night = "{}") =>
         ThemeDefinition.Parse($$"""{ "name": "Test", "tokens": {{tokens}}, "night": {{night}} }""");
 
-    /// <summary>Found from this source file, so it works whatever folder the tests are run from.</summary>
+    /// <summary>
+    /// A themes folder holding LCARS (with its fonts) — the LCARS extra's (ADR-0043), which these tests
+    /// use as a shipped folder because it exercises fonts. Found from this source file, so it works
+    /// whatever folder the tests are run from.
+    /// </summary>
     private static string ShippedFolder([System.Runtime.CompilerServices.CallerFilePath] string here = "")
     {
         var dir = Path.GetDirectoryName(here);
         for (var i = 0; i < 10 && dir is not null; i++)
         {
-            var candidate = Path.Combine(dir, "catalog", "themes");
+            var candidate = Path.Combine(dir, "catalog", "extras", "lcars", "themes");
             if (Directory.Exists(candidate) && File.Exists(Path.Combine(candidate, "lcars-inspired.json")))
             {
                 return candidate;
@@ -37,38 +44,64 @@ public sealed class ThemeTests : IDisposable
             dir = Path.GetDirectoryName(dir.TrimEnd(Path.DirectorySeparatorChar));
         }
 
-        throw new DirectoryNotFoundException("catalog/themes not found from the test binary");
+        throw new DirectoryNotFoundException("catalog/extras/lcars/themes not found from the test binary");
     }
 
     // ── The built-in look is exactly what shipped before themes ───────────────
 
     [Fact]
-    public void The_built_in_theme_is_the_old_day_palette()
+    public void The_built_in_theme_is_modern()
     {
         var day = ThemeResolver.Resolve(ThemeDefinition.BuiltIn, night: false);
 
+        Assert.Equal("Modern", ThemeDefinition.BuiltIn.Name);
+        Assert.Equal("builtin/modern", ThemeDefinition.BuiltIn.Id);
+        Assert.Equal("modern", ThemeDefinition.BuiltIn.StageLayout);
         Assert.Empty(day.Problems);
-        Assert.Equal("#0D0C0B", day.Colour("canvas").ToString());
-        Assert.Equal("#F4F1EB", day.Colour("textHigh").ToString());
-        Assert.Equal("#FF7A1A", day.Colour("accent").ToString());
+        Assert.Empty(ThemeResolver.Legibility(day));
+        Assert.Equal("#0A0B0D", day.Colour("canvas").ToString());
+        Assert.Equal("#F2F4F6", day.Colour("textHigh").ToString());
+        Assert.Equal("#5AC8FA", day.Colour("accent").ToString());
         Assert.Equal(day.Colour("textLow"), day.Colour("caption"));
         Assert.Equal(day.Colour("canvas"), day.Colour("navBackground"));
         Assert.Equal(ThemeColour.Transparent, day.Colour("buttonBackground"));
-        Assert.Equal(14, day.Number("buttonRadius"));
-        Assert.Equal("IBM Plex Mono, Consolas", day.Fonts["monoFont"]);
+        Assert.Equal(10, day.Number("buttonRadius"));
+        Assert.Equal("Segoe UI Variable Text, Segoe UI", day.Fonts["monoFont"]);
     }
 
     [Fact]
-    public void The_built_in_night_is_the_old_hand_tuned_night_palette()
+    public void The_built_in_night_is_hand_tuned()
     {
         var night = ThemeResolver.Resolve(ThemeDefinition.BuiltIn, night: true);
 
-        Assert.Equal("#060505", night.Colour("canvas").ToString());
-        Assert.Equal("#B5B0A8", night.Colour("textHigh").ToString());
-        Assert.Equal("#514C45", night.Colour("caption").ToString());
+        Assert.Equal("#050607", night.Colour("canvas").ToString());
+        Assert.Equal("#B8BCC1", night.Colour("textHigh").ToString());
+        Assert.Equal("#60676E", night.Colour("caption").ToString());
+        Assert.Empty(ThemeResolver.Legibility(night));
 
         // The accent dims by 0.82 at night, as it always has.
-        Assert.Equal(new ThemeColour(0xFF, 0x7A, 0x1A).Dim(0.82), night.Colour("accent"));
+        Assert.Equal(new ThemeColour(0x5A, 0xC8, 0xFA).Dim(0.82), night.Colour("accent"));
+    }
+
+    /// <summary>The second look (ADR-0043): Glass ships as a file and brings its own layouts.</summary>
+    [Fact]
+    public void Glass_ships_beside_modern_and_brings_its_layouts()
+    {
+        var themes = CatalogThemes();
+        var library = new ThemeLibrary(themes, Path.Combine(_dir, "yours"));
+
+        Assert.Empty(library.Problems);
+        Assert.Equal(["Modern", "Glass"], library.Themes.Select(t => t.Name));
+
+        var glass = library.Find("shipped/glass")!;
+        Assert.Equal("glass", glass.ClimateLayout);
+        Assert.Equal("glass", glass.ConsoleLayout);
+        Assert.Equal("", glass.StageLayout);   // the chrome F-150 cluster
+
+        var day = ThemeResolver.Resolve(glass, night: false);
+        Assert.Empty(day.Problems);
+        Assert.Empty(ThemeResolver.Legibility(day));
+        Assert.Empty(ThemeResolver.Legibility(ThemeResolver.Resolve(glass, night: true)));
     }
 
     // ── Resolving a theme ─────────────────────────────────────────────────────
@@ -173,7 +206,7 @@ public sealed class ThemeTests : IDisposable
     {
         var library = new ThemeLibrary(null, Path.Combine(_dir, "nowhere"));
 
-        Assert.Equal("builtin/dashdeck", Assert.Single(library.Themes).Id);
+        Assert.Equal("builtin/modern", Assert.Single(library.Themes).Id);
     }
 
     [Fact]
@@ -186,7 +219,7 @@ public sealed class ThemeTests : IDisposable
 
         var library = new ThemeLibrary(null, yours);
 
-        Assert.Equal(["DashDeck", "Fine"], library.Themes.Select(t => t.Name));
+        Assert.Equal(["Modern", "Fine"], library.Themes.Select(t => t.Name));
         Assert.Equal("broken.json", Assert.Single(library.Problems).File);
     }
 
@@ -269,8 +302,8 @@ public sealed class ThemeTests : IDisposable
         Assert.True(File.Exists(Path.Combine(library.ExamplesFolder, "OFL-Antonio.txt")));
         Assert.True(File.Exists(Path.Combine(library.ExamplesFolder, "README.txt")));
 
-        // The written-out DashDeck theme sets every token, and copied up a folder it is the same look.
-        var every = ThemeDefinition.Parse(File.ReadAllText(Path.Combine(library.ExamplesFolder, "dashdeck.json")));
+        // The written-out Modern theme sets every token, and copied up a folder it is the same look.
+        var every = ThemeDefinition.Parse(File.ReadAllText(Path.Combine(library.ExamplesFolder, "modern.json")));
         Assert.Equal(ThemeTokens.All.Count, every.Tokens.Count);
         Assert.Equal(ThemeResolver.Resolve(ThemeDefinition.BuiltIn, night: false).Colours, ThemeResolver.Resolve(every, night: false).Colours);
         Assert.Equal(ThemeResolver.Resolve(ThemeDefinition.BuiltIn, night: true).Colours, ThemeResolver.Resolve(every, night: true).Colours);

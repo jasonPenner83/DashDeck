@@ -27,7 +27,7 @@ namespace DashDeck.Host.Stage.Gauges;
 /// night dimming live; colours written as <c>#RRGGBB</c> are exactly that, day and night.
 /// </para>
 /// </remarks>
-public sealed class GaugeFace : Canvas
+public sealed class GaugeFace : Canvas, IReadingFace
 {
     // The F-150 cluster's own colours — the dial's defaults. Ice-blue on matte black.
     private const string FordNeedle = "#B9F1F7";
@@ -47,8 +47,12 @@ public sealed class GaugeFace : Canvas
     private UIElement? _needleShape;
     private TextBlock? _value;
     private Ellipse? _dot;
+    private TextBlock? _source;
+    private TextBlock? _caption;
+    private TextAlignment _captionAlign;
     private GaugeReading _reading = new(double.NaN, SignalQuality.Unavailable);
     private bool _unknown;
+    private string _unknownText = "UNKNOWN SIGNAL";
 
     public GaugeFace(GaugeSpec spec)
     {
@@ -60,10 +64,26 @@ public sealed class GaugeFace : Canvas
     }
 
     /// <summary>The source signal is not in the catalog: say so instead of drawing a scale for nothing.</summary>
-    public void MarkUnknown()
+    public void MarkUnknown(string text = "UNKNOWN SIGNAL")
     {
         _unknown = true;
+        _unknownText = text;
         Show(_reading);
+    }
+
+    /// <summary>
+    /// Where a sensor reading came from — TRUCK, the tablet sensor, NOT LEVELLED — written under the
+    /// gauge in the quality colour (ADR-0039). A fallback is named on screen, never silent (ADR-0016).
+    /// </summary>
+    public void ShowSource(string source)
+    {
+        if (_source is null)
+        {
+            return;
+        }
+
+        _source.Text = source;
+        _source.Foreground = _unknown ? QualityPalette.Fault : QualityPalette.For(_reading.Quality);
     }
 
     /// <summary>Draw a new reading.</summary>
@@ -81,11 +101,28 @@ public sealed class GaugeFace : Canvas
         if (_value is not null)
         {
             _value.Opacity = _dynamic.Opacity;
-            _value.Text = _unknown ? "UNKNOWN SIGNAL"
-                : !reading.HasValue ? "NO DATA"
-                : string.IsNullOrEmpty(_spec.Unit) || _spec.Style is GaugeStyle.LcarsBar
-                    ? Number(reading.Value)
-                    : $"{Number(reading.Value)} {_spec.Unit}";
+            var showing = !_unknown && reading.HasValue;
+            var text = _unknown ? _unknownText
+                : !showing ? _spec.Text("noData", "NO DATA")
+                : Number(reading.Value);
+            var unit = showing && !string.IsNullOrEmpty(_spec.Unit) && _spec.Style is not GaugeStyle.LcarsBar ? _spec.Unit : "";
+
+            if (_spec.Parts.ContainsKey("unitSize"))
+            {
+                // The unit smaller and quieter than the number — type doing the work a box would.
+                _value.Inlines.Clear();
+                _value.Inlines.Add(new System.Windows.Documents.Run(text));
+                if (unit.Length > 0)
+                {
+                    var run = new System.Windows.Documents.Run(UnitGap(unit) + unit) { FontSize = _spec.Number("unitSize", 14) };
+                    Paint(run, System.Windows.Documents.TextElement.ForegroundProperty, _spec.Text("unitColour", ""), "@caption");
+                    _value.Inlines.Add(run);
+                }
+            }
+            else
+            {
+                _value.Text = unit.Length > 0 ? text + UnitGap(unit) + unit : text;
+            }
         }
 
         switch (_spec.Style)
@@ -106,6 +143,9 @@ public sealed class GaugeFace : Canvas
     }
 
     private string Number(double v) => v.ToString(_spec.Format, CultureInfo.InvariantCulture);
+
+    /// <summary>"21.5°" and "62%" sit tight; "88 °C" and "412 km" take a space.</summary>
+    private static string UnitGap(string unit) => unit is "°" or "%" ? "" : " ";
 
     private bool Showing => !_unknown && _reading.HasValue;
 
@@ -138,10 +178,22 @@ public sealed class GaugeFace : Canvas
 
         Children.Add(_dynamic);
 
+        // A sensor source says where it answered from, along the bottom edge (ADR-0039).
+        if (_spec.Source.IsSensor && _spec.Flag("showSource", true))
+        {
+            _source = new TextBlock { FontSize = 11, Width = _spec.Width, TextAlignment = TextAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+            _source.SetResourceReference(TextBlock.FontFamilyProperty, "MonoFont");
+            Place(_source, 0, _spec.Height - 15);
+            Children.Add(_source);
+        }
+
         // The quality dot, in the top-right corner of every gauge, on top of everything.
-        _dot = new Ellipse { Width = 9, Height = 9, Fill = QualityPalette.Unavailable };
+        // Beside the caption on a typographic readout (and smaller); otherwise the top-right corner.
+        var size = _caption is not null ? 6 : 9;
+        _dot = new Ellipse { Width = size, Height = size, Fill = QualityPalette.Unavailable };
         Place(_dot, _spec.Width - 13, 4);
         Children.Add(_dot);
+        PlaceCaptionAndDot();
 
         Show(_reading);
     }
@@ -214,14 +266,14 @@ public sealed class GaugeFace : Canvas
         if (_spec.Flag("showLabel", true) && _spec.Label.Length > 0)
         {
             var caption = Label(_spec.Label, _spec.Number("labelSize", big ? 15 : 10), "mono",
-                _spec.Text("labelColour", FordLabel), FordLabel, FontWeights.SemiBold);
+                _spec.Text("labelColour", FordLabel), FordLabel, FaceDraw.Weight(_spec, "labelWeight", FontWeights.SemiBold));
             Centre(caption, new Point(cx, cy + (d * (big ? 0.14 : 0.13))));
         }
 
         if (_spec.Flag("showValue", true))
         {
             _value = Label("", _spec.Number("valueSize", big ? 30 : 17), "ui",
-                _spec.Text("valueColour", FordTick), FordTick, FontWeights.Bold);
+                _spec.Text("valueColour", FordTick), FordTick, FaceDraw.Weight(_spec, "valueWeight", FontWeights.Bold));
             _value.Width = _spec.Width;
             _value.TextAlignment = TextAlignment.Center;
             Place(_value, 0, cy + (d * (big ? 0.2 : 0.24)));
@@ -424,7 +476,7 @@ public sealed class GaugeFace : Canvas
         // Caption and readout: above the track when horizontal, above and below when vertical.
         if (_spec.Flag("showLabel", true) && _spec.Label.Length > 0)
         {
-            var caption = Label(_spec.Label, _spec.Number("labelSize", 14), "mono", _spec.Text("labelColour", ""), "@caption", FontWeights.SemiBold);
+            var caption = Label(_spec.Label, _spec.Number("labelSize", 14), "mono", _spec.Text("labelColour", ""), "@caption", FaceDraw.Weight(_spec, "labelWeight", FontWeights.SemiBold));
             if (Vertical)
             {
                 caption.Width = _spec.Width;
@@ -439,7 +491,7 @@ public sealed class GaugeFace : Canvas
 
         if (_spec.Flag("showValue", true))
         {
-            _value = Label("", _spec.Number("valueSize", Vertical ? 18 : 22), "ui", _spec.Text("valueColour", ""), "@textHigh", FontWeights.Bold);
+            _value = Label("", _spec.Number("valueSize", Vertical ? 18 : 22), "ui", _spec.Text("valueColour", ""), "@textHigh", FaceDraw.Weight(_spec, "valueWeight", FontWeights.Bold));
             _value.Width = _spec.Width;
             _value.TextAlignment = Vertical ? TextAlignment.Center : TextAlignment.Right;
             Place(_value, 0, Vertical ? 0 : -4);
@@ -590,7 +642,75 @@ public sealed class GaugeFace : Canvas
             Children.Add(border);
         }
 
+        if (_spec.Parts.ContainsKey("align") || _spec.Text("labelPosition", "below").Equals("above", StringComparison.OrdinalIgnoreCase))
+        {
+            AddAlignedText();
+            return;
+        }
+
         AddCentreText(_spec.Width / 2, _spec.Height / 2, Math.Min(_spec.Width, _spec.Height) * 1.4);
+    }
+
+    /// <summary>
+    /// A digital readout laid out as type rather than centred (ADR-0042): the caption above, the
+    /// number under it, aligned left, centre or right — what <c>labelPosition: "above"</c> or an
+    /// <c>align</c> asks for. The quiet, typographic console is built from these.
+    /// </summary>
+    private void AddAlignedText()
+    {
+        var align = _spec.Text("align", "center").ToLowerInvariant() switch
+        {
+            "left" => TextAlignment.Left,
+            "right" => TextAlignment.Right,
+            _ => TextAlignment.Center,
+        };
+        var labelSize = _spec.Number("labelSize", 12);
+        var valueSize = _spec.Number("valueSize", 28);
+        var gap = _spec.Number("labelGap", 6);
+        var below = _spec.Text("labelPosition", "above").Equals("below", StringComparison.OrdinalIgnoreCase);
+        var hasLabel = _spec.Flag("showLabel", true) && _spec.Label.Length > 0;
+
+        if (_spec.Flag("showValue", true))
+        {
+            _value = Label("", valueSize, "ui", _spec.Text("valueColour", ""), "@textHigh", FaceDraw.Weight(_spec, "valueWeight", FontWeights.Light));
+            _value.Width = _spec.Width;
+            _value.TextAlignment = align;
+            Place(_value, 0, hasLabel && !below ? labelSize + gap : 0);
+        }
+
+        if (hasLabel)
+        {
+            // Sized to its own text, not the box, so the quality dot can sit right beside it.
+            _caption = Label(_spec.Label, labelSize, "mono", _spec.Text("labelColour", ""), "@caption", FaceDraw.Weight(_spec, "labelWeight", FontWeights.Normal));
+            _captionAlign = align;
+            Place(_caption, 0, below ? (valueSize * 1.3) + gap : 0);
+            _caption.SizeChanged += (_, _) => PlaceCaptionAndDot();
+        }
+    }
+
+    /// <summary>
+    /// Put the caption against its edge and the quality dot right beside it — after the word, or
+    /// before it when the caption ends at the right edge. A dot at the far corner of a wide box
+    /// is a dot nobody can tell belongs to anything.
+    /// </summary>
+    private void PlaceCaptionAndDot()
+    {
+        if (_caption is null || _dot is null)
+        {
+            return;
+        }
+
+        var w = _caption.ActualWidth;
+        var left = _captionAlign switch
+        {
+            TextAlignment.Right => _spec.Width - w,
+            TextAlignment.Center => (_spec.Width - w) / 2,
+            _ => 0,
+        };
+
+        SetLeft(_caption, left);
+        Place(_dot, _captionAlign is TextAlignment.Right ? left - _dot.Width - 6 : left + w + 6,
+            GetTop(_caption) + ((_caption.ActualHeight - _dot.Height) / 2));
     }
 
     /// <summary>Caption above, number below, centred on a point — the arc's and the digital gauge's middle.</summary>
@@ -598,7 +718,7 @@ public sealed class GaugeFace : Canvas
     {
         if (_spec.Flag("showValue", true))
         {
-            _value = Label("", _spec.Number("valueSize", Math.Max(16, d * 0.16)), "ui", _spec.Text("valueColour", ""), "@textHigh", FontWeights.Bold);
+            _value = Label("", _spec.Number("valueSize", Math.Max(16, d * 0.16)), "ui", _spec.Text("valueColour", ""), "@textHigh", FaceDraw.Weight(_spec, "valueWeight", FontWeights.Bold));
             _value.Width = _spec.Width;
             _value.TextAlignment = TextAlignment.Center;
             _value.Measure(new Size(_spec.Width, double.PositiveInfinity));
@@ -607,7 +727,7 @@ public sealed class GaugeFace : Canvas
 
         if (_spec.Flag("showLabel", true) && _spec.Label.Length > 0)
         {
-            var caption = Label(_spec.Label, _spec.Number("labelSize", Math.Max(10, d * 0.06)), "mono", _spec.Text("labelColour", ""), "@caption", FontWeights.SemiBold);
+            var caption = Label(_spec.Label, _spec.Number("labelSize", Math.Max(10, d * 0.06)), "mono", _spec.Text("labelColour", ""), "@caption", FaceDraw.Weight(_spec, "labelWeight", FontWeights.SemiBold));
             Centre(caption, new Point(cx, cy + Math.Max(18, d * 0.15)));
         }
     }
@@ -625,7 +745,7 @@ public sealed class GaugeFace : Canvas
     /// Set a brush property from a layout colour. <c>@token</c> becomes a live theme reference —
     /// it changes with the theme and dims at night — and <c>#RRGGBB</c> a fixed brush.
     /// </summary>
-    private static void Paint(DependencyObject target, DependencyProperty property, string? colour, string fallback)
+    internal static void Paint(DependencyObject target, DependencyProperty property, string? colour, string fallback)
     {
         foreach (var candidate in new[] { colour, fallback })
         {
@@ -657,7 +777,7 @@ public sealed class GaugeFace : Canvas
     }
 
     /// <summary>A layout colour as a brush now, for the needle's glow, which is not a brush property.</summary>
-    private static Brush? Resolve(string colour) =>
+    internal static Brush? Resolve(string colour) =>
         colour.StartsWith('@') && ThemeTokens.TryGet(colour[1..], out var token)
             ? Application.Current?.TryFindResource(token.ResourceKey) as Brush
             : ThemeColour.TryParse(colour, out var c) ? Frozen(c) : null;

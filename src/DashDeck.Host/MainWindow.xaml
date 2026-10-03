@@ -143,40 +143,52 @@
                         colour. The kebab stays reachable to its right. Hidden entirely while
                         connected, so it costs nothing in the ordinary case.
                     -->
+                    <!-- Opaque underneath the amber wash, so what it covers does not show through it. -->
                     <Border CornerRadius="6"
-                            Background="#22E0B23C"
-                            BorderBrush="#E0B23C"
-                            BorderThickness="1"
-                            Padding="12,4"
+                            Background="{DynamicResource StripBackgroundBrush}"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Visibility="{Binding IsAdapterLost, Converter={StaticResource BoolToVis}}">
-                        <TextBlock FontFamily="{DynamicResource MonoFont}"
-                                   FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="#E0B23C"
-                                   VerticalAlignment="Center"
-                                   Text="{Binding LinkStatusText}" />
+                        <Border CornerRadius="6"
+                                Background="#22E0B23C"
+                                BorderBrush="#E0B23C"
+                                BorderThickness="1"
+                                Padding="12,4">
+                            <TextBlock FontFamily="{DynamicResource MonoFont}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="#E0B23C"
+                                       VerticalAlignment="Center"
+                                       MaxWidth="700"
+                                       TextTrimming="CharacterEllipsis"
+                                       Text="{Binding LinkStatusText}" />
+                        </Border>
                     </Border>
 
                     <!-- A configured adapter that did not come up. Falling back to the
                          simulator keeps the dash alive on a desk, but it must never be
                          silent: without this the app knew why and showed nothing, which is
                          indistinguishable from the setting not having worked. -->
+                    <!-- Opaque underneath the amber wash, so what it covers does not show through it. -->
                     <Border CornerRadius="6"
-                            Background="#22E0B23C"
-                            BorderBrush="#E0B23C"
-                            BorderThickness="1"
-                            Padding="12,4"
+                            Background="{DynamicResource StripBackgroundBrush}"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Visibility="{Binding HasAdapterFallback, Converter={StaticResource BoolToVis}}">
-                        <TextBlock FontFamily="{DynamicResource MonoFont}"
-                                   FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="#E0B23C"
-                                   VerticalAlignment="Center"
-                                   Text="{Binding AdapterFallbackText}" />
+                        <Border CornerRadius="6"
+                                Background="#22E0B23C"
+                                BorderBrush="#E0B23C"
+                                BorderThickness="1"
+                                Padding="12,4">
+                            <TextBlock FontFamily="{DynamicResource MonoFont}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="#E0B23C"
+                                       VerticalAlignment="Center"
+                                       MaxWidth="700"
+                                       TextTrimming="CharacterEllipsis"
+                                       Text="{Binding AdapterFallbackText}" />
+                        </Border>
                     </Border>
                 </Grid>
             </Border>
@@ -425,6 +437,12 @@
                     <ContentControl Grid.Row="1" Content="{Binding Dashboard.ComponentDetail}" />
                 </Grid>
 
+                <!-- The climate panel (ADR-0040): a layout file drawn where the cards are,
+                     made only while CLIMATE is chosen. Read only — it shows, never sets. -->
+                <ContentControl Grid.Row="1"
+                                Content="{Binding ClimateContent}"
+                                Visibility="{Binding IsClimateVisible, Converter={StaticResource BoolToVis}}" />
+
                 <!-- Drawn in the nav because the nav is the destination list (B3), but
                      nothing is behind them yet. Saying so beats a blank region. -->
                 <StackPanel Grid.Row="1"
@@ -441,16 +459,11 @@
                                Text="not built yet" />
                 </StackPanel>
 
-                <!--
-                    The cards. Side margins, gutters and page geometry all live inside the
-                    view now, because a page has to be exactly one design width for the
-                    strip to slide by one page — see DashboardView.
-                -->
-                <views:DashboardView Grid.Row="1"
-                                     DataContext="{Binding Dashboard}"
-                                     Visibility="{Binding DataContext.IsDashVisible,
-                                                          RelativeSource={RelativeSource AncestorType=Window},
-                                                          Converter={StaticResource BoolToVis}}" />
+                <!-- The console (ADR-0041): a layout file drawn where the cards used to be, made only
+                     while DASH is chosen. The cards are on the stage now, behind CARDS. -->
+                <ContentControl Grid.Row="1"
+                                Content="{Binding ConsoleContent}"
+                                Visibility="{Binding IsDashVisible, Converter={StaticResource BoolToVis}}" />
             </Grid>
 
             <!-- Navigation. Switches only what sits below the stage (B2/B3): the

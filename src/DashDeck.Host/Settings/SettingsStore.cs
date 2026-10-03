@@ -16,13 +16,28 @@ public sealed record UserSettings
     [JsonPropertyName("themeMode")]
     public string ThemeMode { get; init; } = "Auto";
 
-    /// <summary>The theme being worn (ADR-0036): <c>builtin/dashdeck</c>, <c>shipped/…</c> or <c>yours/…</c>.</summary>
+    /// <summary>The theme being worn (ADR-0036): <c>builtin/modern</c>, <c>shipped/…</c> or <c>yours/…</c>.</summary>
     [JsonPropertyName("themeId")]
-    public string ThemeId { get; init; } = "builtin/dashdeck";
+    public string ThemeId { get; init; } = "builtin/modern";
 
     /// <summary>The stage layout (ADR-0037): <c>theme</c> to follow the theme, or a layout id.</summary>
     [JsonPropertyName("stageLayout")]
     public string StageLayout { get; init; } = "theme";
+
+    /// <summary>The climate panel layout (ADR-0040): <c>theme</c> to follow the theme, or a layout id.</summary>
+    [JsonPropertyName("climateLayout")]
+    public string ClimateLayout { get; init; } = "theme";
+
+    /// <summary>
+    /// The extras from <c>catalog/extras</c> already put in the user's folders (ADR-0043) — once each,
+    /// so one the user deleted stays deleted.
+    /// </summary>
+    [JsonPropertyName("installedExtras")]
+    public IReadOnlyList<string> InstalledExtras { get; init; } = [];
+
+    /// <summary>The console layout (ADR-0041): <c>theme</c> to follow the theme, or a layout id.</summary>
+    [JsonPropertyName("consoleLayout")]
+    public string ConsoleLayout { get; init; } = "theme";
 
     /// <summary>A preset's name, or <c>CUSTOM</c>.</summary>
     [JsonPropertyName("accentName")]

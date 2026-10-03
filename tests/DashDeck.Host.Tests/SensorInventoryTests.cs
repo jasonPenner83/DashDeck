@@ -72,9 +72,13 @@ public sealed class SensorInventoryTests : IDisposable
         public SignalPollStatus StatusOf(string signalId) =>
             Statuses.GetValueOrDefault(signalId, SignalPollStatus.NotAsked);
 
+        /// <summary>Called on every request — how a test changes the truck, or presses STOP, mid-watch.</summary>
+        public Action<PidRequest>? OnAsk { get; set; }
+
         public Task<PidResponse> ProbeAsync(PidRequest request, CancellationToken ct)
         {
             Asked.Add(request);
+            OnAsk?.Invoke(request);
 
             if (request.Header is { } module)
             {
@@ -428,6 +432,245 @@ public sealed class SensorInventoryTests : IDisposable
 
         modules.FromText = "2000";
         Assert.False(modules.SweepCommand.CanExecute(null));
+    }
+
+    // ── Kept across launches ──────────────────────────────────────────────────
+
+    private string DiscoveryPath => Path.Combine(_dir, "discovery.json");
+
+    private static readonly IClock At = new FixedClock(new DateTimeOffset(2026, 10, 2, 21, 18, 0, TimeSpan.Zero));
+
+    private sealed class FixedClock(DateTimeOffset now) : IClock
+    {
+        public DateTimeOffset UtcNow => now;
+    }
+
+    [Fact]
+    public void The_discovery_store_writes_what_it_reads()
+    {
+        var store = new DiscoveryStore(DiscoveryPath);
+        store.SaveModules(TwoModules(), At.UtcNow);
+        store.SaveSweep(CanBus.Hs, 0x7E0, 0xF400, 0xF4FF,
+            new DidSweepResult([new FoundIdentifier(0xF405, [0x88], null), new FoundIdentifier(0xF41F, [], 0x33)], 256, null), At.UtcNow);
+
+        var reloaded = new DiscoveryStore(DiscoveryPath);
+        var modules = reloaded.LoadModules()!;
+
+        Assert.Equal(At.UtcNow, reloaded.ModulesScannedUtc);
+        Assert.Equal([(CanBus.Ms, (ushort)0x726, "SYNTH-BCM", (byte?)null), (CanBus.Hs, (ushort)0x7E0, (string?)null, (byte?)0x31)],
+            modules.Modules.Select(m => (m.Bus, m.Address, m.PartNumber, m.RefusalCode)));
+
+        var (sweep, swept) = reloaded.LoadSweep(CanBus.Hs, 0x7E0, 0xF400, 0xF4FF)!.Value;
+        Assert.Equal(At.UtcNow, swept);
+        Assert.Equal(256, sweep.Asked);
+        Assert.Equal([0x88], sweep.Found[0].Data);
+        Assert.Equal((byte)0x33, sweep.Found[1].RefusalCode);
+        Assert.Equal(["F400–F4FF"], reloaded.SweptRanges(CanBus.Hs, 0x7E0));
+        Assert.Null(reloaded.LoadSweep(CanBus.Hs, 0x7E0, 0x1000, 0x1FFF));
+    }
+
+    [Fact]
+    public void Sweeping_the_same_range_again_replaces_it_and_other_ranges_stay()
+    {
+        var store = new DiscoveryStore(DiscoveryPath);
+        store.SaveSweep(CanBus.Hs, 0x7E0, 0xF400, 0xF4FF, new DidSweepResult([], 256, null), At.UtcNow);
+        store.SaveSweep(CanBus.Hs, 0x7E0, 0x1000, 0x1FFF, new DidSweepResult([], 4096, null), At.UtcNow);
+        store.SaveSweep(CanBus.Hs, 0x7E0, 0xF400, 0xF4FF, new DidSweepResult([new FoundIdentifier(0xF405, [0x90], null)], 256, null), At.UtcNow);
+
+        var reloaded = new DiscoveryStore(DiscoveryPath);
+
+        Assert.Equal(["1000–1FFF", "F400–F4FF"], reloaded.SweptRanges(CanBus.Hs, 0x7E0));
+        Assert.Equal([0x90], Assert.Single(reloaded.LoadSweep(CanBus.Hs, 0x7E0, 0xF400, 0xF4FF)!.Value.Result.Found).Data);
+    }
+
+    [Fact]
+    public void A_corrupt_discovery_file_is_nothing_saved_never_a_crash()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(DiscoveryPath, "{ not json");
+
+        var store = new DiscoveryStore(DiscoveryPath);
+
+        Assert.Null(store.LoadModules());
+        Assert.NotNull(store.LastError);
+    }
+
+    /// <summary>The point of it: after a restart, the modules and what they answered are still there.</summary>
+    [Fact]
+    public async Task A_sweep_on_the_truck_is_there_after_a_restart()
+    {
+        var vehicle = new FakeVehicle(Shipped());
+        vehicle.ModuleAnswers[(0x7E0, 0x4001)] = [0x00, 0x8D];
+        new DiscoveryStore(DiscoveryPath).SaveModules(TwoModules(), At.UtcNow);
+
+        var first = new SensorInventoryViewModel(vehicle, new UserSignalStore(FilePath), discovery: new DiscoveryStore(DiscoveryPath), clock: At).Modules;
+        Assert.Equal(2, first.Found.Count);
+        Assert.StartsWith("SAVED SCAN", first.Status, StringComparison.Ordinal);
+
+        first.SelectCommand.Execute(first.Found[0]);
+        first.FromText = "4000";
+        first.ToText = "400F";
+        await first.SweepCommand.ExecuteAsync(null);
+        Assert.Contains("swept 4000–400F", first.Found[0].Detail, StringComparison.Ordinal);
+
+        // Launch again.
+        var again = new SensorInventoryViewModel(vehicle, new UserSignalStore(FilePath), discovery: new DiscoveryStore(DiscoveryPath), clock: At).Modules;
+        Assert.Contains("swept 4000–400F", again.Found[0].Detail, StringComparison.Ordinal);
+
+        again.SelectCommand.Execute(again.Found[0]);
+        Assert.Empty(again.Identifiers);
+        Assert.Contains("has not been swept", again.SweepStatus, StringComparison.Ordinal);
+
+        again.FromText = "4000";
+        again.ToText = "400F";
+        again.SelectCommand.Execute(again.Found[0]);
+        Assert.Equal("22 4001", Assert.Single(again.Identifiers).Caption);
+        Assert.StartsWith("SAVED SWEEP", again.SweepStatus, StringComparison.Ordinal);
+    }
+
+    /// <summary>The synthetic truck's modules would overwrite the real ones the first time the dash ran at a desk.</summary>
+    [Fact]
+    public async Task The_synthetic_truck_is_never_saved()
+    {
+        var vehicle = new FakeVehicle(Shipped()) { IsSimulated = true };
+        vehicle.ModuleAnswers[(0x726, 0x4001)] = [0x01];
+        var store = new DiscoveryStore(DiscoveryPath);
+        var modules = new SensorInventoryViewModel(vehicle, new UserSignalStore(FilePath), discovery: store, clock: At).Modules;
+        modules.ApplyModules(TwoModules());
+
+        modules.SelectCommand.Execute(modules.Found[1]);
+        modules.FromText = "4000";
+        modules.ToText = "400F";
+        await modules.SweepCommand.ExecuteAsync(null);
+
+        Assert.Contains("not saved", modules.SweepStatus, StringComparison.Ordinal);
+        Assert.Empty(new DiscoveryStore(DiscoveryPath).SweptRanges(CanBus.Ms, 0x726));
+        Assert.Null(new DiscoveryStore(DiscoveryPath).LoadModules());
+    }
+
+    /// <summary>WATCH: the identifier that moves while something is done to the truck floats to the top.</summary>
+    [Fact]
+    public async Task Watch_re_asks_what_the_sweep_found_and_puts_what_moved_first()
+    {
+        var vehicle = new FakeVehicle(Shipped()) { IsSimulated = true };
+        vehicle.ModuleAnswers[(0x726, 0x4001)] = [0x30];
+        vehicle.ModuleAnswers[(0x726, 0x4002)] = [0x00, 0x50];
+
+        var inventory = new SensorInventoryViewModel(vehicle, new UserSignalStore(FilePath));
+        var modules = inventory.Modules;
+        modules.ApplyModules(TwoModules());
+        modules.SelectCommand.Execute(modules.Found[1]);
+        modules.FromText = "4000";
+        modules.ToText = "400F";
+        Assert.False(modules.WatchCommand.CanExecute(null));
+
+        await modules.SweepCommand.ExecuteAsync(null);
+        Assert.True(modules.WatchCommand.CanExecute(null));
+
+        // Mid-watch: the second identifier starts moving, then STOP is pressed.
+        vehicle.Asked.Clear();
+        vehicle.OnAsk = r =>
+        {
+            if (vehicle.Asked.Count == 3)
+            {
+                vehicle.ModuleAnswers[(0x726, 0x4002)] = [0x00, 0x58];
+            }
+
+            if (vehicle.Asked.Count == 8)
+            {
+                modules.StopCommand.Execute(null);
+            }
+        };
+
+        await modules.WatchCommand.ExecuteAsync(null);
+
+        Assert.All(vehicle.Asked, r => Assert.Equal(new PidRequest(0x22, r.Pid, CanBus.Ms, 0x726), r));
+        Assert.True(modules.HasWatch);
+        Assert.Equal(["22 4002", "22 4001"], modules.Watching.Select(w => w.Caption));
+        Assert.Equal("MOVED ×1", modules.Watching[0].Badge);
+        Assert.Contains("first 00 50 (80)  →  now 00 58 (88)", modules.Watching[0].Detail, StringComparison.Ordinal);
+        Assert.Equal("if a temperature, ÷16:  5.0 → 5.5 °C", modules.Watching[0].Temperature);
+        Assert.Equal("STILL", modules.Watching[1].Badge);
+        Assert.Equal("if a temperature, A−40:  8 → 8 °C", modules.Watching[1].Temperature);
+        Assert.StartsWith("Stopped by STOP after 4 passes", modules.WatchStatus, StringComparison.Ordinal);
+        Assert.Contains("1 of 2 moved while watched", modules.WatchStatus, StringComparison.Ordinal);
+
+        // Then DEFINE the mover: the editor, on its module, ready to TEST.
+        modules.DefineWatchedCommand.Execute(modules.Watching[0]);
+        Assert.Equal("726", inventory.Editor!.ModuleText);
+        Assert.Equal("22 4002 → 726", inventory.Editor.RequestText);
+    }
+
+    /// <summary>
+    /// What happened in the truck: STOP before the first pass ended. Nothing has moved yet, the
+    /// status says it is too soon, and the unread rows say so.
+    /// </summary>
+    [Fact]
+    public async Task Stopping_inside_the_first_pass_says_it_is_too_soon_to_tell()
+    {
+        var vehicle = new FakeVehicle(Shipped()) { IsSimulated = true };
+        vehicle.ModuleAnswers[(0x726, 0x4001)] = [0x30];
+        vehicle.ModuleAnswers[(0x726, 0x4002)] = [0x00, 0x50];
+
+        var modules = new SensorInventoryViewModel(vehicle, new UserSignalStore(FilePath)).Modules;
+        modules.ApplyModules(TwoModules());
+        modules.SelectCommand.Execute(modules.Found[1]);
+        modules.FromText = "4000";
+        modules.ToText = "400F";
+        await modules.SweepCommand.ExecuteAsync(null);
+
+        // The sweep saw 00 50; the truck has moved on since. That is not movement while watched.
+        vehicle.ModuleAnswers[(0x726, 0x4001)] = [0x31];
+        vehicle.Asked.Clear();
+        vehicle.OnAsk = _ =>
+        {
+            if (vehicle.Asked.Count == 1)
+            {
+                modules.StopCommand.Execute(null);
+            }
+        };
+
+        await modules.WatchCommand.ExecuteAsync(null);
+
+        Assert.Contains("too soon to tell", modules.WatchStatus, StringComparison.Ordinal);
+        Assert.Equal(["STILL", "NOT READ"], modules.Watching.Select(w => w.Badge));
+        Assert.Equal("not read yet — STOP came first", modules.Watching[1].Detail);
+        Assert.Equal("", modules.Watching[1].Temperature);
+    }
+
+    /// <summary>A watch is recorded as it runs — a CSV with rpm, to lay beside a FORScan log.</summary>
+    [Fact]
+    public async Task Watch_records_every_pass_with_rpm_to_a_csv()
+    {
+        var vehicle = new FakeVehicle(Shipped());
+        vehicle.Answers[0x0C] = [0x0A, 0x80];
+        vehicle.ModuleAnswers[(0x7E0, 0x1E3A)] = [0x00, 0x62];
+
+        var modules = new SensorInventoryViewModel(vehicle, new UserSignalStore(FilePath), discovery: new DiscoveryStore(DiscoveryPath), clock: At).Modules;
+        modules.ApplyModules(TwoModules());
+        modules.SelectCommand.Execute(modules.Found[0]);
+        modules.FromText = "1E30";
+        modules.ToText = "1E3F";
+        await modules.SweepCommand.ExecuteAsync(null);
+
+        var rpmAsks = 0;
+        vehicle.OnAsk = r =>
+        {
+            if (r.Pid == 0x0C && ++rpmAsks == 2)
+            {
+                modules.StopCommand.Execute(null);
+            }
+        };
+
+        await modules.WatchCommand.ExecuteAsync(null);
+
+        Assert.True(modules.HasWatchFile);
+        Assert.StartsWith(Path.Combine(_dir, "watch", "watch-7E0-1E30-1E3F-"), modules.LastWatchFile, StringComparison.Ordinal);
+        Assert.Contains("Recorded to", modules.WatchStatus, StringComparison.Ordinal);
+
+        var lines = File.ReadAllLines(modules.LastWatchFile);
+        Assert.Equal("time_ms,rpm,22 1E3A (2B)", lines[0]);
+        Assert.Equal(["0,672,98", "0,672,98"], lines[1..]);
     }
 
     [Fact]

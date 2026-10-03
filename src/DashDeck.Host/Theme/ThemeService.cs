@@ -64,7 +64,18 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
     /// <summary>Which stage layout shows: the one this theme names, or one chosen (ADR-0037).</summary>
     public Stage.Gauges.StageLayoutService Layouts { get; }
 
-    partial void OnCurrentChanged(ThemeDefinition value) => Layouts?.ThemeChanged();
+    /// <summary>Which climate panel layout shows: the theme's, or one chosen (ADR-0040).</summary>
+    public Stage.Gauges.StageLayoutService ClimateLayouts { get; }
+
+    /// <summary>Which console layout DASH shows: the theme's, or one chosen (ADR-0041).</summary>
+    public Stage.Gauges.StageLayoutService ConsoleLayouts { get; }
+
+    partial void OnCurrentChanged(ThemeDefinition value)
+    {
+        Layouts?.ThemeChanged();
+        ClimateLayouts?.ThemeChanged();
+        ConsoleLayouts?.ThemeChanged();
+    }
 
     [ObservableProperty]
     private bool _isNight;
@@ -106,7 +117,9 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
 
         // A theme that has gone — deleted, or a shipped one a later build dropped — falls back
         // to the DashDeck look rather than leaving the screen undressed.
-        _current = Library.Find(stored.ThemeId) ?? ThemeDefinition.BuiltIn;
+        // A theme that moved from the shipped set to the user's folder (LCARS, ADR-0043) is still the
+        // one being worn.
+        _current = Library.Find(stored.ThemeId) ?? Library.Find(ExtrasInstaller.Moved(stored.ThemeId)) ?? ThemeDefinition.BuiltIn;
 
         Layouts = new Stage.Gauges.StageLayoutService(
             new Stage.Gauges.StageLayoutLibrary(CatalogPath.FindFolder("stage"), JsonFile.InLocalAppData("stage")),
@@ -114,9 +127,33 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
             stored.StageLayout,
             choice => SettingsStore.Update(s => s with { StageLayout = choice }));
 
+        // The climate panel is a layout too (ADR-0040): its own folders and canvas, the same rules.
+        ClimateLayouts = new Stage.Gauges.StageLayoutService(
+            new Stage.Gauges.StageLayoutLibrary(
+                CatalogPath.FindFolder("climate"),
+                JsonFile.InLocalAppData("climate"),
+                Stage.Gauges.LayoutCanvas.Climate,
+                Stage.Gauges.StageLayout.ClimateBuiltIns),
+            () => Current.ClimateLayout,
+            stored.ClimateLayout,
+            choice => SettingsStore.Update(s => s with { ClimateLayout = choice }));
+
+        // The console is a layout as well (ADR-0041): DASH draws it where the cards used to be.
+        ConsoleLayouts = new Stage.Gauges.StageLayoutService(
+            new Stage.Gauges.StageLayoutLibrary(
+                CatalogPath.FindFolder("console"),
+                JsonFile.InLocalAppData("console"),
+                Stage.Gauges.LayoutCanvas.Console,
+                Stage.Gauges.StageLayout.ConsoleBuiltIns),
+            () => Current.ConsoleLayout,
+            stored.ConsoleLayout,
+            choice => SettingsStore.Update(s => s with { ConsoleLayout = choice }));
+
         // The shipped themes and layouts as files beside yours, to read and copy from.
         Library.WriteExamples();
         Layouts.Library.WriteExamples();
+        ClimateLayouts.Library.WriteExamples();
+        ConsoleLayouts.Library.WriteExamples();
 
         // Re-checked on load, not just on entry. A stored colour was validated against the
         // quality palette of whatever build wrote it; if a later build moves one of those

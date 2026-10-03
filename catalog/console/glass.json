@@ -1,0 +1,90 @@
+// Glass (ADR-0041, ADR-0043) — speed on a glowing arc, rpm beside it, fuel, temperature and range,
+// a row of warning lights and a frosted strip below. The Glass theme's console; it can also be chosen
+// on its own in Settings ▸ Themes ▸ CONSOLE LAYOUT.
+{
+  "name": "Glass",
+  "description": "Speed large on a glowing arc, rpm beside it, fuel, temperature and range, a row of warning lights, and odometer, economy, codes and outside air below.",
+  "author": "DashDeck",
+  "background": "#04070B",
+  "elements": [
+    // ── The glass ──
+    { "id": "mainGlass", "type": "glass", "x": 16, "y": 8, "width": 880, "height": 278, "radius": "34",
+      "parts": { "opacity": 0.045, "tint": "#CFE6FF" } },
+    { "id": "stripGlass", "type": "glass", "x": 16, "y": 298, "width": 880, "height": 84, "radius": "26",
+      "parts": { "opacity": 0.04, "sheen": 0.06 } },
+
+    // ── Speed ── the number large, on an arc to 200 with a bright point where you are.
+    { "id": "speed", "type": "setpoint", "x": 316, "y": 14, "width": 280, "height": 228,
+      "label": "KM/H", "format": "0", "min": 0, "max": 200,
+      "source": { "signal": "vehicle.speed", "rateHz": 4 },
+      "parts": { "arcColour": "#7FD6FF", "glow": "#3FA9E8", "thickness": 6, "sweep": 250,
+                 "valueSize": 92, "valueColour": "#F4F8FB", "labelColour": "#8A97A4", "labelSize": 13 } },
+
+    // ── Engine ── rpm on a quieter arc.
+    { "id": "rpm", "type": "setpoint", "x": 40, "y": 30, "width": 236, "height": 210,
+      "label": "RPM", "format": "0", "min": 0, "max": 6500,
+      "source": { "signal": "engine.rpm", "rateHz": 3 },
+      "parts": { "arcColour": "#C9D4DF", "glow": "none", "thickness": 4, "valueSize": 40,
+                 "valueColour": "#DDE6EE", "labelColour": "#8A97A4" } },
+
+    // ── Fuel, temperature, range ──
+    { "id": "fuel", "style": "bar", "x": 636, "y": 30, "width": 240, "height": 62,
+      "label": "FUEL", "unit": "%", "format": "0", "min": 0, "max": 100,
+      "source": { "signal": "fuel.levelPercent", "rateHz": 0.2 },
+      "zones": [ { "from": 0, "to": 12, "colour": "#FFB020" } ],
+      "parts": { "fillColour": "#7FD6FF", "trackColour": "#1AFFFFFF", "thickness": 8, "radius": 4,
+                 "labelColour": "#8A97A4", "valueColour": "#F4F8FB" } },
+    { "id": "coolant", "style": "bar", "x": 636, "y": 104, "width": 240, "height": 62,
+      "label": "ENGINE TEMP", "unit": "°C", "format": "0", "min": 40, "max": 130,
+      "source": { "signal": "engine.coolantTemp", "rateHz": 0.5 },
+      "zones": [ { "from": 112, "to": 130, "colour": "#FF4D4D" } ],
+      "parts": { "fillColour": "#C9D4DF", "trackColour": "#1AFFFFFF", "thickness": 8, "radius": 4,
+                 "labelColour": "#8A97A4", "valueColour": "#F4F8FB" } },
+    // Distance to empty — a placeholder until the truck's own is found (ADR-0041).
+    { "id": "range", "style": "digital", "x": 636, "y": 176, "width": 240, "height": 66,
+      "label": "RANGE", "unit": "km", "format": "0", "min": 0, "max": 2000,
+      "source": { "signal": "fuel.range", "rateHz": 0.5 },
+      "parts": { "valueSize": 30, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
+
+    // ── Warning lights ── dark when off, lit when on, and a grey dot when the truck has not said.
+    // Check engine is real (PID 01); fuel, temperature and battery are worked out from signals
+    // the truck gives; oil, seatbelt, door, brake and tyres are placeholders until found.
+    { "id": "checkEngine", "type": "warning", "x": 278, "y": 244, "width": 34, "height": 34,
+      "source": { "signal": "diagnostics.checkEngine", "rateHz": 0.2 }, "parts": { "icon": "checkEngine", "litColour": "#FFB020" } },
+    { "id": "oil", "type": "warning", "x": 318, "y": 244, "width": 34, "height": 34,
+      "source": { "signal": "warning.oilPressure", "rateHz": 0.5 }, "parts": { "icon": "oil", "litColour": "#FF4D4D" } },
+    { "id": "battery", "type": "warning", "x": 358, "y": 244, "width": 34, "height": 34,
+      "source": { "signal": "vehicle.controlModuleVoltage", "rateHz": 0.5 }, "parts": { "icon": "battery", "below": 11.8, "litColour": "#FF4D4D" } },
+    { "id": "hot", "type": "warning", "x": 398, "y": 244, "width": 34, "height": 34,
+      "source": { "signal": "engine.coolantTemp", "rateHz": 0.5 }, "parts": { "icon": "coolant", "onAt": 112, "litColour": "#FF4D4D" } },
+    { "id": "lowFuel", "type": "warning", "x": 438, "y": 244, "width": 34, "height": 34,
+      "source": { "signal": "fuel.levelPercent", "rateHz": 0.2 }, "parts": { "icon": "fuel", "below": 12, "litColour": "#FFB020" } },
+    { "id": "seatbelt", "type": "warning", "x": 478, "y": 244, "width": 34, "height": 34,
+      "source": { "signal": "warning.seatbelt", "rateHz": 0.5 }, "parts": { "icon": "seatbelt", "litColour": "#FF4D4D" } },
+    { "id": "door", "type": "warning", "x": 518, "y": 244, "width": 34, "height": 34,
+      "source": { "signal": "warning.doorAjar", "rateHz": 0.5 }, "parts": { "icon": "door", "litColour": "#FF4D4D" } },
+    { "id": "brake", "type": "warning", "x": 558, "y": 244, "width": 34, "height": 34,
+      "source": { "signal": "warning.parkingBrake", "rateHz": 0.5 }, "parts": { "icon": "brake", "litColour": "#FF4D4D" } },
+    { "id": "tyres", "type": "warning", "x": 598, "y": 244, "width": 34, "height": 34,
+      "source": { "signal": "warning.tirePressure", "rateHz": 0.2 }, "parts": { "icon": "tpms", "litColour": "#FFB020" } },
+
+    // ── The strip ──
+    { "id": "odometer", "style": "digital", "x": 32, "y": 306, "width": 230, "height": 68,
+      "label": "ODOMETER", "unit": "km", "format": "#,0", "min": 0, "max": 2000000,
+      "source": { "signal": "vehicle.odometer", "rateHz": 0.05 },
+      "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
+    // Economy — a placeholder until the truck's own is found (ADR-0041): a dash on the truck.
+    { "id": "economy", "style": "digital", "x": 272, "y": 306, "width": 230, "height": 68,
+      "label": "ECONOMY", "unit": "L/100km", "format": "0.0", "min": 0, "max": 99.9,
+      "source": { "signal": "fuel.economy", "rateHz": 1 },
+      "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
+    { "id": "codes", "style": "digital", "x": 512, "y": 306, "width": 150, "height": 68,
+      "label": "CODES", "format": "0", "min": 0, "max": 127,
+      "source": { "signal": "diagnostics.dtcCount", "rateHz": 0.1 },
+      "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
+    { "id": "outside", "style": "digital", "x": 672, "y": 306, "width": 208, "height": 68,
+      "label": "OUTSIDE", "unit": "°C", "format": "0", "min": -50, "max": 60,
+      "source": { "signal": "ambient.airTemp", "rateHz": 0.1 },
+      "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } }
+  ]
+}

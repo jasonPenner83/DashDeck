@@ -22,7 +22,55 @@ public enum StageElementType
 
     /// <summary>A filled shape with its own corner radii — a frame, a divider, an LCARS elbow.</summary>
     Panel,
+
+    /// <summary>A compass rose with the heading in the middle (ADR-0039). Reads a tablet sensor, truck first.</summary>
+    Compass,
+
+    /// <summary>A G meter: rings, a crosshair and a ball pushed the way the driver is (ADR-0039).</summary>
+    GMeter,
+
+    /// <summary>
+    /// A set temperature drawn large, with a thin arc showing where it sits in its range — the
+    /// climate panel's zone readout (ADR-0040). Reads a signal; any range works.
+    /// </summary>
+    Setpoint,
+
+    /// <summary>A row of steps lit up to the value — fan speed, seat heat or cooling (ADR-0040).</summary>
+    Levels,
+
+    /// <summary>A pill that lights when its signal is on — A/C, AUTO, RECIRC, a defroster (ADR-0040).</summary>
+    Indicator,
+
+    /// <summary>A frosted glass panel: a translucent tint, a sheen across the top, a soft shadow (ADR-0040).</summary>
+    Glass,
+
+    /// <summary>
+    /// A warning light: an icon that lights when its signal says so — check engine, low fuel, a
+    /// door (ADR-0041). Dark when off; dimmer still, with a grey dot, when the truck has not said.
+    /// </summary>
+    Warning,
 }
+
+/// <summary>
+/// The surface a layout is drawn on, in its own pixels (ADR-0040): the stage, or the climate panel
+/// in the two bands below it. Positions are in these, and the canvas is scaled to the real region.
+/// </summary>
+public sealed record LayoutCanvas(string Name, double Width, double Height)
+{
+    /// <summary>The stage: four bands less the launcher bar.</summary>
+    public static LayoutCanvas Stage { get; } = new("stage", 912, 636);
+
+    /// <summary>The climate panel: the two bands where the cards are.</summary>
+    public static LayoutCanvas Climate { get; } = new("climate panel", 912, 390);
+
+    /// <summary>The console: the two bands below the stage when DASH is chosen (ADR-0041).</summary>
+    public static LayoutCanvas Console { get; } = new("console", 912, 390);
+}
+
+/// <summary>A layout's own fonts (ADR-0042): either may be left out to keep the theme's.</summary>
+/// <param name="Ui">Numbers and headings — the theme's <c>UiFont</c>.</param>
+/// <param name="Mono">Captions and labels — the theme's <c>MonoFont</c>.</param>
+public sealed record LayoutFonts(string? Ui = null, string? Mono = null);
 
 /// <summary>How a gauge is drawn.</summary>
 public enum GaugeStyle
@@ -44,16 +92,29 @@ public enum GaugeStyle
 }
 
 /// <summary>
-/// Where a gauge's number comes from: one signal, optionally minus another, scaled.
+/// Where a gauge's number comes from: one signal, optionally minus another, scaled — or one
+/// sensor from the sensor catalog.
 /// </summary>
 /// <remarks>
 /// Enough for the derived readings a cluster shows — boost is manifold pressure minus barometric,
 /// in psi — without a formula language. Anything cleverer is a component (ADR-0023).
+/// <para>
+/// A <see cref="Sensor"/> (ADR-0039) is read through the sensor service: the truck's value when it
+/// has one, otherwise the tablet's, and the gauge says which underneath — a fallback is named on
+/// screen, never a silent stand-in (ADR-0016). It costs no request budget of its own.
+/// </para>
 /// </remarks>
 public sealed record GaugeSource
 {
     /// <summary>The catalog signal id, e.g. <c>engine.intakeManifoldPressure</c>.</summary>
     public string Signal { get; init; } = "";
+
+    /// <summary>A sensor catalog id instead of a signal, e.g. <c>attitude.pitch</c>. Not both.</summary>
+    public string? Sensor { get; init; }
+
+    /// <summary>True when this source is a sensor rather than a signal.</summary>
+    [JsonIgnore]
+    public bool IsSensor => !string.IsNullOrWhiteSpace(Sensor);
 
     /// <summary>A second signal subtracted from the first, or null.</summary>
     public string? Minus { get; init; }
@@ -176,6 +237,116 @@ public static class GaugeParts
         ["valueSize"] = "number size in px",
         ["showLabel"] = "true/false",
         ["showValue"] = "true/false — the digital readout",
+        ["showSource"] = "true/false — for a sensor source, where the reading came from (TRUCK, the tablet sensor, NOT LEVELLED). Default true",
+        ["valueWeight"] = "the number's weight: thin, light, regular, medium, semibold or bold",
+        ["labelWeight"] = "the caption's weight",
+        ["unitSize"] = "draw the unit smaller than the number, at this size, px",
+        ["unitColour"] = "the unit's colour when it is drawn smaller — default the caption colour",
+        ["noData"] = "what shows with no reading — default NO DATA; \"–\" is quieter",
+    };
+
+    /// <summary>Parts the compass and G meter take (ADR-0039).</summary>
+    public static readonly IReadOnlyDictionary<StageElementType, IReadOnlyDictionary<string, string>> ByElement = new Dictionary<StageElementType, IReadOnlyDictionary<string, string>>
+    {
+        [StageElementType.Compass] = new Dictionary<string, string>
+        {
+            ["mode"] = "\"rose\" — the card turns under a fixed marker (default) — or \"needle\": north stays up and a needle points the way you are heading",
+            ["ringColour"] = "the outer ring, or \"none\"",
+            ["cardinalTickColour"] = "the N, E, S and W ticks — default the accent",
+            ["majorTickColour"] = "the NE, SE, SW and NW ticks",
+            ["minorTickColour"] = "every 5°",
+            ["tickStep"] = "degrees between ticks — default 5",
+            ["northColour"] = "the N — default the accent",
+            ["letterColour"] = "E, S and W",
+            ["letterSize"] = "size of N; the others are three-quarters of it",
+            ["showLetters"] = "true/false",
+            ["markerColour"] = "the fixed marker (rose) or the needle (needle) — default the accent",
+            ["valueColour"] = "the heading number — default the theme's headline text",
+            ["valueSize"] = "heading number size in px",
+            ["showValue"] = "true/false — the heading number",
+            ["cardinalColour"] = "the NE / SW under the number — default the accent",
+            ["showCardinal"] = "true/false",
+            ["showSource"] = "true/false — where the heading came from. Default true",
+        },
+        [StageElementType.Setpoint] = new Dictionary<string, string>
+        {
+            ["arcColour"] = "the arc to the value — default the accent",
+            ["trackColour"] = "the rest of the arc",
+            ["thickness"] = "arc thickness, px — default 4",
+            ["sweep"] = "degrees the arc covers — default 240",
+            ["glow"] = "a soft glow round the arc: a colour, or \"none\"",
+            ["valueColour"] = "the number — default the theme's headline text",
+            ["valueSize"] = "number size, px",
+            ["labelColour"] = "the caption",
+            ["labelSize"] = "caption size, px",
+            ["showArc"] = "true/false",
+            ["valueWeight"] = "the number's weight: thin, light, regular, medium, semibold or bold",
+            ["labelWeight"] = "the caption's weight",
+        },
+        [StageElementType.Levels] = new Dictionary<string, string>
+        {
+            ["steps"] = "how many steps — default 7",
+            ["shape"] = "\"bars\" (rising, default) or \"dots\"",
+            ["size"] = "dot diameter, px — default as large as fits",
+            ["litColour"] = "lit steps — default the accent",
+            ["unlitColour"] = "unlit steps",
+            ["negativeColour"] = "lit steps when the value is below zero — seat cooling, say. Default an ice blue",
+            ["gap"] = "space between steps, px",
+            ["labelColour"] = "the caption",
+            ["labelSize"] = "caption size, px",
+            ["showValue"] = "true/false — the number beside the caption",
+            ["labelWeight"] = "the caption's weight",
+            ["positiveText"] = "a word before the value above zero — \"HEAT\" for a seat",
+            ["negativeText"] = "a word before the value below zero — \"COOL\" for a seat",
+        },
+        [StageElementType.Indicator] = new Dictionary<string, string>
+        {
+            ["onAt"] = "lit when the value is at least this — default 1",
+            ["below"] = "lit when the value is below this instead",
+            ["equals"] = "lit only when the value is exactly this (an airflow setting, say)",
+            ["bit"] = "lit when this bit of the value is set — 0 for the lowest",
+            ["litColour"] = "fill when lit — default the accent",
+            ["litText"] = "text when lit — default dark on the accent",
+            ["unlitColour"] = "text and outline when off",
+            ["radius"] = "corner radius, px — default half the height (a pill)",
+            ["fontSize"] = "text size, px",
+            ["style"] = "\"pill\" (default) or \"text\" — just the word, lit in its colour",
+            ["align"] = "\"left\", \"center\" or \"right\" — where the word sits",
+            ["labelWeight"] = "the word's weight",
+        },
+        [StageElementType.Warning] = new Dictionary<string, string>
+        {
+            ["icon"] = "checkEngine, oil, battery, coolant, fuel, seatbelt, door, brake or tpms — or your own as SVG path data on a 24 × 24 grid",
+            ["onAt"] = "lit when the value is at least this — default 1",
+            ["below"] = "lit when the value is below this instead — low fuel, low voltage",
+            ["equals"] = "lit only when the value is exactly this",
+            ["bit"] = "lit when this bit of the value is set — 0 for the lowest",
+            ["litColour"] = "the icon when lit — default amber",
+            ["unlitColour"] = "the icon when off — default a faint white",
+        },
+        [StageElementType.Glass] = new Dictionary<string, string>
+        {
+            ["tint"] = "the glass colour — default a cool white",
+            ["opacity"] = "how much of the tint shows, 0–1 — default 0.07",
+            ["sheen"] = "the brighter band across the top, 0–1 — default 0.10; 0 for none",
+            ["edge"] = "the outline colour, or \"none\" — default a faint white",
+            ["shadow"] = "the soft shadow under it, 0–1 — default 0.45; 0 for none",
+        },
+        [StageElementType.GMeter] = new Dictionary<string, string>
+        {
+            ["range"] = "g at the outer ring — default 1",
+            ["rings"] = "how many rings — default 3 (a quarter, a half and the whole range)",
+            ["ringColour"] = "the inner rings",
+            ["outerRingColour"] = "the outer ring",
+            ["crossColour"] = "the crosshair, or \"none\"",
+            ["ballColour"] = "the ball — default the quality colour, so it reads like the dot on a gauge",
+            ["ballSize"] = "ball diameter, px",
+            ["showValue"] = "true/false — G and PEAK under the meter",
+            ["valueColour"] = "the G number",
+            ["valueSize"] = "size of G and PEAK, px",
+            ["labelColour"] = "the G and PEAK captions",
+            ["showSource"] = "true/false — where the reading came from. Default true",
+        },
     };
 
     /// <summary>Parts by style.</summary>
@@ -232,11 +403,21 @@ public static class GaugeParts
         {
             ["frameColour"] = "outline colour, or \"none\"",
             ["frameRadius"] = "outline corner radius, px",
+            ["align"] = "\"left\", \"center\" or \"right\" — lays the caption above the number, aligned",
+            ["labelPosition"] = "\"above\" puts the caption over the number; \"below\" under it (centred, or aligned with align)",
+            ["labelGap"] = "space between the caption and the number when above, px",
         },
     };
 
     public static bool Knows(GaugeStyle style, string part) =>
         Common.ContainsKey(part) || (ByStyle.TryGetValue(style, out var parts) && parts.ContainsKey(part));
+
+    /// <summary>Whether an element of this type takes this part. Gauges by style; compass and G meter by type.</summary>
+    public static bool Knows(GaugeSpec element, string part) => element.Type switch
+    {
+        StageElementType.Gauge => Knows(element.Style, part),
+        _ => ByElement.TryGetValue(element.Type, out var parts) && parts.ContainsKey(part),
+    };
 }
 
 /// <summary>Where a gauge layout came from.</summary>
@@ -257,6 +438,10 @@ public enum LayoutOrigin
 /// </remarks>
 public sealed record StageLayout
 {
+    /// <summary>The surface it is drawn on — the stage, or the climate panel (ADR-0040).</summary>
+    [JsonIgnore]
+    public LayoutCanvas Canvas { get; init; } = LayoutCanvas.Stage;
+
     /// <summary>The stage's size in its own pixels. Positions are in these.</summary>
     public const double StageWidth = 912;
 
@@ -272,6 +457,13 @@ public sealed record StageLayout
     /// <summary>Behind the gauges: <c>#RRGGBB</c>, <c>@token</c>, or null for the theme's canvas.</summary>
     public string? Background { get; init; }
 
+    /// <summary>
+    /// The layout's own type, or null to use the theme's — <c>{ "ui": "Segoe UI", "mono": "Segoe UI" }</c>.
+    /// <c>ui</c> is the numbers and headings, <c>mono</c> the captions. A comma list falls back in
+    /// order (<c>"Segoe UI Variable Display, Segoe UI"</c>). Only this layout changes.
+    /// </summary>
+    public LayoutFonts? Fonts { get; init; }
+
     /// <summary>Everything on the stage, drawn in order — later elements on top.</summary>
     public IReadOnlyList<GaugeSpec> Elements { get; init; } = [];
 
@@ -285,9 +477,21 @@ public sealed record StageLayout
     [JsonIgnore]
     public string? FilePath { get; init; }
 
+    /// <summary>A built-in layout's name for itself, since it has no file: <c>default</c>, <c>compass</c>.</summary>
+    [JsonIgnore]
+    public string? BuiltInSlug { get; init; }
+
     /// <summary>The file name without extension, lower case — what a theme names (<c>"gaugeLayout": "lcars"</c>).</summary>
     [JsonIgnore]
-    public string Slug => FilePath is null ? "default" : Path.GetFileNameWithoutExtension(FilePath).ToLowerInvariant();
+    public string Slug => FilePath is null ? BuiltInSlug ?? "default" : Path.GetFileNameWithoutExtension(FilePath).ToLowerInvariant();
+
+    /// <summary>The elements that read tablet sensors — the ones a view must poll (ADR-0039).</summary>
+    [JsonIgnore]
+    public bool UsesSensors => Elements.Any(e => e.Type is StageElementType.Compass or StageElementType.GMeter || e.Source.IsSensor);
+
+    /// <summary>True when there is a G meter, whose peak the stage's menu can reset.</summary>
+    [JsonIgnore]
+    public bool HasGMeter => Elements.Any(e => e.Type is StageElementType.GMeter);
 
     /// <summary><c>builtin/default</c>, <c>shipped/lcars</c>, <c>yours/towing</c>.</summary>
     [JsonIgnore]
@@ -321,8 +525,10 @@ public sealed record StageLayout
     /// <see cref="Problems"/>; the rest still load.
     /// </summary>
     /// <exception cref="InvalidDataException">Not JSON, no name, or not a layout at all.</exception>
-    public static StageLayout Parse(string json, string? filePath = null, LayoutOrigin origin = LayoutOrigin.Yours)
+    /// <param name="canvas">What it is drawn on — the stage unless said. Positions are checked against it.</param>
+    public static StageLayout Parse(string json, string? filePath = null, LayoutOrigin origin = LayoutOrigin.Yours, LayoutCanvas? canvas = null)
     {
+        canvas ??= LayoutCanvas.Stage;
         StageLayout? layout;
         try
         {
@@ -354,13 +560,19 @@ public sealed record StageLayout
                 : gauge.Label.Length > 0 ? gauge.Label
                 : $"{gauge.Type.ToString().ToLowerInvariant()} {i + 1}";
 
+            // A compass reads the heading unless it names another sensor.
+            if (gauge.Type is StageElementType.Compass && !gauge.Source.IsSensor && string.IsNullOrWhiteSpace(gauge.Source.Signal))
+            {
+                gauge = gauge with { Source = gauge.Source with { Sensor = "attitude.heading" } };
+            }
+
             if (Refusal(gauge) is { } refusal)
             {
                 problems.Add($"{name}: {refusal} — left out");
                 continue;
             }
 
-            problems.AddRange(Warnings(gauge).Select(w => $"{name}: {w}"));
+            problems.AddRange(Warnings(gauge, canvas).Select(w => $"{name}: {w}"));
             kept.Add(gauge);
         }
 
@@ -371,6 +583,7 @@ public sealed record StageLayout
             Problems = problems,
             FilePath = filePath,
             Origin = origin,
+            Canvas = canvas,
         };
     }
 
@@ -400,15 +613,36 @@ public sealed record StageLayout
                 }
 
                 return null;
-            case StageElementType.Panel when ParseRadius(g.Radius) is null:
+            case StageElementType.Panel or StageElementType.Glass when ParseRadius(g.Radius) is null:
                 return $"radius '{g.Radius}' should be one number or four, comma-separated";
-            case StageElementType.Text or StageElementType.Panel:
+            case StageElementType.Text or StageElementType.Panel or StageElementType.Glass:
                 return null;
+            case StageElementType.Levels when g.Number("steps", 7) is < 1 or > 20:
+                return "steps must be 1 to 20";
+            case StageElementType.Warning when !WarningIcons.IsKnown(g.Text("icon", "")):
+                return $"icon '{g.Text("icon", "")}' is not one of {string.Join(", ", WarningIcons.Names)} or SVG path data";
+            case StageElementType.Compass when !string.IsNullOrWhiteSpace(g.Source.Signal):
+                return "a compass reads a sensor (source.sensor), not a signal";
+            case StageElementType.Compass:
+            case StageElementType.GMeter:
+                return g.Number("range", 1) is > 0 and <= 10
+                    ? null
+                    : "range must be above 0 and at most 10 g";
         }
 
-        if (string.IsNullOrWhiteSpace(g.Source.Signal))
+        if (g.Source.IsSensor && !string.IsNullOrWhiteSpace(g.Source.Signal))
         {
-            return "no source signal";
+            return "a source is a signal or a sensor, not both";
+        }
+
+        if (g.Source.IsSensor && g.Source.Minus is not null)
+        {
+            return "minus works with signals only — a sensor source cannot subtract";
+        }
+
+        if (string.IsNullOrWhiteSpace(g.Source.Signal) && !g.Source.IsSensor)
+        {
+            return "no source — give source.signal or source.sensor";
         }
 
         if (!(g.Max > g.Min))
@@ -449,12 +683,12 @@ public sealed record StageLayout
     }
 
     /// <summary>Things worth fixing in a gauge that is still drawn.</summary>
-    private static IEnumerable<string> Warnings(GaugeSpec g)
+    private static IEnumerable<string> Warnings(GaugeSpec g, LayoutCanvas canvas)
     {
-        if (g.X < 0 || g.Y < 0 || g.X + g.Width > StageWidth + 0.5 || g.Y + g.Height > StageHeight + 0.5)
+        if (g.X < 0 || g.Y < 0 || g.X + g.Width > canvas.Width + 0.5 || g.Y + g.Height > canvas.Height + 0.5)
         {
             yield return string.Create(CultureInfo.InvariantCulture,
-                $"reaches outside the {StageWidth} × {StageHeight} stage and will be cut off");
+                $"reaches outside the {canvas.Width} × {canvas.Height} {canvas.Name} and will be cut off");
         }
 
         if (g.Colour is { } colour && !IsColour(colour))
@@ -462,19 +696,20 @@ public sealed record StageLayout
             yield return $"colour '{colour}' is not a colour (#RRGGBB or @token) — using the default";
         }
 
-        if (g.Type is not StageElementType.Gauge)
+        if (g.Type is StageElementType.Text or StageElementType.Clock or StageElementType.Panel)
         {
             yield break;
         }
 
-        foreach (var part in g.Parts.Keys.Where(p => !GaugeParts.Knows(g.Style, p)))
+        foreach (var part in g.Parts.Keys.Where(p => !GaugeParts.Knows(g, p)))
         {
-            yield return $"'{part}' is not a part of a {g.Style.ToString().ToLowerInvariant()} gauge — ignored";
+            var what = g.Type is StageElementType.Gauge ? $"{g.Style.ToString().ToLowerInvariant()} gauge" : ElementName(g.Type);
+            yield return $"'{part}' is not a part of a {what} — ignored";
         }
 
         foreach (var (part, value) in g.Parts)
         {
-            if (part.EndsWith("Colour", StringComparison.Ordinal) || part is "face" or "needleGlow")
+            if (part.EndsWith("Colour", StringComparison.Ordinal) || part is "face" or "needleGlow" or "ringColour" or "crossColour" or "tint" or "edge" or "glow" or "litText")
             {
                 var text = value.ValueKind is JsonValueKind.String ? value.GetString()! : value.GetRawText();
                 if (!IsColour(text) && !text.Equals("none", StringComparison.OrdinalIgnoreCase))
@@ -497,6 +732,10 @@ public sealed record StageLayout
             }
         }
     }
+
+    /// <summary>How a layout file writes an element type: <c>gMeter</c>, <c>compass</c>.</summary>
+    private static string ElementName(StageElementType type) =>
+        JsonNamingPolicy.CamelCase.ConvertName(type.ToString());
 
     /// <summary>Corner radii: one number for all four, or four for top-left, top-right, bottom-right, bottom-left.</summary>
     public static double[]? ParseRadius(string text)
@@ -534,6 +773,271 @@ public sealed record StageLayout
     /// intake, throttle and load small, in the F-150's own style. SAVE AS makes it yours to edit.
     /// </summary>
     public static StageLayout BuiltIn { get; } = Parse(BuiltInJson, null, LayoutOrigin.BuiltIn);
+
+    /// <summary>
+    /// The COMPASS screen, as a layout (ADR-0039): the heading rose, the G meter, pitch and roll,
+    /// speed and outside temperature, and the phone's position — what was drawn in code before.
+    /// The launcher's <c>compass</c> entry shows it; a layout of yours called <c>compass</c> replaces it.
+    /// </summary>
+    public static StageLayout BuiltInCompass { get; } = Parse(BuiltInCompassJson, null, LayoutOrigin.BuiltIn) with { BuiltInSlug = CompassSlug };
+
+    /// <summary>What the compass layout is called, and what the launcher's <c>compass</c> entry looks for.</summary>
+    public const string CompassSlug = "compass";
+
+    /// <summary>Every layout compiled in.</summary>
+    public static IReadOnlyList<StageLayout> BuiltIns { get; } = [BuiltIn, BuiltInCompass];
+
+    /// <summary>
+    /// The climate panel (ADR-0040), drawn as type rather than boxes: each side's temperature large at
+    /// its edge with the seat beneath, the fan and airflow between, the switches as words that light.
+    /// Read only. The Modern theme's (ADR-0043); a climate layout of yours called <c>modern</c>, or the
+    /// one a theme names, replaces it. Glass, the Glass theme's, ships as <c>catalog/climate/glass.json</c>.
+    /// </summary>
+    public static StageLayout BuiltInClimate { get; } =
+        Parse(BuiltInClimateJson, null, LayoutOrigin.BuiltIn, LayoutCanvas.Climate) with { BuiltInSlug = ClimateSlug };
+
+    /// <summary>What the built-in climate layout is called.</summary>
+    public const string ClimateSlug = "modern";
+
+    /// <summary>The climate layouts compiled in.</summary>
+    public static IReadOnlyList<StageLayout> ClimateBuiltIns { get; } = [BuiltInClimate];
+
+    /// <summary>
+    /// The console (ADR-0041), drawn as type rather than boxes: speed large in the middle, engine and
+    /// fuel down the left, range and economy down the right, warning lights that show only when on,
+    /// the odometer along the bottom. The Modern theme's (ADR-0043); a console layout of yours called
+    /// <c>modern</c>, or the one a theme names, replaces it. Glass, the Glass theme's, ships as
+    /// <c>catalog/console/glass.json</c>.
+    /// </summary>
+    public static StageLayout BuiltInConsole { get; } =
+        Parse(BuiltInConsoleJson, null, LayoutOrigin.BuiltIn, LayoutCanvas.Console) with { BuiltInSlug = ConsoleSlug };
+
+    /// <summary>What the built-in console layout is called.</summary>
+    public const string ConsoleSlug = "modern";
+
+    /// <summary>The console layouts compiled in.</summary>
+    public static IReadOnlyList<StageLayout> ConsoleBuiltIns { get; } = [BuiltInConsole];
+
+    /// <summary>The console layout as text, comments and all — what <c>console\examples\modern.json</c> holds.</summary>
+    internal const string BuiltInConsoleJson = """
+    {
+      "name": "Modern",
+      "description": "Type, not boxes: speed large in the middle, engine and fuel on the left, range and economy on the right, warning lights that only show when they are on, and the odometer along the bottom.",
+      "author": "DashDeck",
+      // No background of its own: the theme's canvas, so it sits seamlessly below the stage. White
+      // and grey type from the theme's text colours, so it dims at night with the rest of the dash.
+      // Only what is lit — a switch, a heater, a warning — has a colour of its own.
+      // One family, two weights. Windows 11's Segoe UI Variable, or Segoe UI where it is not installed.
+      "fonts": { "ui": "Segoe UI Variable Display, Segoe UI", "mono": "Segoe UI Variable Text, Segoe UI" },
+      "elements": [
+        // ── Speed ── the one large thing on the screen.
+        { "id": "speed", "style": "digital", "x": 296, "y": 22, "width": 320, "height": 206,
+          "label": "km/h", "format": "0", "min": 0, "max": 250,
+          "source": { "signal": "vehicle.speed", "rateHz": 4 },
+          "parts": { "align": "center", "labelPosition": "below", "labelGap": 0, "labelSize": 16, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 138, "valueWeight": "light", "valueColour": "@textHigh", "noData": "–" } },
+
+        // ── Engine and fuel ── a caption, then the number; space does the separating.
+        { "id": "rpm", "style": "digital", "x": 40, "y": 34, "width": 220, "height": 66,
+          "label": "RPM", "format": "#,0", "min": 0, "max": 7000,
+          "source": { "signal": "engine.rpm", "rateHz": 3 },
+          "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "noData": "–" } },
+        { "id": "coolant", "style": "digital", "x": 40, "y": 118, "width": 220, "height": 66,
+          "label": "ENGINE", "unit": "°C", "format": "0", "min": -40, "max": 150,
+          "source": { "signal": "engine.coolantTemp", "rateHz": 0.5 },
+          "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 16, "unitColour": "@textMid", "noData": "–" } },
+        { "id": "fuel", "style": "digital", "x": 40, "y": 202, "width": 220, "height": 66,
+          "label": "FUEL", "unit": "%", "format": "0", "min": 0, "max": 100,
+          "source": { "signal": "fuel.levelPercent", "rateHz": 0.2 },
+          "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 16, "unitColour": "@textMid", "noData": "–" } },
+
+        // ── Range and economy ── the same, aligned right. Placeholders until the truck's own are found.
+        { "id": "range", "style": "digital", "x": 652, "y": 34, "width": 220, "height": 66,
+          "label": "RANGE", "unit": "km", "format": "0", "min": 0, "max": 2000,
+          "source": { "signal": "fuel.range", "rateHz": 0.5 },
+          "parts": { "align": "right", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 16, "unitColour": "@textMid", "noData": "–" } },
+        { "id": "economy", "style": "digital", "x": 652, "y": 118, "width": 220, "height": 66,
+          "label": "ECONOMY", "unit": "L/100km", "format": "0.0", "min": 0, "max": 99.9,
+          "source": { "signal": "fuel.economy", "rateHz": 1 },
+          "parts": { "align": "right", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 16, "unitColour": "@textMid", "noData": "–" } },
+        { "id": "outside", "style": "digital", "x": 652, "y": 202, "width": 220, "height": 66,
+          "label": "OUTSIDE", "unit": "°", "format": "0", "min": -50, "max": 60,
+          "source": { "signal": "ambient.airTemp", "rateHz": 0.1 },
+          "parts": { "align": "right", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "noData": "–" } },
+
+        // ── Warning lights ── almost invisible until one comes on; then it is the only colour here.
+        { "id": "checkEngine", "type": "warning", "x": 283, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "diagnostics.checkEngine", "rateHz": 0.2 }, "parts": { "icon": "checkEngine", "litColour": "#FFB000", "unlitColour": "#14FFFFFF" } },
+        { "id": "oil", "type": "warning", "x": 323, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "warning.oilPressure", "rateHz": 0.5 }, "parts": { "icon": "oil", "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "battery", "type": "warning", "x": 363, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "vehicle.controlModuleVoltage", "rateHz": 0.5 }, "parts": { "icon": "battery", "below": 11.8, "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "hot", "type": "warning", "x": 403, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "engine.coolantTemp", "rateHz": 0.5 }, "parts": { "icon": "coolant", "onAt": 112, "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "lowFuel", "type": "warning", "x": 443, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "fuel.levelPercent", "rateHz": 0.2 }, "parts": { "icon": "fuel", "below": 12, "litColour": "#FFB000", "unlitColour": "#14FFFFFF" } },
+        { "id": "seatbelt", "type": "warning", "x": 483, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "warning.seatbelt", "rateHz": 0.5 }, "parts": { "icon": "seatbelt", "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "door", "type": "warning", "x": 523, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "warning.doorAjar", "rateHz": 0.5 }, "parts": { "icon": "door", "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "brake", "type": "warning", "x": 563, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "warning.parkingBrake", "rateHz": 0.5 }, "parts": { "icon": "brake", "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "tyres", "type": "warning", "x": 603, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "warning.tirePressure", "rateHz": 0.2 }, "parts": { "icon": "tpms", "litColour": "#FFB000", "unlitColour": "#14FFFFFF" } },
+
+        // ── Along the bottom ── small and quiet: the things you look for, not at.
+        { "id": "odometer", "style": "digital", "x": 40, "y": 310, "width": 260, "height": 56,
+          "label": "ODOMETER", "unit": "km", "format": "#,0", "min": 0, "max": 2000000,
+          "source": { "signal": "vehicle.odometer", "rateHz": 0.05 },
+          "parts": { "align": "left", "labelSize": 11, "labelWeight": "regular", "labelColour": "@textLow",
+                     "valueSize": 20, "valueWeight": "regular", "valueColour": "@textMid", "unitSize": 13, "unitColour": "@textLow", "noData": "–" } },
+        { "id": "codes", "style": "digital", "x": 612, "y": 310, "width": 260, "height": 56,
+          "label": "STORED CODES", "format": "0", "min": 0, "max": 127,
+          "source": { "signal": "diagnostics.dtcCount", "rateHz": 0.1 },
+          "parts": { "align": "right", "labelSize": 11, "labelWeight": "regular", "labelColour": "@textLow",
+                     "valueSize": 20, "valueWeight": "regular", "valueColour": "@textMid", "noData": "–" } }
+      ]
+    }
+    """;
+
+    /// <summary>The climate layout as text, comments and all — what <c>climate\examples\modern.json</c> holds.</summary>
+    internal const string BuiltInClimateJson = """
+    {
+      "name": "Modern",
+      "description": "Type, not boxes: each side's temperature large at its edge, the seat beneath it, the fan and airflow in the middle, and the switches as words that light. Shows what the truck reports; changes nothing.",
+      "author": "DashDeck",
+      // No background of its own: the theme's canvas, so it sits seamlessly below the stage. White
+      // and grey type from the theme's text colours, so it dims at night with the rest of the dash.
+      // Only what is lit — a switch, a heater, a warning — has a colour of its own.
+      "fonts": { "ui": "Segoe UI Variable Display, Segoe UI", "mono": "Segoe UI Variable Text, Segoe UI" },
+      "elements": [
+        // ── Driver ── at the left edge.
+        { "id": "driver", "style": "digital", "x": 40, "y": 30, "width": 240, "height": 108,
+          "label": "DRIVER", "unit": "°", "format": "0.0", "min": 10, "max": 35,
+          "source": { "signal": "hvac.driverSetTemp", "rateHz": 0.5 },
+          "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 72, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 40, "unitColour": "@textMid", "noData": "–" } },
+        // The seat heats (warm, HEAT 1–3) and cools (blue, COOL 1–3); the wheel heats.
+        { "id": "driverSeat", "type": "levels", "x": 40, "y": 160, "width": 150, "height": 40,
+          "label": "SEAT", "min": -3, "max": 3,
+          "source": { "signal": "seat.driver.climate", "rateHz": 0.2 },
+          "parts": { "steps": 3, "shape": "dots", "size": 12, "gap": 10, "litColour": "#FF8A3D", "negativeColour": "@accent", "unlitColour": "@hairlineStrong",
+                     "labelColour": "@textMid", "labelSize": 12, "labelWeight": "regular", "positiveText": "HEAT", "negativeText": "COOL" } },
+        { "id": "wheel", "type": "indicator", "x": 40, "y": 214, "width": 200, "height": 26, "label": "HEATED WHEEL",
+          "source": { "signal": "steeringWheel.heat", "rateHz": 0.2 },
+          "parts": { "style": "text", "align": "left", "fontSize": 13, "labelWeight": "regular", "litColour": "#FF8A3D", "unlitColour": "@textFaint" } },
+
+        // ── The middle ── the fan, where the air goes, and the cabin.
+        { "id": "fan", "type": "levels", "x": 336, "y": 34, "width": 240, "height": 46,
+          "label": "FAN", "min": 0, "max": 7,
+          "source": { "signal": "hvac.fanSpeed", "rateHz": 0.5 },
+          "parts": { "steps": 7, "shape": "dots", "size": 10, "gap": 12, "litColour": "@textHigh", "unlitColour": "@hairlineStrong",
+                     "labelColour": "@textMid", "labelSize": 12, "labelWeight": "regular" } },
+        // Airflow is one signal of bits: 1 face, 2 feet, 4 windshield.
+        { "id": "face", "type": "indicator", "x": 336, "y": 108, "width": 72, "height": 26, "label": "FACE",
+          "source": { "signal": "hvac.airflow", "rateHz": 0.5 },
+          "parts": { "bit": 0, "style": "text", "align": "left", "fontSize": 14, "labelWeight": "regular", "litColour": "@textHigh", "unlitColour": "@textFaint" } },
+        { "id": "feet", "type": "indicator", "x": 420, "y": 108, "width": 72, "height": 26, "label": "FEET",
+          "source": { "signal": "hvac.airflow", "rateHz": 0.5 },
+          "parts": { "bit": 1, "style": "text", "align": "center", "fontSize": 14, "labelWeight": "regular", "litColour": "@textHigh", "unlitColour": "@textFaint" } },
+        { "id": "glassAir", "type": "indicator", "x": 492, "y": 108, "width": 84, "height": 26, "label": "SCREEN",
+          "source": { "signal": "hvac.airflow", "rateHz": 0.5 },
+          "parts": { "bit": 2, "style": "text", "align": "right", "fontSize": 14, "labelWeight": "regular", "litColour": "@textHigh", "unlitColour": "@textFaint" } },
+        { "id": "cabin", "style": "digital", "x": 336, "y": 160, "width": 240, "height": 66,
+          "label": "CABIN", "unit": "°", "format": "0.0", "min": -40, "max": 80,
+          "source": { "signal": "hvac.cabinTemp", "rateHz": 0.5 },
+          "parts": { "align": "center", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 30, "valueWeight": "light", "valueColour": "@textMid", "noData": "–" } },
+
+        // ── Passenger ── at the right edge, mirrored.
+        { "id": "passenger", "style": "digital", "x": 632, "y": 30, "width": 240, "height": 108,
+          "label": "PASSENGER", "unit": "°", "format": "0.0", "min": 10, "max": 35,
+          "source": { "signal": "hvac.passengerSetTemp", "rateHz": 0.5 },
+          "parts": { "align": "right", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 72, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 40, "unitColour": "@textMid", "noData": "–" } },
+        { "id": "passengerSeat", "type": "levels", "x": 722, "y": 160, "width": 150, "height": 40,
+          "label": "SEAT", "min": -3, "max": 3,
+          "source": { "signal": "seat.passenger.climate", "rateHz": 0.2 },
+          "parts": { "steps": 3, "shape": "dots", "size": 12, "gap": 10, "litColour": "#FF8A3D", "negativeColour": "@accent", "unlitColour": "@hairlineStrong",
+                     "labelColour": "@textMid", "labelSize": 12, "labelWeight": "regular", "positiveText": "HEAT", "negativeText": "COOL" } },
+
+        // ── The switches ── words that light when on, grey when off, with a dash when not known.
+        { "id": "auto", "type": "indicator", "x": 40, "y": 316, "width": 100, "height": 32, "label": "AUTO",
+          "source": { "signal": "hvac.auto", "rateHz": 0.5 },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "@accent", "unlitColour": "@textFaint" } },
+        { "id": "ac", "type": "indicator", "x": 150, "y": 316, "width": 100, "height": 32, "label": "A/C",
+          "source": { "signal": "hvac.airConditioning", "rateHz": 0.5 },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "@accent", "unlitColour": "@textFaint" } },
+        { "id": "recirc", "type": "indicator", "x": 260, "y": 316, "width": 120, "height": 32, "label": "RECIRC",
+          "source": { "signal": "hvac.recirculate", "rateHz": 0.5 },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "@accent", "unlitColour": "@textFaint" } },
+        { "id": "frontDefrost", "type": "indicator", "x": 390, "y": 316, "width": 130, "height": 32, "label": "DEFROST",
+          "source": { "signal": "hvac.frontDefrost", "rateHz": 0.5 },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "#FF8A3D", "unlitColour": "@textFaint" } },
+        { "id": "rearDefrost", "type": "indicator", "x": 530, "y": 316, "width": 110, "height": 32, "label": "REAR",
+          "source": { "signal": "hvac.rearDefrost", "rateHz": 0.5 },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "#FF8A3D", "unlitColour": "@textFaint" } },
+        // Outside air is a standard signal: it reads on the real truck today.
+        { "id": "outside", "style": "digital", "x": 692, "y": 300, "width": 180, "height": 60,
+          "label": "OUTSIDE", "unit": "°", "format": "0", "min": -50, "max": 60,
+          "source": { "signal": "ambient.airTemp", "rateHz": 0.1 },
+          "parts": { "align": "right", "labelSize": 11, "labelWeight": "regular", "labelColour": "@textLow",
+                     "valueSize": 22, "valueWeight": "regular", "valueColour": "@textMid", "noData": "–" } }
+      ]
+    }
+    """;
+
+    /// <summary>The compass layout as text, comments and all — what <c>stage\examples\compass.json</c> holds.</summary>
+    internal const string BuiltInCompassJson = """
+    {
+      "name": "Compass",
+      "description": "Where the truck is pointing, how it is sitting and what it is doing: heading, G, pitch and roll, speed and outside air. Truck first, tablet second, and every reading says which.",
+      "author": "DashDeck",
+      "elements": [
+        // The rose. "parts" tunes it: "mode": "needle" keeps north up; every colour is a part.
+        { "id": "heading", "type": "compass", "x": 31, "y": 96, "width": 320, "height": 344,
+          "source": { "sensor": "attitude.heading" } },
+
+        // Position from the phone's GPS (ADR-0027). Any gauge can read a sensor like this.
+        { "id": "latitude", "style": "digital", "x": 31, "y": 456, "width": 160, "height": 96,
+          "label": "LATITUDE", "format": "0.0000",
+          "source": { "sensor": "location.latitude" }, "min": -90, "max": 90,
+          "parts": { "valueSize": 18, "valueColour": "@textMid" } },
+        { "id": "longitude", "style": "digital", "x": 191, "y": 456, "width": 160, "height": 96,
+          "label": "LONGITUDE", "format": "0.0000",
+          "source": { "sensor": "location.longitude" }, "min": -180, "max": 180,
+          "parts": { "valueSize": 18, "valueColour": "@textMid" } },
+
+        // The G meter. "parts": { "range": 0.5 } makes the outer ring half a g.
+        { "id": "g", "type": "gMeter", "x": 369, "y": 150, "width": 240, "height": 312 },
+
+        // Pitch and roll need the mount levelled (Settings > Mount); until then they say so.
+        { "id": "pitch", "style": "digital", "x": 627, "y": 170, "width": 127, "height": 120,
+          "label": "PITCH", "unit": "°", "format": "0.0",
+          "source": { "sensor": "attitude.pitch" }, "min": -45, "max": 45,
+          "parts": { "valueSize": 30 } },
+        { "id": "roll", "style": "digital", "x": 754, "y": 170, "width": 127, "height": 120,
+          "label": "ROLL", "unit": "°", "format": "0.0",
+          "source": { "sensor": "attitude.roll" }, "min": -45, "max": 45,
+          "parts": { "valueSize": 30 } },
+        // Speed and outside air are vehicle signals, as on any gauge.
+        { "id": "speed", "style": "digital", "x": 627, "y": 320, "width": 127, "height": 120,
+          "label": "SPEED", "unit": "km/h", "format": "0",
+          "source": { "signal": "vehicle.speed", "rateHz": 1 }, "min": 0, "max": 250,
+          "parts": { "valueSize": 30 } },
+        { "id": "outside", "style": "digital", "x": 754, "y": 320, "width": 127, "height": 120,
+          "label": "OUTSIDE", "unit": "°C", "format": "0",
+          "source": { "signal": "ambient.airTemp", "rateHz": 0.1 }, "min": -50, "max": 60,
+          "parts": { "valueSize": 30 } }
+      ]
+    }
+    """;
 
     private const string BuiltInJson = """
     {
@@ -633,6 +1137,15 @@ public readonly record struct GaugeReading(double Value, SignalQuality Quality)
 
         return new((value * source.Scale) + source.Offset, quality);
     }
+
+    /// <summary>
+    /// A gauge's reading from a sensor (ADR-0039), scaled and offset like a signal. A sensor reading
+    /// that is not usable — no tablet sensor, not levelled — is no reading, never a zero.
+    /// </summary>
+    public static GaugeReading FromSensor(GaugeSource source, double value, SignalQuality quality) =>
+        double.IsNaN(value) || quality is not (SignalQuality.Live or SignalQuality.Simulated)
+            ? new(double.NaN, SignalQuality.Unavailable)
+            : new((value * source.Scale) + source.Offset, quality);
 
     /// <summary>A value worth drawing: usable, or stale with a number still in it.</summary>
     private static bool Has(SignalValue v) =>

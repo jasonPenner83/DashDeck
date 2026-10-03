@@ -134,6 +134,19 @@ public static class BandGrid
     /// this is a floor rather than a case.
     /// </para>
     /// </remarks>
-    public static int RowsIn(int bands) =>
-        Math.Max(1, (int)Math.Floor((Height(bands) - Gutter) / (WidgetRowHeight + Gutter)));
+    public static int RowsIn(int bands) => RowsInHeight(Height(bands));
+
+    /// <summary>How many widget rows fit in a region this many pixels tall. Never zero.</summary>
+    public static int RowsInHeight(double height) =>
+        Math.Max(1, (int)Math.Floor((height - Gutter) / (WidgetRowHeight + Gutter)));
+
+    /// <summary>
+    /// The picture an occupant gets: four bands, less the bar above it and the launcher bar below
+    /// (ADR-0018, ADR-0022) — the 912 × 636 a stage layout is drawn on.
+    /// </summary>
+    /// <remarks>
+    /// Five rows of cards fit it: <c>5 × 103 + 6 × 20 = 635</c>. That is where the cards live
+    /// since the console took the two bands below (ADR-0041).
+    /// </remarks>
+    public const double StageOccupantHeight = 636;
 }

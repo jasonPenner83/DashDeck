@@ -50,6 +50,22 @@ public sealed record AppLaunchSpec(
     public bool IsInstalled => Resolve() is not null;
 
     /// <summary>
+    /// A spec for an entry in the launcher file (ADR-0038) — NUVIO, STREMIO, PROBE and anything
+    /// written there by hand. The curated install paths that kept the built-ins in code are a
+    /// <c>paths</c> list in the file now.
+    /// </summary>
+    public static AppLaunchSpec FromLauncher(Launcher.LauncherEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+
+        return new AppLaunchSpec(
+            entry.Name,
+            entry.Detail ?? "",
+            [.. (entry.Paths ?? []).Where(p => !string.IsNullOrWhiteSpace(p))],
+            entry.Arguments ?? "");
+    }
+
+    /// <summary>
     /// A spec for an app the user added through the UI.
     /// </summary>
     /// <remarks>
@@ -69,67 +85,4 @@ public sealed record AppLaunchSpec(
             [entry.Path],
             entry.Arguments);
     }
-
-    /// <summary>
-    /// NuvioDesktop, if it is installed.
-    /// </summary>
-    /// <remarks>
-    /// The reason this exists at all: the NUVIO occupant pointed at <c>app.nuvio.tv</c>, which
-    /// is a third-party web client and answered 526 when it was wired. The real application is
-    /// a Kotlin Multiplatform / Compose Desktop build shipped as an MSI — a JVM process with
-    /// one real Win32 top-level window, which is the property that makes adopting it plausible
-    /// at all. It is alpha, by its own authors' description.
-    /// </remarks>
-    public static AppLaunchSpec Nuvio { get; } = new(
-        "NUVIO",
-        "NuvioDesktop, if installed",
-        [
-            @"%ProgramFiles%\Nuvio\Nuvio.exe",
-            @"%ProgramFiles%\NuvioDesktop\NuvioDesktop.exe",
-            @"%LOCALAPPDATA%\Programs\Nuvio\Nuvio.exe",
-            @"%LOCALAPPDATA%\Nuvio\Nuvio.exe",
-        ]);
-
-    /// <summary>
-    /// Stremio's desktop shell.
-    /// </summary>
-    /// <remarks>
-    /// The Start Menu shortcut points at <c>stremio-shell-ng.exe</c>, not at anything named
-    /// plainly "stremio" — Stremio 5 ships its shell inside the Stremio Service folder, and
-    /// the only registered product is the service. A spec that had guessed at
-    /// <c>Stremio\stremio.exe</c> would have reported "not installed" to somebody who plainly
-    /// had it.
-    /// <para>
-    /// The version 4 path is kept as a fallback because it is where every older install lives.
-    /// </para>
-    /// </remarks>
-    public static AppLaunchSpec Stremio { get; } = new(
-        "STREMIO",
-        "Stremio desktop",
-        [
-            @"%LOCALAPPDATA%\Programs\StremioService\stremio-shell-ng.exe",
-            @"%LOCALAPPDATA%\Programs\LNV\Stremio-4\stremio.exe",
-            @"%ProgramFiles%\Stremio\stremio.exe",
-            @"%ProgramFiles(x86)%\Stremio\stremio.exe",
-        ]);
-
-    /// <summary>
-    /// A known-simple Win32 app, for proving the mechanism.
-    /// </summary>
-    /// <remarks>
-    /// Character Map: a plain Win32 dialog with one top-level window and no tricks. If
-    /// adoption fails on it, the problem is ours rather than the application's — and that
-    /// distinction is worth a development-only occupant, because the alternative is debugging
-    /// a JVM window and our own plumbing at the same time.
-    /// <para>
-    /// <b>Not Notepad</b>, which was the obvious choice and is wrong on Windows 11: the
-    /// <c>System32</c> executable is a stub that starts the Store-packaged app in a different
-    /// process and exits immediately. Ours reported a failed launch — correctly, and
-    /// uselessly. Anything Store-packaged behaves the same way and cannot be adopted.
-    /// </para>
-    /// </remarks>
-    public static AppLaunchSpec Probe { get; } = new(
-        "PROBE",
-        "Proves window adoption works",
-        [@"%WINDIR%\System32\charmap.exe"]);
 }

@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **454 tests green** — 166 engine, 288 shell.
+(ADR-0010). **586 tests green** — 194 engine, 392 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -38,7 +38,10 @@ keep their own focus, DPI and input. They report `Hosted` or `Outside` rather th
 it always works. The
 compass reads truck-first and falls back to the tablet's own sensors, saying which (ADR-0016,
 ADR-0017) — and anything measured against the mount refuses to render until it is levelled.
-Below it, the **dash is a user-arranged list of cards**
+Below it, **DASH shows a console** (ADR-0041) — a layout file
+like CLIMATE: speed, rpm, fuel, temperature, range, nine warning lights, odometer and economy — and
+**the cards are a stage occupant, `CARDS`**, five rows a page, asking for nothing while another
+occupant is on the stage. The **cards are a user-arranged list**
 (ADR-0015) loaded from `dashboard.json` — add, remove, reorder, resize, and pick each card's
 value, style, unit, rate and format. A card names a **`source`** (B4): a vehicle `Signal`
 from the catalog, or a tablet `Sensor` — heading, pitch, roll, G. Sensor cards cost no request
@@ -63,6 +66,19 @@ signal can now **name a module** (`"module": "726"`); `ElmAdapter` sets `ATSH`/`
 only when the module changes and restores the broadcast after. The parser reads negative
 responses as `Rejected` with a code, and takes the first of several broadcast answers rather than
 gluing them into garbage. Module names come from the vehicle pack and are shown as *likely*.
+Scans and sweeps of the **real** truck are **kept** in `%LOCALAPPDATA%\DashDeck\discovery.json` — the
+last module scan and the latest sweep of each module and range — and shown again at launch marked
+**SAVED**; the synthetic truck's are never saved. The file can hold the VIN (7E0's F190), so it stays
+on the tablet.
+**WATCH** re-asks the identifiers a sweep found, round and round until STOP, and ranks them by how
+often they changed **since the watch's own first pass** — never against the sweep, which may be old
+(the first version did, and every row read MOVED ×1) (`IdentifierWatch`): leave it 30 s, then do one
+thing to the truck — blip the throttle, let it warm — and what moves with it rises to the top. Beside
+each, the likely temperature: one byte less 40, or two bytes over 16 (Ford's finer ones); a two-byte
+value with its top bit set is shown signed. Every watch is **recorded as it runs** to
+`%LOCALAPPDATA%\DashDeck\watch\watch-<module>-<range>-<time>.csv` — a line per pass with engine rpm,
+each identifier as one unsigned number — to lay beside a FORScan log; OPEN FOLDER after STOP. It is
+a sweep that does not end, so it is refused while moving and stops by itself if the truck moves.
 **Settings ▸ Vehicle** (ADR-0033) says *which* vehicle this is, so nothing hard-codes it: the
 VIN is **read from the truck** (mode 09) or typed, **decoded once by NHTSA vPIC** and cached in
 `%LOCALAPPDATA%\DashDeck\vehicle.json`, and every decoded field is correctable by hand. It fills
@@ -79,7 +95,7 @@ DashDeck look (the built-in theme is pixel-identical to before). Shipped themes 
 after a hand edit; [`docs/writing-a-theme.md`](docs/writing-a-theme.md) is the reference. Night is
 derived by dimming; a bad value costs one token and a warning, never the dash. **The quality
 colours are not tokens**, and a theme's accent passes the same check a hand-picked one does.
-*LCARS (inspired)* ships first, lettered in Antonio (OFL). **Fonts, radii and border width are
+*LCARS (inspired)*, lettered in Antonio (OFL), came first; it is now an extra the user owns (ADR-0043). **Fonts, radii and border width are
 `DynamicResource` now, like colours** — a view that reaches `UiFont` by `StaticResource` will not
 follow the theme.
 
@@ -95,6 +111,75 @@ Themes ▸ STAGE LAYOUT**; a user file with a shipped one's name wins. Every lau
 themes and layouts — and the built-in ones, as JSON — to `themes\examples\` and `stage\examples\`
 beside the user's, as references to copy from; they are never loaded. Reference:
 [`docs/writing-a-stage-layout.md`](docs/writing-a-stage-layout.md).
+
+**The launcher is a file too** (ADR-0038, superseding ADR-0024's "built-ins stay in code"):
+`%LOCALAPPDATA%\DashDeck\launcher.json` lists every stage option in order — `gauges` (optionally
+pinned to a `layout`, so TOWING can have its own button), `clock`, `compass`, `phone`, `video`, `web`
+(`url`, per-page `zoom`) and `app` (`paths`, most likely first, `arguments`) — each with `detail`,
+`group`, `hidden` and `keepPlaying`; plus `quickBar` (up to five names for the bar below the stage;
+whatever is showing still always gets a button) and `startOn`. A `userApps` marker places the apps
+from Settings ▸ Apps. **Your file replaces the built-in list outright** — order is the point; the
+built-in list is compiled in and written to `launcher.example.json`. An entry's name is the stage's
+name (`NamedOccupant` wraps an occupant whose own name differs, because the button is matched to
+the stage by name). A bad entry is left out and named; a bad file leaves the built-in list.
+**Settings ▸ Apps ▸ STAGE LAUNCHER** shows it, with RELOAD, MAKE IT MINE and OPEN FOLDER.
+Reference: [`docs/writing-a-launcher.md`](docs/writing-a-launcher.md).
+
+**COMPASS is a stage layout too** (ADR-0039). A gauge's `source` can be a **`sensor`** from the
+sensor catalog (`attitude.pitch`, `motion.lateralG`, `location.latitude`…) instead of a signal —
+read through `SensorService`, truck first, with the source (`TRUCK`, `TABLET`, `NOT LEVELLED`) drawn
+along the gauge's bottom edge. Two new elements: **`compass`** (a rose, `mode` `rose` or `needle`) and
+**`gMeter`** (no levelled mount, no ball; RESET PEAK G appears in the three-dot menu on any stage with
+one). The old screen is the compiled-in **`compass`** layout; the launcher's `compass` entry shows it,
+and a `compass.json` of the user's in `stage\` replaces it. `CompassView`/`CompassViewModel`/
+`CompassStageOccupant` are gone; the arithmetic lives in `SensorMath`.
+
+**CLIMATE is a layout too** (ADR-0040) — read only, in place of the cards. A layout is drawn on a
+`LayoutCanvas`: the stage's 912 × 636 or the **climate panel's 912 × 390** (the two card bands), with
+the stage's engine. Four new elements work on either: **`setpoint`** (a set temperature on a thin
+glowing arc), **`levels`** (steps lit to the value; below zero in `negativeColour`, for a seat that
+heats and cools — `positiveText`/`negativeText` make it read HEAT 2 / COOL 1), **`indicator`** (a pill lit by a `bit`, `equals` or `onAt`; no reading is dimmed
+with a dash, never "off") and **`glass`** (painted frost). The built-in is **Modern** (ADR-0042/0043; the Glass
+theme's frosted panel ships as `catalog/climate/glass.json`); a theme names its own
+(`"climateLayout"`); the user's live in
+`%LOCALAPPDATA%\DashDeck\climate\`, chosen in **Settings ▸ Themes ▸ CLIMATE LAYOUT** (the stage's
+block, one template). The panel is **made when CLIMATE is chosen and disposed when left**, so it
+declares signals only while visible. Its thirteen `hvac.*` / `seat.*.climate` / `steeringWheel.heat`
+signals are
+**placeholders** (MS-CAN, mode 01 `C4`–`D0`, like TPMS): Simulated on the synthetic truck,
+**Unavailable on the real one** until the HVAC module is found. **Nothing is sent** — control is
+Phase 3 (ADR-0006).
+
+**DASH is a console, and the cards are on the stage** (ADR-0041). The console is a layout on a
+**912 × 390** canvas (`LayoutCanvas.Console`), made when DASH is chosen; the built-in is **Modern**
+(ADR-0042/0043; the Glass theme's arcs console ships as `catalog/console/glass.json`), a theme names
+its own (`"consoleLayout"`), yours live in
+`%LOCALAPPDATA%\DashDeck\console\` (Settings ▸ Themes ▸ CONSOLE LAYOUT). A **`warning`** element
+draws one of nine original icons (path data, `WarningIcons`) lit by `bit`/`below`/`equals`/`onAt`.
+Real lights: check engine (`diagnostics.checkEngine`, PID 01 bit 7 — **decodes can `mask`**, so
+`diagnostics.dtcCount` comes from the same byte), low fuel, hot coolant, low voltage; oil, seatbelt,
+door, brake and tyres are `warning.*` **placeholders** (MS-CAN `D1`–`D5`), and so are the economy
+and range figures, `fuel.economy` and `fuel.range` (`D6`, `D7`) — the cluster shows both, so they
+are likely its identifiers to find. `vehicle.odometer` is PID `A6`. **CARDS** (`"type": "cards"`) shows the one `DashboardViewModel`; `IsShown` is false
+while it is off the stage, so no card declares; MODIFY WIDGETS puts CARDS on the stage first; a
+launcher file that never mentions `cards` gets it at the end of the grid. The card editor and
+component details can open over CLIMATE now, so both panels hide beneath them.
+
+**Two looks, Modern and Glass; LCARS is yours** (ADR-0043). **Modern** is the built-in theme
+(`builtin/modern`: cool greys, accent `#5AC8FA`, Segoe UI Variable) and names the Modern stage
+(`catalog/stage/modern.json`), console and climate panel; **Glass** ships (`catalog/themes/glass.json`)
+and names the Glass console and climate panel and the F-150 cluster. Every screen follows the theme
+unless a layout is picked by hand. **LCARS is an extra** in `catalog/extras/lcars/`, copied **once**
+into the user's folders by `ExtrasInstaller` (recorded as `installedExtras` in settings), so it is
+YOURS — editable, deletable, and deleted stays deleted; a stored `shipped/x` choice finds `yours/x`.
+The build and `publish.ps1` clear the output `catalog` first, so a moved file never lingers twice.
+
+**The defaults are type over shapes** (ADR-0042, named *Clean* then, *Modern* now): on black, no panels, arcs or pills; a small
+caption over a large light number aligned to its edge, units smaller than numbers, switches as words
+that light, warning icons near-invisible until lit; text colours are theme tokens so they dim at
+night. Layouts can now name their own **`fonts`** (`{ "ui", "mono" }`, set as canvas resources that
+shadow the theme's `UiFont`/`MonoFont` for that layout only) and use `valueWeight`/`labelWeight`,
+digital `align`/`labelPosition: "above"`/`unitSize`/`noData`, and indicator `style: "text"`.
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
@@ -116,7 +201,7 @@ what the simulator taught it. One way only — once live, a lost cable is Stale,
 **Settings ▸ Vehicle lists tested ports** (identity, baud, voltage at the OBD port, or why not)
 to choose the adapter from.
 
-Seven traps already hit and worth not re-learning:
+Eight traps already hit and worth not re-learning:
 
 - **`InvariantGlobalization` breaks WPF.** `Directory.Build.props` sets it for the whole
   solution, which is right for the headless engine. WPF's font stack builds a
@@ -158,6 +243,13 @@ Seven traps already hit and worth not re-learning:
   and it kept the serial port. Disposal now runs on the pool with a time limit, and a background
   backstop ends the process 10 s after exit begins whatever is stuck. On the truck, **CLOSE
   DASHDECK** in the three-dot menu (two taps) is the only way out: there is no Escape key.
+
+- **A second tap on the icon made a second dash.** DashDeck takes a few seconds to find the
+  adapter before its window appears, so on a touch screen the first tap looks like it did nothing.
+  The second copy could not open the serial port and ran on no truck. `SingleInstance` now holds a
+  `Local\` named mutex from launch until the vehicle stack has closed the port; a newcomer brings the
+  running dash forward, or waits (up to 20 s, `InstanceGate`) for one that is starting or closing.
+  RESTART NOW releases it before starting its successor.
 
 Also worth knowing: `MeasuredRequestsPerSecond` — the `req/s` on the status strip — is the
 adapter's measured **capability**, not the achieved load. It is not a way to check whether
@@ -227,7 +319,10 @@ measured:
 - **The truck answers 48 standard PIDs but neither fuel rate (`5E`) nor MAF (`10`)** (Q4). So
   **Fuel Economy, Avg Economy and Range Estimator read blank on the real truck** — they need
   `engine.fuelRate`. The fix is decided, not built: speed-density from MAP, IAT, RPM and lambda,
-  with tank calibration made mandatory (ADR-0030). Oil temperature (`5C`) is absent too.
+  with tank calibration made mandatory (ADR-0030) — built once and **parked** (branch
+  `feature/speed-density-fuel`) in favour of finding Ford's own fuel-flow identifier. The console's
+  economy and range are **placeholders** (`fuel.economy`, `fuel.range`) until then. Oil temperature
+  (`5C`) is absent too.
 - **TPMS reads a dash at every corner** — its PIDs are still placeholders.
 
 Ford's own values (transmission and oil temperature, fuel flow, TPMS — R2, Q13) are the next
@@ -308,7 +403,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Thirty-seven exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Forty-three exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -327,7 +422,12 @@ re-configured after reconnects, rate and port found again — with a simulated s
 live when the adapter answers, chosen from a list of tested ports, and asking modules by
 address — a module sweep, an identifier sweep, and signals that name their module, and
 themes as files of named tokens chosen in Settings, with the quality colours still out of reach,
-and the stage as a file of gauges, text, clock and panels that a theme can bring with it.
+and the stage as a file of gauges, text, clock and panels that a theme can bring with it, and
+the launcher as a file — every stage option, web page and program, in order, and the quick bar, and
+the compass as layout elements — sensor-sourced gauges, a rose and a G meter, and a read-only
+climate panel drawn from a layout file in place of the cards, and DASH as a console layout with
+warning lights while the cards move onto the stage, and clean, typographic defaults for both, and two default themes, Modern and Glass, with LCARS made
+the user's own.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

@@ -222,10 +222,12 @@ silence there would be news.
 No internet needed. The adapter is optional; with it, the card borders show real Live green.
 
 0. (At a desk is fine.) **Settings ▸ Themes ▸ OPEN FOLDER**. **Expect:** an **examples** folder
-   holding `dashdeck.json` (every token written out), `lcars-inspired.json`, the Antonio `.ttf`
-   files, `OFL-Antonio.txt` and `README.txt`.
-1. Open **Settings ▸ Themes**. **Expect:** a list of **DASHDECK** (built in, marked **WEARING**)
-   and **LCARS (INSPIRED)** (shipped), each with five colour swatches, and a token list below.
+   holding `modern.json` (every token written out), `glass.json` and `README.txt`; beside it, in
+   `themes\` itself, `lcars-inspired.json` with its Antonio `.ttf` files and `OFL-Antonio.txt`
+   (LCARS is yours since ADR-0043).
+1. Open **Settings ▸ Themes**. **Expect:** a list of **MODERN** (built in, marked **WEARING**),
+   **GLASS** (shipped) and **LCARS (INSPIRED)** (yours), each with five colour swatches, and a token
+   list below.
 2. Tap **LCARS (INSPIRED)**. **Expect**, within a second and without a restart:
    - a black screen;
    - **pill-shaped** buttons in periwinkle with black lettering;
@@ -353,3 +355,322 @@ why to `%LOCALAPPDATA%\DashDeck\crash.log` — send that file.
   the dash cards stay green.
 
 Photograph anything that looks wrong. For a layout bug, also send the `.json` you were editing.
+
+## The launcher as a file — order, the quick bar, web pages and programs (ADR-0038)
+
+**You need:** the tablet in its mount, **parked**. Ignition on or off — nothing here reads the
+truck. Internet for the web page in step 6. Notepad.
+
+1. Look at the bar below the stage. **Expect:** exactly what was there before this build —
+   **GAUGES, CLOCK, COMPASS, PHONE, VIDEO** and the nine-dot button. Open the grid. **Expect:**
+   SCREENS, WEB and APPS in the same order as before, with your own apps from Settings ▸ Apps at
+   the end of APPS.
+2. **Settings ▸ Apps.** **Expect:** a **STAGE LAUNCHER** block where the built-in list used to be:
+   **USING BUILT IN**, then every entry with **BAR** beside the first five, **GRID** beside the
+   rest, and **YOUR APPS** last. No amber lines.
+3. Tap **MAKE IT MINE**. **Expect:** **USING YOUR FILE — LAUNCHER.JSON**, the same list, a line
+   saying it was created, and the MAKE IT MINE button gone. The bar and the stage don't change.
+4. Tap **OPEN FOLDER**. **Expect:** Explorer on `…\AppData\Local\DashDeck` with `launcher.json`
+   and `launcher.example.json` in it. Open `launcher.json` in Notepad.
+5. **Reorder the bar.** Change the `quickBar` line to
+   `"quickBar": [ "MAPS", "GAUGES", "CLOCK" ],`. Save. Back in Settings ▸ Apps tap **RELOAD**.
+   **Expect:** the line *Reloaded launcher.json: …* and **BAR** now beside MAPS, GAUGES and CLOCK.
+   Go back to the dash. **Expect:** three buttons — **MAPS, GAUGES, CLOCK** — plus the nine-dot.
+   Whatever was on the stage is still on it and still lit; if it was COMPASS, a fourth COMPASS
+   button sits at the end.
+6. **Add a web page with its own zoom.** In `entries`, after the MAPS line, add:
+   `{ "name": "RADAR", "type": "web", "url": "https://weather.gc.ca/radar/", "zoom": 0.75, "group": "WEATHER" },`
+   Save, **RELOAD**. Open the grid. **Expect:** a **WEATHER** heading with **RADAR** under it,
+   detail `weather.gc.ca`. Tap it. **Expect:** the radar page on the stage, zoomed out further than
+   MAPS, and **RADAR** in the status strip.
+7. **Rename and hide.** Change `"name": "CLOCK"` to `"name": "TIME"` (and `CLOCK` in `quickBar` to
+   `TIME`), and add `"hidden": true` to the MUSIC entry. Save, **RELOAD**. **Expect:** the bar says
+   **TIME**; choosing it shows the clock with **TIME** in the status strip and the TIME button lit.
+   MUSIC is gone from the grid; Settings lists it as **HIDDEN**.
+8. **A layout on its own button** (needs a layout you saved, e.g. `lcars` from the stage walkthrough
+   — or use the shipped `lcars`): add
+   `{ "name": "LCARS", "type": "gauges", "layout": "lcars" },` and put `"LCARS"` in `quickBar`.
+   Save, **RELOAD**. With the **DashDeck** theme worn, tap **GAUGES**, then **LCARS**. **Expect:**
+   the F-150 dials, then the LCARS stage — without changing the theme or the Settings choice.
+9. **Break it on purpose.** Add `{ "name": "OOPS", "type": "hologram" },` and put `"NOPE"` in
+   `quickBar`. Save, **RELOAD**. **Expect:** two amber lines in Settings — *OOPS: type 'hologram'
+   is not one of … — left out* and *quickBar: 'NOPE' is not an offered entry — left out* — and
+   everything else still working. Then delete a `{` somewhere so the file is not JSON, save,
+   **RELOAD**. **Expect:** **USING BUILT IN**, the first amber line saying `launcher.json was not
+   used`, and the original five buttons back. Undo it in Notepad and **RELOAD**.
+10. **Restart DashDeck** (three-dot ▸ CLOSE DASHDECK twice, then start it). **Expect:** your bar,
+    your names, and the stage starting on **GAUGES** (`startOn`).
+11. Clean up: delete `launcher.json` and tap **RELOAD**. **Expect:** **USING BUILT IN** and the
+    original bar.
+
+**A failure looks like:**
+- the bar or grid order differing from the file after RELOAD;
+- the stage restarting (a video jumping back, a program relaunching) when you RELOAD;
+- a renamed entry whose button does not light while it is on the stage;
+- a web page ignoring its `zoom`;
+- a broken file leaving the bar empty instead of falling back;
+- a program entry that is installed reading *not installed*.
+
+Photograph anything that looks wrong and send the `launcher.json` you were editing.
+
+## One DashDeck at a time
+
+**You need:** the tablet, the adapter plugged in. Ignition on, so you can see the dash is live.
+Task Manager (search the Start menu for it, or long-press the taskbar ▸ Task Manager).
+
+1. Close every DashDeck: three-dot ▸ **CLOSE DASHDECK** twice. In Task Manager, end any
+   **DashDeck.Host** still listed. **Expect:** none left.
+2. Tap the DashDeck icon **three times quickly**. **Expect:** one window, after the usual few
+   seconds, with live (green) cards. In Task Manager, **one** DashDeck.Host. The extra copies wait,
+   see the first window appear, bring it forward and close themselves.
+3. With DashDeck open, switch to another app (Notepad), then tap the DashDeck icon again.
+   **Expect:** the same dash comes to the front, still live, nothing restarted — a video or a
+   page on the stage carries on. Still one in Task Manager.
+4. Settings ▸ Sensors (or Vehicle) ▸ **RESTART NOW**, if it's showing. **Expect:** the window
+   closes and one new one opens within about ten seconds, live. One in Task Manager.
+5. Three-dot ▸ **CLOSE DASHDECK** twice, then tap the icon straight away. **Expect:** a new dash
+   within about ten seconds — it waits for the old one to let go of the adapter — and live cards.
+
+**A failure looks like:** two DashDeck.Host in Task Manager; a second window; a dash that comes up
+with the SIM badge or amber cards while another is running; tapping the icon doing nothing for
+more than 20 seconds.
+
+## Module scans and sweeps are kept across a restart
+
+**You need:** the truck, the adapter, the dash on the real adapter (no SIM badge), **parked**,
+ignition on (engine running for live values). About six minutes.
+
+1. **Settings ▸ Sensors ▸ MODULES ▸ SCAN FOR MODULES.** **Expect:** the same list as before
+   (7E0, 7D0, 726, 736, 723, 746 on HS-CAN).
+2. Tap **7E0 › IDENTIFIERS**, choose **F400–F4FF**, press **SWEEP**. **Expect:** about 53 answered.
+   The 7E0 row now ends **swept F400–F4FF**.
+3. Close DashDeck (three-dot ▸ **CLOSE DASHDECK** twice) and start it again. Go back to Settings ▸
+   Sensors. **Expect:** the module list is already there, its status starting
+   **SAVED SCAN, 2 Oct 15:18** (your date and time), with 7E0 still saying **swept F400–F4FF**.
+4. Tap **7E0 › IDENTIFIERS**. **Expect:** the F100–F1FF chip is chosen and the status says it
+   **has not been swept on 7E0**. Tap **F400–F4FF**. **Expect:** the same rows as step 2, with the
+   status starting **SAVED SWEEP, …**. Nothing was asked of the truck: the dash stays green.
+5. Press **SWEEP** again on F400–F4FF. **Expect:** it runs, and the status loses **SAVED** — the
+   saved sweep is replaced by the new one.
+6. At a desk without the truck (SIM badge showing), scan and sweep. **Expect:** the status says
+   **not saved**, and back in the truck your real results are still there.
+
+**A failure looks like:** an empty module list after a restart; a saved sweep shown under the
+wrong module or range; the synthetic truck's modules (SYNTH part numbers) showing in the truck.
+
+The results are in `%LOCALAPPDATA%\DashDeck\discovery.json`. It can hold the VIN, if the
+F100–F1FF range of 7E0 was swept, so don't post that file publicly.
+
+## WATCH — finding which identifiers move
+
+**You need:** the truck, the adapter, the dash on the real adapter, **parked**, engine **running**.
+Best started within a few minutes of a cold start, so temperatures are still climbing. Ten minutes.
+
+1. **Settings ▸ Sensors ▸ MODULES**, tap **7E0 › IDENTIFIERS**, choose **F400–F4FF** and **SWEEP**
+   (or tap the chip to show a saved sweep). **Expect:** the list of about 53.
+2. Press **WATCH** (beside SWEEP). **Expect:** an orange line *Watching N identifiers on 7E0 — one
+   pass is about 3 s. Leave it 30 s first…*, a **STOP** button with `pass 1 · 22 F4… · x of N · 0
+   moved` beside it, and after the first pass the list replaced by rows showing *first … (number) →
+   now … (number)*, *low–high*, an *if a temperature* line, and **MOVED ×n** or **STILL** on the
+   right. The dash goes amber while it runs — expected. **Touch nothing for 30 seconds.** Rows
+   that move on their own (rpm wobble, fuel trims) show MOVED already; note them.
+3. Then blip the throttle two or three times, and leave it another 30 seconds. **Expect:** after the next pass, rows that follow the
+   throttle rise to the top as **MOVED** — **22 F44A** (pedal), **22 F411** (throttle), **22 F40C**
+   (rpm), **22 F404** (load). Rows that don't care stay **STILL** at the bottom.
+4. Leave it idling for a few minutes. **Expect:** **22 F405** (coolant) shows MOVED if the engine is
+   still warming, with its *A−40* line reading the coolant temperature in °C — compare with the dash.
+   Two-byte rows show *÷16* instead: Ford's finer temperatures (transmission fluid) are sent that way.
+5. Press **STOP**. **Expect:** *Stopped by STOP after n passes · m of N moved*, the list stays, and
+   the dash goes green again within a few seconds.
+6. Tap the top **MOVED** row. **Expect:** the signal editor, with the module and identifier filled
+   in and **TEST** visible. **CANCEL** back.
+7. Now the real hunt: sweep **1000–1FFF** on 7E0 (about four minutes), then **WATCH** it right after
+   a cold start and blip the throttle now and then. Photograph the top rows after ten minutes:
+   slow risers with sensible *A−40* values are oil and transmission temperature candidates; rows
+   that jump with the throttle are fuel-flow candidates.
+
+**A failure looks like:** every row MOVED ×1 after a single pass (the baseline must be the watch's
+own first pass, not the sweep); a two-byte value going negative shown as a huge number (FF F2 is
+−14); WATCH greyed out after a sweep with results; a pass taking much longer
+than one second per 19 identifiers; STOP not stopping within a second; the dash still amber a
+minute after STOP; WATCH starting while the truck moves (it refuses, and stops by itself if the
+truck starts moving).
+
+## WATCH recordings — a CSV to share instead of a photo
+
+**You need:** the truck, the adapter, the dash on the real adapter, **parked**, engine **running**.
+
+1. **Settings ▸ Sensors ▸ MODULES ▸ 7E0 › IDENTIFIERS**, tap **1000–1FFF** (the saved sweep).
+2. Press **WATCH**. Idle **30 s**, hold **2,000 rpm** steady **30 s** (in Park, foot on the brake),
+   idle **30 s**, then **STOP**.
+3. **Expect:** the status ends *Recorded to watch-7E0-1000-1FFF-<date>-<time>.csv — OPEN FOLDER to
+   copy it*, and an **OPEN FOLDER** button appears.
+4. Press **OPEN FOLDER**. **Expect:** Explorer on `…\AppData\Local\DashDeck\watch` with the CSV in
+   it. Open it in Notepad: the first line is `time_ms,rpm,22 1004 (2B),…`, then one line per pass
+   — about 30 lines for 90 seconds — with rpm near 670, then near 2,000, then back.
+5. Copy the CSV to wherever you send files from (OneDrive, email, a USB stick) and attach it.
+
+The file holds only numbers the engine computer answered — no VIN or part numbers (long text
+answers are never watched). **A failure looks like:** no *Recorded to* line after STOP; an empty
+or header-only file after several passes; the rpm column blank throughout with the engine
+running.
+
+
+## The climate panel (ADR-0040)
+
+**You need:** the tablet at a desk first (no adapter — the synthetic truck), then in the truck with
+the adapter, **parked**, ignition **on** or engine running. No internet.
+
+**At the desk (synthetic truck):**
+
+1. Start DashDeck with no adapter attached and tap **CLIMATE** in the bottom bar.
+2. **Expect:** the cards go and the **Modern** panel takes their place — no boxes, just type on black:
+   DRIVER at the left edge with **21.5°** large and thin, PASSENGER at the right with **22.0°**, a row
+   of FAN dots in the middle with FACE / FEET / SCREEN beneath (the ones in use bright, the rest grey)
+   and CABIN under them, SEAT dots and HEATED WHEEL under the driver, and AUTO · A/C · RECIRC ·
+   DEFROST · REAR along the bottom as words, lit blue (or orange for the heaters) when on. OUTSIDE at
+   the bottom right. Every element has a small **blue** dot (Simulated).
+3. Tap anything on the panel. **Expect:** nothing happens. It is read only.
+4. Tap **DASH**. **Expect:** the cards come back exactly as they were. Tap **CLIMATE** again: the
+   panel is back.
+5. **Settings ▸ Themes**, wear **LCARS (inspired)**, tap **CLIMATE**. **Expect:** the LCARS panel —
+   lavender and peach elbows, ENVIRONMENTAL, orange arcs. Wear **Modern** again: its panel is back.
+   Wear **Glass**: the frosted panels.
+6. **Settings ▸ Themes ▸ CLIMATE LAYOUT**: **Expect:** SHOWING MODERN, the reason *following the
+   theme*, rows FOLLOW THE THEME, MODERN (BUILT IN), GLASS (SHIPPED) and LCARS (INSPIRED) CLIMATE (YOURS). Type
+   `mine`, press **SAVE AS**: *Saved as mine.json in your climate folder*. **OPEN FOLDER**, open
+   `mine.json` in Notepad, change the first `"x": 40` to `"x": 100`, save, press **RELOAD**, tap
+   **CLIMATE**: the DRIVER temperature has moved right. Back in Settings, **DELETE** it: the panel follows
+   the theme again.
+
+**In the truck (real adapter):**
+
+7. Tap **CLIMATE**. **Expect:** the same panel, but **every climate element shows a dash** — the
+   set temperatures read **– –** with no arc, FAN and both SEATs read **–** with every bar dark, and
+   every pill — WHEEL included — is dimmed with a dash after its name. Their dots are **grey** (Unavailable). This is right:
+   the HVAC signals are placeholders until the HVAC module is found.
+8. **OUTSIDE** shows the real outside air temperature with a **green** dot — it is a standard signal.
+9. Change the fan or temperature, and turn the heated seat, cooled seat and heated wheel on and
+   off, on the truck's own controls. **Expect:** the truck's climate works
+   exactly as always and the panel does not change (still dashes). DashDeck sends nothing.
+
+**A failure looks like:** a climate element showing a number on the real truck (a placeholder must
+never pass for a reading); the cards and the panel both showing; the panel staying after leaving
+CLIMATE; anything about the truck's own climate behaving differently with DashDeck running.
+
+## The console dash, and the cards on the stage (ADR-0041)
+
+**You need:** the tablet at a desk first (no adapter — the synthetic truck), then the truck with the
+adapter, **parked**, engine **running**, then a short drive.
+
+**At the desk (synthetic truck):**
+
+1. Start DashDeck. **Expect:** below the stage, where the cards were, the **Modern** console — no
+   boxes or arcs: the speed large and thin in the middle with *km/h* under it; RPM, ENGINE and FUEL
+   down the left (a small grey caption over a light number); RANGE, ECONOMY and OUTSIDE down the right,
+   aligned right; nine warning icons under the speed, barely visible; ODOMETER at the bottom left and
+   STORED CODES at the bottom right, small and grey. As the synthetic drive moves, the speed and
+   rpm follow it. Dots are blue (Simulated). ODOMETER reads about 48,213 km and climbs.
+2. Look at the warning icons. **Expect:** all dark — nothing is wrong with the synthetic truck.
+3. Tap **CARDS** on the bar below the stage. **Expect:** your cards on the stage, up to five rows a
+   page, swiping sideways as before. The console stays below.
+4. Three-dot menu ▸ **MODIFY WIDGETS**. **Expect:** edit mode on the cards (the add/reset bar replaces
+   the nav). Add a card, then **DONE**. Tap **GAUGES**: the cards go; **CARDS** brings them back on the
+   same page.
+5. Tap a card while editing to open its editor. **Expect:** the full-screen editor, as before; back
+   out and you are on CARDS.
+6. **Settings ▸ Themes**, wear **LCARS (inspired)**, tap **DASH**. **Expect:** the LCARS console —
+   HELM STATUS, segmented RPM, FUEL and TEMP bars. Wear **Modern** again: its console is back.
+   Wear **Glass**: the arcs and the frosted strip.
+7. **Settings ▸ Themes ▸ CONSOLE LAYOUT**. **Expect:** SHOWING MODERN, FOLLOW THE THEME / MODERN
+   (BUILT IN) / GLASS (SHIPPED) / LCARS (INSPIRED) CONSOLE (YOURS), SAVE AS, RELOAD and OPEN FOLDER as for the stage.
+
+**In the truck (real adapter):**
+
+8. Engine running, parked. Tap **DASH**. **Expect:** speed 0, rpm near 670 with a **green** dot,
+   FUEL and ENGINE TEMP with green dots, OUTSIDE reading. **RANGE and ECONOMY read a dash with a
+   grey dot** — placeholders until the truck's own figures are found.
+9. The warning icons. **Expect:** **check engine, low fuel, engine hot and battery** dark with no dot
+   (they are real and off). **Oil, seatbelt, door, brake and tyres** dark **with a small grey dot**
+   — placeholders, not yet found on this truck. **CODES** shows the number of stored codes (FORScan
+   will agree).
+10. **ODOMETER**: a number that matches the truck's odometer, or a dash with a grey dot if the
+    truck does not answer PID A6 — tell me which.
+11. Drive a short way. **Expect:** the speed number and arc follow the truck's speedometer (within a
+    km/h or two), and the console never rearranges.
+
+**A failure looks like:** a placeholder light lit, or one of the real ones lit with nothing wrong; the
+cards still showing below the stage; cards on a page you can't see still costing requests (the
+`req/s` does not show this — say if the dash feels slower with CARDS off the stage); a launcher file
+of yours with no CARDS anywhere in the grid.
+
+## The Modern defaults — type over shapes (ADR-0042, named Clean then)
+
+**You need:** the tablet at a desk (no adapter), then the truck at night and in daylight, parked.
+
+1. With the Modern theme, tap **DASH**. **Expect:** the Modern console as in *The console dash*
+   step 1 — no panels, arcs or boxes; groups separated by space and by the size and weight of the
+   type. Captions are small and grey, numbers large and thin, units smaller than their numbers
+   (*88* then a small *°C*). The console's background is the same as the stage's above it — no
+   darker block. Each reading's small quality dot sits right beside its caption (after it, or before
+   it on the right-hand column), not out in the middle of the screen.
+2. Tap **CLIMATE**. **Expect:** the Modern panel as in *The climate panel* step 2 — the switches are
+   words, not pills.
+3. Look at the type itself. **Expect:** a clean sans-serif (Segoe UI) throughout both — not the
+   theme's lettering. Wear **LCARS**: it brings its own consoles and keeps its Antonio lettering; the
+   change is only to the defaults.
+4. In the truck, in **daylight and at night**: read the speed, a temperature and the warning row from
+   the driver's seat. **Expect:** speed and temperatures readable at a glance; the warning icons
+   effectively invisible until one is lit; nothing glaring at night (it is white type on black — if it
+   is too bright, the display's night dimming applies as for the rest of the dash).
+
+**A failure looks like:** a box, glass panel or pill on either default; a visible edge where the
+console or climate panel meets the stage; a quality dot that is not next to its caption; a number in
+the wrong typeface; a unit as large as its number; any text running into another; a dark warning icon that
+draws the eye.
+
+## Two looks, Modern and Glass — and LCARS is yours (ADR-0043)
+
+**You need:** the tablet at a desk first (no adapter), then the truck, parked, ignition **on**, once
+in daylight and once after dark (or **Settings ▸ Appearance ▸ NIGHT**). No internet.
+
+**At the desk:**
+
+1. Deploy over the old build and start DashDeck. **If you were wearing LCARS, expect** to still be in
+   LCARS — same stage, console and climate panel, Antonio lettering. **If you were on the old DashDeck
+   theme, expect** the **Modern** look everywhere: cool greys, a light-blue accent on the selected nav
+   button and settings tab, Segoe UI lettering, slightly squarer buttons and cards.
+2. **Settings ▸ Themes**. **Expect:** **MODERN** (built in), **GLASS** (shipped) and
+   **LCARS (INSPIRED)** marked **YOURS** — with **DELETE** available on it, which it never had before.
+3. Wear **Modern** and tap **GAUGES**. **Expect:** the Modern stage — **BOOST** on the left and
+   **ENGINE** on the right as thin light-blue arcs with large, thin numbers (psi and °), and VOLTS,
+   INTAKE, THROTTLE and LOAD in a row below, each a small grey caption over a light number. No dials,
+   no boxes. Tap **DASH**: the Modern console. **CLIMATE**: the Modern panel. **CARDS**, the nav and
+   Settings: the same greys and accent.
+4. Wear **Glass**. **Expect:** without a restart, everything turns blue-black with an ice-blue accent
+   and rounder corners; **GAUGES** shows the chrome **F-150 cluster**; **DASH** the arcs and the frosted
+   strip; **CLIMATE** the frosted glass zones.
+5. Overrides still win: **Settings ▸ Themes ▸ CONSOLE LAYOUT**, pick **MODERN (BUILT IN)** while
+   wearing Glass. **Expect:** DASH shows the Modern console while the rest stays Glass. Press
+   **FOLLOW THE THEME**: the Glass console is back. The stage and climate blocks work the same way.
+6. Wear **LCARS (INSPIRED)**. **Expect:** its stage, console and climate panel, as before the update.
+   **OPEN FOLDER** on the stage, console and climate blocks: each holds `lcars.json` in your own folder.
+7. LCARS stays deleted when you delete it (optional — skip if you want to keep it): wear Modern,
+   **DELETE** LCARS, close DashDeck (two taps on **CLOSE DASHDECK**) and start it again. **Expect:**
+   LCARS does not come back. To get it back, copy the files from `catalog\extras\lcars\` beside
+   `DashDeck.exe` into the matching folders in `%LOCALAPPDATA%\DashDeck\` and press **RELOAD**.
+8. Look for duplicates. **Expect:** exactly one GLASS and one MODERN in each list, and no
+   LCARS marked SHIPPED (an old copy left beside the executable would show one — the build now clears it).
+
+**In the truck:**
+
+9. Wear **Modern**, engine running, parked. **Expect:** BOOST reads near **−10 psi** at idle with a
+   **green** dot, ENGINE the coolant temperature, VOLTS about 14. Blip the throttle: boost and THROTTLE
+   rise and fall.
+10. Wear each of Modern and Glass in **daylight and at night**. **Expect:** every caption readable from
+    the driver's seat; at night the white type dims with the dash and nothing glares.
+
+**A failure looks like:** LCARS gone or reverted to Modern for someone who wore it; LCARS listed twice,
+or as SHIPPED; a deleted LCARS coming back; Antonio missing from LCARS (ordinary wide lettering); a
+screen that does not change when the theme does (other than one you picked by hand); a stage number with
+no reading drawn as zero instead of a dash or NO DATA.

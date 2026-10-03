@@ -50,12 +50,15 @@ public sealed class AppLaunchSpecTests
 
     /// <summary>
     /// Nuvio is listed whether or not it is present, so this asserts the shape rather than
-    /// the outcome — the answer differs between this machine and the tablet.
+    /// the outcome — the answer differs between this machine and the tablet. Its paths live in
+    /// the built-in launcher now (ADR-0038), not in code.
     /// </summary>
     [Fact]
-    public void The_nuvio_spec_names_somewhere_plausible_to_look()
+    public void The_nuvio_entry_names_somewhere_plausible_to_look()
     {
-        Assert.NotEmpty(AppLaunchSpec.Nuvio.Candidates);
-        Assert.All(AppLaunchSpec.Nuvio.Candidates, c => Assert.EndsWith(".exe", c, StringComparison.OrdinalIgnoreCase));
+        var nuvio = DashDeck.Host.Stage.Launcher.StageLauncher.BuiltIn.Entries.Single(e => e.Name == "NUVIO");
+
+        Assert.NotEmpty(nuvio.Paths!);
+        Assert.All(nuvio.Paths!, c => Assert.EndsWith(".exe", c, StringComparison.OrdinalIgnoreCase));
     }
 }

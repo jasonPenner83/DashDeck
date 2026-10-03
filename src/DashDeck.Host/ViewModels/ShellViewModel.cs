@@ -40,6 +40,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly DispatcherTimer _timer;
     private readonly string? _videoPath;
     private readonly Stage.UserAppStore _userApps;
+    private readonly Stage.Launcher.StageLauncherStore _launcher;
 
     [ObservableProperty]
     private string _clockText = "--:--";
@@ -121,6 +122,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsSourceVisible))]
     [NotifyPropertyChangedFor(nameof(IsFullScreenOpen))]
     [NotifyPropertyChangedFor(nameof(IsDashVisible))]
+    [NotifyPropertyChangedFor(nameof(IsClimateVisible))]
     [NotifyPropertyChangedFor(nameof(StageRunningButHidden))]
     [NotifyPropertyChangedFor(nameof(HiddenOccupantName))]
     private string _activeDestination = "DASH";
@@ -215,20 +217,24 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // The user's own stage apps (ADR-0024), loaded once. Adding one raises Changed and the
         // shell rebuilds its options from the store, so a new launcher lights up without a restart.
         _userApps = new Stage.UserAppStore();
-        _userApps.Changed += (_, _) => RebuildStageOptions();
 
-        // The built-in stage names, so the settings editor can refuse a user app that would
-        // shadow one. Built from the same list with no user apps, so the two cannot drift.
-        var reservedNames = StageOption
-            .All(videoPath, clock, vehicle.Signals, Sensors, weather, Display)
-            .Select(o => o.Name)
-            .ToArray();
+        // What the launcher offers, in what order, and which get a button below the stage
+        // (ADR-0038): launcher.json if there is one that works, the built-in list otherwise. The
+        // built-in one is written out beside it to copy from. A user app being added or removed
+        // re-reads it, because the quick bar may name one; either way the buttons rebuild without
+        // touching what is on the stage.
+        _launcher = new Stage.Launcher.StageLauncherStore(
+            JsonFile.InLocalAppData("launcher.json"),
+            () => _userApps.Apps.Select(a => a.Name));
+        _launcher.WriteExample();
+        _launcher.Changed += (_, _) => RebuildStageOptions();
+        _userApps.Changed += (_, _) => _launcher.Reload();
 
         // Settings owns levelling now, so it needs the sensors (ADR-0022); it also edits the
         // user app store, and refuses names that collide with a built-in.
         // The Sensors section (ADR-0032) reads the running pipeline and edits the user's own
         // signal file, which the next launch lays over the shipped catalog.
-        Inventory = new SensorInventoryViewModel(vehicle, new UserSignalStore(), Sensors, App.RequestRestart);
+        Inventory = new SensorInventoryViewModel(vehicle, new UserSignalStore(), Sensors, App.RequestRestart, new DiscoveryStore(), clock, folder => new ThemeDialogs().OpenFolder(folder));
 
         // Which vehicle this is (ADR-0033): read from the truck or typed, decoded once by NHTSA,
         // cached, and applied at the next launch like the rest of the Vehicle section.
@@ -267,7 +273,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             Remember(atLaunch);
         }
 
-        Settings = new SettingsViewModel(theme, Display, Sensors, _userApps, reservedNames, Inventory, VehicleIdentity, Adapter);
+        Settings = new SettingsViewModel(theme, Display, Sensors, _userApps, _launcher, Inventory, VehicleIdentity, Adapter);
 
         RebuildStageOptions();
 
@@ -285,14 +291,25 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             ValueChoice.All(vehicle.Catalog, Sensors.Catalog),
             components);
 
-        // Start on whatever was asked for at launch, and otherwise on the gauges (F12/B6): a
-        // truck's idle stage wanting gauges beats a clock, and it settles the "what do we open
-        // on" question without restoring an arbitrary last occupant.
+        // The cards are on the stage now (ADR-0041): the stage's picture is their region, and
+        // until CARDS is the occupant no page of them is on screen, so none asks for anything.
+        Dashboard.RegionHeight = BandGrid.StageOccupantHeight;
+        Dashboard.IsShown = false;
+
+        // Start on whatever was asked for at launch, then on what the launcher file names, and
+        // otherwise on the gauges (F12/B6): a truck's idle stage wanting gauges beats a clock, and
+        // it settles the "what do we open on" question without restoring an arbitrary last
+        // occupant. A name that is not offered falls through rather than leaving the stage empty.
+        StageOptionViewModel? Named(string? name) => name is null
+            ? null
+            : StageOptions.FirstOrDefault(o => o.IsAvailable && string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase));
+
         var opening = startOn is not null
-            ? StageOptions.FirstOrDefault(o => string.Equals(o.Name, startOn, StringComparison.OrdinalIgnoreCase))
-            : videoPath is not null
-                ? StageOptions.First(o => o.Name == "VIDEO")
-                : StageOptions.First(o => o.Name == "GAUGES");
+            ? Named(startOn)
+            : (videoPath is not null ? Named("VIDEO") : null)
+                ?? Named(_launcher.Current.StartOn)
+                ?? Named("GAUGES")
+                ?? StageOptions.FirstOrDefault(o => o.IsAvailable);
 
         if (opening is not null)
         {
@@ -302,6 +319,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // Also for the case where nothing opened, so the dash is never packed against the
         // wrong number of bands.
         SyncWidgetBands();
+
+        // DASH is where the shell opens, and choosing it is what makes the console — so make it.
+        SyncPanels();
 
         Dashboard.PropertyChanged += (_, e) =>
         {
@@ -317,6 +337,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(IsCardEditorOpen));
                 OnPropertyChanged(nameof(IsComponentDetailOpen));
                 OnPropertyChanged(nameof(IsDashVisible));
+                OnPropertyChanged(nameof(IsClimateVisible));
                 OnPropertyChanged(nameof(IsFullScreenOpen));
                 OnPropertyChanged(nameof(IsDashEditing));
                 OnPropertyChanged(nameof(IsNavVisible));
@@ -385,11 +406,62 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// True for destinations that exist in the nav but have nothing behind them yet.
     /// </summary>
     /// <remarks>
-    /// Stereo and Climate are drawn because the nav is the destination list (B3) and an
-    /// empty strip would say less. Both are parked — Climate in particular cannot simply be
-    /// built, since C3 forbids taking over the factory HVAC (Q14).
+    /// Stereo is drawn because the nav is the destination list (B3) and an empty strip would
+    /// say less. Climate was parked here too until ADR-0040 gave it a read-only panel.
     /// </remarks>
-    public bool IsDestinationUnbuilt => IsStereoActive || IsClimateActive;
+    public bool IsDestinationUnbuilt => IsStereoActive;
+
+    /// <summary>
+    /// The climate panel (ADR-0040), drawn from the climate layout in the region the cards use —
+    /// or null whenever CLIMATE is not the destination.
+    /// </summary>
+    /// <remarks>
+    /// Made when CLIMATE is chosen and disposed when it is left, so its signals are declared only
+    /// while it is on screen — the same rule as a card page (ADR-0015). Read only: it shows what
+    /// the truck reports and sends nothing (ADR-0006).
+    /// </remarks>
+    [ObservableProperty]
+    private FrameworkElement? _climateContent;
+
+    /// <summary>
+    /// The console (ADR-0041), drawn from the console layout where the cards used to be — or null
+    /// whenever DASH is not the destination. Made and disposed like the climate panel, so it asks
+    /// the truck for nothing while it is not on screen.
+    /// </summary>
+    [ObservableProperty]
+    private FrameworkElement? _consoleContent;
+
+    partial void OnActiveDestinationChanged(string value) => SyncPanels();
+
+    /// <summary>Make the panel for the destination now chosen, and dispose the one left.</summary>
+    private void SyncPanels()
+    {
+        if (IsClimateActive && ClimateContent is null)
+        {
+            ClimateContent = new StageLayoutView(_theme.ClimateLayouts, _vehicle.Signals, _clock, Sensors);
+        }
+        else if (!IsClimateActive && ClimateContent is StageLayoutView climate)
+        {
+            ClimateContent = null;
+            climate.Dispose();
+        }
+
+        if (IsDashActive && ConsoleContent is null)
+        {
+            ConsoleContent = new StageLayoutView(_theme.ConsoleLayouts, _vehicle.Signals, _clock, Sensors);
+        }
+        else if (!IsDashActive && ConsoleContent is StageLayoutView console)
+        {
+            ConsoleContent = null;
+            console.Dispose();
+        }
+    }
+
+    /// <summary>What the console is showing, for <c>--shot</c>, or null when it is not open.</summary>
+    public string? DescribeConsole() => (ConsoleContent as StageLayoutView)?.Describe();
+
+    /// <summary>What the climate panel is showing, for <c>--shot</c>, or null when it is not open.</summary>
+    public string? DescribeClimate() => (ClimateContent as StageLayoutView)?.Describe();
 
     /// <summary>
     /// Switch what sits below the stage.
@@ -453,8 +525,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         StageOptions.Clear();
 
-        foreach (var option in StageOption.All(
-            _videoPath, _clock, _vehicle.Signals, Sensors, Weather, Display, _userApps.Apps, _theme.Layouts))
+        foreach (var option in StageOption.FromLauncher(
+            _launcher.Current, _videoPath, _clock, _vehicle.Signals, Sensors, Weather, Display, _userApps.Apps, _theme.Layouts,
+            () => Dashboard is null ? null : new CardsStageOccupant(Dashboard)))
         {
             StageOptions.Add(new StageOptionViewModel(option));
         }
@@ -464,8 +537,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             candidate.IsCurrent = candidate.Name == currentName && current is not null;
         }
 
-        // Re-form the headed sections in the order the options appear — StageOption.All lists
-        // screens, then web, then apps, so a plain grouping preserves SCREENS / WEB / APPS.
+        // Re-form the headed sections in the order they first appear in the launcher file — the
+        // built-in one lists screens, then web, then apps, so SCREENS / WEB / APPS.
         StageGroups.Clear();
 
         foreach (var group in StageOptions.GroupBy(o => o.GroupLabel))
@@ -480,7 +553,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public ObservableCollection<StageOptionViewModel> QuickStageOptions { get; } = [];
 
     /// <summary>How many buttons fit in the launcher row beside the grid button.</summary>
-    private const int LauncherSlots = 5;
+    private const int LauncherSlots = Stage.Launcher.StageLauncher.QuickBarSlots;
 
     /// <summary>
     /// Decide which options get a button in the row.
@@ -493,13 +566,24 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// </remarks>
     private void RefreshQuickOptions()
     {
+        // The launcher file's quickBar, in its order (ADR-0038), or the first five available.
         var available = StageOptions.Where(o => o.IsAvailable).ToList();
-        var shown = available.Take(LauncherSlots).ToList();
+        var shown = _launcher.Current
+            .QuickBarFrom([.. available.Select(o => o.Name)])
+            .Select(name => available.First(o => string.Equals(o.Name, name, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
         var current = StageOptions.FirstOrDefault(o => o.IsCurrent);
 
         if (current is not null && !shown.Contains(current))
         {
-            shown[^1] = current;
+            if (shown.Count < LauncherSlots)
+            {
+                shown.Add(current);
+            }
+            else
+            {
+                shown[^1] = current;
+            }
         }
 
         QuickStageOptions.Clear();
@@ -573,6 +657,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// editor was fully drawn and completely invisible underneath them.
     /// </remarks>
     public bool IsDashVisible => IsDashActive && !IsCardEditorOpen && !IsComponentDetailOpen;
+
+    /// <summary>
+    /// Whether the climate panel is showing: CLIMATE, with no card editor or component detail
+    /// over it — the cards are on the stage now (ADR-0041), so either can open from CLIMATE too.
+    /// </summary>
+    public bool IsClimateVisible => IsClimateActive && !IsCardEditorOpen && !IsComponentDetailOpen;
 
     /// <summary>
     /// Whether the destination strip is showing.
@@ -672,9 +762,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// </remarks>
     private void SyncWidgetBands()
     {
-        if (IsDashActive && !IsCardEditorOpen)
+        // The cards are on the stage (ADR-0041), whose picture does not change size.
+        if (!IsCardEditorOpen)
         {
-            Dashboard.WidgetBands = WidgetBands;
+            Dashboard.RegionHeight = BandGrid.StageOccupantHeight;
         }
     }
 
@@ -789,7 +880,19 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private void EditDash()
     {
         IsMenuOpen = false;
-        ActiveDestination = "DASH";
+
+        // The cards are on the stage (ADR-0041): editing them starts by putting them there.
+        var cards = _launcher.Current.Entries.FirstOrDefault(e => e.Type == Stage.Launcher.LauncherTypes.Cards)?.Name;
+        if (cards is not null && !string.Equals(Foreground?.Name, cards, StringComparison.OrdinalIgnoreCase)
+            && StageOptions.FirstOrDefault(o => string.Equals(o.Name, cards, StringComparison.OrdinalIgnoreCase)) is { } option)
+        {
+            SetStage(option);
+        }
+
+        if (IsSettingsActive)
+        {
+            ActiveDestination = "DASH";
+        }
 
         if (!Dashboard.IsEditing)
         {
@@ -1002,6 +1105,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // not the shell. Both slots go: a backgrounded source is still ours to close.
         _screen?.Dispose();
         _source?.Dispose();
+        (ClimateContent as IDisposable)?.Dispose();
+        (ConsoleContent as IDisposable)?.Dispose();
     }
 
     private void Refresh()

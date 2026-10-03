@@ -137,15 +137,63 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
         get => _widgetBands;
         set
         {
-            if (_widgetBands == value)
+            if (_widgetBands == value && Math.Abs(_regionHeight - BandGrid.Height(value)) < 0.5)
             {
                 return;
             }
 
             _widgetBands = value;
+            _regionHeight = BandGrid.Height(value);
             Repack();
         }
     }
+
+    private double _regionHeight = BandGrid.Height(2);
+
+    /// <summary>
+    /// How tall the region the cards are drawn in is, in design pixels — the stage's 636 since
+    /// the cards moved there (ADR-0041). Setting it re-packs, like <see cref="WidgetBands"/>.
+    /// </summary>
+    public double RegionHeight
+    {
+        get => _regionHeight;
+        set
+        {
+            if (Math.Abs(_regionHeight - value) < 0.5)
+            {
+                return;
+            }
+
+            _regionHeight = value;
+            Repack();
+        }
+    }
+
+    /// <summary>
+    /// True while the cards are on screen — the CARDS occupant is on the stage (ADR-0041).
+    /// </summary>
+    /// <remarks>
+    /// While false no card asks the truck for anything, the visible page included: a page nobody
+    /// can see is not visible (ADR-0015). The card being edited and the one whose detail is open
+    /// are still exempt — they are on screen, full-screen.
+    /// </remarks>
+    public bool IsShown
+    {
+        get => _isShown;
+        set
+        {
+            if (_isShown == value)
+            {
+                return;
+            }
+
+            _isShown = value;
+            OnPropertyChanged();
+            ApplyActivation();
+        }
+    }
+
+    private bool _isShown = true;
 
     /// <summary>Enter or leave edit mode.</summary>
     [RelayCommand]
@@ -433,7 +481,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
             slots.Add(_addSlot);
         }
 
-        var pages = CardPacker.Pack(slots, BandGrid.RowsIn(_widgetBands));
+        var pages = CardPacker.Pack(slots, BandGrid.RowsInHeight(_regionHeight));
 
         Pages.Clear();
 
@@ -468,7 +516,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
     /// </remarks>
     private void ApplyActivation()
     {
-        var visible = PageIndex >= 0 && PageIndex < Pages.Count
+        var visible = IsShown && PageIndex >= 0 && PageIndex < Pages.Count
             ? Pages[PageIndex].Slots.OfType<IDashCard>().ToHashSet()
             : [];
 
