@@ -28,6 +28,10 @@ public sealed record UserSettings
     [JsonPropertyName("climateLayout")]
     public string ClimateLayout { get; init; } = "theme";
 
+    /// <summary>The console layout (ADR-0041): <c>theme</c> to follow the theme, or a layout id.</summary>
+    [JsonPropertyName("consoleLayout")]
+    public string ConsoleLayout { get; init; } = "theme";
+
     /// <summary>A preset's name, or <c>CUSTOM</c>.</summary>
     [JsonPropertyName("accentName")]
     public string AccentName { get; init; } = "EMBER";

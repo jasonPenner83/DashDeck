@@ -66,6 +66,7 @@ public sealed record StageOption(
     /// <c>userApps</c> entry is, or at the end.
     /// </param>
     /// <param name="layouts">The stage layouts, for GAUGES and any entry that pins one.</param>
+    /// <param name="cards">Makes the CARDS occupant (ADR-0041), or null where there are no cards to show.</param>
     public static IReadOnlyList<StageOption> FromLauncher(
         StageLauncher launcher,
         string? videoPath,
@@ -75,7 +76,8 @@ public sealed record StageOption(
         WeatherService weather,
         DisplaySettings display,
         IReadOnlyList<UserAppEntry>? userApps = null,
-        Gauges.StageLayoutService? layouts = null)
+        Gauges.StageLayoutService? layouts = null,
+        Func<IStageOccupant?>? cards = null)
     {
         var options = new List<StageOption>();
         var placedUserApps = false;
@@ -91,8 +93,18 @@ public sealed record StageOption(
 
             if (taken.Add(entry.Name))
             {
-                options.Add(FromEntry(entry, videoPath, clock, signals, sensors, weather, display, layouts));
+                options.Add(FromEntry(entry, videoPath, clock, signals, sensors, weather, display, layouts, cards));
             }
+        }
+
+        // The cards live on the stage now (ADR-0041). A launcher file written before then never
+        // mentions them, and without this they would be lost: so one that does not gets them at
+        // the end. A file that lists them hidden has chosen to hide them.
+        if (cards is not null && !launcher.Entries.Any(e => e.Type == LauncherTypes.Cards) && taken.Add("CARDS"))
+        {
+            options.Add(FromEntry(
+                new LauncherEntry { Name = "CARDS", Type = LauncherTypes.Cards, Detail = "Your cards" },
+                videoPath, clock, signals, sensors, weather, display, layouts, cards));
         }
 
         if (!placedUserApps)
@@ -138,7 +150,8 @@ public sealed record StageOption(
         SensorService sensors,
         WeatherService weather,
         DisplaySettings display,
-        Gauges.StageLayoutService? layouts)
+        Gauges.StageLayoutService? layouts,
+        Func<IStageOccupant?>? cards)
     {
         var name = entry.Name;
         var group = string.IsNullOrWhiteSpace(entry.Group) ? null : entry.GroupLabel;
@@ -170,6 +183,10 @@ public sealed record StageOption(
                         pinned is not null ? Gauges.StageLayoutService.Pinned(service.Library, pinned) : service,
                         name,
                         sensors));
+
+            case LauncherTypes.Cards:
+                // The arranged cards (ADR-0015), on the stage since the console took their place (ADR-0041).
+                return Screen("Your cards", () => cards?.Invoke());
 
             case LauncherTypes.Clock:
                 return Screen("Time and weather", () => new ClockWeatherStageOccupant(clock, weather));

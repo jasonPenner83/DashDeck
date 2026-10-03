@@ -518,3 +518,83 @@ internal static class FaceDraw
         return brush;
     }
 }
+
+/// <summary>
+/// A warning light (ADR-0041): an icon lit in its colour, with a glow, when its signal says so;
+/// faint when off; fainter, with a grey quality dot, when the truck has not said — a light that
+/// is not known is never drawn as off with confidence.
+/// </summary>
+public sealed class WarningFace : Grid, IReadingFace
+{
+    private readonly GaugeSpec _spec;
+    private readonly Path _icon;
+    private readonly Ellipse _dot = new() { Width = 5, Height = 5, Fill = QualityPalette.Unavailable };
+    private bool _unknown;
+
+    public WarningFace(GaugeSpec spec)
+    {
+        _spec = spec;
+        Width = spec.Width;
+        Height = spec.Height;
+
+        var icon = WarningIcons.Find(spec.Text("icon", "")) ?? WarningIcons.Find("brake")!;
+        // Path markup carries its own fill rule: F0 cuts holes even-odd (a window in a door), F1 fills.
+        // A layout's own data that does not parse falls back to the brake symbol rather than nothing.
+        Geometry geometry;
+        try
+        {
+            geometry = Geometry.Parse((icon.EvenOdd ? "F0 " : "F1 ") + icon.Path);
+        }
+        catch (FormatException)
+        {
+            geometry = Geometry.Parse("F0 " + WarningIcons.Find("brake")!.Path);
+        }
+
+        _icon = new Path { Data = geometry, Stretch = Stretch.Uniform, Margin = new Thickness(Math.Max(1, spec.Width * 0.06)) };
+        Children.Add(_icon);
+
+        _dot.HorizontalAlignment = HorizontalAlignment.Right;
+        _dot.VerticalAlignment = VerticalAlignment.Top;
+        Children.Add(_dot);
+
+        Show(new GaugeReading(double.NaN, SignalQuality.Unavailable));
+    }
+
+    /// <summary>True while lit — for Describe().</summary>
+    public bool IsLit { get; private set; }
+
+    public void MarkUnknown(string text)
+    {
+        _unknown = true;
+        Show(new GaugeReading(double.NaN, SignalQuality.Unavailable));
+    }
+
+    public void ShowSource(string source)
+    {
+    }
+
+    public void Show(GaugeReading reading)
+    {
+        _dot.Fill = _unknown ? QualityPalette.Fault : QualityPalette.For(reading.Quality);
+
+        // The dot only where it says something: a lit or dark light that is Live needs no badge.
+        _dot.Visibility = !_unknown && reading.Quality is SignalQuality.Live ? Visibility.Collapsed : Visibility.Visible;
+
+        var showing = !_unknown && reading.HasValue;
+        IsLit = showing && ClimateReadings.IsOn(_spec, reading.Value);
+        var lit = _spec.Text("litColour", "#FFB020");
+
+        if (IsLit)
+        {
+            GaugeFace.Paint(_icon, Shape.FillProperty, lit, "#FFB020");
+            FaceDraw.Glow(_icon, lit, 12);
+            _icon.Opacity = reading.Quality is SignalQuality.Stale ? 0.5 : 1;
+        }
+        else
+        {
+            GaugeFace.Paint(_icon, Shape.FillProperty, _spec.Text("unlitColour", ""), "#2EFFFFFF");
+            _icon.Effect = null;
+            _icon.Opacity = showing ? 1 : 0.45;
+        }
+    }
+}

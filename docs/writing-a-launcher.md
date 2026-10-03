@@ -57,6 +57,7 @@ These work on every entry:
 | `type` | What it puts on the stage | Its own fields |
 |---|---|---|
 | `gauges` | A stage layout (`docs/writing-a-stage-layout.md`). | `layout` — a layout's file name (`lcars`, `towing`) or id. Left out: the theme's layout, or the one chosen in Settings ▸ Themes ▸ STAGE LAYOUT. With it, this button always shows that layout, whatever the theme. |
+| `cards` | Your cards (ADR-0041) — the arranged dash, five rows to a page. Edit them with MODIFY WIDGETS in the three-dot menu. **Always offered:** a file that never mentions `cards` gets CARDS at the end of the grid; list it with `"hidden": true` to really hide it. | — |
 | `clock` | Time and weather. | — |
 | `compass` | Heading, attitude, G — the `compass` stage layout (ADR-0039): yours if you saved a `compass.json` in `stage\`, the built-in otherwise. | `layout` — show a different stage layout under this name. To change what the compass screen draws, see *The compass and the G meter* in [writing-a-stage-layout.md](writing-a-stage-layout.md). |
 | `phone` | Android Auto and CarPlay through the dongle (ADR-0019). | — |

@@ -48,7 +48,14 @@ public static class LauncherTypes
     /// <summary>Where the apps added in Settings ▸ Apps go in the order. At the end when absent.</summary>
     public const string UserApps = "userApps";
 
-    public static IReadOnlyList<string> All { get; } = [Gauges, Clock, Compass, Phone, Video, Web, App, UserApps];
+    /// <summary>
+    /// Your cards (ADR-0041): the arranged dash that used to sit below the stage. Always offered —
+    /// a file that never mentions it gets one at the end of the grid, because the cards have
+    /// nowhere else to be; one that hides it has chosen to.
+    /// </summary>
+    public const string Cards = "cards";
+
+    public static IReadOnlyList<string> All { get; } = [Gauges, Cards, Clock, Compass, Phone, Video, Web, App, UserApps];
 
     /// <summary>Types drawn by DashDeck itself — the SCREENS heading.</summary>
     public static bool IsScreen(string type) => type is Gauges or Clock or Compass or Phone or Video;
@@ -412,7 +419,7 @@ public sealed record StageLauncher
       // The buttons below the stage, left to right — at most five. Whatever is on the stage
       // always has a button, taking the last place if it is not one of these. Leave this out
       // and the first five entries get the buttons.
-      "quickBar": [ "GAUGES", "CLOCK", "COMPASS", "PHONE", "VIDEO" ],
+      "quickBar": [ "GAUGES", "CARDS", "CLOCK", "COMPASS", "PHONE" ],
 
       // Everything the nine-dot grid offers, in order. Headings (group) come in the order they
       // first appear.
@@ -420,6 +427,8 @@ public sealed record StageLauncher
         // ── Drawn by DashDeck ──
         // The stage layout the theme names — or pin one: "layout": "lcars".
         { "name": "GAUGES", "type": "gauges", "detail": "Your stage layout — boost, oil, volts by default" },
+        // Your cards: add, arrange and resize them with MODIFY WIDGETS. Always offered.
+        { "name": "CARDS", "type": "cards", "detail": "Your cards" },
         { "name": "CLOCK", "type": "clock", "detail": "Time and weather" },
         { "name": "COMPASS", "type": "compass", "detail": "Heading, attitude, G" },
         { "name": "PHONE", "type": "phone", "detail": "Android Auto · CarPlay" },

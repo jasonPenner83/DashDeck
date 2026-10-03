@@ -158,6 +158,21 @@ public sealed class SimulatedF150
     /// <summary>The heated steering wheel: on below 10 °C outside, as the driver's seat heat is.</summary>
     public bool SteeringWheelHeat => AmbientTempC < 10;
 
+    /// <summary>The odometer: a plausible truck's mileage plus this drive.</summary>
+    public double OdometerKm => 48213 + DistanceKm;
+
+    /// <summary>Instant economy, L/100 km — what the cluster would show; a crawl reads high.</summary>
+    public double EconomyL100 => SpeedKph < 5 ? 0 : Math.Min(99.9, FuelRateLitresPerHour / SpeedKph * 100);
+
+    /// <summary>Distance to empty, at a steady 13 L/100 km — what the cluster would show.</summary>
+    public double RangeKm => FuelLevelLitres / 13.0 * 100;
+
+    /// <summary>The check-engine light. Off: a synthetic truck has nothing wrong with it.</summary>
+    public bool CheckEngine => false;
+
+    /// <summary>Stored trouble codes.</summary>
+    public int StoredCodes => 0;
+
     /// <summary>True once the scripted drive has run to completion.</summary>
     public bool IsFinished => _segmentIndex >= _drive.Segments.Count;
 

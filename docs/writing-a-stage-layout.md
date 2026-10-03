@@ -68,6 +68,7 @@ messages).
 | `levels` | A row of steps lit up to the value | the same — see *The climate panel* |
 | `indicator` | A pill that lights when its signal is on | `source`, `label`, `parts` — see *The climate panel* |
 | `glass` | A frosted glass panel | `radius`, `parts` — see *The climate panel* |
+| `warning` | A warning light: an icon lit when its signal says so | `source`, `parts` — see *The console* |
 
 **An LCARS elbow** is two things: a thick panel with one big corner (`"radius": "56,0,0,0"`), and a
 black panel over its inside corner with a smaller radius (`"radius": "28,0,0,0"`). The shipped
@@ -249,16 +250,51 @@ top-right (`OFF` at zero).
 | `labelColour`, `labelSize`, `showValue` | the caption and value line |
 | `positiveText`, `negativeText` | a word before the value above and below zero — `HEAT 2`, `COOL 1` for a seat |
 
-**`indicator`** — lit by, in this order: a **`bit`** of the value (`hvac.airflow` is 1 face, 2 feet,
+**`indicator`** — lit by, in this order: a **`bit`** of the value, under **`below`** (`hvac.airflow` is 1 face, 2 feet,
 4 windshield, so `"bit": 1` is FEET; `steeringWheel.heat` is 0 or 1), exactly **`equals`** a value, or at least **`onAt`** (default 1).
 Off is an outlined pill. **No reading is dimmed with a dash, never drawn as off.**
 
 | Part | What it does |
 |---|---|
-| `onAt`, `equals`, `bit` | when it is lit |
+| `onAt`, `below`, `equals`, `bit` | when it is lit |
 | `litColour`, `litText` | the fill and text when lit |
 | `unlitColour` | text and outline when off |
 | `radius`, `fontSize` | corner radius (default a pill), text size |
+
+## The console
+
+**DASH** in the bottom bar shows a **console layout** below the stage (ADR-0041) — the same format,
+on a canvas **912 wide and 390 tall**, chosen in **Settings ▸ Themes ▸ CONSOLE LAYOUT** like the
+stage and the climate panel. Yours live in `%LOCALAPPDATA%\DashDeck\console\`; `console\examples\`
+has the built-in **Modern** console (`modern.json`) and the shipped LCARS one. A theme names its own
+with `"consoleLayout": "lcars"`. Your cards are on the stage now, behind **CARDS**.
+
+Signals worth knowing for a console: `vehicle.speed`, `engine.rpm`, `vehicle.odometer`,
+`fuel.levelPercent`, `engine.coolantTemp`, `fuel.economy` and `fuel.range` (placeholders until the
+truck's own are found — a dash on the truck), and `diagnostics.checkEngine` and
+`diagnostics.dtcCount`.
+
+**`warning`** — a warning light. Lit in `litColour`, with a glow, when its signal says so; faint
+when off; fainter still with a grey dot when the truck has not said. Lit by the same rules as an
+indicator: a `bit`, `below`, `equals`, or at least `onAt` (1).
+
+```jsonc
+{ "id": "lowFuel", "type": "warning", "x": 438, "y": 244, "width": 34, "height": 34,
+  "source": { "signal": "fuel.levelPercent" }, "parts": { "icon": "fuel", "below": 12 } },
+{ "id": "mine", "type": "warning", "x": 478, "y": 244, "width": 34, "height": 34,
+  "source": { "signal": "warning.doorAjar" }, "parts": { "icon": "M4 4h16v16H4z", "litColour": "#FF4D4D" } }
+```
+
+| Part | What it does |
+|---|---|
+| `icon` | `checkEngine`, `oil`, `battery`, `coolant`, `fuel`, `seatbelt`, `door`, `brake`, `tpms` — or your own SVG path data on a 24 × 24 grid |
+| `onAt`, `below`, `equals`, `bit` | when it is lit |
+| `litColour` | lit — default amber |
+| `unlitColour` | off — default a faint white |
+
+The `warning.oilPressure`, `warning.seatbelt`, `warning.doorAjar`, `warning.parkingBrake` and
+`warning.tirePressure` signals are **placeholders** until the truck's own are found: on the truck
+they stay dark with a grey dot.
 
 ## Parts
 

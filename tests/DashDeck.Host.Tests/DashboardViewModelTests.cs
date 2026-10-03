@@ -87,6 +87,34 @@ public sealed class DashboardViewModelTests
         Assert.Contains("engine.runTime", bus.Declared);
     }
 
+    /// <summary>The cards on the stage (ADR-0041): off it, no page is visible, so nothing asks.</summary>
+    [Fact]
+    public void Cards_that_are_not_shown_ask_for_nothing()
+    {
+        var bus = new FakeBus();
+        using var dashboard = Build(bus, new MemoryStore(LayoutOf(18)));
+
+        dashboard.IsShown = false;
+        Assert.Equal(0, bus.LiveDemands);
+
+        dashboard.IsShown = true;
+        Assert.Equal(15, bus.LiveDemands);
+    }
+
+    /// <summary>The stage's 636 holds five rows — twenty-five slots — so eighteen cards are one page.</summary>
+    [Fact]
+    public void The_stage_holds_five_rows_of_cards()
+    {
+        var bus = new FakeBus();
+        using var dashboard = Build(bus, new MemoryStore(LayoutOf(18)));
+
+        dashboard.RegionHeight = BandGrid.StageOccupantHeight;
+
+        Assert.Equal(5, BandGrid.RowsInHeight(BandGrid.StageOccupantHeight));
+        Assert.Single(dashboard.Pages);
+        Assert.Equal(18, bus.LiveDemands);
+    }
+
     [Fact]
     public void A_taller_widget_region_fits_more_cards_and_so_declares_more()
     {

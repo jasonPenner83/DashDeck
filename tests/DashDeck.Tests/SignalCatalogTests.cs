@@ -21,6 +21,10 @@ public class SignalCatalogTests
     [InlineData("engine.coolantTemp", new byte[] { 0x7B }, 83)]         // A-40
     [InlineData("engine.mafRate", new byte[] { 0x07, 0xD0 }, 20)]       // (256A+B)/100
     [InlineData("engine.fuelRate", new byte[] { 0x00, 0xC8 }, 10)]      // (256A+B)/20
+    [InlineData("diagnostics.checkEngine", new byte[] { 0x83, 0x07, 0xE5, 0x00 }, 1)] // A bit 7: lit
+    [InlineData("diagnostics.checkEngine", new byte[] { 0x03, 0x07, 0xE5, 0x00 }, 0)]
+    [InlineData("diagnostics.dtcCount", new byte[] { 0x83, 0x07, 0xE5, 0x00 }, 3)]    // A & 0x7F
+    [InlineData("vehicle.odometer", new byte[] { 0x00, 0x07, 0x5B, 0xCD }, 48225.3)]   // ABCD / 10
     public void Decodes_standard_pids(string id, byte[] payload, double expected)
     {
         var value = TestCatalog.Load()[id].Decode.Decode(payload);
@@ -72,5 +76,16 @@ public class SignalCatalogTests
         Assert.True(speed.InRange(60));
         Assert.False(speed.InRange(-5));
         Assert.False(speed.InRange(900));
+    }
+
+    [Fact]
+    public void A_mask_must_keep_some_bits()
+    {
+        var json = """
+        [ { "id": "a", "name": "A", "pid": 1, "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "", "mask": 0 } } ]
+        """;
+
+        var ex = Assert.Throws<InvalidDataException>(() => SignalCatalog.FromJson(json));
+        Assert.Contains("mask", ex.Message);
     }
 }

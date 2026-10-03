@@ -132,6 +132,11 @@ public sealed class SignalCatalog
             problems.Add($"'{d.Id}': byteLength must be 1, 2 or 4 (got {d.Decode.ByteLength})");
         }
 
+        if (d.Decode.Mask is <= 0)
+        {
+            problems.Add($"'{d.Id}': mask must be a positive number of bits to keep");
+        }
+
         if (d.Decode.ByteOffset < 0)
         {
             problems.Add($"'{d.Id}': byteOffset must not be negative");
