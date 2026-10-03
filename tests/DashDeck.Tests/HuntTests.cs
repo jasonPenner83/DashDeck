@@ -188,6 +188,20 @@ public class HuntTests
         Assert.True((await adapter.RequestAsync(request, CancellationToken.None)).IsSuccess);
     }
 
+    [Fact]
+    public async Task The_adapter_sets_the_pins_3_and_11_rate_each_time_it_selects_that_bus()
+    {
+        var truck = Truck();
+        truck.Pins311BitRate = 500000;
+        var log = new Recording(truck);
+        var adapter = new ElmAdapter(log) { Pins311BitRate = 500000 };
+        await adapter.InitializeAsync(CancellationToken.None);
+
+        Assert.True((await adapter.RequestAsync(new PidRequest(0x22, 0xF113, CanBus.Ms, 0x726), CancellationToken.None)).IsSuccess);
+        var stp = log.Commands.LastIndexOf("STP53");
+        Assert.Equal("STPBR500000", log.Commands[stp + 1]);
+    }
+
     // ── Ranking a listen ──────────────────────────────────────────────────────
 
     private static CanFrame F(double seconds, uint id, params byte[] data) =>
