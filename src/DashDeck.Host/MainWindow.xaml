@@ -143,40 +143,52 @@
                         colour. The kebab stays reachable to its right. Hidden entirely while
                         connected, so it costs nothing in the ordinary case.
                     -->
+                    <!-- Opaque underneath the amber wash, so what it covers does not show through it. -->
                     <Border CornerRadius="6"
-                            Background="#22E0B23C"
-                            BorderBrush="#E0B23C"
-                            BorderThickness="1"
-                            Padding="12,4"
+                            Background="{DynamicResource StripBackgroundBrush}"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Visibility="{Binding IsAdapterLost, Converter={StaticResource BoolToVis}}">
-                        <TextBlock FontFamily="{DynamicResource MonoFont}"
-                                   FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="#E0B23C"
-                                   VerticalAlignment="Center"
-                                   Text="{Binding LinkStatusText}" />
+                        <Border CornerRadius="6"
+                                Background="#22E0B23C"
+                                BorderBrush="#E0B23C"
+                                BorderThickness="1"
+                                Padding="12,4">
+                            <TextBlock FontFamily="{DynamicResource MonoFont}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="#E0B23C"
+                                       VerticalAlignment="Center"
+                                       MaxWidth="700"
+                                       TextTrimming="CharacterEllipsis"
+                                       Text="{Binding LinkStatusText}" />
+                        </Border>
                     </Border>
 
                     <!-- A configured adapter that did not come up. Falling back to the
                          simulator keeps the dash alive on a desk, but it must never be
                          silent: without this the app knew why and showed nothing, which is
                          indistinguishable from the setting not having worked. -->
+                    <!-- Opaque underneath the amber wash, so what it covers does not show through it. -->
                     <Border CornerRadius="6"
-                            Background="#22E0B23C"
-                            BorderBrush="#E0B23C"
-                            BorderThickness="1"
-                            Padding="12,4"
+                            Background="{DynamicResource StripBackgroundBrush}"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Visibility="{Binding HasAdapterFallback, Converter={StaticResource BoolToVis}}">
-                        <TextBlock FontFamily="{DynamicResource MonoFont}"
-                                   FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="#E0B23C"
-                                   VerticalAlignment="Center"
-                                   Text="{Binding AdapterFallbackText}" />
+                        <Border CornerRadius="6"
+                                Background="#22E0B23C"
+                                BorderBrush="#E0B23C"
+                                BorderThickness="1"
+                                Padding="12,4">
+                            <TextBlock FontFamily="{DynamicResource MonoFont}"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Foreground="#E0B23C"
+                                       VerticalAlignment="Center"
+                                       MaxWidth="700"
+                                       TextTrimming="CharacterEllipsis"
+                                       Text="{Binding AdapterFallbackText}" />
+                        </Border>
                     </Border>
                 </Grid>
             </Border>

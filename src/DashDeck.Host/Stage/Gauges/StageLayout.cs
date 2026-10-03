@@ -287,6 +287,7 @@ public static class GaugeParts
         {
             ["steps"] = "how many steps — default 7",
             ["shape"] = "\"bars\" (rising, default) or \"dots\"",
+            ["size"] = "dot diameter, px — default as large as fits",
             ["litColour"] = "lit steps — default the accent",
             ["unlitColour"] = "unlit steps",
             ["negativeColour"] = "lit steps when the value is below zero — seat cooling, say. Default an ice blue",
@@ -403,7 +404,7 @@ public static class GaugeParts
             ["frameColour"] = "outline colour, or \"none\"",
             ["frameRadius"] = "outline corner radius, px",
             ["align"] = "\"left\", \"center\" or \"right\" — lays the caption above the number, aligned",
-            ["labelPosition"] = "\"above\" puts the caption over the number; \"below\" (default) under it, centred",
+            ["labelPosition"] = "\"above\" puts the caption over the number; \"below\" under it (centred, or aligned with align)",
             ["labelGap"] = "space between the caption and the number when above, px",
         },
     };
@@ -822,19 +823,18 @@ public sealed record StageLayout
       "name": "Clean",
       "description": "Type, not boxes: speed large in the middle, engine and fuel on the left, range and economy on the right, warning lights that only show when they are on, and the odometer along the bottom.",
       "author": "DashDeck",
-      // Black behind; white and grey type from the theme's text colours, so it dims at night with the
-      // rest of the dash. Only what is lit — a switch, a heater, a warning — has a colour of its own.
-      "background": "#000000",
+      // No background of its own: the theme's canvas, so it sits seamlessly below the stage. White
+      // and grey type from the theme's text colours, so it dims at night with the rest of the dash.
+      // Only what is lit — a switch, a heater, a warning — has a colour of its own.
       // One family, two weights. Windows 11's Segoe UI Variable, or Segoe UI where it is not installed.
       "fonts": { "ui": "Segoe UI Variable Display, Segoe UI", "mono": "Segoe UI Variable Text, Segoe UI" },
       "elements": [
         // ── Speed ── the one large thing on the screen.
-        { "id": "speed", "style": "digital", "x": 296, "y": 22, "width": 320, "height": 176,
-          "format": "0", "min": 0, "max": 250,
+        { "id": "speed", "style": "digital", "x": 296, "y": 22, "width": 320, "height": 206,
+          "label": "km/h", "format": "0", "min": 0, "max": 250,
           "source": { "signal": "vehicle.speed", "rateHz": 4 },
-          "parts": { "align": "center", "valueSize": 138, "valueWeight": "light", "valueColour": "@textHigh", "noData": "–" } },
-        { "id": "speedUnit", "type": "text", "x": 296, "y": 196, "width": 320, "height": 24,
-          "content": "km/h", "fontSize": 16, "align": "center", "colour": "@textMid", "font": "mono", "parts": { "weight": "regular" } },
+          "parts": { "align": "center", "labelPosition": "below", "labelGap": 0, "labelSize": 16, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 138, "valueWeight": "light", "valueColour": "@textHigh", "noData": "–" } },
 
         // ── Engine and fuel ── a caption, then the number; space does the separating.
         { "id": "rpm", "style": "digital", "x": 40, "y": 34, "width": 220, "height": 66,
@@ -911,9 +911,9 @@ public sealed record StageLayout
       "name": "Clean",
       "description": "Type, not boxes: each side's temperature large at its edge, the seat beneath it, the fan and airflow in the middle, and the switches as words that light. Shows what the truck reports; changes nothing.",
       "author": "DashDeck",
-      // Black behind; white and grey type from the theme's text colours, so it dims at night with the
-      // rest of the dash. Only what is lit — a switch, a heater, a warning — has a colour of its own.
-      "background": "#000000",
+      // No background of its own: the theme's canvas, so it sits seamlessly below the stage. White
+      // and grey type from the theme's text colours, so it dims at night with the rest of the dash.
+      // Only what is lit — a switch, a heater, a warning — has a colour of its own.
       "fonts": { "ui": "Segoe UI Variable Display, Segoe UI", "mono": "Segoe UI Variable Text, Segoe UI" },
       "elements": [
         // ── Driver ── at the left edge.
@@ -926,7 +926,7 @@ public sealed record StageLayout
         { "id": "driverSeat", "type": "levels", "x": 40, "y": 160, "width": 150, "height": 40,
           "label": "SEAT", "min": -3, "max": 3,
           "source": { "signal": "seat.driver.climate", "rateHz": 0.2 },
-          "parts": { "steps": 3, "shape": "dots", "gap": 10, "litColour": "#FF8A3D", "negativeColour": "#4DA3FF", "unlitColour": "@hairlineStrong",
+          "parts": { "steps": 3, "shape": "dots", "size": 12, "gap": 10, "litColour": "#FF8A3D", "negativeColour": "#4DA3FF", "unlitColour": "@hairlineStrong",
                      "labelColour": "@textMid", "labelSize": 12, "labelWeight": "regular", "positiveText": "HEAT", "negativeText": "COOL" } },
         { "id": "wheel", "type": "indicator", "x": 40, "y": 214, "width": 200, "height": 26, "label": "HEATED WHEEL",
           "source": { "signal": "steeringWheel.heat", "rateHz": 0.2 },
@@ -936,7 +936,7 @@ public sealed record StageLayout
         { "id": "fan", "type": "levels", "x": 336, "y": 34, "width": 240, "height": 46,
           "label": "FAN", "min": 0, "max": 7,
           "source": { "signal": "hvac.fanSpeed", "rateHz": 0.5 },
-          "parts": { "steps": 7, "shape": "dots", "gap": 12, "litColour": "@textHigh", "unlitColour": "@hairlineStrong",
+          "parts": { "steps": 7, "shape": "dots", "size": 10, "gap": 12, "litColour": "@textHigh", "unlitColour": "@hairlineStrong",
                      "labelColour": "@textMid", "labelSize": 12, "labelWeight": "regular" } },
         // Airflow is one signal of bits: 1 face, 2 feet, 4 windshield.
         { "id": "face", "type": "indicator", "x": 336, "y": 108, "width": 72, "height": 26, "label": "FACE",
@@ -963,7 +963,7 @@ public sealed record StageLayout
         { "id": "passengerSeat", "type": "levels", "x": 722, "y": 160, "width": 150, "height": 40,
           "label": "SEAT", "min": -3, "max": 3,
           "source": { "signal": "seat.passenger.climate", "rateHz": 0.2 },
-          "parts": { "steps": 3, "shape": "dots", "gap": 10, "litColour": "#FF8A3D", "negativeColour": "#4DA3FF", "unlitColour": "@hairlineStrong",
+          "parts": { "steps": 3, "shape": "dots", "size": 12, "gap": 10, "litColour": "#FF8A3D", "negativeColour": "#4DA3FF", "unlitColour": "@hairlineStrong",
                      "labelColour": "@textMid", "labelSize": 12, "labelWeight": "regular", "positiveText": "HEAT", "negativeText": "COOL" } },
 
         // ── The switches ── words that light when on, grey when off, with a dash when not known.
