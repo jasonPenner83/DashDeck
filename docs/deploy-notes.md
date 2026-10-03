@@ -51,10 +51,33 @@ adds the following to `v0.5.0`:
 - **Module scans and sweeps are kept** in `%LOCALAPPDATA%\DashDeck\discovery.json` and shown again at
   launch, marked SAVED. The file can hold the VIN — keep it on the tablet.
 - **The signal editor's TEST button is on screen** again (it was pushed off the right edge).
+- **WATCH** (Settings ▸ Sensors ▸ MODULES, on a swept module): re-asks the identifiers a sweep found
+  until STOP and ranks them by how often they changed since the watch began, with a likely
+  temperature beside each. Every watch is **recorded** to
+  `%LOCALAPPDATA%\DashDeck\watch\watch-<module>-<range>-<time>.csv` to lay beside a FORScan log. Refused
+  while moving, and stops if the truck moves.
+- **CLIMATE** in the bottom bar (ADR-0040): a read-only climate panel in place of the cards — set
+  temperatures, fan, airflow, seat heat/cool, heated wheel, AUTO/A/C/RECIRC/DEFROST/REAR, outside air.
+  **On the real truck every climate value reads a dash** (placeholders until the HVAC module is found);
+  only OUTSIDE is live. Nothing is sent to the truck.
+- **DASH is a console** (ADR-0041): speed, rpm, fuel, engine temperature, range, economy, odometer,
+  stored codes and nine warning lights. **The cards moved onto the stage, behind CARDS.** Range,
+  economy and five of the lights (oil, seatbelt, door, brake, tyres) are placeholders and read a dash
+  with a grey dot until Ford's identifiers are found; check engine, low fuel, hot coolant and low
+  voltage are real.
+- **Two looks, Modern and Glass** (ADR-0042, ADR-0043). **Modern** is the new default — cool greys, one
+  light-blue accent, Segoe UI, and type rather than boxes on the stage, console and climate panel.
+  **Glass** is blue-black with frosted panels, an arcs console and the chrome F-150 cluster. Every
+  screen follows the theme unless a layout is chosen by hand in Settings ▸ Themes.
+- **LCARS is yours now.** The first launch copies it into `%LOCALAPPDATA%\DashDeck\themes\` (and its
+  stage, console and climate layouts into theirs), so it can be edited or deleted; if you wore it, you
+  still do. A spare copy stays in `catalog\extras\lcars\`.
 
 Check in the truck: the walkthroughs in [08-in-vehicle-testing](08-in-vehicle-testing.md) —
 *The launcher as a file*, *COMPASS as a stage layout*, *One DashDeck at a time*, *Module scans and
-sweeps are kept across a restart* and *The signal editor's TEST button is on screen*.
+sweeps are kept across a restart*, *The signal editor's TEST button is on screen*, *WATCH*, *WATCH
+recordings*, *The climate panel*, *The console dash, and the cards on the stage*, *The Modern
+defaults* and *Two looks, Modern and Glass — and LCARS is yours*.
 
 And from **`v0.5.0`** — released 2026-10-02 from `main` (tag on the #27 merge, `ee8911b`):
 
@@ -115,9 +138,10 @@ And from **`v0.3.0`**, the first build that reads the real truck:
   - the five components in `plugins/`;
   - Settings sections for Appearance, Mount, Display, Vehicle and Diagnostics.
 
-Check the deploy carried the theme: the publish copies `catalog/themes/` (JSON, fonts and the
-font licence) beside the executable. If LCARS appears in Settings ▸ Themes but its lettering is wide
-and ordinary, the `.ttf` files did not make it into the folder.
+Check the deploy carried the themes: the publish clears and re-copies `catalog\` beside the
+executable — `catalog\themes\glass.json`, and LCARS with its Antonio fonts and licence in
+`catalog\extras\lcars\`. The first launch copies LCARS into your own themes folder; if it then appears
+in Settings ▸ Themes with wide, ordinary lettering, the `.ttf` files did not make it across.
 
 ## Known limits — read before deciding something is broken
 
