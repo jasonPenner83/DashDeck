@@ -98,6 +98,11 @@ public sealed class StageLayoutView : UserControl, IDisposable
         _canvas.Width = layout.Canvas.Width;
         _canvas.Height = layout.Canvas.Height;
 
+        // A layout's own fonts (ADR-0042) shadow the theme's for this canvas only: every face looks
+        // its type up by resource key, nearest first, so the keys here win.
+        SetFont("UiFont", layout.Fonts?.Ui);
+        SetFont("MonoFont", layout.Fonts?.Mono);
+
         Paint(_canvas, Panel.BackgroundProperty, layout.Background, "@canvas");
 
         foreach (var element in layout.Elements)
@@ -127,6 +132,18 @@ public sealed class StageLayoutView : UserControl, IDisposable
         {
             ReadSensors();
             _sensorTick.Start();
+        }
+    }
+
+    private void SetFont(string key, string? family)
+    {
+        if (string.IsNullOrWhiteSpace(family))
+        {
+            _canvas.Resources.Remove(key);
+        }
+        else
+        {
+            _canvas.Resources[key] = new FontFamily(family.Trim());
         }
     }
 
@@ -304,7 +321,7 @@ public sealed class StageLayoutView : UserControl, IDisposable
             Width = spec.Width,
             Height = spec.Height,
             FontSize = spec.FontSize,
-            FontWeight = FontWeights.SemiBold,
+            FontWeight = FaceDraw.Weight(spec, "weight", FontWeights.SemiBold),
             TextWrapping = TextWrapping.Wrap,
             TextAlignment = spec.Align.ToLowerInvariant() switch
             {

@@ -1,0 +1,79 @@
+// Glass (ADR-0040) — frosted zones for driver and passenger, the fan and airflow between them, and
+// the switches below. It was the built-in climate panel before Clean took its place; choose it in
+// Settings ▸ Themes ▸ CLIMATE LAYOUT. Read only: it shows what the truck reports and changes nothing.
+{
+  "name": "Glass",
+  "description": "Frosted glass zones for driver and passenger, the fan and airflow between them, and the switches below. Shows what the truck reports; changes nothing.",
+  "author": "DashDeck",
+  // Deep and nearly black, so the glass reads as glass.
+  "background": "#05080C",
+  "elements": [
+    // ── The glass ── a tint, a sheen across the top, a soft shadow. Elements after it sit on it.
+    { "id": "driverGlass", "type": "glass", "x": 24, "y": 16, "width": 276, "height": 262, "radius": "30" },
+    { "id": "centreGlass", "type": "glass", "x": 318, "y": 16, "width": 276, "height": 262, "radius": "30" },
+    { "id": "passengerGlass", "type": "glass", "x": 612, "y": 16, "width": 276, "height": 262, "radius": "30" },
+    { "id": "switchGlass", "type": "glass", "x": 24, "y": 294, "width": 864, "height": 80, "radius": "26",
+      "parts": { "opacity": 0.05 } },
+
+    // ── Driver ── the set temperature large, on an arc across 15–30 °C, and the seat below.
+    { "id": "driver", "type": "setpoint", "x": 44, "y": 28, "width": 236, "height": 192,
+      "label": "DRIVER", "unit": "°", "format": "0.0", "min": 15, "max": 30,
+      "source": { "signal": "hvac.driverSetTemp", "rateHz": 0.5 },
+      "parts": { "arcColour": "#8FDBFF", "glow": "#4FB8F0", "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
+    // The seat heats (warm, HEAT 1–3) and cools (ice blue, COOL 1–3); the wheel heats.
+    { "id": "driverSeat", "type": "levels", "x": 44, "y": 222, "width": 150, "height": 44,
+      "label": "SEAT", "min": -3, "max": 3,
+      "source": { "signal": "seat.driver.climate", "rateHz": 0.2 },
+      "parts": { "steps": 3, "litColour": "#FF9A4D", "negativeColour": "#6CC8FF", "labelColour": "#8A97A4",
+                 "positiveText": "HEAT", "negativeText": "COOL" } },
+    { "id": "wheel", "type": "indicator", "x": 206, "y": 228, "width": 78, "height": 36, "label": "WHEEL",
+      "source": { "signal": "steeringWheel.heat", "rateHz": 0.2 }, "parts": { "litColour": "#FF9A4D" } },
+
+    // ── Centre ── the fan, where the air goes, and the cabin's own temperature.
+    { "id": "title", "type": "text", "x": 338, "y": 30, "width": 236, "height": 22,
+      "content": "CLIMATE", "fontSize": 13, "align": "center", "colour": "#8A97A4" },
+    { "id": "fan", "type": "levels", "x": 344, "y": 60, "width": 224, "height": 76,
+      "label": "FAN", "min": 0, "max": 7,
+      "source": { "signal": "hvac.fanSpeed", "rateHz": 0.5 },
+      "parts": { "steps": 7, "litColour": "#8FDBFF", "labelColour": "#8A97A4" } },
+    // Airflow is one signal of bits: 1 face, 2 feet, 4 windshield.
+    { "id": "face", "type": "indicator", "x": 338, "y": 150, "width": 74, "height": 38, "label": "FACE",
+      "source": { "signal": "hvac.airflow", "rateHz": 0.5 }, "parts": { "bit": 0, "litColour": "#8FDBFF" } },
+    { "id": "feet", "type": "indicator", "x": 419, "y": 150, "width": 74, "height": 38, "label": "FEET",
+      "source": { "signal": "hvac.airflow", "rateHz": 0.5 }, "parts": { "bit": 1, "litColour": "#8FDBFF" } },
+    { "id": "glassAir", "type": "indicator", "x": 500, "y": 150, "width": 74, "height": 38, "label": "GLASS",
+      "source": { "signal": "hvac.airflow", "rateHz": 0.5 }, "parts": { "bit": 2, "litColour": "#8FDBFF" } },
+    { "id": "cabin", "style": "digital", "x": 338, "y": 196, "width": 236, "height": 72,
+      "label": "CABIN", "unit": "°C", "format": "0.0", "min": -40, "max": 80,
+      "source": { "signal": "hvac.cabinTemp", "rateHz": 0.5 },
+      "parts": { "valueSize": 26, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
+
+    // ── Passenger ──
+    { "id": "passenger", "type": "setpoint", "x": 632, "y": 28, "width": 236, "height": 192,
+      "label": "PASSENGER", "unit": "°", "format": "0.0", "min": 15, "max": 30,
+      "source": { "signal": "hvac.passengerSetTemp", "rateHz": 0.5 },
+      "parts": { "arcColour": "#8FDBFF", "glow": "#4FB8F0", "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
+    { "id": "passengerSeat", "type": "levels", "x": 652, "y": 222, "width": 196, "height": 44,
+      "label": "SEAT", "min": -3, "max": 3,
+      "source": { "signal": "seat.passenger.climate", "rateHz": 0.2 },
+      "parts": { "steps": 3, "litColour": "#FF9A4D", "negativeColour": "#6CC8FF", "labelColour": "#8A97A4",
+                 "positiveText": "HEAT", "negativeText": "COOL" } },
+
+    // ── Switches ── lit when on; dim and outlined when off; a dash when the truck has not said.
+    { "id": "auto", "type": "indicator", "x": 44, "y": 310, "width": 116, "height": 48, "label": "AUTO",
+      "source": { "signal": "hvac.auto", "rateHz": 0.5 }, "parts": { "litColour": "#8FDBFF" } },
+    { "id": "ac", "type": "indicator", "x": 172, "y": 310, "width": 116, "height": 48, "label": "A/C",
+      "source": { "signal": "hvac.airConditioning", "rateHz": 0.5 }, "parts": { "litColour": "#8FDBFF" } },
+    { "id": "recirc", "type": "indicator", "x": 300, "y": 310, "width": 116, "height": 48, "label": "RECIRC",
+      "source": { "signal": "hvac.recirculate", "rateHz": 0.5 }, "parts": { "litColour": "#8FDBFF" } },
+    { "id": "frontDefrost", "type": "indicator", "x": 428, "y": 310, "width": 136, "height": 48, "label": "DEFROST",
+      "source": { "signal": "hvac.frontDefrost", "rateHz": 0.5 }, "parts": { "litColour": "#FF9A4D" } },
+    { "id": "rearDefrost", "type": "indicator", "x": 576, "y": 310, "width": 136, "height": 48, "label": "REAR DEF",
+      "source": { "signal": "hvac.rearDefrost", "rateHz": 0.5 }, "parts": { "litColour": "#FF9A4D" } },
+    // Outside air is a standard signal: it reads on the real truck today.
+    { "id": "outside", "style": "digital", "x": 728, "y": 300, "width": 150, "height": 68,
+      "label": "OUTSIDE", "unit": "°C", "format": "0", "min": -50, "max": 60,
+      "source": { "signal": "ambient.airTemp", "rateHz": 0.1 },
+      "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } }
+  ]
+}

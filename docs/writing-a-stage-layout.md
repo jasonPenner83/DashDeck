@@ -45,6 +45,23 @@ entry that names it in the launcher file: see [writing-a-launcher.md](writing-a-
 The stage is **912 wide and 636 tall**. Every `x`, `y`, `width` and `height` is in those pixels,
 and the whole canvas is scaled to the real stage.
 
+### Fonts
+
+A layout can bring its own type, for itself alone (ADR-0042):
+
+```jsonc
+"fonts": { "ui": "Segoe UI Variable Display, Segoe UI", "mono": "Segoe UI Variable Text, Segoe UI" }
+```
+
+`ui` is the numbers and headings, `mono` the captions; leave either out to keep the theme's. A comma
+list falls back in order — Segoe UI Variable is Windows 11's, Segoe UI is everywhere. Weights are
+per element: `valueWeight` and `labelWeight` (`thin`, `light`, `regular`, `medium`, `semibold`,
+`bold`), and `weight` on text.
+
+**Type over shapes.** The built-in Clean layouts use no panels or boxes: a small grey caption above a
+large light number, aligned to its edge (`"align": "left"` on a digital gauge), with space between
+groups. Switches are words (`"style": "text"` on an indicator) that light when on.
+
 ### Colours
 
 `#RRGGBB` (or `#AARRGGBB`, `#RGB`), or **`@token`** — any colour token from a theme
@@ -189,7 +206,7 @@ three-dot menu on any stage with a G meter; re-levelling resets the peak too.
 same format as a stage layout, on a canvas **912 wide and 390 tall** — the two bands where the cards
 are — and is chosen in **Settings ▸ Themes ▸ CLIMATE LAYOUT**, the same way: follow the theme, or
 pick one; SAVE AS, OPEN FOLDER, edit, RELOAD. Yours live in `%LOCALAPPDATA%\DashDeck\climate\`;
-`climate\examples\` has the built-in **Glass** panel (`glass.json`) and the shipped LCARS one to copy
+`climate\examples\` has the built-in **Clean** panel (`clean.json`), **Glass** and the shipped LCARS one to copy
 from. A theme names its own with `"climateLayout": "lcars"`.
 
 **It is read only.** It shows what the truck reports and changes nothing; a tap does nothing. The
@@ -260,13 +277,15 @@ Off is an outlined pill. **No reading is dimmed with a dash, never drawn as off.
 | `litColour`, `litText` | the fill and text when lit |
 | `unlitColour` | text and outline when off |
 | `radius`, `fontSize` | corner radius (default a pill), text size |
+| `style` | `pill` (default) or `text` — just the word, lit in its colour, grey when off |
+| `align`, `labelWeight` | where the word sits, and its weight |
 
 ## The console
 
 **DASH** in the bottom bar shows a **console layout** below the stage (ADR-0041) — the same format,
 on a canvas **912 wide and 390 tall**, chosen in **Settings ▸ Themes ▸ CONSOLE LAYOUT** like the
 stage and the climate panel. Yours live in `%LOCALAPPDATA%\DashDeck\console\`; `console\examples\`
-has the built-in **Modern** console (`modern.json`) and the shipped LCARS one. A theme names its own
+has the built-in **Clean** console (`clean.json`), **Modern** and the shipped LCARS one. A theme names its own
 with `"consoleLayout": "lcars"`. Your cards are on the stage now, behind **CARDS**.
 
 Signals worth knowing for a console: `vehicle.speed`, `engine.rpm`, `vehicle.odometer`,
@@ -308,6 +327,9 @@ Every part has a default; set only what you change. These work on every style:
 | `valueSize` | number size in px |
 | `showLabel` | true/false |
 | `showValue` | true/false — the digital readout |
+| `valueWeight`, `labelWeight` | `thin`, `light`, `regular`, `medium`, `semibold` or `bold` |
+| `unitSize`, `unitColour` | draw the unit smaller and quieter than the number |
+| `noData` | what shows with no reading — default `NO DATA`; `–` is quieter |
 
 ### `dial`
 
@@ -370,6 +392,9 @@ Every part has a default; set only what you change. These work on every style:
 |---|---|
 | `frameColour` | outline colour, or "none" |
 | `frameRadius` | outline corner radius, px |
+| `align` | `left`, `center` or `right` — the caption above the number, aligned to that edge |
+| `labelPosition` | `above` puts the caption over the number; `below` (default) under it, centred |
+| `labelGap` | space between caption and number when above, px |
 
 ## What stops an element being drawn
 

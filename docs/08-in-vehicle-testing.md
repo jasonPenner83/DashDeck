@@ -522,25 +522,23 @@ the adapter, **parked**, ignition **on** or engine running. No internet.
 **At the desk (synthetic truck):**
 
 1. Start DashDeck with no adapter attached and tap **CLIMATE** in the bottom bar.
-2. **Expect:** the cards go and the **Glass** panel takes their place — three frosted panels (DRIVER,
-   CLIMATE, PASSENGER) over a long glass bar of switches. The stage above is untouched and keeps
-   running. DRIVER reads **21.5°** and PASSENGER **22.0°** on thin blue arcs with a bright point;
-   FAN shows some bars lit; FACE or FEET is lit; the switches show A/C lit when the synthetic
-   outside air is warm; OUTSIDE shows a temperature. Every element has a small **blue** dot
-   (Simulated). Under DRIVER: **SEAT** with its bars and a **WHEEL** pill. When the synthetic
-   outside air is below 10 °C the driver's seat reads **HEAT 2** with two warm orange bars and
-   WHEEL is lit orange; above 25 °C the seat reads **COOL 1** with one ice-blue bar and WHEEL is
-   off; in between the seat reads **OFF**. The passenger seat reads **OFF**.
+2. **Expect:** the cards go and the **Clean** panel takes their place — no boxes, just type on black:
+   DRIVER at the left edge with **21.5°** large and thin, PASSENGER at the right with **22.0°**, a row
+   of FAN dots in the middle with FACE / FEET / SCREEN beneath (the ones in use bright, the rest grey)
+   and CABIN under them, SEAT dots and HEATED WHEEL under the driver, and AUTO · A/C · RECIRC ·
+   DEFROST · REAR along the bottom as words, lit blue (or orange for the heaters) when on. OUTSIDE at
+   the bottom right. Every element has a small **blue** dot (Simulated).
 3. Tap anything on the panel. **Expect:** nothing happens. It is read only.
 4. Tap **DASH**. **Expect:** the cards come back exactly as they were. Tap **CLIMATE** again: the
    panel is back.
 5. **Settings ▸ Themes**, wear **LCARS (inspired)**, tap **CLIMATE**. **Expect:** the LCARS panel —
-   lavender and peach elbows, ENVIRONMENTAL, orange arcs. Wear the DashDeck theme again: Glass is back.
-6. **Settings ▸ Themes ▸ CLIMATE LAYOUT**: **Expect:** SHOWING GLASS, the reason *following the
-   theme*, rows FOLLOW THE THEME, GLASS (BUILT IN) and LCARS (INSPIRED) CLIMATE (SHIPPED). Type
+   lavender and peach elbows, ENVIRONMENTAL, orange arcs. Wear the DashDeck theme again: Clean is back.
+   **Settings ▸ Themes ▸ CLIMATE LAYOUT ▸ GLASS** brings back the frosted panels if you prefer them.
+6. **Settings ▸ Themes ▸ CLIMATE LAYOUT**: **Expect:** SHOWING CLEAN, the reason *following the
+   theme*, rows FOLLOW THE THEME, CLEAN (BUILT IN), GLASS and LCARS (INSPIRED) CLIMATE (SHIPPED). Type
    `mine`, press **SAVE AS**: *Saved as mine.json in your climate folder*. **OPEN FOLDER**, open
-   `mine.json` in Notepad, change the first `"x": 24` to `"x": 60`, save, press **RELOAD**, tap
-   **CLIMATE**: the driver glass has moved right. Back in Settings, **DELETE** it: the panel follows
+   `mine.json` in Notepad, change the first `"x": 40` to `"x": 100`, save, press **RELOAD**, tap
+   **CLIMATE**: the DRIVER temperature has moved right. Back in Settings, **DELETE** it: the panel follows
    the theme again.
 
 **In the truck (real adapter):**
@@ -565,10 +563,11 @@ adapter, **parked**, engine **running**, then a short drive.
 
 **At the desk (synthetic truck):**
 
-1. Start DashDeck. **Expect:** below the stage, where the cards were, the **Modern** console: a big
-   speed number on a blue arc with a bright point, RPM on a quieter arc to its left, FUEL and ENGINE
-   TEMP bars and RANGE on the right, a row of nine dim warning icons under the speed, and a strip of
-   ODOMETER, ECONOMY, CODES and OUTSIDE. As the synthetic drive moves, the speed and
+1. Start DashDeck. **Expect:** below the stage, where the cards were, the **Clean** console — no
+   boxes or arcs: the speed large and thin in the middle with *km/h* under it; RPM, ENGINE and FUEL
+   down the left (a small grey caption over a light number); RANGE, ECONOMY and OUTSIDE down the right,
+   aligned right; nine warning icons under the speed, barely visible; ODOMETER at the bottom left and
+   STORED CODES at the bottom right, small and grey. As the synthetic drive moves, the speed and
    rpm follow it. Dots are blue (Simulated). ODOMETER reads about 48,213 km and climbs.
 2. Look at the warning icons. **Expect:** all dark — nothing is wrong with the synthetic truck.
 3. Tap **CARDS** on the bar below the stage. **Expect:** your cards on the stage, up to five rows a
@@ -579,9 +578,10 @@ adapter, **parked**, engine **running**, then a short drive.
 5. Tap a card while editing to open its editor. **Expect:** the full-screen editor, as before; back
    out and you are on CARDS.
 6. **Settings ▸ Themes**, wear **LCARS (inspired)**, tap **DASH**. **Expect:** the LCARS console —
-   HELM STATUS, segmented RPM, FUEL and TEMP bars. Wear DashDeck again: Modern is back.
-7. **Settings ▸ Themes ▸ CONSOLE LAYOUT**. **Expect:** SHOWING MODERN, FOLLOW THE THEME / MODERN
-   (BUILT IN) / LCARS (INSPIRED) CONSOLE (SHIPPED), SAVE AS, RELOAD and OPEN FOLDER as for the stage.
+   HELM STATUS, segmented RPM, FUEL and TEMP bars. Wear DashDeck again: Clean is back.
+   **Settings ▸ Themes ▸ CONSOLE LAYOUT ▸ MODERN** brings back the arcs and glass.
+7. **Settings ▸ Themes ▸ CONSOLE LAYOUT**. **Expect:** SHOWING CLEAN, FOLLOW THE THEME / CLEAN
+   (BUILT IN) / LCARS (INSPIRED) CONSOLE / MODERN (SHIPPED), SAVE AS, RELOAD and OPEN FOLDER as for the stage.
 
 **In the truck (real adapter):**
 
@@ -601,3 +601,26 @@ adapter, **parked**, engine **running**, then a short drive.
 cards still showing below the stage; cards on a page you can't see still costing requests (the
 `req/s` does not show this — say if the dash feels slower with CARDS off the stage); a launcher file
 of yours with no CARDS anywhere in the grid.
+
+## The Clean defaults — type over shapes (ADR-0042)
+
+**You need:** the tablet at a desk (no adapter), then the truck at night and in daylight, parked.
+
+1. With the DashDeck theme, tap **DASH**. **Expect:** the Clean console as in *The console dash*
+   step 1 — no panels, arcs or boxes; groups separated by space and by the size and weight of the
+   type. Captions are small and grey, numbers large and thin, units smaller than their numbers
+   (*88* then a small *°C*).
+2. Tap **CLIMATE**. **Expect:** the Clean panel as in *The climate panel* step 2 — the switches are
+   words, not pills.
+3. Look at the type itself. **Expect:** a clean sans-serif (Segoe UI) throughout both — not the
+   theme's lettering. Wear **LCARS**: it brings its own consoles and keeps its Antonio lettering; the
+   change is only to the defaults.
+4. In the truck, in **daylight and at night**: read the speed, a temperature and the warning row from
+   the driver's seat. **Expect:** speed and temperatures readable at a glance; the warning icons
+   effectively invisible until one is lit; nothing glaring at night (it is white type on black — if it
+   is too bright, the display's night dimming applies as for the rest of the dash).
+
+**A failure looks like:** a box, glass panel or pill on either default; a number in the wrong
+typeface; a unit as large as its number; any text running into another; a dark warning icon that
+draws the eye.
+

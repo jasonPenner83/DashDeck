@@ -42,7 +42,7 @@ public sealed class ConsoleLayoutTests : IDisposable
         var modern = StageLayout.BuiltInConsole;
 
         Assert.Empty(modern.Problems);
-        Assert.Equal("builtin/modern", modern.Id);
+        Assert.Equal("builtin/clean", modern.Id);
         Assert.Same(LayoutCanvas.Console, modern.Canvas);
         Assert.All(modern.Elements, e => Assert.True(
             e.X >= 0 && e.Y >= 0 && e.X + e.Width <= 912 && e.Y + e.Height <= 390, e.Id));
@@ -134,7 +134,64 @@ public sealed class ConsoleLayoutTests : IDisposable
         var library = new StageLayoutLibrary(null, Path.Combine(_folder, "console"), LayoutCanvas.Console, StageLayout.ConsoleBuiltIns);
 
         Assert.Null(library.WriteExamples());
-        var example = File.ReadAllText(Path.Combine(library.ExamplesFolder, "modern.json"));
+        var example = File.ReadAllText(Path.Combine(library.ExamplesFolder, "clean.json"));
         Assert.Empty(StageLayout.Parse(example, null, LayoutOrigin.Yours, LayoutCanvas.Console).Problems);
+    }
+
+    // ── Clean: type over shapes ──────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("console")]
+    [InlineData("climate")]
+    public void The_clean_defaults_are_type_not_boxes(string which)
+    {
+        var clean = which == "console" ? StageLayout.BuiltInConsole : StageLayout.BuiltInClimate;
+
+        Assert.Equal("Clean", clean.Name);
+        Assert.Equal($"builtin/clean", clean.Id);
+        Assert.Empty(clean.Problems);
+        Assert.DoesNotContain(clean.Elements, e => e.Type is StageElementType.Glass or StageElementType.Panel);
+        Assert.DoesNotContain(clean.Elements, e => e.Type is StageElementType.Indicator && e.Text("style", "pill") != "text");
+        Assert.Equal("Segoe UI Variable Display, Segoe UI", clean.Fonts?.Ui);
+    }
+
+    [Fact]
+    public void The_old_defaults_ship_as_choices()
+    {
+        var consoles = new StageLayoutLibrary(Shipped("console"), Path.Combine(_folder, "c"), LayoutCanvas.Console, StageLayout.ConsoleBuiltIns);
+        var climates = new StageLayoutLibrary(Shipped("climate"), Path.Combine(_folder, "k"), LayoutCanvas.Climate, StageLayout.ClimateBuiltIns);
+
+        Assert.Equal("Modern", consoles.FindForTheme("modern")?.Name);
+        Assert.Equal("Glass", climates.FindForTheme("glass")?.Name);
+        Assert.Empty(consoles.Problems);
+        Assert.Empty(climates.Problems);
+    }
+
+    [Fact]
+    public void A_layout_can_name_its_own_fonts_and_keeps_them_through_a_save()
+    {
+        var layout = StageLayout.Parse("""
+            { "name": "T", "fonts": { "ui": "Segoe UI Light" },
+              "elements": [ { "type": "text", "x": 0, "y": 0, "width": 100, "height": 30, "content": "HI" } ] }
+            """, null, LayoutOrigin.Yours, LayoutCanvas.Console);
+
+        Assert.Equal("Segoe UI Light", layout.Fonts?.Ui);
+        Assert.Null(layout.Fonts?.Mono);
+
+        var again = StageLayout.Parse(layout.ToJson(), null, LayoutOrigin.Yours, LayoutCanvas.Console);
+        Assert.Equal(layout.Fonts, again.Fonts);
+    }
+
+    [Fact]
+    public void The_new_type_parts_are_known()
+    {
+        var layout = Console("""
+            { "id": "d", "style": "digital", "x": 0, "y": 0, "width": 200, "height": 60, "source": { "signal": "vehicle.speed" },
+              "parts": { "align": "left", "labelPosition": "above", "labelGap": 4, "valueWeight": "light", "labelWeight": "regular", "unitSize": 14, "unitColour": "#777777", "noData": "–" } },
+            { "id": "i", "type": "indicator", "x": 0, "y": 0, "width": 100, "height": 30, "label": "A/C", "source": { "signal": "hvac.airConditioning" },
+              "parts": { "style": "text", "align": "left", "labelWeight": "regular" } }
+            """);
+
+        Assert.Empty(layout.Problems);
     }
 }

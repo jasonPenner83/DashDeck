@@ -34,7 +34,7 @@ public sealed class ClimateLayoutTests : IDisposable
         var glass = StageLayout.BuiltInClimate;
 
         Assert.Empty(glass.Problems);
-        Assert.Equal("builtin/glass", glass.Id);
+        Assert.Equal("builtin/clean", glass.Id);
         Assert.Same(LayoutCanvas.Climate, glass.Canvas);
         Assert.All(glass.Elements, e => Assert.True(
             e.X >= 0 && e.Y >= 0 && e.X + e.Width <= 912 && e.Y + e.Height <= 390, e.Id));
@@ -103,10 +103,10 @@ public sealed class ClimateLayoutTests : IDisposable
         var library = new StageLayoutLibrary(null, _folder, LayoutCanvas.Climate, StageLayout.ClimateBuiltIns);
 
         Assert.Same(StageLayout.BuiltInClimate, library.Default);
-        Assert.Equal(["builtin/glass"], library.Layouts.Select(l => l.Id));
+        Assert.Equal(["builtin/clean"], library.Layouts.Select(l => l.Id));
         Assert.Null(library.WriteExamples());
 
-        var example = StageLayout.Parse(File.ReadAllText(Path.Combine(library.ExamplesFolder, "glass.json")), null, LayoutOrigin.Yours, LayoutCanvas.Climate);
+        var example = StageLayout.Parse(File.ReadAllText(Path.Combine(library.ExamplesFolder, "clean.json")), null, LayoutOrigin.Yours, LayoutCanvas.Climate);
         Assert.Empty(example.Problems);
         Assert.False(File.Exists(Path.Combine(library.ExamplesFolder, "f150-cluster.json")));
     }
@@ -138,7 +138,7 @@ public sealed class ClimateLayoutTests : IDisposable
 
         Assert.Same(StageLayout.BuiltInClimate, service.Current);
         Assert.Contains("climate panel folders", service.Reason, StringComparison.Ordinal);
-        Assert.Contains("Glass", service.Reason, StringComparison.Ordinal);
+        Assert.Contains("Clean", service.Reason, StringComparison.Ordinal);
     }
 
     [Theory]

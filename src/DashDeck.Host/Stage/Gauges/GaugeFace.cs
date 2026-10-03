@@ -99,11 +99,28 @@ public sealed class GaugeFace : Canvas, IReadingFace
         if (_value is not null)
         {
             _value.Opacity = _dynamic.Opacity;
-            _value.Text = _unknown ? _unknownText
-                : !reading.HasValue ? "NO DATA"
-                : string.IsNullOrEmpty(_spec.Unit) || _spec.Style is GaugeStyle.LcarsBar
-                    ? Number(reading.Value)
-                    : $"{Number(reading.Value)} {_spec.Unit}";
+            var showing = !_unknown && reading.HasValue;
+            var text = _unknown ? _unknownText
+                : !showing ? _spec.Text("noData", "NO DATA")
+                : Number(reading.Value);
+            var unit = showing && !string.IsNullOrEmpty(_spec.Unit) && _spec.Style is not GaugeStyle.LcarsBar ? _spec.Unit : "";
+
+            if (_spec.Parts.ContainsKey("unitSize"))
+            {
+                // The unit smaller and quieter than the number — type doing the work a box would.
+                _value.Inlines.Clear();
+                _value.Inlines.Add(new System.Windows.Documents.Run(text));
+                if (unit.Length > 0)
+                {
+                    var run = new System.Windows.Documents.Run(UnitGap(unit) + unit) { FontSize = _spec.Number("unitSize", 14) };
+                    Paint(run, System.Windows.Documents.TextElement.ForegroundProperty, _spec.Text("unitColour", ""), "@caption");
+                    _value.Inlines.Add(run);
+                }
+            }
+            else
+            {
+                _value.Text = unit.Length > 0 ? text + UnitGap(unit) + unit : text;
+            }
         }
 
         switch (_spec.Style)
@@ -124,6 +141,9 @@ public sealed class GaugeFace : Canvas, IReadingFace
     }
 
     private string Number(double v) => v.ToString(_spec.Format, CultureInfo.InvariantCulture);
+
+    /// <summary>"21.5°" and "62%" sit tight; "88 °C" and "412 km" take a space.</summary>
+    private static string UnitGap(string unit) => unit is "°" or "%" ? "" : " ";
 
     private bool Showing => !_unknown && _reading.HasValue;
 
@@ -167,7 +187,10 @@ public sealed class GaugeFace : Canvas, IReadingFace
 
         // The quality dot, in the top-right corner of every gauge, on top of everything.
         _dot = new Ellipse { Width = 9, Height = 9, Fill = QualityPalette.Unavailable };
-        Place(_dot, _spec.Width - 13, 4);
+
+        // A right-aligned readout ends its caption at the right edge, where the dot would sit on it.
+        var rightAligned = _spec.Style is GaugeStyle.Digital && _spec.Text("align", "").Equals("right", StringComparison.OrdinalIgnoreCase);
+        Place(_dot, rightAligned ? 0 : _spec.Width - 13, 4);
         Children.Add(_dot);
 
         Show(_reading);
@@ -241,14 +264,14 @@ public sealed class GaugeFace : Canvas, IReadingFace
         if (_spec.Flag("showLabel", true) && _spec.Label.Length > 0)
         {
             var caption = Label(_spec.Label, _spec.Number("labelSize", big ? 15 : 10), "mono",
-                _spec.Text("labelColour", FordLabel), FordLabel, FontWeights.SemiBold);
+                _spec.Text("labelColour", FordLabel), FordLabel, FaceDraw.Weight(_spec, "labelWeight", FontWeights.SemiBold));
             Centre(caption, new Point(cx, cy + (d * (big ? 0.14 : 0.13))));
         }
 
         if (_spec.Flag("showValue", true))
         {
             _value = Label("", _spec.Number("valueSize", big ? 30 : 17), "ui",
-                _spec.Text("valueColour", FordTick), FordTick, FontWeights.Bold);
+                _spec.Text("valueColour", FordTick), FordTick, FaceDraw.Weight(_spec, "valueWeight", FontWeights.Bold));
             _value.Width = _spec.Width;
             _value.TextAlignment = TextAlignment.Center;
             Place(_value, 0, cy + (d * (big ? 0.2 : 0.24)));
@@ -451,7 +474,7 @@ public sealed class GaugeFace : Canvas, IReadingFace
         // Caption and readout: above the track when horizontal, above and below when vertical.
         if (_spec.Flag("showLabel", true) && _spec.Label.Length > 0)
         {
-            var caption = Label(_spec.Label, _spec.Number("labelSize", 14), "mono", _spec.Text("labelColour", ""), "@caption", FontWeights.SemiBold);
+            var caption = Label(_spec.Label, _spec.Number("labelSize", 14), "mono", _spec.Text("labelColour", ""), "@caption", FaceDraw.Weight(_spec, "labelWeight", FontWeights.SemiBold));
             if (Vertical)
             {
                 caption.Width = _spec.Width;
@@ -466,7 +489,7 @@ public sealed class GaugeFace : Canvas, IReadingFace
 
         if (_spec.Flag("showValue", true))
         {
-            _value = Label("", _spec.Number("valueSize", Vertical ? 18 : 22), "ui", _spec.Text("valueColour", ""), "@textHigh", FontWeights.Bold);
+            _value = Label("", _spec.Number("valueSize", Vertical ? 18 : 22), "ui", _spec.Text("valueColour", ""), "@textHigh", FaceDraw.Weight(_spec, "valueWeight", FontWeights.Bold));
             _value.Width = _spec.Width;
             _value.TextAlignment = Vertical ? TextAlignment.Center : TextAlignment.Right;
             Place(_value, 0, Vertical ? 0 : -4);
@@ -617,7 +640,47 @@ public sealed class GaugeFace : Canvas, IReadingFace
             Children.Add(border);
         }
 
+        if (_spec.Parts.ContainsKey("align") || _spec.Text("labelPosition", "below").Equals("above", StringComparison.OrdinalIgnoreCase))
+        {
+            AddAlignedText();
+            return;
+        }
+
         AddCentreText(_spec.Width / 2, _spec.Height / 2, Math.Min(_spec.Width, _spec.Height) * 1.4);
+    }
+
+    /// <summary>
+    /// A digital readout laid out as type rather than centred (ADR-0042): the caption above, the
+    /// number under it, aligned left, centre or right — what <c>labelPosition: "above"</c> or an
+    /// <c>align</c> asks for. The quiet, typographic console is built from these.
+    /// </summary>
+    private void AddAlignedText()
+    {
+        var align = _spec.Text("align", "center").ToLowerInvariant() switch
+        {
+            "left" => TextAlignment.Left,
+            "right" => TextAlignment.Right,
+            _ => TextAlignment.Center,
+        };
+        var labelSize = _spec.Number("labelSize", 12);
+        var top = 0.0;
+
+        if (_spec.Flag("showLabel", true) && _spec.Label.Length > 0)
+        {
+            var caption = Label(_spec.Label, labelSize, "mono", _spec.Text("labelColour", ""), "@caption", FaceDraw.Weight(_spec, "labelWeight", FontWeights.Normal));
+            caption.Width = _spec.Width;
+            caption.TextAlignment = align;
+            Place(caption, 0, 0);
+            top = labelSize + _spec.Number("labelGap", 6);
+        }
+
+        if (_spec.Flag("showValue", true))
+        {
+            _value = Label("", _spec.Number("valueSize", 28), "ui", _spec.Text("valueColour", ""), "@textHigh", FaceDraw.Weight(_spec, "valueWeight", FontWeights.Light));
+            _value.Width = _spec.Width;
+            _value.TextAlignment = align;
+            Place(_value, 0, top);
+        }
     }
 
     /// <summary>Caption above, number below, centred on a point — the arc's and the digital gauge's middle.</summary>
@@ -625,7 +688,7 @@ public sealed class GaugeFace : Canvas, IReadingFace
     {
         if (_spec.Flag("showValue", true))
         {
-            _value = Label("", _spec.Number("valueSize", Math.Max(16, d * 0.16)), "ui", _spec.Text("valueColour", ""), "@textHigh", FontWeights.Bold);
+            _value = Label("", _spec.Number("valueSize", Math.Max(16, d * 0.16)), "ui", _spec.Text("valueColour", ""), "@textHigh", FaceDraw.Weight(_spec, "valueWeight", FontWeights.Bold));
             _value.Width = _spec.Width;
             _value.TextAlignment = TextAlignment.Center;
             _value.Measure(new Size(_spec.Width, double.PositiveInfinity));
@@ -634,7 +697,7 @@ public sealed class GaugeFace : Canvas, IReadingFace
 
         if (_spec.Flag("showLabel", true) && _spec.Label.Length > 0)
         {
-            var caption = Label(_spec.Label, _spec.Number("labelSize", Math.Max(10, d * 0.06)), "mono", _spec.Text("labelColour", ""), "@caption", FontWeights.SemiBold);
+            var caption = Label(_spec.Label, _spec.Number("labelSize", Math.Max(10, d * 0.06)), "mono", _spec.Text("labelColour", ""), "@caption", FaceDraw.Weight(_spec, "labelWeight", FontWeights.SemiBold));
             Centre(caption, new Point(cx, cy + Math.Max(18, d * 0.15)));
         }
     }
