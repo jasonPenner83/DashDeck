@@ -42,8 +42,23 @@ internal sealed partial class Wizard
             if (bus != buses[^1] &&
                 !Proceed($"Try {Bus(buses[^1])} too? Press Enter for yes, B for no"))
             {
-                return;
+                break;
             }
+        }
+
+        await OfferAskAsync(target, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>After a listen that confirmed nothing, offer to ask a module instead.</summary>
+    private async Task OfferAskAsync(HuntTarget target, CancellationToken ct)
+    {
+        _io.WriteLine();
+        _io.WriteLine("Not everything is broadcast: some values stay inside the module that runs them, and have to");
+        _io.WriteLine("be asked for. If FORScan names the module (SCME for the seats), the guide can ask it while you");
+        _io.WriteLine("do the same steps.");
+        if (Proceed("Press Enter to ask a module, or B to go back"))
+        {
+            await AskStepsAsync(target with { Modules = [] }, target.Steps, ct).ConfigureAwait(false);
         }
     }
 
@@ -197,7 +212,7 @@ internal sealed partial class Wizard
             return "stopped";
         }
 
-        var ranked = BroadcastRanker.Rank(heardFrames, phases).Take(8).ToList();
+        var ranked = BroadcastRanker.Rank(heardFrames, phases).Take(10).ToList();
         if (ranked.Count == 0)
         {
             _io.WriteLine($"Nothing on {Bus(bus)} followed the steps.");
@@ -207,12 +222,19 @@ internal sealed partial class Wizard
 
         _io.WriteLine();
         _io.WriteLine($"What followed you on {Bus(bus)}, likeliest first:");
-        _io.WriteLine("  #  FRAME     FIELD                 EACH STEP" + new string(' ', 14) + "SCORE");
+        _io.WriteLine("  #  FRAME     FIELD                 EACH STEP" + new string(' ', 14) + "SCORE  TELLS APART");
         for (var i = 0; i < ranked.Count; i++)
         {
             var c = ranked[i];
+            var apart = c.SeparatesAll ? "every step" : $"{c.Separated} of {c.Pairs} pairs";
             _io.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                $"  {i + 1}  {c.IdText,-8}  {c.Field,-20}  {string.Join(' ', c.Values),-22}  {c.Score:0.00}{(c.CarriedForward ? "  (sent on change)" : "")}"));
+                $"  {i + 1}  {c.IdText,-8}  {c.Field,-20}  {string.Join(' ', c.Values),-22}  {c.Score:0.00}   {apart}{(c.CarriedForward ? "  (sent on change)" : "")}"));
+        }
+
+        if (!ranked[0].SeparatesAll)
+        {
+            _io.WriteLine("Nothing told every step apart. These change with some of them — the truck may report fewer");
+            _io.WriteLine("levels than the steps asked for. Check the top one live.");
         }
 
         var verdicts = new Dictionary<int, string>();
@@ -240,7 +262,8 @@ internal sealed partial class Wizard
             var c = ranked[i];
             var evidence = string.Join(' ', steps.Take(c.Values.Count).Select((s, k) => $"{s.Label}={c.Values[k]}"));
             _output.Finding(_output.Now(), target.Name, target.Signal, "listen", Bus(bus), "", c.IdText, "", c.Field,
-                $"mask {c.Mask:X2}", c.CarriedForward ? "sent on change" : "", evidence, c.Score, verdicts.GetValueOrDefault(i, "unchecked"), "");
+                $"mask {c.Mask:X2}", c.CarriedForward ? "sent on change" : "", evidence, c.Score, verdicts.GetValueOrDefault(i, "unchecked"),
+                c.SeparatesAll ? "" : $"tells {c.Separated} of {c.Pairs} state pairs apart");
         }
 
         var confirmed = verdicts.Any(v => v.Value == "confirmed");

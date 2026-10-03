@@ -31,6 +31,8 @@ public enum FieldKind
 /// <param name="Stability">How steady it held within the phases, 0–1 (1 never wavered).</param>
 /// <param name="CarriedForward">True when some phase saw no frame and used the one before — a frame sent only on change.</param>
 /// <param name="Score">Higher is likelier.</param>
+/// <param name="Separated">How many pairs of different states it read differently.</param>
+/// <param name="Pairs">How many pairs of different states there were: 1 for on/off, 6 for four levels.</param>
 public sealed record BroadcastCandidate(
     uint Id,
     int Byte,
@@ -39,8 +41,13 @@ public sealed record BroadcastCandidate(
     IReadOnlyList<int> Values,
     double Stability,
     bool CarriedForward,
-    double Score)
+    double Score,
+    int Separated = 1,
+    int Pairs = 1)
 {
+    /// <summary>True when it told every state apart — not only some of them.</summary>
+    public bool SeparatesAll => Separated == Pairs;
+
     /// <summary>The identifier as the adapter prints it.</summary>
     public string IdText => Id > 0x7FF ? Id.ToString("X8", CultureInfo.InvariantCulture) : Id.ToString("X3", CultureInfo.InvariantCulture);
 
@@ -72,7 +79,9 @@ public sealed record BroadcastCandidate(
 /// </summary>
 /// <remarks>
 /// A field is a candidate when, in every phase, it held one value (a counter or a checksum never
-/// does), the same state always read the same value, and different states read different ones.
+/// does), the same state always read the same value, and at least two different states read
+/// differently. One that tells every state apart ranks above one that tells only some apart — a
+/// seat may report only on and off, or two of three levels the same — and the screen says which.
 /// The first half-second of each phase is skipped, for the module to catch up. A frame sent only
 /// when something changes may say nothing during a phase; its last value before the phase ended
 /// stands in, and the candidate says so.
@@ -135,6 +144,16 @@ public static class BroadcastRanker
     /// </summary>
     private static IEnumerable<BroadcastCandidate> Smallest(List<BroadcastCandidate> found)
     {
+        if (found.Count == 0)
+        {
+            return found;
+        }
+
+        // What tells the most states apart comes first; a bit that only half explains a level
+        // does not beat the nibble that holds it.
+        var most = found.Max(c => c.Separated);
+        found = [.. found.Where(c => c.Separated == most)];
+
         var bits = found.Where(c => c.Kind == FieldKind.Bit).ToList();
         if (bits.Count > 0)
         {
@@ -221,12 +240,28 @@ public static class BroadcastRanker
             }
         }
 
-        if (byState.Values.Distinct().Count() != byState.Count)
+        var states = byState.ToList();
+        var pairs = 0;
+        var separated = 0;
+        for (var a = 0; a < states.Count; a++)
+        {
+            for (var b = a + 1; b < states.Count; b++)
+            {
+                pairs++;
+                if (states[a].Value != states[b].Value)
+                {
+                    separated++;
+                }
+            }
+        }
+
+        if (separated == 0)
         {
             return null;
         }
 
         var stability = stabilities.Average();
+        var separation = (double)separated / pairs;
 
         // A field that rises with the state (a seat level, a fan speed) is likelier than one that
         // merely differs; a value carried forward is weaker evidence than one heard in the phase.
@@ -234,8 +269,8 @@ public static class BroadcastRanker
         var monotonic = ordered.Zip(ordered.Skip(1)).All(pair => pair.Second > pair.First) ||
                         ordered.Zip(ordered.Skip(1)).All(pair => pair.Second < pair.First);
 
-        var score = stability + (monotonic && byState.Count > 2 ? 0.2 : 0) - (carried ? 0.1 : 0);
+        var score = (stability * (0.5 + (0.5 * separation))) + (monotonic && byState.Count > 2 ? 0.2 : 0) - (carried ? 0.1 : 0);
 
-        return new BroadcastCandidate(frames[0].Id, index, kind, bit, values, stability, carried, Math.Round(score, 3));
+        return new BroadcastCandidate(frames[0].Id, index, kind, bit, values, stability, carried, Math.Round(score, 3), separated, pairs);
     }
 }

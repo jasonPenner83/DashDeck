@@ -53,6 +53,7 @@ quit.
   19  Distance to empty               match    —
   S   Scan for modules
   L   Listen freely — name your own action
+  A   Ask a module while you do something
   Q   Quit
 ```
 
@@ -74,7 +75,9 @@ It listens to MS-CAN, ranks what changed with you and only with you, and shows a
   1  3B3       byte 0 bit 0          0 1 0 1 0               1.00
 ```
 
-**EACH STEP** is what that field read in each of your five steps. Type its number to **check it
+**EACH STEP** is what that field read in each of your five steps. **TELLS APART** says whether it
+told every step apart, or only some — for example "3 of 6 pairs" for a field that knows the seat is
+on but not at which level. Both OFF steps must always read the same, which is what keeps chance out. Type its number to **check it
 live**: do the thing again a few times and watch the value change, then answer **y** if it followed
 you. If nothing follows on MS-CAN, it offers HS-CAN.
 
@@ -111,6 +114,23 @@ beside you showing the same value, compare the two, then answer y, n or ?.
 
 A single reading matches many identifiers by chance. Two readings, or four tyres at once, make the
 right one rise. **DECODE** says how the raw number becomes what you typed (`÷ 4`, `km→mi`).
+
+### When a listen finds nothing: ask the module
+
+Not everything is broadcast. Some values stay inside the module that runs them. Seat heating and
+cooling, for example, belong to the seat climate module, which FORScan calls **SCME**. A value like
+that has to be asked for.
+
+When a listen confirms nothing, the guide offers to **ask a module instead**:
+
+1. Type the module's address. Match FORScan's module by its part number against the list from **S**.
+2. Pick the identifier ranges to sweep. The default is `0000-0FFF`.
+3. Do the same steps again.
+
+It asks every identifier it found during each step, and ranks them the same way a listen does. The
+table shows the **ID** in place of the frame.
+
+**A** on the main menu does the same for anything you name.
 
 ### S — scan for modules
 

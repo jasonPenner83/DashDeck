@@ -71,6 +71,10 @@ internal sealed partial class Wizard
                 {
                     await FreeListenAsync(ct).ConfigureAwait(false);
                 }
+                else if (choice == "A")
+                {
+                    await FreeAskStepsAsync(ct).ConfigureAwait(false);
+                }
                 else if (int.TryParse(choice, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) && n >= 1 && n <= _targets.Count)
                 {
                     var target = _targets[n - 1];
@@ -83,7 +87,7 @@ internal sealed partial class Wizard
                 }
                 else if (choice.Length > 0)
                 {
-                    _io.WriteLine("Type a number from the list, S, L or Q.");
+                    _io.WriteLine("Type a number from the list, S, L, A or Q.");
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -119,6 +123,7 @@ internal sealed partial class Wizard
         _io.WriteLine();
         _io.WriteLine("  S   Scan for modules (what is on each bus)");
         _io.WriteLine("  L   Listen freely — name your own action");
+        _io.WriteLine("  A   Ask a module while you do something — for what is never broadcast");
         _io.WriteLine("  Q   Quit");
     }
 
@@ -218,17 +223,29 @@ internal sealed partial class Wizard
     /// <summary>Ask which module to search, suggesting the checklist's, and find its bus.</summary>
     private async Task<(ushort Module, CanBus Bus)?> ChooseModuleAsync(HuntTarget target, CancellationToken ct)
     {
-        var suggested = target.Modules.Count > 0 ? target.Modules[0] : "7E0";
-        _io.WriteLine("Which module to search? Likely ones for this:");
-        foreach (var m in target.Modules)
+        var suggested = target.Modules.Count > 0 ? target.Modules[0] : null;
+        if (suggested is not null)
         {
-            var address = ushort.Parse(m, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-            _io.WriteLine($"  {m}  {ModuleName(address) ?? "?"}");
+            _io.WriteLine("Which module to search? Likely ones for this:");
+            foreach (var m in target.Modules)
+            {
+                var address = ushort.Parse(m, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+                _io.WriteLine($"  {m}  {ModuleName(address) ?? "?"}");
+            }
+        }
+        else
+        {
+            _io.WriteLine("Which module to ask? FORScan's module list names the one that runs it (SCME for the seats,");
+            _io.WriteLine("for example) — match it by part number against S on the main menu, which lists what answered:");
+            foreach (var (address, bus) in _session.KnownModules.OrderBy(m => m.Key))
+            {
+                _io.WriteLine($"  {Hex(address)}  {Bus(bus),-22} {ModuleName(address) ?? ""}");
+            }
         }
 
         while (true)
         {
-            var typed = Ask($"Module address [{suggested}], or B to go back");
+            var typed = Ask(suggested is null ? "Module address, or B to go back" : $"Module address [{suggested}], or B to go back");
             if (typed.Equals("B", StringComparison.OrdinalIgnoreCase))
             {
                 return null;
@@ -236,6 +253,11 @@ internal sealed partial class Wizard
 
             if (typed.Length == 0)
             {
+                if (suggested is null)
+                {
+                    continue;
+                }
+
                 typed = suggested;
             }
 
