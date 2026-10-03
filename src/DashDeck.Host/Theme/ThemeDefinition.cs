@@ -53,13 +53,13 @@ public sealed record ThemeDefinition
 
     /// <summary>
     /// The climate panel layout that comes with the theme (ADR-0040), by file name, or empty for
-    /// the built-in Glass panel.
+    /// the built-in Clean panel.
     /// </summary>
     public string ClimateLayout { get; init; } = "";
 
     /// <summary>
     /// The console layout that comes with the theme (ADR-0041), by file name, or empty for the
-    /// built-in Modern console.
+    /// built-in Clean console.
     /// </summary>
     public string ConsoleLayout { get; init; } = "";
 

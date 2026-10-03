@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **571 tests green** — 194 engine, 377 shell.
+(ADR-0010). **576 tests green** — 194 engine, 382 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -139,7 +139,8 @@ and a `compass.json` of the user's in `stage\` replaces it. `CompassView`/`Compa
 the stage's engine. Four new elements work on either: **`setpoint`** (a set temperature on a thin
 glowing arc), **`levels`** (steps lit to the value; below zero in `negativeColour`, for a seat that
 heats and cools — `positiveText`/`negativeText` make it read HEAT 2 / COOL 1), **`indicator`** (a pill lit by a `bit`, `equals` or `onAt`; no reading is dimmed
-with a dash, never "off") and **`glass`** (painted frost). The built-in is **Glass**; LCARS ships
+with a dash, never "off") and **`glass`** (painted frost). The built-in is **Clean** (ADR-0042; Glass
+ships as `catalog/climate/glass.json`); LCARS ships
 `catalog/climate/lcars.json` and names it (`"climateLayout"`); the user's live in
 `%LOCALAPPDATA%\DashDeck\climate\`, chosen in **Settings ▸ Themes ▸ CLIMATE LAYOUT** (the stage's
 block, one template). The panel is **made when CLIMATE is chosen and disposed when left**, so it
@@ -150,7 +151,8 @@ signals are
 Phase 3 (ADR-0006).
 
 **DASH is a console, and the cards are on the stage** (ADR-0041). The console is a layout on a
-**912 × 390** canvas (`LayoutCanvas.Console`), made when DASH is chosen; the built-in is **Modern**,
+**912 × 390** canvas (`LayoutCanvas.Console`), made when DASH is chosen; the built-in is **Clean**
+(ADR-0042; Modern ships as `catalog/console/modern.json`),
 LCARS ships `catalog/console/lcars.json` (`"consoleLayout"`), yours live in
 `%LOCALAPPDATA%\DashDeck\console\` (Settings ▸ Themes ▸ CONSOLE LAYOUT). A **`warning`** element
 draws one of nine original icons (path data, `WarningIcons`) lit by `bit`/`below`/`equals`/`onAt`.
@@ -162,6 +164,13 @@ are likely its identifiers to find. `vehicle.odometer` is PID `A6`. **CARDS** (`
 while it is off the stage, so no card declares; MODIFY WIDGETS puts CARDS on the stage first; a
 launcher file that never mentions `cards` gets it at the end of the grid. The card editor and
 component details can open over CLIMATE now, so both panels hide beneath them.
+
+**The defaults are Clean — type over shapes** (ADR-0042): on black, no panels, arcs or pills; a small
+caption over a large light number aligned to its edge, units smaller than numbers, switches as words
+that light, warning icons near-invisible until lit; text colours are theme tokens so they dim at
+night. Layouts can now name their own **`fonts`** (`{ "ui", "mono" }`, set as canvas resources that
+shadow the theme's `UiFont`/`MonoFont` for that layout only) and use `valueWeight`/`labelWeight`,
+digital `align`/`labelPosition: "above"`/`unitSize`/`noData`, and indicator `style: "text"`.
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
@@ -385,7 +394,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Forty-one exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Forty-two exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -408,7 +417,7 @@ and the stage as a file of gauges, text, clock and panels that a theme can bring
 the launcher as a file — every stage option, web page and program, in order, and the quick bar, and
 the compass as layout elements — sensor-sourced gauges, a rose and a G meter, and a read-only
 climate panel drawn from a layout file in place of the cards, and DASH as a console layout with
-warning lights while the cards move onto the stage.
+warning lights while the cards move onto the stage, and clean, typographic defaults for both.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

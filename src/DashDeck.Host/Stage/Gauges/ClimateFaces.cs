@@ -138,14 +138,14 @@ public sealed class SetpointFace : Canvas, IReadingFace
 
         Children.Add(_dynamic);
 
-        _value = FaceDraw.Label(spec.Text("valueColour", ""), "@textHigh", spec.Number("valueSize", Math.Max(18, _r * 0.62)), "ui", FontWeights.Light);
-        _unit = FaceDraw.Label(spec.Text("valueColour", ""), "@textHigh", spec.Number("valueSize", Math.Max(18, _r * 0.62)) * 0.45, "ui", FontWeights.Light);
+        _value = FaceDraw.Label(spec.Text("valueColour", ""), "@textHigh", spec.Number("valueSize", Math.Max(18, _r * 0.62)), "ui", FaceDraw.Weight(spec, "valueWeight", FontWeights.Light));
+        _unit = FaceDraw.Label(spec.Text("valueColour", ""), "@textHigh", spec.Number("valueSize", Math.Max(18, _r * 0.62)) * 0.45, "ui", FaceDraw.Weight(spec, "valueWeight", FontWeights.Light));
         Children.Add(_value);
         Children.Add(_unit);
 
         if (spec.Label.Length > 0)
         {
-            var caption = FaceDraw.Label(spec.Text("labelColour", ""), "@caption", labelSize, "mono", FontWeights.SemiBold);
+            var caption = FaceDraw.Label(spec.Text("labelColour", ""), "@caption", labelSize, "mono", FaceDraw.Weight(spec, "labelWeight", FontWeights.SemiBold));
             caption.Text = spec.Label;
             caption.Width = spec.Width;
             caption.TextAlignment = TextAlignment.Center;
@@ -265,7 +265,7 @@ public sealed class LevelsFace : Canvas, IReadingFace
 
         if (spec.Label.Length > 0)
         {
-            var caption = FaceDraw.Label(spec.Text("labelColour", ""), "@caption", labelSize, "mono", FontWeights.SemiBold);
+            var caption = FaceDraw.Label(spec.Text("labelColour", ""), "@caption", labelSize, "mono", FaceDraw.Weight(spec, "labelWeight", FontWeights.SemiBold));
             caption.Text = spec.Label;
             FaceDraw.Place(caption, 0, 0);
             Children.Add(caption);
@@ -273,7 +273,7 @@ public sealed class LevelsFace : Canvas, IReadingFace
 
         if (spec.Flag("showValue", true))
         {
-            _value = FaceDraw.Label(spec.Text("labelColour", ""), "@caption", labelSize, "mono", FontWeights.SemiBold);
+            _value = FaceDraw.Label(spec.Text("labelColour", ""), "@caption", labelSize, "mono", FaceDraw.Weight(spec, "labelWeight", FontWeights.SemiBold));
             _value.Width = spec.Width - 14;
             _value.TextAlignment = TextAlignment.Right;
             FaceDraw.Place(_value, 0, 0);
@@ -369,6 +369,7 @@ public sealed class IndicatorFace : Grid, IReadingFace
     private readonly Border _pill;
     private readonly TextBlock _text;
     private readonly Ellipse _dot = new() { Width = 6, Height = 6, Fill = QualityPalette.Unavailable };
+    private readonly bool _textOnly;
     private bool _unknown;
 
     public IndicatorFace(GaugeSpec spec)
@@ -381,16 +382,22 @@ public sealed class IndicatorFace : Grid, IReadingFace
         {
             Text = spec.Label,
             FontSize = spec.Number("fontSize", Math.Clamp(spec.Height * 0.32, 10, 20)),
-            FontWeight = FontWeights.SemiBold,
-            HorizontalAlignment = HorizontalAlignment.Center,
+            FontWeight = FaceDraw.Weight(spec, "labelWeight", FontWeights.SemiBold),
+            HorizontalAlignment = spec.Text("align", "center").ToLowerInvariant() switch
+            {
+                "left" => HorizontalAlignment.Left,
+                "right" => HorizontalAlignment.Right,
+                _ => HorizontalAlignment.Center,
+            },
             VerticalAlignment = VerticalAlignment.Center,
         };
         _text.SetResourceReference(TextBlock.FontFamilyProperty, "MonoFont");
 
+        _textOnly = spec.Text("style", "pill").Equals("text", StringComparison.OrdinalIgnoreCase);
         _pill = new Border
         {
             CornerRadius = new CornerRadius(spec.Number("radius", spec.Height / 2)),
-            BorderThickness = new Thickness(1),
+            BorderThickness = new Thickness(_textOnly ? 0 : 1),
             Child = _text,
         };
 
@@ -423,6 +430,16 @@ public sealed class IndicatorFace : Grid, IReadingFace
 
         _text.Text = showing ? _spec.Label : $"{_spec.Label} –";
 
+        if (_textOnly)
+        {
+            // Just the word: lit in its colour when on, quiet grey when off. No pill, no glow.
+            _pill.Background = Brushes.Transparent;
+            _pill.Effect = null;
+            GaugeFace.Paint(_text, TextBlock.ForegroundProperty, on ? lit : _spec.Text("unlitColour", ""), on ? "@accent" : "#5C6670");
+            Opacity = !showing ? 0.45 : reading.Quality is SignalQuality.Stale ? 0.5 : 1;
+            return;
+        }
+
         if (on)
         {
             GaugeFace.Paint(_pill, Border.BackgroundProperty, lit, "@accent");
@@ -445,6 +462,24 @@ public sealed class IndicatorFace : Grid, IReadingFace
 /// <summary>Drawing helpers the climate faces share.</summary>
 internal static class FaceDraw
 {
+    /// <summary>
+    /// A weight a layout names for its type — <c>"thin"</c>, <c>"light"</c>, <c>"regular"</c>,
+    /// <c>"medium"</c>, <c>"semibold"</c>, <c>"bold"</c> — or the face's own default.
+    /// </summary>
+    public static FontWeight Weight(GaugeSpec spec, string part, FontWeight fallback) =>
+        spec.Text(part, "").Trim().ToLowerInvariant() switch
+        {
+            "thin" => FontWeights.Thin,
+            "extralight" => FontWeights.ExtraLight,
+            "light" => FontWeights.Light,
+            "semilight" => FontWeights.Light,
+            "regular" or "normal" => FontWeights.Normal,
+            "medium" => FontWeights.Medium,
+            "semibold" => FontWeights.SemiBold,
+            "bold" => FontWeights.Bold,
+            _ => fallback,
+        };
+
     public static TextBlock Label(string colour, string fallback, double size, string font, FontWeight weight)
     {
         var t = new TextBlock { FontSize = size, FontWeight = weight };

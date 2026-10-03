@@ -67,6 +67,11 @@ public sealed record LayoutCanvas(string Name, double Width, double Height)
     public static LayoutCanvas Console { get; } = new("console", 912, 390);
 }
 
+/// <summary>A layout's own fonts (ADR-0042): either may be left out to keep the theme's.</summary>
+/// <param name="Ui">Numbers and headings — the theme's <c>UiFont</c>.</param>
+/// <param name="Mono">Captions and labels — the theme's <c>MonoFont</c>.</param>
+public sealed record LayoutFonts(string? Ui = null, string? Mono = null);
+
 /// <summary>How a gauge is drawn.</summary>
 public enum GaugeStyle
 {
@@ -233,6 +238,11 @@ public static class GaugeParts
         ["showLabel"] = "true/false",
         ["showValue"] = "true/false — the digital readout",
         ["showSource"] = "true/false — for a sensor source, where the reading came from (TRUCK, the tablet sensor, NOT LEVELLED). Default true",
+        ["valueWeight"] = "the number's weight: thin, light, regular, medium, semibold or bold",
+        ["labelWeight"] = "the caption's weight",
+        ["unitSize"] = "draw the unit smaller than the number, at this size, px",
+        ["unitColour"] = "the unit's colour when it is drawn smaller — default the caption colour",
+        ["noData"] = "what shows with no reading — default NO DATA; \"–\" is quieter",
     };
 
     /// <summary>Parts the compass and G meter take (ADR-0039).</summary>
@@ -270,6 +280,8 @@ public static class GaugeParts
             ["labelColour"] = "the caption",
             ["labelSize"] = "caption size, px",
             ["showArc"] = "true/false",
+            ["valueWeight"] = "the number's weight: thin, light, regular, medium, semibold or bold",
+            ["labelWeight"] = "the caption's weight",
         },
         [StageElementType.Levels] = new Dictionary<string, string>
         {
@@ -282,6 +294,7 @@ public static class GaugeParts
             ["labelColour"] = "the caption",
             ["labelSize"] = "caption size, px",
             ["showValue"] = "true/false — the number beside the caption",
+            ["labelWeight"] = "the caption's weight",
             ["positiveText"] = "a word before the value above zero — \"HEAT\" for a seat",
             ["negativeText"] = "a word before the value below zero — \"COOL\" for a seat",
         },
@@ -296,6 +309,9 @@ public static class GaugeParts
             ["unlitColour"] = "text and outline when off",
             ["radius"] = "corner radius, px — default half the height (a pill)",
             ["fontSize"] = "text size, px",
+            ["style"] = "\"pill\" (default) or \"text\" — just the word, lit in its colour",
+            ["align"] = "\"left\", \"center\" or \"right\" — where the word sits",
+            ["labelWeight"] = "the word's weight",
         },
         [StageElementType.Warning] = new Dictionary<string, string>
         {
@@ -386,6 +402,9 @@ public static class GaugeParts
         {
             ["frameColour"] = "outline colour, or \"none\"",
             ["frameRadius"] = "outline corner radius, px",
+            ["align"] = "\"left\", \"center\" or \"right\" — lays the caption above the number, aligned",
+            ["labelPosition"] = "\"above\" puts the caption over the number; \"below\" (default) under it, centred",
+            ["labelGap"] = "space between the caption and the number when above, px",
         },
     };
 
@@ -436,6 +455,13 @@ public sealed record StageLayout
 
     /// <summary>Behind the gauges: <c>#RRGGBB</c>, <c>@token</c>, or null for the theme's canvas.</summary>
     public string? Background { get; init; }
+
+    /// <summary>
+    /// The layout's own type, or null to use the theme's — <c>{ "ui": "Segoe UI", "mono": "Segoe UI" }</c>.
+    /// <c>ui</c> is the numbers and headings, <c>mono</c> the captions. A comma list falls back in
+    /// order (<c>"Segoe UI Variable Display, Segoe UI"</c>). Only this layout changes.
+    /// </summary>
+    public LayoutFonts? Fonts { get; init; }
 
     /// <summary>Everything on the stage, drawn in order — later elements on top.</summary>
     public IReadOnlyList<GaugeSpec> Elements { get; init; } = [];
@@ -761,202 +787,207 @@ public sealed record StageLayout
     public static IReadOnlyList<StageLayout> BuiltIns { get; } = [BuiltIn, BuiltInCompass];
 
     /// <summary>
-    /// The climate panel (ADR-0040): three frosted glass zones — driver, the fan and airflow,
-    /// passenger — over a bar of switches, in the two bands where the cards are. Read only: it
-    /// shows what the truck reports and changes nothing. A climate layout of yours called
-    /// <c>glass</c>, or the one a theme names, replaces it.
+    /// The climate panel (ADR-0040), drawn as type rather than boxes: each side's temperature large at
+    /// its edge with the seat beneath, the fan and airflow between, the switches as words that light.
+    /// Read only. A climate layout of yours called <c>clean</c>, or the one a theme names, replaces
+    /// it; Glass, the first built-in, ships as <c>catalog/climate/glass.json</c>.
     /// </summary>
     public static StageLayout BuiltInClimate { get; } =
         Parse(BuiltInClimateJson, null, LayoutOrigin.BuiltIn, LayoutCanvas.Climate) with { BuiltInSlug = ClimateSlug };
 
     /// <summary>What the built-in climate layout is called.</summary>
-    public const string ClimateSlug = "glass";
+    public const string ClimateSlug = "clean";
 
     /// <summary>The climate layouts compiled in.</summary>
     public static IReadOnlyList<StageLayout> ClimateBuiltIns { get; } = [BuiltInClimate];
 
     /// <summary>
-    /// The console (ADR-0041): speed large in the middle on a glowing arc, rpm beside it, fuel,
-    /// temperature and range on the right, a row of warning lights, and a strip of odometer and
-    /// economy below — what DASH shows in the two bands under the stage. A console layout of yours
-    /// called <c>modern</c>, or the one a theme names, replaces it.
+    /// The console (ADR-0041), drawn as type rather than boxes: speed large in the middle, engine and
+    /// fuel down the left, range and economy down the right, warning lights that show only when on,
+    /// the odometer along the bottom. A console layout of yours called <c>clean</c>, or the one a
+    /// theme names, replaces it; Modern, the first built-in, ships as <c>catalog/console/modern.json</c>.
     /// </summary>
     public static StageLayout BuiltInConsole { get; } =
         Parse(BuiltInConsoleJson, null, LayoutOrigin.BuiltIn, LayoutCanvas.Console) with { BuiltInSlug = ConsoleSlug };
 
     /// <summary>What the built-in console layout is called.</summary>
-    public const string ConsoleSlug = "modern";
+    public const string ConsoleSlug = "clean";
 
     /// <summary>The console layouts compiled in.</summary>
     public static IReadOnlyList<StageLayout> ConsoleBuiltIns { get; } = [BuiltInConsole];
 
-    /// <summary>The console layout as text, comments and all — what <c>console\examples\modern.json</c> holds.</summary>
+    /// <summary>The console layout as text, comments and all — what <c>console\examples\clean.json</c> holds.</summary>
     internal const string BuiltInConsoleJson = """
     {
-      "name": "Modern",
-      "description": "Speed large on a glowing arc, rpm beside it, fuel, temperature and range, a row of warning lights, and odometer, economy, codes and outside air below.",
+      "name": "Clean",
+      "description": "Type, not boxes: speed large in the middle, engine and fuel on the left, range and economy on the right, warning lights that only show when they are on, and the odometer along the bottom.",
       "author": "DashDeck",
-      "background": "#04070B",
+      // Black behind; white and grey type from the theme's text colours, so it dims at night with the
+      // rest of the dash. Only what is lit — a switch, a heater, a warning — has a colour of its own.
+      "background": "#000000",
+      // One family, two weights. Windows 11's Segoe UI Variable, or Segoe UI where it is not installed.
+      "fonts": { "ui": "Segoe UI Variable Display, Segoe UI", "mono": "Segoe UI Variable Text, Segoe UI" },
       "elements": [
-        // ── The glass ──
-        { "id": "mainGlass", "type": "glass", "x": 16, "y": 8, "width": 880, "height": 278, "radius": "34",
-          "parts": { "opacity": 0.045, "tint": "#CFE6FF" } },
-        { "id": "stripGlass", "type": "glass", "x": 16, "y": 298, "width": 880, "height": 84, "radius": "26",
-          "parts": { "opacity": 0.04, "sheen": 0.06 } },
-
-        // ── Speed ── the number large, on an arc to 200 with a bright point where you are.
-        { "id": "speed", "type": "setpoint", "x": 316, "y": 14, "width": 280, "height": 228,
-          "label": "KM/H", "format": "0", "min": 0, "max": 200,
+        // ── Speed ── the one large thing on the screen.
+        { "id": "speed", "style": "digital", "x": 296, "y": 22, "width": 320, "height": 176,
+          "format": "0", "min": 0, "max": 250,
           "source": { "signal": "vehicle.speed", "rateHz": 4 },
-          "parts": { "arcColour": "#7FD6FF", "glow": "#3FA9E8", "thickness": 6, "sweep": 250,
-                     "valueSize": 92, "valueColour": "#F4F8FB", "labelColour": "#8A97A4", "labelSize": 13 } },
+          "parts": { "align": "center", "valueSize": 138, "valueWeight": "light", "valueColour": "@textHigh", "noData": "–" } },
+        { "id": "speedUnit", "type": "text", "x": 296, "y": 196, "width": 320, "height": 24,
+          "content": "km/h", "fontSize": 16, "align": "center", "colour": "@textMid", "font": "mono", "parts": { "weight": "regular" } },
 
-        // ── Engine ── rpm on a quieter arc.
-        { "id": "rpm", "type": "setpoint", "x": 40, "y": 30, "width": 236, "height": 210,
-          "label": "RPM", "format": "0", "min": 0, "max": 6500,
+        // ── Engine and fuel ── a caption, then the number; space does the separating.
+        { "id": "rpm", "style": "digital", "x": 40, "y": 34, "width": 220, "height": 66,
+          "label": "RPM", "format": "#,0", "min": 0, "max": 7000,
           "source": { "signal": "engine.rpm", "rateHz": 3 },
-          "parts": { "arcColour": "#C9D4DF", "glow": "none", "thickness": 4, "valueSize": 40,
-                     "valueColour": "#DDE6EE", "labelColour": "#8A97A4" } },
-
-        // ── Fuel, temperature, range ──
-        { "id": "fuel", "style": "bar", "x": 636, "y": 30, "width": 240, "height": 62,
+          "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "noData": "–" } },
+        { "id": "coolant", "style": "digital", "x": 40, "y": 118, "width": 220, "height": 66,
+          "label": "ENGINE", "unit": "°C", "format": "0", "min": -40, "max": 150,
+          "source": { "signal": "engine.coolantTemp", "rateHz": 0.5 },
+          "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 16, "unitColour": "@textMid", "noData": "–" } },
+        { "id": "fuel", "style": "digital", "x": 40, "y": 202, "width": 220, "height": 66,
           "label": "FUEL", "unit": "%", "format": "0", "min": 0, "max": 100,
           "source": { "signal": "fuel.levelPercent", "rateHz": 0.2 },
-          "zones": [ { "from": 0, "to": 12, "colour": "#FFB020" } ],
-          "parts": { "fillColour": "#7FD6FF", "trackColour": "#1AFFFFFF", "thickness": 8, "radius": 4,
-                     "labelColour": "#8A97A4", "valueColour": "#F4F8FB" } },
-        { "id": "coolant", "style": "bar", "x": 636, "y": 104, "width": 240, "height": 62,
-          "label": "ENGINE TEMP", "unit": "°C", "format": "0", "min": 40, "max": 130,
-          "source": { "signal": "engine.coolantTemp", "rateHz": 0.5 },
-          "zones": [ { "from": 112, "to": 130, "colour": "#FF4D4D" } ],
-          "parts": { "fillColour": "#C9D4DF", "trackColour": "#1AFFFFFF", "thickness": 8, "radius": 4,
-                     "labelColour": "#8A97A4", "valueColour": "#F4F8FB" } },
-        // Distance to empty — a placeholder until the truck's own is found (ADR-0041).
-        { "id": "range", "style": "digital", "x": 636, "y": 176, "width": 240, "height": 66,
+          "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 16, "unitColour": "@textMid", "noData": "–" } },
+
+        // ── Range and economy ── the same, aligned right. Placeholders until the truck's own are found.
+        { "id": "range", "style": "digital", "x": 652, "y": 34, "width": 220, "height": 66,
           "label": "RANGE", "unit": "km", "format": "0", "min": 0, "max": 2000,
           "source": { "signal": "fuel.range", "rateHz": 0.5 },
-          "parts": { "valueSize": 30, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
-
-        // ── Warning lights ── dark when off, lit when on, and a grey dot when the truck has not said.
-        // Check engine is real (PID 01); fuel, temperature and battery are worked out from signals
-        // the truck gives; oil, seatbelt, door, brake and tyres are placeholders until found.
-        { "id": "checkEngine", "type": "warning", "x": 278, "y": 244, "width": 34, "height": 34,
-          "source": { "signal": "diagnostics.checkEngine", "rateHz": 0.2 }, "parts": { "icon": "checkEngine", "litColour": "#FFB020" } },
-        { "id": "oil", "type": "warning", "x": 318, "y": 244, "width": 34, "height": 34,
-          "source": { "signal": "warning.oilPressure", "rateHz": 0.5 }, "parts": { "icon": "oil", "litColour": "#FF4D4D" } },
-        { "id": "battery", "type": "warning", "x": 358, "y": 244, "width": 34, "height": 34,
-          "source": { "signal": "vehicle.controlModuleVoltage", "rateHz": 0.5 }, "parts": { "icon": "battery", "below": 11.8, "litColour": "#FF4D4D" } },
-        { "id": "hot", "type": "warning", "x": 398, "y": 244, "width": 34, "height": 34,
-          "source": { "signal": "engine.coolantTemp", "rateHz": 0.5 }, "parts": { "icon": "coolant", "onAt": 112, "litColour": "#FF4D4D" } },
-        { "id": "lowFuel", "type": "warning", "x": 438, "y": 244, "width": 34, "height": 34,
-          "source": { "signal": "fuel.levelPercent", "rateHz": 0.2 }, "parts": { "icon": "fuel", "below": 12, "litColour": "#FFB020" } },
-        { "id": "seatbelt", "type": "warning", "x": 478, "y": 244, "width": 34, "height": 34,
-          "source": { "signal": "warning.seatbelt", "rateHz": 0.5 }, "parts": { "icon": "seatbelt", "litColour": "#FF4D4D" } },
-        { "id": "door", "type": "warning", "x": 518, "y": 244, "width": 34, "height": 34,
-          "source": { "signal": "warning.doorAjar", "rateHz": 0.5 }, "parts": { "icon": "door", "litColour": "#FF4D4D" } },
-        { "id": "brake", "type": "warning", "x": 558, "y": 244, "width": 34, "height": 34,
-          "source": { "signal": "warning.parkingBrake", "rateHz": 0.5 }, "parts": { "icon": "brake", "litColour": "#FF4D4D" } },
-        { "id": "tyres", "type": "warning", "x": 598, "y": 244, "width": 34, "height": 34,
-          "source": { "signal": "warning.tirePressure", "rateHz": 0.2 }, "parts": { "icon": "tpms", "litColour": "#FFB020" } },
-
-        // ── The strip ──
-        { "id": "odometer", "style": "digital", "x": 32, "y": 306, "width": 230, "height": 68,
-          "label": "ODOMETER", "unit": "km", "format": "#,0", "min": 0, "max": 2000000,
-          "source": { "signal": "vehicle.odometer", "rateHz": 0.05 },
-          "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
-        // Economy — a placeholder until the truck's own is found (ADR-0041): a dash on the truck.
-        { "id": "economy", "style": "digital", "x": 272, "y": 306, "width": 230, "height": 68,
+          "parts": { "align": "right", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 16, "unitColour": "@textMid", "noData": "–" } },
+        { "id": "economy", "style": "digital", "x": 652, "y": 118, "width": 220, "height": 66,
           "label": "ECONOMY", "unit": "L/100km", "format": "0.0", "min": 0, "max": 99.9,
           "source": { "signal": "fuel.economy", "rateHz": 1 },
-          "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
-        { "id": "codes", "style": "digital", "x": 512, "y": 306, "width": 150, "height": 68,
-          "label": "CODES", "format": "0", "min": 0, "max": 127,
-          "source": { "signal": "diagnostics.dtcCount", "rateHz": 0.1 },
-          "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
-        { "id": "outside", "style": "digital", "x": 672, "y": 306, "width": 208, "height": 68,
-          "label": "OUTSIDE", "unit": "°C", "format": "0", "min": -50, "max": 60,
+          "parts": { "align": "right", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 16, "unitColour": "@textMid", "noData": "–" } },
+        { "id": "outside", "style": "digital", "x": 652, "y": 202, "width": 220, "height": 66,
+          "label": "OUTSIDE", "unit": "°", "format": "0", "min": -50, "max": 60,
           "source": { "signal": "ambient.airTemp", "rateHz": 0.1 },
-          "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } }
+          "parts": { "align": "right", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "noData": "–" } },
+
+        // ── Warning lights ── almost invisible until one comes on; then it is the only colour here.
+        { "id": "checkEngine", "type": "warning", "x": 283, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "diagnostics.checkEngine", "rateHz": 0.2 }, "parts": { "icon": "checkEngine", "litColour": "#FFB000", "unlitColour": "#14FFFFFF" } },
+        { "id": "oil", "type": "warning", "x": 323, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "warning.oilPressure", "rateHz": 0.5 }, "parts": { "icon": "oil", "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "battery", "type": "warning", "x": 363, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "vehicle.controlModuleVoltage", "rateHz": 0.5 }, "parts": { "icon": "battery", "below": 11.8, "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "hot", "type": "warning", "x": 403, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "engine.coolantTemp", "rateHz": 0.5 }, "parts": { "icon": "coolant", "onAt": 112, "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "lowFuel", "type": "warning", "x": 443, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "fuel.levelPercent", "rateHz": 0.2 }, "parts": { "icon": "fuel", "below": 12, "litColour": "#FFB000", "unlitColour": "#14FFFFFF" } },
+        { "id": "seatbelt", "type": "warning", "x": 483, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "warning.seatbelt", "rateHz": 0.5 }, "parts": { "icon": "seatbelt", "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "door", "type": "warning", "x": 523, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "warning.doorAjar", "rateHz": 0.5 }, "parts": { "icon": "door", "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "brake", "type": "warning", "x": 563, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "warning.parkingBrake", "rateHz": 0.5 }, "parts": { "icon": "brake", "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "tyres", "type": "warning", "x": 603, "y": 250, "width": 26, "height": 26,
+          "source": { "signal": "warning.tirePressure", "rateHz": 0.2 }, "parts": { "icon": "tpms", "litColour": "#FFB000", "unlitColour": "#14FFFFFF" } },
+
+        // ── Along the bottom ── small and quiet: the things you look for, not at.
+        { "id": "odometer", "style": "digital", "x": 40, "y": 310, "width": 260, "height": 56,
+          "label": "ODOMETER", "unit": "km", "format": "#,0", "min": 0, "max": 2000000,
+          "source": { "signal": "vehicle.odometer", "rateHz": 0.05 },
+          "parts": { "align": "left", "labelSize": 11, "labelWeight": "regular", "labelColour": "@textLow",
+                     "valueSize": 20, "valueWeight": "regular", "valueColour": "@textMid", "unitSize": 13, "unitColour": "@textLow", "noData": "–" } },
+        { "id": "codes", "style": "digital", "x": 612, "y": 310, "width": 260, "height": 56,
+          "label": "STORED CODES", "format": "0", "min": 0, "max": 127,
+          "source": { "signal": "diagnostics.dtcCount", "rateHz": 0.1 },
+          "parts": { "align": "right", "labelSize": 11, "labelWeight": "regular", "labelColour": "@textLow",
+                     "valueSize": 20, "valueWeight": "regular", "valueColour": "@textMid", "noData": "–" } }
       ]
     }
     """;
 
-    /// <summary>The climate layout as text, comments and all — what <c>climate\examples\glass.json</c> holds.</summary>
+    /// <summary>The climate layout as text, comments and all — what <c>climate\examples\clean.json</c> holds.</summary>
     internal const string BuiltInClimateJson = """
     {
-      "name": "Glass",
-      "description": "Frosted glass zones for driver and passenger, the fan and airflow between them, and the switches below. Shows what the truck reports; changes nothing.",
+      "name": "Clean",
+      "description": "Type, not boxes: each side's temperature large at its edge, the seat beneath it, the fan and airflow in the middle, and the switches as words that light. Shows what the truck reports; changes nothing.",
       "author": "DashDeck",
-      // Deep and nearly black, so the glass reads as glass.
-      "background": "#05080C",
+      // Black behind; white and grey type from the theme's text colours, so it dims at night with the
+      // rest of the dash. Only what is lit — a switch, a heater, a warning — has a colour of its own.
+      "background": "#000000",
+      "fonts": { "ui": "Segoe UI Variable Display, Segoe UI", "mono": "Segoe UI Variable Text, Segoe UI" },
       "elements": [
-        // ── The glass ── a tint, a sheen across the top, a soft shadow. Elements after it sit on it.
-        { "id": "driverGlass", "type": "glass", "x": 24, "y": 16, "width": 276, "height": 262, "radius": "30" },
-        { "id": "centreGlass", "type": "glass", "x": 318, "y": 16, "width": 276, "height": 262, "radius": "30" },
-        { "id": "passengerGlass", "type": "glass", "x": 612, "y": 16, "width": 276, "height": 262, "radius": "30" },
-        { "id": "switchGlass", "type": "glass", "x": 24, "y": 294, "width": 864, "height": 80, "radius": "26",
-          "parts": { "opacity": 0.05 } },
-
-        // ── Driver ── the set temperature large, on an arc across 15–30 °C, and the seat below.
-        { "id": "driver", "type": "setpoint", "x": 44, "y": 28, "width": 236, "height": 192,
-          "label": "DRIVER", "unit": "°", "format": "0.0", "min": 15, "max": 30,
+        // ── Driver ── at the left edge.
+        { "id": "driver", "style": "digital", "x": 40, "y": 30, "width": 240, "height": 108,
+          "label": "DRIVER", "unit": "°", "format": "0.0", "min": 10, "max": 35,
           "source": { "signal": "hvac.driverSetTemp", "rateHz": 0.5 },
-          "parts": { "arcColour": "#8FDBFF", "glow": "#4FB8F0", "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
-        // The seat heats (warm, HEAT 1–3) and cools (ice blue, COOL 1–3); the wheel heats.
-        { "id": "driverSeat", "type": "levels", "x": 44, "y": 222, "width": 150, "height": 44,
+          "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 72, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 40, "unitColour": "@textMid", "noData": "–" } },
+        // The seat heats (warm, HEAT 1–3) and cools (blue, COOL 1–3); the wheel heats.
+        { "id": "driverSeat", "type": "levels", "x": 40, "y": 160, "width": 150, "height": 40,
           "label": "SEAT", "min": -3, "max": 3,
           "source": { "signal": "seat.driver.climate", "rateHz": 0.2 },
-          "parts": { "steps": 3, "litColour": "#FF9A4D", "negativeColour": "#6CC8FF", "labelColour": "#8A97A4",
-                     "positiveText": "HEAT", "negativeText": "COOL" } },
-        { "id": "wheel", "type": "indicator", "x": 206, "y": 228, "width": 78, "height": 36, "label": "WHEEL",
-          "source": { "signal": "steeringWheel.heat", "rateHz": 0.2 }, "parts": { "litColour": "#FF9A4D" } },
+          "parts": { "steps": 3, "shape": "dots", "gap": 10, "litColour": "#FF8A3D", "negativeColour": "#4DA3FF", "unlitColour": "@hairlineStrong",
+                     "labelColour": "@textMid", "labelSize": 12, "labelWeight": "regular", "positiveText": "HEAT", "negativeText": "COOL" } },
+        { "id": "wheel", "type": "indicator", "x": 40, "y": 214, "width": 200, "height": 26, "label": "HEATED WHEEL",
+          "source": { "signal": "steeringWheel.heat", "rateHz": 0.2 },
+          "parts": { "style": "text", "align": "left", "fontSize": 13, "labelWeight": "regular", "litColour": "#FF8A3D", "unlitColour": "@textFaint" } },
 
-        // ── Centre ── the fan, where the air goes, and the cabin's own temperature.
-        { "id": "title", "type": "text", "x": 338, "y": 30, "width": 236, "height": 22,
-          "content": "CLIMATE", "fontSize": 13, "align": "center", "colour": "#8A97A4" },
-        { "id": "fan", "type": "levels", "x": 344, "y": 60, "width": 224, "height": 76,
+        // ── The middle ── the fan, where the air goes, and the cabin.
+        { "id": "fan", "type": "levels", "x": 336, "y": 34, "width": 240, "height": 46,
           "label": "FAN", "min": 0, "max": 7,
           "source": { "signal": "hvac.fanSpeed", "rateHz": 0.5 },
-          "parts": { "steps": 7, "litColour": "#8FDBFF", "labelColour": "#8A97A4" } },
+          "parts": { "steps": 7, "shape": "dots", "gap": 12, "litColour": "@textHigh", "unlitColour": "@hairlineStrong",
+                     "labelColour": "@textMid", "labelSize": 12, "labelWeight": "regular" } },
         // Airflow is one signal of bits: 1 face, 2 feet, 4 windshield.
-        { "id": "face", "type": "indicator", "x": 338, "y": 150, "width": 74, "height": 38, "label": "FACE",
-          "source": { "signal": "hvac.airflow", "rateHz": 0.5 }, "parts": { "bit": 0, "litColour": "#8FDBFF" } },
-        { "id": "feet", "type": "indicator", "x": 419, "y": 150, "width": 74, "height": 38, "label": "FEET",
-          "source": { "signal": "hvac.airflow", "rateHz": 0.5 }, "parts": { "bit": 1, "litColour": "#8FDBFF" } },
-        { "id": "glassAir", "type": "indicator", "x": 500, "y": 150, "width": 74, "height": 38, "label": "GLASS",
-          "source": { "signal": "hvac.airflow", "rateHz": 0.5 }, "parts": { "bit": 2, "litColour": "#8FDBFF" } },
-        { "id": "cabin", "style": "digital", "x": 338, "y": 196, "width": 236, "height": 72,
-          "label": "CABIN", "unit": "°C", "format": "0.0", "min": -40, "max": 80,
+        { "id": "face", "type": "indicator", "x": 336, "y": 108, "width": 72, "height": 26, "label": "FACE",
+          "source": { "signal": "hvac.airflow", "rateHz": 0.5 },
+          "parts": { "bit": 0, "style": "text", "align": "left", "fontSize": 14, "labelWeight": "regular", "litColour": "@textHigh", "unlitColour": "@textFaint" } },
+        { "id": "feet", "type": "indicator", "x": 420, "y": 108, "width": 72, "height": 26, "label": "FEET",
+          "source": { "signal": "hvac.airflow", "rateHz": 0.5 },
+          "parts": { "bit": 1, "style": "text", "align": "center", "fontSize": 14, "labelWeight": "regular", "litColour": "@textHigh", "unlitColour": "@textFaint" } },
+        { "id": "glassAir", "type": "indicator", "x": 492, "y": 108, "width": 84, "height": 26, "label": "SCREEN",
+          "source": { "signal": "hvac.airflow", "rateHz": 0.5 },
+          "parts": { "bit": 2, "style": "text", "align": "right", "fontSize": 14, "labelWeight": "regular", "litColour": "@textHigh", "unlitColour": "@textFaint" } },
+        { "id": "cabin", "style": "digital", "x": 336, "y": 160, "width": 240, "height": 66,
+          "label": "CABIN", "unit": "°", "format": "0.0", "min": -40, "max": 80,
           "source": { "signal": "hvac.cabinTemp", "rateHz": 0.5 },
-          "parts": { "valueSize": 26, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
+          "parts": { "align": "center", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 30, "valueWeight": "light", "valueColour": "@textMid", "noData": "–" } },
 
-        // ── Passenger ──
-        { "id": "passenger", "type": "setpoint", "x": 632, "y": 28, "width": 236, "height": 192,
-          "label": "PASSENGER", "unit": "°", "format": "0.0", "min": 15, "max": 30,
+        // ── Passenger ── at the right edge, mirrored.
+        { "id": "passenger", "style": "digital", "x": 632, "y": 30, "width": 240, "height": 108,
+          "label": "PASSENGER", "unit": "°", "format": "0.0", "min": 10, "max": 35,
           "source": { "signal": "hvac.passengerSetTemp", "rateHz": 0.5 },
-          "parts": { "arcColour": "#8FDBFF", "glow": "#4FB8F0", "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
-        { "id": "passengerSeat", "type": "levels", "x": 652, "y": 222, "width": 196, "height": 44,
+          "parts": { "align": "right", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 72, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 40, "unitColour": "@textMid", "noData": "–" } },
+        { "id": "passengerSeat", "type": "levels", "x": 722, "y": 160, "width": 150, "height": 40,
           "label": "SEAT", "min": -3, "max": 3,
           "source": { "signal": "seat.passenger.climate", "rateHz": 0.2 },
-          "parts": { "steps": 3, "litColour": "#FF9A4D", "negativeColour": "#6CC8FF", "labelColour": "#8A97A4",
-                     "positiveText": "HEAT", "negativeText": "COOL" } },
+          "parts": { "steps": 3, "shape": "dots", "gap": 10, "litColour": "#FF8A3D", "negativeColour": "#4DA3FF", "unlitColour": "@hairlineStrong",
+                     "labelColour": "@textMid", "labelSize": 12, "labelWeight": "regular", "positiveText": "HEAT", "negativeText": "COOL" } },
 
-        // ── Switches ── lit when on; dim and outlined when off; a dash when the truck has not said.
-        { "id": "auto", "type": "indicator", "x": 44, "y": 310, "width": 116, "height": 48, "label": "AUTO",
-          "source": { "signal": "hvac.auto", "rateHz": 0.5 }, "parts": { "litColour": "#8FDBFF" } },
-        { "id": "ac", "type": "indicator", "x": 172, "y": 310, "width": 116, "height": 48, "label": "A/C",
-          "source": { "signal": "hvac.airConditioning", "rateHz": 0.5 }, "parts": { "litColour": "#8FDBFF" } },
-        { "id": "recirc", "type": "indicator", "x": 300, "y": 310, "width": 116, "height": 48, "label": "RECIRC",
-          "source": { "signal": "hvac.recirculate", "rateHz": 0.5 }, "parts": { "litColour": "#8FDBFF" } },
-        { "id": "frontDefrost", "type": "indicator", "x": 428, "y": 310, "width": 136, "height": 48, "label": "DEFROST",
-          "source": { "signal": "hvac.frontDefrost", "rateHz": 0.5 }, "parts": { "litColour": "#FF9A4D" } },
-        { "id": "rearDefrost", "type": "indicator", "x": 576, "y": 310, "width": 136, "height": 48, "label": "REAR DEF",
-          "source": { "signal": "hvac.rearDefrost", "rateHz": 0.5 }, "parts": { "litColour": "#FF9A4D" } },
+        // ── The switches ── words that light when on, grey when off, with a dash when not known.
+        { "id": "auto", "type": "indicator", "x": 40, "y": 316, "width": 100, "height": 32, "label": "AUTO",
+          "source": { "signal": "hvac.auto", "rateHz": 0.5 },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "#4DA3FF", "unlitColour": "@textFaint" } },
+        { "id": "ac", "type": "indicator", "x": 150, "y": 316, "width": 100, "height": 32, "label": "A/C",
+          "source": { "signal": "hvac.airConditioning", "rateHz": 0.5 },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "#4DA3FF", "unlitColour": "@textFaint" } },
+        { "id": "recirc", "type": "indicator", "x": 260, "y": 316, "width": 120, "height": 32, "label": "RECIRC",
+          "source": { "signal": "hvac.recirculate", "rateHz": 0.5 },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "#4DA3FF", "unlitColour": "@textFaint" } },
+        { "id": "frontDefrost", "type": "indicator", "x": 390, "y": 316, "width": 130, "height": 32, "label": "DEFROST",
+          "source": { "signal": "hvac.frontDefrost", "rateHz": 0.5 },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "#FF8A3D", "unlitColour": "@textFaint" } },
+        { "id": "rearDefrost", "type": "indicator", "x": 530, "y": 316, "width": 110, "height": 32, "label": "REAR",
+          "source": { "signal": "hvac.rearDefrost", "rateHz": 0.5 },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "#FF8A3D", "unlitColour": "@textFaint" } },
         // Outside air is a standard signal: it reads on the real truck today.
-        { "id": "outside", "style": "digital", "x": 728, "y": 300, "width": 150, "height": 68,
-          "label": "OUTSIDE", "unit": "°C", "format": "0", "min": -50, "max": 60,
+        { "id": "outside", "style": "digital", "x": 692, "y": 300, "width": 180, "height": 60,
+          "label": "OUTSIDE", "unit": "°", "format": "0", "min": -50, "max": 60,
           "source": { "signal": "ambient.airTemp", "rateHz": 0.1 },
-          "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } }
+          "parts": { "align": "right", "labelSize": 11, "labelWeight": "regular", "labelColour": "@textLow",
+                     "valueSize": 22, "valueWeight": "regular", "valueColour": "@textMid", "noData": "–" } }
       ]
     }
     """;
