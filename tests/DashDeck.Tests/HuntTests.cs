@@ -269,6 +269,29 @@ public class HuntTests
     }
 
     [Fact]
+    public void A_field_that_tells_only_some_levels_apart_still_ranks_below_one_that_tells_all()
+    {
+        // Three cooling levels: one frame reports the level, another only on or off.
+        var (frames, phases) = Record(
+            [0, -1, -2, -3, 0],
+            [
+                (s, _) => [0x00, (byte)(-(int)s << 4)],
+                (s, _) => [(byte)(s != 0 ? 0x04 : 0x00)],
+            ],
+            [0x3B3, 0x2A0]);
+
+        var ranked = BroadcastRanker.Rank(frames, phases);
+
+        Assert.Equal(0x3B3u, ranked[0].Id);
+        Assert.True(ranked[0].SeparatesAll);
+        var onOff = Assert.Single(ranked, c => c.Id == 0x2A0);
+        Assert.False(onOff.SeparatesAll);
+        Assert.Equal(3, onOff.Separated);   // off against each of the three levels
+        Assert.Equal(6, onOff.Pairs);
+        Assert.Equal(2, onOff.Bit);
+    }
+
+    [Fact]
     public void A_frame_sent_only_on_change_is_carried_forward()
     {
         var phases = new List<HuntPhase>

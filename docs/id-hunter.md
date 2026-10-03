@@ -74,7 +74,9 @@ It listens to MS-CAN, ranks what changed with you and only with you, and shows a
   1  3B3       byte 0 bit 0          0 1 0 1 0               1.00
 ```
 
-**EACH STEP** is what that field read in each of your five steps. Type its number to **check it
+**EACH STEP** is what that field read in each of your five steps. **TELLS APART** says whether it
+told every step apart, or only some — for example "3 of 6 pairs" for a field that knows the seat is
+on but not at which level. Both OFF steps must always read the same, which is what keeps chance out. Type its number to **check it
 live**: do the thing again a few times and watch the value change, then answer **y** if it followed
 you. If nothing follows on MS-CAN, it offers HS-CAN.
 

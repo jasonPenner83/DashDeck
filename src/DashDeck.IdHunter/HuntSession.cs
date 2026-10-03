@@ -116,7 +116,16 @@ internal sealed class HuntSession : IAsyncDisposable
     public Task<PidResponse> RequestAsync(PidRequest request, CancellationToken ct) => Adapter.RequestAsync(request, ct);
 
     /// <summary>Put the adapter back the way requests need it, after listening.</summary>
-    public Task RestoreAsync(CancellationToken ct) => Adapter.InitializeAsync(ct);
+    /// <remarks>
+    /// The reset leaves the adapter to open the bus again on the next request, and in the truck
+    /// the first requests after a listen at 500 kbit/s went unanswered. One standard request,
+    /// answered or not, opens it before anything that matters is asked.
+    /// </remarks>
+    public async Task RestoreAsync(CancellationToken ct)
+    {
+        await Adapter.InitializeAsync(ct).ConfigureAwait(false);
+        await RequestAsync(new PidRequest(0x01, 0x00, CanBus.Hs), ct).ConfigureAwait(false);
+    }
 
     /// <summary>Speed in km/h from the standard PID, or null when the truck does not answer.</summary>
     public async Task<double?> SpeedAsync(CancellationToken ct)
