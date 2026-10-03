@@ -54,6 +54,7 @@ quit.
   S   Scan for modules
   L   Listen freely — name your own action
   A   Ask a module while you do something
+  D   Check a CAN database against the truck
   Q   Quit
 ```
 
@@ -131,6 +132,30 @@ It asks every identifier it found during each step, and ranks them the same way 
 table shows the **ID** in place of the frame.
 
 **A** on the main menu does the same for anything you name.
+
+### D — check a CAN database
+
+A CAN database (a `.dbc` or `.dbcx` file) says which frame carries which value: for example,
+*message 156, bits 15–8, minus 60, is engine oil temperature*. You may find one written for a truck
+like yours. Treat it as a list of leads, because it may be for another model year
+([ADR-0045](decisions/ADR-0045-can-databases-as-leads.md)). **D** checks it:
+
+1. **Give it the file.** Drag it into the window, or put it in `%LOCALAPPDATA%\DashDeck\dbc\` and press
+   Enter. You can also start with `IdHunter --dbc <file>`.
+2. **Press Enter** to hear which of its messages your truck sends: about five seconds per bus. You get
+   a count, such as *61 of the file's 329 messages are on this truck*.
+3. **Search** for signals, or press Enter for DashDeck's list (oil, gearbox, fuel, tyre, door, odometer,
+   heated wheel, seat, HVAC, range). Each row says where it was heard: **HS**, **pins 3/11**, **not
+   heard**, or **CAN FD only**. This adapter cannot hear CAN FD.
+4. **Type the numbers to check** (`3` or `3,5,9`). The guide listens for that message alone and prints
+   the decoded values whenever they change: `EngOil_Te_Actl = 87 degC`. Make them change, then compare
+   with FORScan or the cluster. Press Enter, then answer y, n or ? for each signal.
+
+Each answer is a row in `findings.csv` with method `dbc`, the bit layout, the scaling, and the range
+it read. A message not heard on either bus is recorded as `absent`.
+
+**Keep the file on the tablet.** Do not add a database to the repository. Only what the truck confirms
+is kept.
 
 ### S — scan for modules
 
