@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using DashDeck.Abstractions;
 using DashDeck.Vehicle;
@@ -19,7 +20,7 @@ namespace DashDeck.Simulator;
 /// the same walls in simulation that they will hit in the truck.
 /// </para>
 /// </remarks>
-public sealed class SyntheticTransport : IVehicleTransport
+public sealed class SyntheticTransport : IStreamingTransport
 {
     private readonly SimulatedF150 _truck;
     private readonly IClock _clock;
@@ -43,6 +44,27 @@ public sealed class SyntheticTransport : IVehicleTransport
     }
 
     private bool _unplugged;
+
+    /// <summary>The identifier the monitor passes alone (ATCRA), or null for all.</summary>
+    private uint? _receiveFilter;
+
+    /// <summary>The rate the adapter has pins 3 and 11 at: 125 kbit/s after STP53, or what STPBR set.</summary>
+    private int _pins311Rate = 125000;
+
+    /// <summary>
+    /// The rate the synthetic truck's bus on pins 3 and 11 runs at. 125 kbit/s (MS-CAN) unless a test
+    /// says otherwise. When the adapter is set to another rate it hears nothing there, and a request
+    /// sent there is a CAN ERROR — what a real adapter at the wrong rate reports.
+    /// </summary>
+    public int Pins311BitRate { get; set; } = 125000;
+
+    /// <summary>
+    /// When set, the monitor says BUFFER FULL and stops after this many frames, the way a real
+    /// adapter does when a busy bus outruns its serial link.
+    /// </summary>
+    public int? MonitorBufferFrames { get; set; }
+
+    private bool Pins311Mismatched => _bus == CanBus.Ms && _pins311Rate != Pins311BitRate;
 
     public TransportState State { get; private set; } = TransportState.Disconnected;
 
@@ -117,6 +139,11 @@ public sealed class SyntheticTransport : IVehicleTransport
 
         RequestCount++;
 
+        if (Pins311Mismatched)
+        {
+            return "CAN ERROR\r\r>";
+        }
+
         if (_truck.Random.NextDouble() < _faults.DropProbability)
         {
             DroppedCount++;
@@ -153,6 +180,32 @@ public sealed class SyntheticTransport : IVehicleTransport
         {
             _header = null;
             _bus = CanBus.Hs;
+            _receiveFilter = null;
+            _pins311Rate = 125000;
+        }
+
+        if (command.StartsWith("STPBR", StringComparison.Ordinal))
+        {
+            if (!int.TryParse(command.AsSpan(5), NumberStyles.Integer, CultureInfo.InvariantCulture, out var rate))
+            {
+                return "?\r\r>";
+            }
+
+            _pins311Rate = rate;
+            return "OK\r\r>";
+        }
+
+        // The receive filter only matters to the monitor: requests are answered by address.
+        if (command == "ATAR")
+        {
+            _receiveFilter = null;
+        }
+        else if (command.StartsWith("ATCRA", StringComparison.Ordinal))
+        {
+            _receiveFilter = command.Length > 5 &&
+                uint.TryParse(command.AsSpan(5), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var filter)
+                ? filter
+                : null;
         }
 
         return HandleFixedControl(command);
@@ -185,6 +238,11 @@ public sealed class SyntheticTransport : IVehicleTransport
         }
 
         _bus = bus;
+        if (bus == CanBus.Ms)
+        {
+            _pins311Rate = 125000;
+        }
+
         return "OK\r\r>";
     }
 
@@ -452,6 +510,14 @@ public sealed class SyntheticTransport : IVehicleTransport
             [0xF113] = () => Ascii("SYNTH-PCM-14C204-AA"),
             [0xF188] = () => Ascii("SYNTH-STRATEGY-01"),
             [0xF190] = () => Ascii(SyntheticVin),
+
+            // Invented, for the ID hunter's follow path (ADR-0044): oil temperature (one byte, less
+            // 40), transmission temperature (two bytes, sixteenths of a degree, less 40) and fuel
+            // flow (two bytes, hundredths of a litre an hour).
+            [0x4101] = () => [Temp(_truck.Jitter(_truck.OilTempC, 0.2))],
+            [0x4102] = () => TwoByte((ushort)Math.Round((_truck.TransmissionTempC + 40) * 16)),
+            [0x4103] = () => TwoByte((ushort)Math.Round(_truck.Jitter(_truck.FuelRateLitresPerHour, 0.02) * 100)),
+            [0x4104] = () => [(byte)_truck.Random.Next(256)],
         },
         (CanBus.Hs, 0x7E1) => new() { [0xF113] = () => Ascii("SYNTH-TCM-7J104-AB") },
         (CanBus.Hs, 0x760) => new() { [0xF113] = () => Ascii("SYNTH-ABS-2C219-AC") },
@@ -464,9 +530,31 @@ public sealed class SyntheticTransport : IVehicleTransport
             // Invented: battery voltage in tenths of a volt, and an ambient temperature.
             [0x4001] = () => TwoByte((ushort)Math.Round(_truck.Jitter(141, 1))),
             [0x4002] = () => [Temp(_truck.AmbientTempC)],
+
+            // Invented tyre pressures, a quarter psi a count, for the ID hunter's match path.
+            [0x4301] = () => [Psi(_truck.TirePsiFrontLeft)],
+            [0x4302] = () => [Psi(_truck.TirePsiFrontRight)],
+            [0x4303] = () => [Psi(_truck.TirePsiRearLeft)],
+            [0x4304] = () => [Psi(_truck.TirePsiRearRight)],
         },
-        (CanBus.Ms, 0x720) => new() { [0xF113] = () => Ascii("SYNTH-IPC-10849-AE") },
-        (CanBus.Ms, 0x733) => new() { [0xF113] = () => Ascii("SYNTH-HVAC-18C612-AA") },
+        (CanBus.Ms, 0x720) => new()
+        {
+            [0xF113] = () => Ascii("SYNTH-IPC-10849-AE"),
+
+            // Invented: distance to empty in km, and economy in tenths of a litre per 100 km.
+            [0x4201] = () => TwoByte((ushort)Math.Round(_truck.RangeKm)),
+            [0x4202] = () => TwoByte((ushort)Math.Round(Math.Max(_truck.EconomyL100, 13.4) * 10)),
+        },
+        (CanBus.Ms, 0x733) => new()
+        {
+            [0xF113] = () => Ascii("SYNTH-HVAC-18C612-AA"),
+
+            // Invented: the driver seat's level as the module holds it — heat in the low nibble,
+            // cooling in the high — for the ID hunter's ask-while-you-do-it path, and a counter
+            // beside it that a ranker must not take for it.
+            [0x4401] = () => [Seat(_truck.Cabin.DriverSeat)],
+            [0x4402] = () => [(byte)_truck.Random.Next(256)],
+        },
         _ => null,
     };
 
@@ -526,6 +614,136 @@ public sealed class SyntheticTransport : IVehicleTransport
 
         return sb.Append("\r>").ToString();
     }
+
+    /// <summary>
+    /// Monitor mode: the synthetic truck's broadcast traffic, a line per frame as an STN prints
+    /// it with headers and spaces on, until cancelled (ADR-0044).
+    /// </summary>
+    /// <remarks>
+    /// <b>Every identifier here is invented</b> and laid out for the desk, not copied from a Ford:
+    /// periodic frames carrying the cabin's switches, one sent only when it changes (so a listener
+    /// has to carry a value forward), a rolling counter with a checksum (so a ranker has noise to
+    /// reject), and engine speed and coolant on HS-CAN.
+    /// </remarks>
+    public async IAsyncEnumerable<string> StreamAsync(string command, [EnumeratorCancellation] CancellationToken ct)
+    {
+        var trimmed = command.Trim().ToUpperInvariant();
+        if (trimmed is not ("STMA" or "ATMA" or "STM"))
+        {
+            yield return (await ExchangeAsync(command, ct).ConfigureAwait(false)).TrimEnd('>', '\r');
+            yield break;
+        }
+
+        var last = new Dictionary<uint, DateTimeOffset>();
+        byte counter = 0;
+        var sent = 0;
+        var lastPassenger = (bool?)null;
+
+        while (!ct.IsCancellationRequested && !_unplugged)
+        {
+            AdvanceModel();
+            var now = _clock.UtcNow;
+            var lines = new List<string>();
+
+            bool Due(uint id, int periodMs)
+            {
+                if (last.TryGetValue(id, out var at) && (now - at).TotalMilliseconds < periodMs)
+                {
+                    return false;
+                }
+
+                last[id] = now;
+                return true;
+            }
+
+            void Emit(uint id, params byte[] data)
+            {
+                if (_receiveFilter is null || _receiveFilter == id)
+                {
+                    lines.Add($"{id:X3} {string.Join(' ', data.Select(b => b.ToString("X2", CultureInfo.InvariantCulture)))}");
+                }
+            }
+
+            var cabin = _truck.Cabin;
+
+            if (Pins311Mismatched)
+            {
+                // The wrong rate: silence.
+            }
+            else if (_bus == CanBus.Ms)
+            {
+                if (Due(0x3B3, 100))
+                {
+                    var doors = (byte)((cabin.DriverDoorOpen ? 1 : 0) | (cabin.PassengerDoorOpen ? 2 : 0));
+                    Emit(0x3B3, doors, 0x40, Seat(cabin.DriverSeat), Seat(cabin.PassengerSeat),
+                        (byte)(cabin.WheelHeat ? 1 : 0), 0x00, 0x00, 0x00);
+                }
+
+                if (Due(0x3C1, 200))
+                {
+                    var flags = (byte)((cabin.AirConditioning ? 1 : 0) | (cabin.Recirculate ? 2 : 0) |
+                                       (cabin.RearDefrost ? 4 : 0) | (cabin.Auto ? 8 : 0));
+                    Emit(0x3C1, (byte)cabin.Fan, flags, (byte)Math.Round(cabin.DriverSetTempC * 2), 0x03);
+                }
+
+                if (Due(0x42F, 500))
+                {
+                    Emit(0x42F, (byte)((cabin.DriverSeatbeltBuckled ? 0 : 1) | (cabin.ParkingBrake ? 2 : 0)), 0x00);
+                }
+
+                // Sent only when it changes: the passenger door's own frame.
+                if (lastPassenger != cabin.PassengerDoorOpen)
+                {
+                    lastPassenger = cabin.PassengerDoorOpen;
+                    Emit(0x3D5, (byte)(cabin.PassengerDoorOpen ? 0x10 : 0x00));
+                }
+
+                if (Due(0x4A0, 50))
+                {
+                    counter = (byte)((counter + 1) & 0x0F);
+                    var noise = (byte)_truck.Random.Next(256);
+                    Emit(0x4A0, counter, noise, 0x00, 0x00, 0x00, 0x00, 0x00, (byte)(counter ^ noise));
+                }
+            }
+            else
+            {
+                if (Due(0x201, 20))
+                {
+                    var rpm = (ushort)Math.Round(_truck.Rpm * 4);
+                    var speed = (ushort)Math.Round(_truck.SpeedKph * 100);
+                    Emit(0x201, (byte)(rpm >> 8), (byte)rpm, 0x00, 0x00, (byte)(speed >> 8), (byte)speed, 0x00, 0x00);
+                }
+
+                if (Due(0x420, 100))
+                {
+                    Emit(0x420, Temp(_truck.CoolantTempC), 0x00, 0x00);
+                }
+            }
+
+            foreach (var line in lines)
+            {
+                if (MonitorBufferFrames is { } limit && ++sent > limit)
+                {
+                    yield return "BUFFER FULL";
+                    yield break;
+                }
+
+                yield return line;
+            }
+
+            try
+            {
+                await Task.Delay(10, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                yield break;
+            }
+        }
+    }
+
+    /// <summary>A seat's level as one byte: heat in the low nibble, cooling in the high one.</summary>
+    private static byte Seat(int level) => level >= 0 ? (byte)level : (byte)(-level << 4);
 
     private static byte Temp(double celsius) => (byte)Math.Clamp(Math.Round(celsius + 40), 0, 255);
 

@@ -291,12 +291,17 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
             }
         }
 
+        // The rate of the bus on pins 3 and 11, from the vehicle pack when the truck's has been
+        // measured (Q21): sending at the wrong one makes error frames on that bus. The synthetic
+        // truck is given the same, so the desk behaves like the cab.
+        var pins311 = VehiclePacks.Pins311BitRate(loaded.ActivePacks) ?? 125000;
+
         IVehicleTransport bottom = found is not null
             ? link!
-            : new SyntheticTransport(new SimulatedF150(drive));
+            : new SyntheticTransport(new SimulatedF150(drive)) { Pins311BitRate = pins311 };
 
         var switchable = new SwitchableTransport(bottom);
-        var service = new VehicleService(new ElmAdapter(switchable), loaded.Catalog)
+        var service = new VehicleService(new ElmAdapter(switchable) { Pins311BitRate = pins311 }, loaded.Catalog)
         {
             Quality = found is not null ? SignalQuality.Live : SignalQuality.Simulated,
         };

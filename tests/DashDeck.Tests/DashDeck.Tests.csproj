@@ -23,6 +23,7 @@
     <ProjectReference Include="..\..\src\DashDeck.Vehicle\DashDeck.Vehicle.csproj" />
     <ProjectReference Include="..\..\src\DashDeck.Core\DashDeck.Core.csproj" />
     <ProjectReference Include="..\..\src\DashDeck.Simulator\DashDeck.Simulator.csproj" />
+    <ProjectReference Include="..\..\src\DashDeck.IdHunter\DashDeck.IdHunter.csproj" />
   </ItemGroup>
 
 </Project>

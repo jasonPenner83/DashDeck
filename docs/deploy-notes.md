@@ -22,7 +22,7 @@ to find the adapter, and a second tap now just brings the same dash forward. **C
 the three-dot menu (two taps) closes it. Uninstalling is
 deleting the folder (constraint C1).
 
-The publish summary should read: catalog `included`, libvlc `included`, components `5 included`.
+The publish summary should read: catalog `included`, libvlc `included`, id hunter `IdHunter\IdHunter.exe`, components `5 included`.
 If components says `none`, a component did not build — check `components/` before carrying it out.
 To confirm the loader in the deployed folder without opening the shell:
 `DashDeck.Host.exe --components <outfile>` should list all five.
@@ -30,13 +30,47 @@ To confirm the loader in the deployed folder without opening the shell:
 To attach the build to its GitHub Release (rollback is unzipping the previous one):
 
 ```powershell
-Compress-Archive -Path dist\DashDeck\* -DestinationPath dist\DashDeck-v0.6.0-win-x64.zip -Force
+Compress-Archive -Path dist\DashDeck\* -DestinationPath dist\DashDeck-v0.6.1-win-x64.zip -Force
 ```
 
 ## What this build contains
 
-**`v0.6.0`** — released from `main` (the tag goes on the release merge; see the release steps). It
-adds the following to `v0.5.0`:
+**`v0.6.1`** — released from `main` (the tag goes on the release merge; see the release steps). It
+adds the following to `v0.6.0`:
+
+- **The dash sends at the right speed on OBD pins 3 and 11** (Q21). A silent listen measured a
+  500 kbit/s bus there on this truck, not the 125 kbit/s MS-CAN DashDeck assumed. Until now, the
+  following went out at 125 kbit/s and put error frames on that bus:
+  - the climate panel's, the placeholder warning lights' and the economy/range placeholders'
+    requests;
+  - TPMS;
+  - the module scan in Settings.
+
+  The F-150 vehicle pack now says `"pins311BitRate": 500000`, and the adapter sends at that rate.
+  **This is the reason for the release.** Settings ▸ Sensors ▸ MODULES should now find modules under
+  MS-CAN (pins 3/11) too.
+- **The ID hunter** (`IdHunter\IdHunter.exe`, ADR-0044) is a separate guided tool for finding the
+  truck's own identifiers. Close DashDeck first. It:
+  - finds the adapter the way the dash does;
+  - measures the pins 3/11 speed by listening before it sends anything there;
+  - hears a busy bus in bursts;
+  - ranks fields that tell only some steps apart;
+  - can ask a module while you do the steps — for values like seat cooling that the module keeps to
+    itself (SCME in FORScan).
+
+  Its output, `findings.csv`, is in `%LOCALAPPDATA%\DashDeck\hunt\`. Reference:
+  [id-hunter](id-hunter.md).
+- **D in the ID hunter checks a CAN database** (`.dbc`/`.dbcx`) against the truck (ADR-0045). It
+  reports which of the file's messages this truck sends, then decodes picked signals live for you to
+  confirm. Keep the file in `%LOCALAPPDATA%\DashDeck\dbc\`. It is never part of the deploy.
+
+Check in the truck: the walkthroughs in [08-in-vehicle-testing](08-in-vehicle-testing.md):
+- *Pins 3/11 at the measured 500 kbit/s*;
+- *The ID hunter — finding identifiers with a guide*;
+- *The ID hunter — checking a CAN database*.
+
+And from **`v0.6.0`** — released 2026-10-03 from `main` (tag on the #46 merge, `2cc8781`). It added
+the following to `v0.5.0`:
 
 - **The launcher is a file** (ADR-0038). `%LOCALAPPDATA%\DashDeck\launcher.json` lists every stage
   option — screens, web pages (with their own zoom), Windows programs — in order, with the five

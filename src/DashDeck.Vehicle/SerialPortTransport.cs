@@ -1,4 +1,5 @@
 using System.IO.Ports;
+using System.Runtime.CompilerServices;
 using System.Text;
 using DashDeck.Abstractions;
 
@@ -19,7 +20,7 @@ namespace DashDeck.Vehicle;
 /// cable in a truck gets knocked and the tablet sleeps (risk R3).
 /// </para>
 /// </remarks>
-public sealed class SerialPortTransport : IVehicleTransport
+public sealed class SerialPortTransport : IStreamingTransport
 {
     /// <summary>The OBDLink EX ships at 115200 baud.</summary>
     public const int DefaultBaudRate = 115200;
@@ -168,6 +169,92 @@ public sealed class SerialPortTransport : IVehicleTransport
             // as a plain I/O error — and every one of them means the same thing (ADR-0034).
             State = TransportState.Disconnected;
             throw new IOException($"{_portName} dropped mid-exchange.", ex);
+        }
+    }
+
+    public async IAsyncEnumerable<string> StreamAsync(string command, [EnumeratorCancellation] CancellationToken ct)
+    {
+        if (_port is not { IsOpen: true })
+        {
+            await ReconnectAsync(ct).ConfigureAwait(false);
+        }
+
+        var port = _port ?? throw new IOException($"{_portName} is not open.");
+
+        if (port.BytesToRead > 0)
+        {
+            port.DiscardInBuffer();
+        }
+
+        var payload = Encoding.ASCII.GetBytes(command.TrimEnd('\r') + "\r");
+        await port.BaseStream.WriteAsync(payload, ct).ConfigureAwait(false);
+        await port.BaseStream.FlushAsync(ct).ConfigureAwait(false);
+
+        var pending = new StringBuilder();
+        var ended = false;
+
+        while (!ended && !ct.IsCancellationRequested)
+        {
+            // Polled rather than an async read: a quiet bus can say nothing for seconds, and a
+            // serial read cannot be relied on to give up when cancelled — a read still waiting
+            // would then swallow the STOPPED and prompt that end the monitor.
+            int read;
+            try
+            {
+                if (port.BytesToRead == 0)
+                {
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                    continue;
+                }
+
+                read = port.Read(_readBuffer, 0, Math.Min(_readBuffer.Length, port.BytesToRead));
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException or TimeoutException)
+            {
+                State = TransportState.Disconnected;
+                throw new IOException($"{_portName} dropped while listening.", ex);
+            }
+
+            if (read <= 0)
+            {
+                continue;
+            }
+
+            pending.Append(Encoding.ASCII.GetString(_readBuffer, 0, read));
+
+            var text = pending.ToString();
+            var cut = text.LastIndexOfAny(['\r', '\n', '>']);
+            if (cut < 0)
+            {
+                continue;
+            }
+
+            ended = text.AsSpan(0, cut + 1).Contains('>');
+            pending.Clear().Append(text.AsSpan(cut + 1));
+
+            foreach (var line in text[..(cut + 1)].Split(['\r', '\n', '>'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                yield return line;
+            }
+        }
+
+        if (!ended)
+        {
+            // Any character stops a monitor; it answers STOPPED and its prompt. Read to that prompt
+            // so the next exchange does not take the tail of the monitor for its answer.
+            try
+            {
+                await port.BaseStream.WriteAsync("\r"u8.ToArray(), CancellationToken.None).ConfigureAwait(false);
+                await ReadToPromptAsync(port, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or UnauthorizedAccessException or TimeoutException)
+            {
+                State = TransportState.Disconnected;
+            }
         }
     }
 

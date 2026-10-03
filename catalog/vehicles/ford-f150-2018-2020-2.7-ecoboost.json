@@ -21,6 +21,11 @@
     "yearMax": 2020,
     "displacementLitres": 2.7
   },
+  // Measured, not assumed: on 2026-10-03 the ID hunter (ADR-0044) listened silently on OBD pins 3
+  // and 11 of the 2019 truck and heard nothing at 125 kbit/s and traffic at 500 kbit/s. So this
+  // generation has a second high-speed bus there, not MS-CAN, and DashDeck sends at 500 kbit/s on
+  // it — at 125 kbit/s its requests made error frames on that bus (open question Q21).
+  "pins311BitRate": 500000,
   "modules": {
     "7E0": "PCM — powertrain control",
     "7E1": "TCM — transmission control",

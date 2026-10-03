@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **586 tests green** — 194 engine, 392 shell.
+(ADR-0010). **634 tests green** — 242 engine, 392 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -181,6 +181,24 @@ night. Layouts can now name their own **`fonts`** (`{ "ui", "mono" }`, set as ca
 shadow the theme's `UiFont`/`MonoFont` for that layout only) and use `valueWeight`/`labelWeight`,
 digital `align`/`labelPosition: "above"`/`unitSize`/`noData`, and indicator `style: "text"`.
 
+**The ID hunter is a separate program** (ADR-0044): `src/DashDeck.IdHunter`, `IdHunter.exe` in
+`IdHunter\` beside the dash (DashDeck must be closed — one program holds the adapter). A terminal guide
+through a checklist (`targets.json`) of things to find, three ways: **listen** (hold the truck in
+alternating states — door shut/open — while the bus is heard; `BroadcastRanker` keeps fields steady
+within each step and different between states), **follow** (sweep a module, watch its identifiers
+beside coolant or rpm while the person makes it change; `FollowRanker` by correlation, with a scaling
+hint) and **match** (numbers read off the cluster; `MatchRanker`/`MatchTally`). Each ends in a live
+check and a row in `findings.csv` with the verdict, plus captures (which can hold the VIN — never in
+the repo). **Listening is new to the vehicle layer**: `IStreamingTransport.StreamAsync` carries the
+adapter's monitor (`STMA`/`ATMA`), and `CanMonitor` sets it up **silent (`ATCSM1`)**, headers on, CAN
+formatting off; whoever owns the `ElmAdapter` must `InitializeAsync` again after. `--simulate` runs it
+against the synthetic truck, whose `SimulatedCabin` switches and broadcast frames use **invented**
+identifiers. A value found by listening cannot be shown on the dash yet — signals are requested, not
+heard. **D** checks a **CAN database** (`.dbc`, `CanDatabase`) the person keeps on the tablet: which
+of its messages the truck sends, then picked signals decoded live to confirm (ADR-0045). **A database
+is a lead, never committed** — the one found so far is for the 2021+ F-150 (P702) and unlicensed;
+only our own confirmed measurements reach the vehicle pack. Reference: [`docs/id-hunter.md`](docs/id-hunter.md).
+
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
 gets all 708 of it, minus the 72 launcher bar. **Occupants hand back verbs, not chrome**
@@ -315,7 +333,12 @@ measured:
   smooth high-rate gauges need request batching, not a faster link. The simulator now runs at
   the same 52 ms (`SyntheticFaults.Realistic`).
 - **MS-CAN is reachable from the OBD port** — the adapter accepts the switch and the Gateway
-  Module does not get in the way (Q5).
+  Module does not get in the way (Q5). **But "MS" is a misnomer on this truck (Q21):** a silent listen on
+  pins 3/11 heard nothing at 125 kbit/s and traffic at **500 kbit/s** — a second high-speed bus, not
+  MS-CAN. DashDeck's requests there went out at 125 kbit/s and made error frames on it until the F-150
+  pack gained `"pins311BitRate": 500000`; `VehicleStack` now sets `ElmAdapter.Pins311BitRate` (and the
+  synthetic truck's) from the pack, and the adapter sends `STPBR` after `STP53`. **Never send on pins
+  3/11 at a rate nobody measured.** `CanBus.Ms` still means "pins 3/11", whatever the rate.
 - **The truck answers 48 standard PIDs but neither fuel rate (`5E`) nor MAF (`10`)** (Q4). So
   **Fuel Economy, Avg Economy and Range Estimator read blank on the real truck** — they need
   `engine.fuelRate`. The fix is decided, not built: speed-density from MAP, IAT, RPM and lambda,
@@ -403,7 +426,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Forty-three exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Forty-five exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -427,7 +450,7 @@ the launcher as a file — every stage option, web page and program, in order, a
 the compass as layout elements — sensor-sourced gauges, a rose and a G meter, and a read-only
 climate panel drawn from a layout file in place of the cards, and DASH as a console layout with
 warning lights while the cards move onto the stage, and clean, typographic defaults for both, and two default themes, Modern and Glass, with LCARS made
-the user's own.
+the user's own, and a separate guided ID hunter that listens silently, follows and matches, and CAN databases as leads checked on the truck, never shipped.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

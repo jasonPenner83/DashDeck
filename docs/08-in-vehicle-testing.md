@@ -674,3 +674,143 @@ in daylight and once after dark (or **Settings ▸ Appearance ▸ NIGHT**). No i
 or as SHIPPED; a deleted LCARS coming back; Antonio missing from LCARS (ordinary wide lettering); a
 screen that does not change when the theme does (other than one you picked by hand); a stage number with
 no reading drawn as zero instead of a dash or NO DATA.
+
+## The ID hunter — finding identifiers with a guide (ADR-0044)
+
+**You need:**
+- the tablet with the adapter, **DashDeck closed** (three-dot menu ▸ CLOSE DASHDECK) and FORScan
+  closed;
+- parked, parking brake set, outside rather than in a closed garage;
+- for steps 3–6, the ignition **on**; for steps 7–8, a **cold** engine you will start;
+- no internet.
+
+The guide itself: [id-hunter](id-hunter.md).
+
+**At a desk first (optional):**
+
+1. Run `IdHunter\IdHunter.exe --simulate` from a terminal. Choose **1** (Driver door), press Enter at
+   each step. **Expect:** after five steps, a table whose first row is `3B3  byte 0 bit 0  0 1 0 1 0`.
+   Type **1**, watch the value flip by itself between 0 (CLOSED) and 1 (OPEN), press Enter, then **y**.
+   Choose **Q**. **Expect:** *Send this file:* and a path to `findings.csv` holding that row,
+   *confirmed*. Nothing here touched a truck: those identifiers are invented.
+
+**In the truck:**
+
+2. Double-click `IdHunter\IdHunter.exe`. **Expect:**
+   - *Looking for the adapter…*, then your COM port marked **Adapter** with the OBDLink's name and
+     about 12 V;
+   - the checklist of 21 targets with **S**, **L** and **Q** below.
+
+   It prints *DashDeck last used COMn…* and a line per port it tried. If it says no adapter answered,
+   the window stays open: read the line for each port. *In use* means DashDeck (check Task Manager
+   for a leftover `DashDeck.Host`) or FORScan still holds it. Send me that screen if it is anything
+   else.
+   Before the checklist it says *Checking the bus on OBD pins 3 and 11…* and then either *Pins 3/11
+   carry a 125 kbit/s bus*, *…a 500 kbit/s bus*, or *Nothing heard on pins 3/11*. **Tell me which** —
+   it decides how DashDeck itself must talk on those pins (open question Q21).
+3. Choose **S**, press Enter. **Expect:**
+   - about half a minute of progress;
+   - a list of modules on HS-CAN and MS-CAN: `7E0 PCM — powertrain control (likely)` with a part
+     number, and a dozen or more others.
+
+   Tell me how many and which.
+4. Choose **1** (Driver door), with every door shut and the ignition on. Press Enter, then follow each
+   STEP: shut, open, shut, open, shut, pressing Enter after each and holding still for the countdown.
+   **Expect:**
+   - *Hearing MS-CAN*;
+   - after the last step, *Heard N frames from M identifiers* — thousands from dozens — and, on
+     HS-CAN, *heard in N bursts*;
+   - a ranked table.
+
+   If a row reads `0 1 0 1 0` (or `1 0 1 0 1`), type its number, open and shut the door a few times,
+   and watch the value change with it. Then answer **y**, or **n** if it did not follow.
+5. Do the same for **3** (Driver seatbelt) and **5** (Driver seat heat), engine running for the seat.
+   **Expect:**
+   - the seat's best row to step up with the levels: `0 1 2 3 0`;
+   - if a row's values only differ without stepping up, it is weaker — check it live.
+6. If any listen says *The adapter lost frames*, note which bus. That is open question Q20.
+7. **Next morning, cold engine:** choose **15** (Engine oil temperature):
+   - press Enter for module `7E0`, then for range `1000-1FFF`, then to sweep (about four minutes,
+     ignition on);
+   - start the engine when it says to;
+   - press Enter to start watching, and let it idle.
+
+   **Expect:**
+   - a line per pass, with coolant rising and *closest so far* naming an identifier with *r* climbing
+     towards 1;
+   - after 12 minutes (or Enter to stop), a table of what moved with coolant, with a *LOOKS LIKE*
+     scaling where one fits.
+
+   If FORScan on a laptop shows oil temperature, pick the top row's number and compare the two live.
+8. With the engine warm, choose **17** (Fuel flow). When it shows `>>> REV now`, press the accelerator
+   gently to about 2,000 rpm for two seconds, then let it fall back. Never above 3,000. **Expect:**
+   - rpm in the pass lines jumping with each rev;
+   - the ranked table led by identifiers with *r* near 1.
+9. Choose **19** (Distance to empty) and type the number the cluster shows. It asks for a second
+   round. Press B to stop for now, or come back after a drive with the new number. **Expect:** a short
+   list of identifiers that give your number, with how they decode.
+10. Choose **Q**. **Expect:** the path to `findings.csv`. Send me that file, and the other CSVs beside it
+    if you can.
+
+**A failure looks like:**
+- anything on the truck behaving differently while the hunter runs — a warning on the cluster, the
+  radio resetting, a module going quiet. Listening is silent, so this should never happen; if it does,
+  quit straight away and tell me;
+- a step running while the truck is moving;
+- a listen that hears nothing with the ignition on;
+- the program stuck and not answering Enter (Ctrl+C quits it).
+
+## Pins 3/11 at the measured 500 kbit/s (Q21)
+
+**You need:**
+- the truck, engine **running**, parked;
+- the adapter;
+- DashDeck built from develop with this change.
+
+1. Start DashDeck. **Expect:** the dash goes live as usual (the SIM badge goes).
+2. Tap **DASH** and leave it for a minute, then tap **CLIMATE** and leave it for a minute. **Expect:**
+   - the placeholder values still read a dash with a grey dot — they are still placeholders;
+   - **nothing on the truck's cluster**: no warning, no message, no gauge dropping out. Before this
+     change those requests went out at the wrong speed.
+3. **Settings ▸ Sensors ▸ MODULES ▸ SCAN FOR MODULES.** **Expect:** modules on **MS-CAN** as well as
+   HS-CAN. On this truck "MS" means pins 3/11, now asked at 500 kbit/s. The cluster at `720` may be
+   among them. Tell me which ones answer.
+
+**A failure looks like:**
+- any warning on the cluster while DashDeck runs;
+- the scan still finding nothing on MS-CAN with the engine running.
+
+## The ID hunter — checking a CAN database (ADR-0045)
+
+**You need:**
+- the truck, engine **running** and warm, parked;
+- the adapter, with DashDeck closed;
+- the `.dbcx` file copied to `%LOCALAPPDATA%\DashDeck\dbc\`;
+- FORScan on a laptop if you can, to compare against.
+
+1. Start the hunter and choose **D**. Press Enter to take the file. **Expect:** *VehicleCAN.dbcx: 329
+   messages, 2141 signals.*
+2. Press Enter to check presence. **Expect:** a line per bus, then *N of the file's 329 messages are on
+   this truck*. **Tell me N.** It says how close this file is to your 2019.
+3. Press Enter to search DashDeck's list. **Expect:** rows with **HEARD ON**. Write down which of these
+   are heard:
+   - `156` EngOil_Te_Actl
+   - `230` GboxOil_Te_Actl
+   - `179` FuelFlw_Vl_Dsply
+   - `3B3` DrStatDrv_B_Actl
+   - `3B5` Tire_Press_*
+   - `430` OdometerMasterValue
+4. For each one heard, type its number. **Expect:**
+   - **oil and gearbox temperature:** a value within a few degrees of FORScan's;
+   - **tyres:** kPa, so 240 kPa is 35 psi; compare with the cluster's tyre screen;
+   - **driver door:** Closed/Ajar following the door;
+   - **odometer:** the cluster's kilometres.
+
+   Press Enter, then answer **y** or **n** for each.
+5. Quit. Send me `findings.csv`.
+
+**A failure looks like:**
+- the file not loading;
+- every message *not heard* with the engine running;
+- any warning on the cluster. Listening is silent, so there should be none.
+
