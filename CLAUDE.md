@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **623 tests green** — 231 engine, 392 shell.
+(ADR-0010). **634 tests green** — 242 engine, 392 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -333,10 +333,12 @@ measured:
   smooth high-rate gauges need request batching, not a faster link. The simulator now runs at
   the same 52 ms (`SyntheticFaults.Realistic`).
 - **MS-CAN is reachable from the OBD port** — the adapter accepts the switch and the Gateway
-  Module does not get in the way (Q5). **But see Q21:** in the truck a silent listen at 125 kbit/s on
-  pins 3/11 heard nothing and the cluster did not answer — those pins may carry a 500 kbit/s bus, in
-  which case DashDeck's "MS" requests at 125 kbit/s put error frames on it. The ID hunter measures the
-  rate by listening first (`STPBR`, `ElmAdapter.Pins311BitRate`); the dash has not caught up.
+  Module does not get in the way (Q5). **But "MS" is a misnomer on this truck (Q21):** a silent listen on
+  pins 3/11 heard nothing at 125 kbit/s and traffic at **500 kbit/s** — a second high-speed bus, not
+  MS-CAN. DashDeck's requests there went out at 125 kbit/s and made error frames on it until the F-150
+  pack gained `"pins311BitRate": 500000`; `VehicleStack` now sets `ElmAdapter.Pins311BitRate` (and the
+  synthetic truck's) from the pack, and the adapter sends `STPBR` after `STP53`. **Never send on pins
+  3/11 at a rate nobody measured.** `CanBus.Ms` still means "pins 3/11", whatever the rate.
 - **The truck answers 48 standard PIDs but neither fuel rate (`5E`) nor MAF (`10`)** (Q4). So
   **Fuel Economy, Avg Economy and Range Estimator read blank on the real truck** — they need
   `engine.fuelRate`. The fix is decided, not built: speed-density from MAP, IAT, RPM and lambda,

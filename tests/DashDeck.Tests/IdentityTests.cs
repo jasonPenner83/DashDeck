@@ -221,6 +221,27 @@ public class IdentityTests
     }
 
     [Fact]
+    public void A_pack_can_name_the_rate_on_pins_3_and_11_and_a_bad_one_is_refused()
+    {
+        var pack = VehiclePacks.Parse("""{ "name": "P", "match": { "make": "Ford" }, "pins311BitRate": 500000 }""", "p.json");
+        Assert.Equal(500000, VehiclePacks.Pins311BitRate([pack]));
+        Assert.Null(VehiclePacks.Pins311BitRate([Pack()]));
+
+        var ex = Assert.Throws<InvalidDataException>(() =>
+            VehiclePacks.Parse("""{ "name": "P", "match": { "make": "Ford" }, "pins311BitRate": 123 }""", "p.json"));
+        Assert.Contains("pins311BitRate", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_f150_pack_sends_at_the_measured_500_kbits_on_pins_3_and_11()
+    {
+        var folder = Path.Combine(Path.GetDirectoryName(TestCatalog.Path())!, "vehicles");
+        var (packs, _) = VehiclePacks.LoadFolder(folder);
+
+        Assert.Equal(500000, VehiclePacks.Pins311BitRate(VehiclePacks.Select(packs, F150())));
+    }
+
+    [Fact]
     public void The_shipped_packs_all_load()
     {
         var folder = Path.Combine(Path.GetDirectoryName(TestCatalog.Path())!, "vehicles");

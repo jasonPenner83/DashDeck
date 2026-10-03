@@ -760,6 +760,26 @@ The guide itself: [id-hunter](id-hunter.md).
 - a listen that hears nothing with the ignition on;
 - the program stuck and not answering Enter (Ctrl+C quits it).
 
+## Pins 3/11 at the measured 500 kbit/s (Q21)
+
+**You need:**
+- the truck, engine **running**, parked;
+- the adapter;
+- DashDeck built from develop with this change.
+
+1. Start DashDeck. **Expect:** the dash goes live as usual (the SIM badge goes).
+2. Tap **DASH** and leave it for a minute, then tap **CLIMATE** and leave it for a minute. **Expect:**
+   - the placeholder values still read a dash with a grey dot — they are still placeholders;
+   - **nothing on the truck's cluster**: no warning, no message, no gauge dropping out. Before this
+     change those requests went out at the wrong speed.
+3. **Settings ▸ Sensors ▸ MODULES ▸ SCAN FOR MODULES.** **Expect:** modules on **MS-CAN** as well as
+   HS-CAN. On this truck "MS" means pins 3/11, now asked at 500 kbit/s. The cluster at `720` may be
+   among them. Tell me which ones answer.
+
+**A failure looks like:**
+- any warning on the cluster while DashDeck runs;
+- the scan still finding nothing on MS-CAN with the engine running.
+
 ## The ID hunter — checking a CAN database (ADR-0045)
 
 **You need:**

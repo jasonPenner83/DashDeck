@@ -87,6 +87,13 @@ public sealed record VehiclePack
     /// </remarks>
     public IReadOnlyDictionary<string, string> Modules { get; init; } = new Dictionary<string, string>();
 
+    /// <summary>
+    /// The rate of the bus on OBD pins 3 and 11, when it is not the 125 kbit/s MS-CAN the adapter
+    /// assumes — measured on a real vehicle by listening (ADR-0044), never guessed. Sending at the
+    /// wrong rate puts error frames on that bus.
+    /// </summary>
+    public int? Pins311BitRate { get; init; }
+
     /// <summary>The file it came from, for error messages.</summary>
     public string? FileName { get; init; }
 }
@@ -132,6 +139,11 @@ public static class VehiclePacks
         problems.AddRange(pack.Modules.Keys
             .Where(k => SignalDefinition.ParseModule(k) is null)
             .Select(k => $"modules: '{k}' is not a module address (700–7F7, 8s digit clear)"));
+        if (pack.Pins311BitRate is { } rate && rate is not (125000 or 250000 or 500000 or 1000000))
+        {
+            problems.Add($"pins311BitRate {rate} is not a CAN rate (125000, 250000, 500000 or 1000000)");
+        }
+
         problems.AddRange(pack.Signals
             .GroupBy(d => d.Id, StringComparer.Ordinal)
             .Where(g => g.Count() > 1)
@@ -173,6 +185,10 @@ public static class VehiclePacks
 
         return (packs, problems);
     }
+
+    /// <summary>The pins 3/11 rate the matching packs give, or null when none says.</summary>
+    public static int? Pins311BitRate(IEnumerable<VehiclePack> packs) =>
+        packs.Select(p => p.Pins311BitRate).FirstOrDefault(r => r is not null);
 
     /// <summary>The packs that fit this vehicle. None for a vehicle nothing is known about.</summary>
     public static IReadOnlyList<VehiclePack> Select(IEnumerable<VehiclePack> packs, VehicleIdentity vehicle) =>
