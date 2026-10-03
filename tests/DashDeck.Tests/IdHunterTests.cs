@@ -274,4 +274,25 @@ public sealed class IdHunterTests : IDisposable
         Assert.Contains("only HS-CAN is asked", io.Output);
         Assert.DoesNotContain("pins 3/11 (", io.Output);
     }
+
+    [Fact]
+    public async Task A_value_the_module_keeps_to_itself_is_found_by_asking_it_through_the_steps()
+    {
+        var (io, findings) = await Run(
+            Number("seat.driver.cool").ToString(System.Globalization.CultureInfo.InvariantCulture), "",
+            "", "", "", "", "",   // the listen on pins 3/11
+            "",                    // no live check
+            "b",                   // not HS-CAN
+            "",                    // ask a module instead
+            "733", "4400-44FF", "", // the module, a range, sweep
+            "",                    // ready
+            "", "", "", "", "",    // the steps again
+            "",                    // no live check
+            "q");
+
+        Assert.Contains("What 733 changed with you", io.Output);
+        Assert.Contains("4401   byte 0 high nibble", io.Output);
+        Assert.Contains("ask,pins 3/11 (125 kbit/s),733,,4401,byte 0 high nibble", findings);
+        Assert.DoesNotContain(",4402,", findings);
+    }
 }

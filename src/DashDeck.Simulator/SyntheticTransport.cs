@@ -545,7 +545,16 @@ public sealed class SyntheticTransport : IStreamingTransport
             [0x4201] = () => TwoByte((ushort)Math.Round(_truck.RangeKm)),
             [0x4202] = () => TwoByte((ushort)Math.Round(Math.Max(_truck.EconomyL100, 13.4) * 10)),
         },
-        (CanBus.Ms, 0x733) => new() { [0xF113] = () => Ascii("SYNTH-HVAC-18C612-AA") },
+        (CanBus.Ms, 0x733) => new()
+        {
+            [0xF113] = () => Ascii("SYNTH-HVAC-18C612-AA"),
+
+            // Invented: the driver seat's level as the module holds it — heat in the low nibble,
+            // cooling in the high — for the ID hunter's ask-while-you-do-it path, and a counter
+            // beside it that a ranker must not take for it.
+            [0x4401] = () => [Seat(_truck.Cabin.DriverSeat)],
+            [0x4402] = () => [(byte)_truck.Random.Next(256)],
+        },
         _ => null,
     };
 

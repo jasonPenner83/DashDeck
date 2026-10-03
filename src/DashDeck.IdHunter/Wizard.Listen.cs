@@ -42,8 +42,23 @@ internal sealed partial class Wizard
             if (bus != buses[^1] &&
                 !Proceed($"Try {Bus(buses[^1])} too? Press Enter for yes, B for no"))
             {
-                return;
+                break;
             }
+        }
+
+        await OfferAskAsync(target, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>After a listen that confirmed nothing, offer to ask a module instead.</summary>
+    private async Task OfferAskAsync(HuntTarget target, CancellationToken ct)
+    {
+        _io.WriteLine();
+        _io.WriteLine("Not everything is broadcast: some values stay inside the module that runs them, and have to");
+        _io.WriteLine("be asked for. If FORScan names the module (SCME for the seats), the guide can ask it while you");
+        _io.WriteLine("do the same steps.");
+        if (Proceed("Press Enter to ask a module, or B to go back"))
+        {
+            await AskStepsAsync(target with { Modules = [] }, target.Steps, ct).ConfigureAwait(false);
         }
     }
 
