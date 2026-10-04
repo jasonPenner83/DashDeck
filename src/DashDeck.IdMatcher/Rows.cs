@@ -163,14 +163,17 @@ public sealed record SignalRow(SignalStanding Standing)
 
     public bool NeedsId => Standing.NeedsId;
 
-    public string Status => Standing.Status switch
+    public bool Hidden => Standing.Hidden;
+
+    public string Status => (Standing.Status switch
     {
         PairingStatus.Placeholder => "NEEDS ID",
         PairingStatus.NotOnThisTruck => "NOT ON TRUCK",
         PairingStatus.Pack => "PACK",
         PairingStatus.Yours => "YOURS",
+        PairingStatus.Unconfirmed => "UNCONFIRMED",
         _ => "STANDARD",
-    };
+    }) + (Standing.Hidden ? " · HIDDEN" : "");
 
     public string Where => Definition.Mode == 0x01 && Definition.Module is null
         ? $"01 {Definition.Pid:X2}"

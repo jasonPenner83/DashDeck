@@ -141,6 +141,23 @@ public sealed record SignalDefinition
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Placeholder { get; init; }
 
+    /// <summary>
+    /// True when the person has hidden it (ADR-0051): it leaves the card editor's picker and the ID
+    /// matcher's list, but stays in the catalog, so a card, screen or component that uses it keeps
+    /// working. Set by an overlay entry; a built-in signal is hidden, never deleted.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Hidden { get; init; }
+
+    /// <summary>
+    /// True for a definition typed by hand rather than measured (ADR-0051): not offered in the card
+    /// editor's picker until TEST on the truck has answered it and it is saved again from Settings ▸
+    /// Sensors. A typed PID that happens to answer decodes into a plausible wrong number; this is
+    /// how DashDeck keeps from showing one.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Unconfirmed { get; init; }
+
     /// <summary>Rate used when a component does not ask for a specific one.</summary>
     public double DefaultRateHz { get; init; } = 1.0;
 

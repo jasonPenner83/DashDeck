@@ -35,6 +35,12 @@ public sealed record ValueChoice(
     CardSource Source,
     string Category)
 {
+    /// <summary>
+    /// False for a signal the picker should not offer (ADR-0051): hidden by the person, or typed by
+    /// hand and not yet answered by TEST. A card already pointed at one keeps working.
+    /// </summary>
+    public bool Offered { get; init; } = true;
+
     /// <summary>The name as the dash draws it.</summary>
     public string Caption => Name.ToUpperInvariant();
 
@@ -59,7 +65,10 @@ public sealed record ValueChoice(
     /// <summary>Project the signal catalog into what the editor can show.</summary>
     public static IEnumerable<ValueChoice> From(SignalCatalog catalog) =>
         catalog.Definitions.Select(d => new ValueChoice(
-            d.Id, d.Name, d.Decode.Unit, d.DefaultRateHz, d.Min, d.Max, CardSource.Signal, d.Category));
+            d.Id, d.Name, d.Decode.Unit, d.DefaultRateHz, d.Min, d.Max, CardSource.Signal, d.Category)
+        {
+            Offered = !d.Hidden && !d.Unconfirmed,
+        });
 
     /// <summary>Project the sensor catalog the same way. Tablet sensors and the phone's GPS
     /// (ADR-0027) are their own groups, so the picker separates the truck's opinion from the

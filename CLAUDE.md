@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **714 tests green** — 321 engine, 393 shell.
+(ADR-0010). **728 tests green** — 329 engine, 399 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -220,7 +220,13 @@ and offsets in metric (°F/psi/mph converted) and fits a line once the raw value
 PID log CSV (`ForscanCsv`, `LogMatcher`, R²). Pairing keeps the DashDeck signal's id, name, range and
 rate, takes the truck's module/mode/PID/decode in the signal's unit (`SignalPairing.Pair`), and saves
 to **`signals.user.json`** or exports **pack entries**; TEST still confirms before a pack commit. The
-tap code lives in `DashDeck.Vehicle.Tap` now, shared with SerialTap. Reference:
+tap code lives in `DashDeck.Vehicle.Tap` now, shared with SerialTap. **Signals are added, edited,
+hidden and removed there too** (ADR-0051, `SignalWorkbench`): built-ins are **hidden** (`"hidden": true`
+in the overlay — out of the card picker via `ValueChoice.Offered`, still working for anything using
+them), never deleted; REMOVE takes away only your entry (yours removed, a correction reverted); a
+definition **typed by hand** is `"unconfirmed": true` — not offered in the picker until the tablet's
+TEST answers exactly that request and it is saved from Settings ▸ Sensors. Changing a signal's source
+or decode makes it unconfirmed; renaming does not. Reference:
 [`docs/id-matcher.md`](docs/id-matcher.md).
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
@@ -459,7 +465,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Fifty exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Fifty-one exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -487,7 +493,8 @@ the user's own, and a separate guided ID hunter that listens silently, follows a
 that ignore touch — tried and withdrawn (ADR-0046, superseded by ADR-0047): a hosted program gets the
 whole stage, and a serial tap that records FORScan by standing between it and the adapter, and fast
 requests asked FORScan's way — filtered to the engine computer, with a count of one, and the
-ID matcher, a desktop program where DashDeck's identifiers are managed against FORScan.
+ID matcher, a desktop program where DashDeck's identifiers are managed against FORScan — signals
+added, edited and hidden there, typed ones held unconfirmed until TEST.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.
