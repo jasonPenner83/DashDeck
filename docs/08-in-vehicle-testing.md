@@ -814,3 +814,38 @@ The guide itself: [id-hunter](id-hunter.md).
 - every message *not heard* with the engine running;
 - any warning on the cluster. Listening is silent, so there should be none.
 
+
+## Scroll strip beside a program (ADR-0046)
+
+**You need:**
+- the tablet, on the truck or at a desk (no adapter or ignition needed);
+- internet, if NUVIO needs it to show its lists;
+- NuvioDesktop installed.
+
+1. Choose **NUVIO** on the launcher. **Expect:**
+   - NuvioDesktop takes the stage, with a **strip down its right edge** — 64 px wide, with an up
+     chevron, three short bars and a down chevron;
+   - the program sits beside the strip, never under it.
+2. Open a long list in Nuvio. Put a finger on the strip beside it and **drag down slowly**. **Expect:**
+   - the strip lights while your finger is on it;
+   - the list comes **down** with your finger, a step at a time — about three lines for every
+     finger-width.
+3. Drag **up**. **Expect:** the list goes up.
+4. **Flick** up and let go. **Expect:** the list keeps going for a moment and slows down.
+5. Drag beside a different part of the screen — level with the page rather than a row. **Expect:**
+   whatever lies beside your finger scrolls. A row that scrolls sideways may take the scroll when it
+   is level with your finger. Drag at the height of a gap between rows to move the page.
+6. Choose **CLOCK**, then **NUVIO** again. **Expect:** the strip comes back with the program.
+7. If steps 2–4 did nothing:
+   1. In **Settings ▸ Apps ▸ STAGE LAUNCHER**, tap **MAKE IT MINE**, then **OPEN FOLDER**.
+   2. In `launcher.json`, add `"scrollBy": "input",` to the NUVIO entry and save.
+   3. Tap **RELOAD**, then repeat steps 1–4.
+   4. Tell me which setting worked.
+8. To move the strip to the left, add `"scrollStrip": "left"` to an entry. To remove it, add
+   `"scrollStrip": "off"`.
+
+**A failure looks like:**
+- no strip while Nuvio is on the stage;
+- the strip lighting while nothing scrolls, with either setting;
+- the pointer left over Nuvio after a drag with `input`;
+- Nuvio covering the strip.

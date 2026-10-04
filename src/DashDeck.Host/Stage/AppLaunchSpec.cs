@@ -24,6 +24,9 @@ public sealed record AppLaunchSpec(
     IReadOnlyList<string> Candidates,
     string Arguments = "")
 {
+    /// <summary>The scroll strip beside it, if any, and how it scrolls (ADR-0046).</summary>
+    public ScrollStripOptions Scroll { get; init; } = ScrollStripOptions.Default;
+
     /// <summary>
     /// The first candidate that exists, or null.
     /// </summary>
@@ -62,7 +65,10 @@ public sealed record AppLaunchSpec(
             entry.Name,
             entry.Detail ?? "",
             [.. (entry.Paths ?? []).Where(p => !string.IsNullOrWhiteSpace(p))],
-            entry.Arguments ?? "");
+            entry.Arguments ?? "")
+        {
+            Scroll = ScrollStripOptions.From(entry.ScrollStrip, entry.ScrollBy),
+        };
     }
 
     /// <summary>

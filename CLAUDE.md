@@ -124,6 +124,12 @@ name (`NamedOccupant` wraps an occupant whose own name differs, because the butt
 the stage by name). A bad entry is left out and named; a bad file leaves the built-in list.
 **Settings ▸ Apps ▸ STAGE LAUNCHER** shows it, with RELOAD, MAKE IT MINE and OPEN FOLDER.
 Reference: [`docs/writing-a-launcher.md`](docs/writing-a-launcher.md).
+**A hosted program gets a scroll strip** (ADR-0046): 64 px down the stage's right edge, beside the
+program and never under it, shown only while it is `Hosted`. Finger travel on it (manipulation, with
+inertia) becomes whole wheel notches, one per 40 px (`WheelSteps`), delivered at the finger's height
+just inside the program's edge — a posted `WM_MOUSEWHEEL` by default, or a real wheel turn through
+`SendInput` with `"scrollBy": "input"`; `"scrollStrip"` is `right`, `left` or `off` per entry. It is for
+programs that read a finger as a mouse — NuvioDesktop will not scroll by touch even outside DashDeck.
 
 **COMPASS is a stage layout too** (ADR-0039). A gauge's `source` can be a **`sensor`** from the
 sensor catalog (`attitude.pitch`, `motion.lateralG`, `location.latitude`…) instead of a signal —
@@ -426,7 +432,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Forty-five exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Forty-six exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -450,7 +456,7 @@ the launcher as a file — every stage option, web page and program, in order, a
 the compass as layout elements — sensor-sourced gauges, a rose and a G meter, and a read-only
 climate panel drawn from a layout file in place of the cards, and DASH as a console layout with
 warning lights while the cards move onto the stage, and clean, typographic defaults for both, and two default themes, Modern and Glass, with LCARS made
-the user's own, and a separate guided ID hunter that listens silently, follows and matches, and CAN databases as leads checked on the truck, never shipped.
+the user's own, and a separate guided ID hunter that listens silently, follows and matches, and CAN databases as leads checked on the truck, never shipped, and a scroll strip that turns a finger into a mouse wheel for programs that ignore touch.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.
