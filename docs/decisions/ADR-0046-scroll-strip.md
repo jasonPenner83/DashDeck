@@ -1,6 +1,6 @@
 # ADR-0046 — A scroll strip beside a hosted program that will not scroll for a finger
 
-**Status:** Accepted · 2026-10-03
+**Status:** Superseded by [ADR-0047](ADR-0047-no-scroll-strip.md) · accepted 2026-10-03, withdrawn 2026-10-04
 **Builds on:** [ADR-0021](ADR-0021-owned-not-reparented.md) (programs are owned and placed over the
 stage) · [ADR-0038](ADR-0038-stage-launcher-file.md) (the launcher file). **Keeps:** the touch trap in
 CLAUDE.md (manipulation, not mouse events, on anything a finger drags).
