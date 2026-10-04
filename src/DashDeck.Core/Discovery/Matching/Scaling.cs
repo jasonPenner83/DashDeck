@@ -80,6 +80,9 @@ public enum ShownUnit
     Miles,
     Degrees,
     Ms,
+
+    /// <summary>A switch: FORScan shows On / Off, Yes / No, Open / Closed (ADR-0050).</summary>
+    OnOff,
 }
 
 /// <summary>Turns what FORScan showed into the metric unit the catalog stores.</summary>
@@ -107,6 +110,7 @@ public static class UnitConversion
         ShownUnit.Volt => (shown, 1, "V"),
         ShownUnit.Degrees => (shown, 1, "°"),
         ShownUnit.Ms => (shown, 1, "ms"),
+        ShownUnit.OnOff => (shown, 1, ""),
         _ => (shown, 1, ""),
     };
 
@@ -132,6 +136,7 @@ public static class UnitConversion
         "mi" or "miles" => ShownUnit.Miles,
         "°" or "deg" => ShownUnit.Degrees,
         "ms" => ShownUnit.Ms,
+        "on/off" or "on / off" or "state" or "bool" => ShownUnit.OnOff,
         _ => ShownUnit.None,
     };
 
@@ -157,7 +162,19 @@ public static class UnitConversion
         ShownUnit.Miles => "mi",
         ShownUnit.Degrees => "°",
         ShownUnit.Ms => "ms",
+        ShownUnit.OnOff => "on / off",
         _ => "(no unit)",
+    };
+
+    /// <summary>
+    /// A switch's state as FORScan words it — on, yes, open, ajar, active… — or null for anything that
+    /// is not one. Numbers are not states here: 1 and 0 are read as numbers unless the unit says on / off.
+    /// </summary>
+    public static bool? ParseState(string text) => text.Trim().ToLowerInvariant() switch
+    {
+        "on" or "yes" or "true" or "open" or "opened" or "ajar" or "active" or "engaged" or "pressed" or "set" or "fastened" or "lit" => true,
+        "off" or "no" or "false" or "closed" or "close" or "shut" or "inactive" or "disengaged" or "released" or "clear" or "unfastened" or "not lit" => false,
+        _ => null,
     };
 
     /// <summary>
@@ -191,13 +208,30 @@ public sealed record ScalingCandidate(
     int Samples,
     int DistinctRaw,
     bool Fitted,
-    double? R2 = null)
+    double? R2 = null,
+    int? Bit = null,
+    bool Inverted = false)
 {
+    /// <summary>The mask for a switch read from one bit, or null for a number.</summary>
+    public long? Mask => Bit is { } bit ? 1L << bit : null;
+
+    /// <summary>A switch: one bit of one byte, read 1 for on.</summary>
+    public static ScalingCandidate ForBit(int byteOffset, int bit, bool inverted, int samples, int statesSeen, double? agreement = null) =>
+        new(new RawWindow(byteOffset, 1, false),
+            inverted ? -1.0 / (1 << bit) : 1.0 / (1 << bit),
+            inverted ? 1 : 0,
+            0, samples, statesSeen, false, agreement, bit, inverted);
+
     /// <summary>The formula as people write it: <c>(A·256+B) × 0.0625</c>, <c>A − 40</c>.</summary>
     public string Formula
     {
         get
         {
+            if (Bit is { } bit)
+            {
+                return $"{(Inverted ? "NOT " : "")}bit {bit} of {Window.Letters}  (on when {(Inverted ? 0 : 1)})";
+            }
+
             var text = Window.Letters;
             if (Math.Abs(Scale - 1) > 1e-12)
             {
@@ -216,11 +250,13 @@ public sealed record ScalingCandidate(
     }
 
     /// <summary>What it reads for an answer.</summary>
-    public double? Apply(ReadOnlySpan<byte> payload) => Window.Read(payload) is { } raw ? (raw * Scale) + Offset : null;
+    public double? Apply(ReadOnlySpan<byte> payload) => Window.Read(payload) is { } raw
+        ? ((Mask is { } mask ? raw & mask : raw) * Scale) + Offset
+        : null;
 
     /// <summary>The catalog's decode for it.</summary>
     public DecodeSpec ToDecode(string unit) =>
-        new(Window.Offset, Window.Length, Window.Signed, Scale, Offset, unit);
+        new(Window.Offset, Window.Length, Window.Signed, Scale, Offset, unit, Mask);
 
     private static string Fmt(double v) => v.ToString("0.######", CultureInfo.InvariantCulture);
 }
@@ -353,6 +389,88 @@ public static class ScalingFitter
         var scale = SnapScale(fitted.Scale * factor);
         var offset = SnapOffset(UnitConversion.ToMetric(fitted.Offset, unit).Value, Math.Max(Math.Abs(scale), 0.05));
         return fitted with { Scale = scale, Offset = offset, WorstError = fitted.WorstError * factor };
+    }
+
+    /// <summary>
+    /// Bits that agree with every switch state FORScan showed: 1 each time it said on and 0 each time
+    /// off, or the other way round. Best first — ones that have seen both states, then plain before
+    /// inverted, then lower bytes.
+    /// </summary>
+    /// <remarks>
+    /// A switch is almost never a whole byte: a door ajar is one bit among the body module's flags, so
+    /// the byte reads 08 for open and 00 for shut, and no step and offset turns that into 1 and 0.
+    /// One state proves little — every bit that happens to match fits — so the candidates thin out as
+    /// the switch is flipped and both states are typed.
+    /// </remarks>
+    public static IReadOnlyList<ScalingCandidate> FromStates(IReadOnlyList<(byte[] Payload, bool On)> samples, int limit = 25)
+    {
+        if (samples.Count == 0)
+        {
+            return [];
+        }
+
+        var length = samples.Min(s => s.Payload.Length);
+        var states = samples.Select(s => s.On).Distinct().Count();
+        var found = new List<ScalingCandidate>();
+
+        for (var i = 0; i < length; i++)
+        {
+            for (var bit = 0; bit < 8; bit++)
+            {
+                var plain = samples.All(s => ((s.Payload[i] >> bit) & 1) == (s.On ? 1 : 0));
+                var inverted = samples.All(s => ((s.Payload[i] >> bit) & 1) == (s.On ? 0 : 1));
+
+                if (plain)
+                {
+                    found.Add(ScalingCandidate.ForBit(i, bit, false, samples.Count, states));
+                }
+
+                if (inverted)
+                {
+                    found.Add(ScalingCandidate.ForBit(i, bit, true, samples.Count, states));
+                }
+            }
+        }
+
+        return [.. found.OrderBy(c => c.Inverted).ThenBy(c => c.Window.Offset).ThenBy(c => c.Bit).Take(limit)];
+    }
+
+    /// <summary>
+    /// For a logged column that takes two values — a switch — the bits that follow it, scored by how
+    /// often they agree (carried in <see cref="ScalingCandidate.R2"/>), best first. At least 97%.
+    /// </summary>
+    public static IReadOnlyList<ScalingCandidate> FromBinarySeries(IReadOnlyList<(byte[] Payload, double Value)> points, int limit = 5)
+    {
+        var values = points.Select(p => p.Value).Distinct().OrderBy(v => v).ToList();
+        if (values.Count != 2 || points.Count < 3)
+        {
+            return [];
+        }
+
+        var high = values[1];
+        var length = points.Min(p => p.Payload.Length);
+        var found = new List<ScalingCandidate>();
+
+        for (var i = 0; i < length; i++)
+        {
+            for (var bit = 0; bit < 8; bit++)
+            {
+                var agree = points.Count(p => ((p.Payload[i] >> bit) & 1) == (p.Value == high ? 1 : 0));
+                var fraction = (double)agree / points.Count;
+                var inverted = fraction < 0.5;
+                var score = inverted ? 1 - fraction : fraction;
+
+                // A bit that never moved agrees with whichever state the log spent most time in;
+                // it has to have taken both values to be evidence.
+                var bitValues = points.Select(p => (p.Payload[i] >> bit) & 1).Distinct().Count();
+                if (score >= 0.97 && bitValues == 2)
+                {
+                    found.Add(ScalingCandidate.ForBit(i, bit, inverted, points.Count, 2, score));
+                }
+            }
+        }
+
+        return [.. found.OrderByDescending(c => c.R2).ThenBy(c => c.Inverted).ThenBy(c => c.Window.Offset).ThenBy(c => c.Bit).Take(limit)];
     }
 
     private static IEnumerable<ScalingCandidate> Rank(List<ScalingCandidate> found) => found

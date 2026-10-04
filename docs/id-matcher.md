@@ -59,6 +59,25 @@ Every session is also saved as a tap log in `%LOCALAPPDATA%\DashDeck\tap\`. **Op
 Without a DashDeck signal selected, a match becomes a new signal named after FORScan's value.
 **Esc** stops pairing.
 
+### Switches — things that are only on or off
+
+A door, a seatbelt, a lamp: FORScan shows *On*/*Off*, *Open*/*Closed* or *Yes*/*No*, with no unit.
+Type the word as it is shown (or `1`/`0` with the unit set to **on / off**). Typing a word sets the
+unit to **on / off** by itself.
+
+A switch is almost never a whole byte — it is one **bit** among a module's flags, so the byte reads
+`48` for open and `40` for shut. The matcher looks for the bit that is 1 every time you said on and 0
+every time you said off (or the other way round — *NOT bit…*, for a light that is lit by a 0).
+
+1. Select the identifier, type the state FORScan shows now (say *Closed*), press **Enter**. Every bit
+   that happens to match fits, so the list is long; the hint says to switch it the other way.
+2. Open the door, wait for FORScan to show *Open*, type it, press **Enter**.
+3. Shut it and add *Closed* again, then *Open* again. Coincidences drop away until **one bit fits,
+   seen both ways**. **Ctrl+Enter** accepts it. *Reads now* says on or off as you move it.
+
+It is saved as a decode with a **mask** — `"mask": 8` for bit 3 — and reads 0 or 1 on the dash, which
+is what the console's warning lights (`warning.*`) and indicators expect.
+
 ## Matching many, from FORScan's PID log
 
 1. With the tap running, open several values in FORScan and start its **PID log**.
@@ -73,6 +92,10 @@ Without a DashDeck signal selected, a match becomes a new signal named after FOR
 
 A column that never moved can't be matched, because a constant fits anything. Make each value
 change while logging.
+
+A column of *On*/*Off* (or *Open*/*Closed*, *Yes*/*No*) is a switch: it is matched to the **bit**
+that follows it, scored by how often they agree (at least 97%, shown in the R² column), not by a
+line. Flip the switch a few times during the log — once each way is the least that proves anything.
 
 ## Adding, editing, hiding and removing signals
 

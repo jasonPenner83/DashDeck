@@ -65,16 +65,17 @@ public static class LogMatcher
 
     private static double Score(ForscanLog log, List<IdentifierStats> identifiers, DateTimeOffset start, int points) =>
         log.Columns
-            .Where(c => c.DistinctValues >= 3)
+            .Where(c => c.DistinctValues >= 2)
             .Select(c => MatchColumn(c, identifiers, start, points).Best?.Scaling.R2 ?? 0)
             .DefaultIfEmpty(0)
             .Sum();
 
     private static ColumnMatch MatchColumn(LogColumn column, List<IdentifierStats> identifiers, DateTimeOffset start, int maxPoints)
     {
-        if (column.DistinctValues < 3)
+        var binary = column.DistinctValues == 2;
+        if (column.DistinctValues < 2)
         {
-            return new ColumnMatch(column, [], "it hardly moved — make it change while logging");
+            return new ColumnMatch(column, [], "it never changed — flip it or make it move while logging");
         }
 
         var step = Math.Max(1, column.Points.Count / maxPoints);
@@ -93,9 +94,11 @@ public static class LogMatcher
                 }
             }
 
-            foreach (var candidate in ScalingFitter.FromSeries(pairs, limit: 1))
+            // A column with two values is a switch: matched bit by bit, scored by agreement.
+            var candidates = binary ? ScalingFitter.FromBinarySeries(pairs, limit: 1) : ScalingFitter.FromSeries(pairs, limit: 1);
+            foreach (var candidate in candidates)
             {
-                if (candidate.R2 >= 0.5)
+                if (candidate.R2 >= (binary ? 0.97 : 0.5))
                 {
                     found.Add((stats.Key, candidate));
                 }

@@ -86,7 +86,18 @@ public static partial class ForscanCsv
 
             for (var r = 0; r < rows.Count; r++)
             {
-                if (times[r].Time is not { } t || c >= rows[r].Count || !TryNumber(rows[r][c], decimalComma, out var v))
+                if (times[r].Time is not { } t || c >= rows[r].Count)
+                {
+                    continue;
+                }
+
+                // A switch logged as words — On/Off, Open/Closed — is a 1 and a 0.
+                double v;
+                if (UnitConversion.ParseState(rows[r][c]) is { } state)
+                {
+                    v = state ? 1 : 0;
+                }
+                else if (!TryNumber(rows[r][c], decimalComma, out v))
                 {
                     continue;
                 }

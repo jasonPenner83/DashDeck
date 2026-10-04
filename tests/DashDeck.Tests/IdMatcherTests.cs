@@ -401,7 +401,118 @@ public sealed class IdMatcherTests
         var match = Assert.Single(LogMatcher.Match(log, table).Columns);
 
         Assert.Null(match.Best);
-        Assert.Contains("moved", match.Problem, StringComparison.Ordinal);
+        Assert.Contains("never changed", match.Problem, StringComparison.Ordinal);
+    }
+
+    // ── Switches: on and off ──────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("On", true)]
+    [InlineData("OPEN", true)]
+    [InlineData("Ajar", true)]
+    [InlineData("yes", true)]
+    [InlineData("Off", false)]
+    [InlineData("Closed", false)]
+    [InlineData("not lit", false)]
+    [InlineData("12", null)]
+    [InlineData("", null)]
+    public void State_words_are_read_as_on_or_off(string typed, bool? expected) =>
+        Assert.Equal(expected, UnitConversion.ParseState(typed));
+
+    [Fact]
+    public void A_switch_typed_both_ways_is_the_one_bit_that_followed_it()
+    {
+        // Door ajar is bit 3 of the first byte; bit 6 is always set and bit 0 wanders.
+        var candidates = ScalingFitter.FromStates([
+            ([0x48, 0x01], true),
+            ([0x40, 0x01], false),
+            ([0x49, 0x00], true),
+            ([0x41, 0x00], false),
+        ]);
+
+        var best = Assert.Single(candidates);
+        Assert.Equal(3, best.Bit);
+        Assert.False(best.Inverted);
+        Assert.Equal(8, best.Mask);
+        Assert.Equal(2, best.DistinctRaw);
+        Assert.Equal(1, best.Apply([0x48, 0x00]));
+        Assert.Equal(0, best.Apply([0x47, 0x00]));
+        Assert.Contains("bit 3 of A", best.Formula, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void One_state_fits_many_bits_and_an_inverted_switch_is_found()
+    {
+        var once = ScalingFitter.FromStates([([0x00], true)]);
+        Assert.Equal(8, once.Count);
+        Assert.All(once, c => Assert.True(c.Inverted));
+
+        // A seatbelt that reads 1 when unfastened: on (fastened) is 0.
+        var both = ScalingFitter.FromStates([([0x00], true), ([0x02], false)]);
+        var best = Assert.Single(both);
+        Assert.True(best.Inverted);
+        Assert.Equal(1, best.Bit);
+        Assert.Equal(1, best.Apply([0x00]));
+        Assert.Equal(0, best.Apply([0x02]));
+    }
+
+    [Fact]
+    public void A_switch_decode_reads_zero_or_one_and_loads_from_an_export()
+    {
+        var scaling = ScalingCandidate.ForBit(0, 3, false, 4, 2);
+        var entries = MatchExport.ToPackEntries([
+            new AcceptedMatch(new IdentifierKey(CanBus.Ms, 0x726, 0x22, 0xD100), "Driver Door Ajar", scaling, "", "4 switch states"),
+        ]);
+
+        Assert.Contains("\"mask\": 8", entries, StringComparison.Ordinal);
+        var pack = VehiclePacks.Parse($$"""{ "name": "t", "match": { "make": "Ford" }, "signals": [ {{entries}} ] }""");
+
+        var signal = Assert.Single(pack.Signals);
+        Assert.Equal(8, signal.Decode.Mask);
+        Assert.Equal(1, signal.Decode.Decode([0x4C]));
+        Assert.Equal(0, signal.Decode.Decode([0x44]));
+    }
+
+    [Fact]
+    public void A_logged_on_off_column_is_matched_to_the_bit_that_follows_it()
+    {
+        var table = new IdentifierTable();
+        var door = new IdentifierKey(CanBus.Ms, 0x726, 0x22, 0xD100);
+        var counter = new IdentifierKey(CanBus.Hs, 0x7E0, 0x22, 0xDD00);
+        bool Open(int i) => i is >= 50 and < 120;
+
+        for (var i = 0; i < 200; i++)
+        {
+            var at = T0.AddMilliseconds(i * 100);
+            table.Add(new Observation(at, door, [(byte)(0x40 | (Open(i) ? 0x08 : 0) | (i & 1)), 0x00]));
+            table.Add(new Observation(at.AddMilliseconds(30), counter, [0, (byte)(i * 3)]));
+        }
+
+        var rows = Enumerable.Range(0, 40).Select(r => $"{r * 500},{(Open(r * 5) ? "Open" : "Closed")}");
+        var log = ForscanCsv.Parse("Time (ms),Door Ajar\n" + string.Join("\n", rows));
+
+        var match = Assert.Single(LogMatcher.Match(log, table).Columns);
+
+        Assert.Equal(door, match.Best!.Value.Key);
+        Assert.Equal(3, match.Best.Value.Scaling.Bit);
+        Assert.False(match.Best.Value.Scaling.Inverted);
+        Assert.True(match.Best.Value.Scaling.R2 >= 0.97);
+    }
+
+    [Fact]
+    public void A_switch_paired_with_a_placeholder_keeps_the_mask()
+    {
+        var target = TestCatalog.Load().Definitions.Single(d => d.Id == "warning.doorAjar");
+        var match = new AcceptedMatch(new IdentifierKey(CanBus.Ms, 0x726, 0x22, 0xD100), "Door Ajar",
+            ScalingCandidate.ForBit(0, 3, false, 4, 2), "", "4 switch states");
+
+        var paired = SignalPairing.Pair(match, target);
+
+        Assert.Equal("warning.doorAjar", paired.Id);
+        Assert.False(paired.Placeholder);
+        Assert.Equal(8, paired.Decode.Mask);
+        Assert.Equal(1, paired.Decode.Decode([0x08]));
+        Assert.Equal(0, paired.Decode.Decode([0xF7]));
     }
 
     // ── The export ────────────────────────────────────────────────────────────

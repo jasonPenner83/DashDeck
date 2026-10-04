@@ -144,7 +144,7 @@ public static class SignalPairing
             unit = target.Decode.Unit;
         }
 
-        var decode = new DecodeSpec(scaling.Window.Offset, scaling.Window.Length, scaling.Window.Signed, scale, offset, unit);
+        var decode = new DecodeSpec(scaling.Window.Offset, scaling.Window.Length, scaling.Window.Signed, scale, offset, unit, scaling.Mask);
 
         return new SignalDefinition
         {

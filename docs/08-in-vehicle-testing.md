@@ -972,3 +972,34 @@ Send the log in any of these cases.
 - a hidden signal breaking a card that used it;
 - an unconfirmed signal offered in the picker before TEST;
 - a renamed signal turning unconfirmed.
+
+## Matching a switch — door ajar (ID matcher, ADR-0050)
+
+**You need:**
+- the laptop with FORScan and the ID matcher, the tap running, FORScan connected through it;
+- the truck parked, ignition on (engine off is fine), a door you can open and shut.
+
+1. In FORScan, open live data for the body module and pick **one** door-ajar value (it shows
+   *Open*/*Closed* or *On*/*Off*). In the matcher, select **Warning — Door Ajar** on the left, then
+   press **Ctrl+N**. **Expect:** the newest identifier is selected.
+2. With the door shut, press **F3**, type `Closed` (or whatever FORScan shows), **Enter**. **Expect:**
+   - the unit beside the box switches to **on / off** by itself;
+   - many candidates, each *bit n of X*, marked *seen one way only*;
+   - the hint says to switch it on in the truck and add that too.
+3. Open the door. When FORScan shows *Open*, type `Open`, **Enter**. Shut it, type `Closed`; open it,
+   type `Open`. **Expect:**
+   - the list shrinks to one bit (sometimes two that move together), *seen on and off*;
+   - *Reads now* follows the door as you open and shut it.
+4. **Ctrl+Enter.** Save to DashDeck, copy the overlay to the tablet, restart. In Settings ▸ Sensors,
+   TEST the door signal with the door open, then shut. **Expect:** 1 open, 0 shut. On DASH, the door
+   light lights when it is open.
+5. From the PID log instead: clear FORScan's traffic, start its log on the door value, open and shut
+   the door three times, stop it, import it (Ctrl+I). **Expect:** the column matched to the same bit,
+   ticked, with a score of 0.97 or more.
+
+**A failure looks like:**
+- typing *Open* or *Off* refused;
+- one state alone presented as a settled match;
+- a match that reads anything other than 0 or 1;
+- the PID log's door column reported as "never changed" when the door was opened during it.
+
