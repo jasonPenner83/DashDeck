@@ -423,6 +423,7 @@
   // here; on a real truck without it these read Unavailable. Decode: 1 byte at 0.25 psi.
   {
     "id": "tire.frontLeft.pressure",
+    "placeholder": true,
     "name": "Tyre Pressure — Front Left",
     "category": "Tyres",
     "bus": "Ms",
@@ -434,6 +435,7 @@
   },
   {
     "id": "tire.frontRight.pressure",
+    "placeholder": true,
     "name": "Tyre Pressure — Front Right",
     "category": "Tyres",
     "bus": "Ms",
@@ -445,6 +447,7 @@
   },
   {
     "id": "tire.rearLeft.pressure",
+    "placeholder": true,
     "name": "Tyre Pressure — Rear Left",
     "category": "Tyres",
     "bus": "Ms",
@@ -456,6 +459,7 @@
   },
   {
     "id": "tire.rearRight.pressure",
+    "placeholder": true,
     "name": "Tyre Pressure — Rear Right",
     "category": "Tyres",
     "bus": "Ms",
@@ -497,15 +501,15 @@
   // light dark with a grey dot — never lit by a guess, never claimed off. When the cluster or
   // body module's identifiers are found (sweep and WATCH), each is a config edit in the pack.
   // Encodings: 0 off, 1 on.
-  { "id": "warning.oilPressure", "name": "Warning — Low Oil Pressure", "category": "Warnings", "bus": "Ms", "pid": 209,
+  { "id": "warning.oilPressure", "placeholder": true, "name": "Warning — Low Oil Pressure", "category": "Warnings", "bus": "Ms", "pid": 209,
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" }, "defaultRateHz": 0.5, "min": 0, "max": 1 },
-  { "id": "warning.seatbelt", "name": "Warning — Seatbelt", "category": "Warnings", "bus": "Ms", "pid": 210,
+  { "id": "warning.seatbelt", "placeholder": true, "name": "Warning — Seatbelt", "category": "Warnings", "bus": "Ms", "pid": 210,
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" }, "defaultRateHz": 0.5, "min": 0, "max": 1 },
-  { "id": "warning.doorAjar", "name": "Warning — Door Ajar", "category": "Warnings", "bus": "Ms", "pid": 211,
+  { "id": "warning.doorAjar", "placeholder": true, "name": "Warning — Door Ajar", "category": "Warnings", "bus": "Ms", "pid": 211,
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" }, "defaultRateHz": 0.5, "min": 0, "max": 1 },
-  { "id": "warning.parkingBrake", "name": "Warning — Parking Brake / Brake", "category": "Warnings", "bus": "Ms", "pid": 212,
+  { "id": "warning.parkingBrake", "placeholder": true, "name": "Warning — Parking Brake / Brake", "category": "Warnings", "bus": "Ms", "pid": 212,
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" }, "defaultRateHz": 0.5, "min": 0, "max": 1 },
-  { "id": "warning.tirePressure", "name": "Warning — Low Tyre Pressure", "category": "Warnings", "bus": "Ms", "pid": 213,
+  { "id": "warning.tirePressure", "placeholder": true, "name": "Warning — Low Tyre Pressure", "category": "Warnings", "bus": "Ms", "pid": 213,
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" }, "defaultRateHz": 0.2, "min": 0, "max": 1 },
 
   // ── Economy and range (MS-CAN) ────────────────────────────────────────────
@@ -514,9 +518,9 @@
   // cluster's identifiers, or fuel flow on 7E0 to work them out from. Until one is found, these read
   // Unavailable on the truck and the console shows a dash; the synthetic truck answers them,
   // flagged Simulated. Economy 0.1 L/100 km a count; range 1 km a count.
-  { "id": "fuel.economy", "name": "Fuel Economy — Instant", "category": "Fuel", "bus": "Ms", "pid": 214,
+  { "id": "fuel.economy", "placeholder": true, "name": "Fuel Economy — Instant", "category": "Fuel", "bus": "Ms", "pid": 214,
     "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 0.1, "offset": 0, "unit": "L/100km" }, "defaultRateHz": 1, "min": 0, "max": 99.9 },
-  { "id": "fuel.range", "name": "Distance to Empty", "category": "Fuel", "bus": "Ms", "pid": 215,
+  { "id": "fuel.range", "placeholder": true, "name": "Distance to Empty", "category": "Fuel", "bus": "Ms", "pid": 215,
     "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 1, "offset": 0, "unit": "km" }, "defaultRateHz": 0.5, "min": 0, "max": 2000 },
 
   // ── Climate (MS-CAN) ──────────────────────────────────────────────────────
@@ -533,6 +537,7 @@
   // the heated steering wheel 0 off, 1 on.
   {
     "id": "hvac.driverSetTemp",
+    "placeholder": true,
     "name": "Climate — Driver Set Temperature",
     "category": "Climate",
     "bus": "Ms",
@@ -544,6 +549,7 @@
   },
   {
     "id": "hvac.passengerSetTemp",
+    "placeholder": true,
     "name": "Climate — Passenger Set Temperature",
     "category": "Climate",
     "bus": "Ms",
@@ -555,6 +561,7 @@
   },
   {
     "id": "hvac.cabinTemp",
+    "placeholder": true,
     "name": "Climate — Cabin Temperature",
     "category": "Climate",
     "bus": "Ms",
@@ -566,6 +573,7 @@
   },
   {
     "id": "hvac.fanSpeed",
+    "placeholder": true,
     "name": "Climate — Fan Speed",
     "category": "Climate",
     "bus": "Ms",
@@ -577,6 +585,7 @@
   },
   {
     "id": "hvac.airConditioning",
+    "placeholder": true,
     "name": "Climate — A/C",
     "category": "Climate",
     "bus": "Ms",
@@ -588,6 +597,7 @@
   },
   {
     "id": "hvac.auto",
+    "placeholder": true,
     "name": "Climate — AUTO",
     "category": "Climate",
     "bus": "Ms",
@@ -599,6 +609,7 @@
   },
   {
     "id": "hvac.recirculate",
+    "placeholder": true,
     "name": "Climate — Recirculation",
     "category": "Climate",
     "bus": "Ms",
@@ -610,6 +621,7 @@
   },
   {
     "id": "hvac.frontDefrost",
+    "placeholder": true,
     "name": "Climate — Front Defrost",
     "category": "Climate",
     "bus": "Ms",
@@ -621,6 +633,7 @@
   },
   {
     "id": "hvac.rearDefrost",
+    "placeholder": true,
     "name": "Climate — Rear Defrost",
     "category": "Climate",
     "bus": "Ms",
@@ -632,6 +645,7 @@
   },
   {
     "id": "hvac.airflow",
+    "placeholder": true,
     "name": "Climate — Airflow (bits: 1 face, 2 feet, 4 windshield)",
     "category": "Climate",
     "bus": "Ms",
@@ -643,6 +657,7 @@
   },
   {
     "id": "seat.driver.climate",
+    "placeholder": true,
     "name": "Seat — Driver Heat/Cool",
     "category": "Climate",
     "bus": "Ms",
@@ -654,6 +669,7 @@
   },
   {
     "id": "seat.passenger.climate",
+    "placeholder": true,
     "name": "Seat — Passenger Heat/Cool",
     "category": "Climate",
     "bus": "Ms",
@@ -665,6 +681,7 @@
   },
   {
     "id": "steeringWheel.heat",
+    "placeholder": true,
     "name": "Steering Wheel — Heat",
     "category": "Climate",
     "bus": "Ms",

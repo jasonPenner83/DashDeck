@@ -420,3 +420,104 @@ public sealed class IdMatcherTests
         Assert.Equal(15.1875, signal.Decode.Decode([0x00, 0xF3]));
     }
 }
+
+/// <summary>Managing DashDeck's own IDs in the matcher (ADR-0050): what needs one, and pairing.</summary>
+public sealed class SignalPairingTests
+{
+    private static SignalCatalog Standard() => TestCatalog.Load();
+
+    [Fact]
+    public void The_shipped_placeholders_are_marked_and_need_an_id()
+    {
+        var standings = SignalPairing.Stand(Standard(), [], []);
+
+        var needs = standings.Where(s => s.NeedsId).Select(s => s.Definition.Id).ToList();
+        Assert.Contains("fuel.economy", needs);
+        Assert.Contains("tire.frontLeft.pressure", needs);
+        Assert.Contains("hvac.cabinTemp", needs);
+        Assert.Contains("warning.doorAjar", needs);
+        Assert.DoesNotContain("engine.rpm", needs);
+        Assert.True(standings[0].NeedsId);   // listed first
+    }
+
+    [Fact]
+    public void Standard_pids_the_truck_says_it_lacks_need_a_ford_id()
+    {
+        // The engine computer's real supported-PID answers, heard through the tap on 2026-10-04.
+        var table = new IdentifierTable();
+        void Bitmap(int pid, string hex) => table.Add(new Observation(
+            DateTimeOffset.UnixEpoch, new IdentifierKey(CanBus.Hs, IdentifierKey.Broadcast, 0x01, (ushort)pid), Convert.FromHexString(hex)));
+        Bitmap(0x00, "BFBEA893");
+        Bitmap(0x20, "A007B119");
+        Bitmap(0x40, "FCD09501");
+        Bitmap(0x60, "01A02001");
+
+        var supported = SignalPairing.SupportedPids(table)!;
+        var standings = SignalPairing.Stand(Standard(), [], [], supported).ToDictionary(s => s.Definition.Id);
+
+        // Q4: neither fuel rate (5E) nor MAF (10); and no oil temperature (5C).
+        Assert.Equal(PairingStatus.NotOnThisTruck, standings["engine.fuelRate"].Status);
+        Assert.Equal(PairingStatus.NotOnThisTruck, standings["engine.mafRate"].Status);
+        Assert.Equal(PairingStatus.NotOnThisTruck, standings["engine.oilTemp"].Status);
+        Assert.Equal(PairingStatus.Standard, standings["engine.rpm"].Status);
+        Assert.Equal(PairingStatus.Standard, standings["engine.coolantTemp"].Status);
+    }
+
+    [Fact]
+    public void A_paired_signal_in_the_overlay_no_longer_needs_an_id()
+    {
+        var target = Standard().Definitions.Single(d => d.Id == "fuel.economy");
+        var match = new AcceptedMatch(new IdentifierKey(CanBus.Ms, 0x720, 0x22, 0x404C), "Instant economy",
+            new ScalingCandidate(new RawWindow(0, 2, false), 0.1, 0, 0, 3, 3, false), "L/100km", "3 typed samples");
+
+        var paired = SignalPairing.Pair(match, target);
+        var standings = SignalPairing.Stand(Standard(), [], [paired]).ToDictionary(s => s.Definition.Id);
+
+        Assert.Equal(PairingStatus.Yours, standings["fuel.economy"].Status);
+        Assert.False(paired.Placeholder);
+        Assert.Equal("fuel.economy", paired.Id);
+        Assert.Equal("720", paired.Module);
+        Assert.Equal(0x22, paired.Mode);
+        Assert.Equal(0x404C, paired.Pid);
+        Assert.Equal(CanBus.Ms, paired.Bus);
+        Assert.Equal(target.Max, paired.Max);
+    }
+
+    [Fact]
+    public void A_match_in_kpa_fills_a_signal_kept_in_psi()
+    {
+        var target = Standard().Definitions.Single(d => d.Id == "tire.frontLeft.pressure");
+        var match = new AcceptedMatch(new IdentifierKey(CanBus.Ms, 0x726, 0x22, 0x2813), "LF tire",
+            new ScalingCandidate(new RawWindow(0, 1, false), 2, 0, 0, 3, 3, false), "kPa", "PID log");
+
+        var paired = SignalPairing.Pair(match, target);
+
+        Assert.Equal("psi", paired.Decode.Unit);
+        Assert.Equal(240 / 6.894757, paired.Decode.Decode([120])!.Value, 3);   // 120 counts = 240 kPa = 34.8 psi
+    }
+
+    [Fact]
+    public void A_match_in_celsius_fills_a_signal_kept_in_fahrenheit()
+    {
+        Assert.Equal((9.0 / 5, 32.0), SignalPairing.FromMetric("°C", "°F"));
+        Assert.Null(SignalPairing.FromMetric("°C", "°C"));
+        Assert.False(SignalPairing.UnitsAgree("°C", "%"));
+    }
+
+    [Fact]
+    public void Pairings_export_as_pack_entries_that_load()
+    {
+        var target = Standard().Definitions.Single(d => d.Id == "fuel.range");
+        var match = new AcceptedMatch(new IdentifierKey(CanBus.Ms, 0x720, 0x22, 0x4044), "DTE",
+            new ScalingCandidate(new RawWindow(0, 2, false), 1, 0, 0, 3, 3, false), "km", "PID log, R² 0.9990");
+        var paired = SignalPairing.Pair(match, target);
+
+        var entries = MatchExport.ToPackEntries([(paired, "720 22 4044 — matched to FORScan's DTE")]);
+        var pack = VehiclePacks.Parse($$"""{ "name": "t", "match": { "make": "Ford" }, "signals": [ {{entries}} ] }""");
+
+        var signal = Assert.Single(pack.Signals);
+        Assert.Equal("fuel.range", signal.Id);
+        Assert.False(signal.Placeholder);
+        Assert.Equal(2000, signal.Max);
+    }
+}

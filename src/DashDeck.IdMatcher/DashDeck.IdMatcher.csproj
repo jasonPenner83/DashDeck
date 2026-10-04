@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\DashDeck.Abstractions\DashDeck.Abstractions.csproj" />
+    <ProjectReference Include="..\DashDeck.Core\DashDeck.Core.csproj" />
+    <ProjectReference Include="..\DashDeck.Vehicle\DashDeck.Vehicle.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="System.IO.Ports" Version="10.0.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <!-- The ID matcher (ADR-0050): a desktop tool for a laptop, keyboard and mouse. -->
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>IdMatcher</AssemblyName>
+    <!-- WPF cannot run under InvariantGlobalization; see DashDeck.Host.csproj. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>
