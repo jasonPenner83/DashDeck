@@ -74,7 +74,8 @@ public sealed partial class IdentifierRow : ObservableObject
 }
 
 /// <summary>A value typed as FORScan showed it.</summary>
-public sealed record SampleRow(Sample Sample, string Shown, string Raw)
+/// <param name="State">For a switch: whether FORScan said on. Null for a number.</param>
+public sealed record SampleRow(Sample Sample, string Shown, string Raw, bool? State = null)
 {
     public string Time => Sample.At.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture);
 }
@@ -84,9 +85,11 @@ public sealed record CandidateRow(ScalingCandidate Candidate, string ReadsNow, s
 {
     public string Formula => Candidate.Formula;
 
-    public string Evidence => Candidate.Fitted
-        ? $"{Candidate.DistinctRaw} raw values · fitted"
-        : $"{Candidate.DistinctRaw} raw value{(Candidate.DistinctRaw == 1 ? "" : "s")}";
+    public string Evidence => Candidate.Bit is not null
+        ? Candidate.DistinctRaw >= 2 ? "seen on and off" : "seen one way only"
+        : Candidate.Fitted
+            ? $"{Candidate.DistinctRaw} raw values · fitted"
+            : $"{Candidate.DistinctRaw} raw value{(Candidate.DistinctRaw == 1 ? "" : "s")}";
 
     public string Error => Candidate.WorstError.ToString("0.###", CultureInfo.InvariantCulture);
 }

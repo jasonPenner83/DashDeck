@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **728 tests green** — 329 engine, 399 shell.
+(ADR-0010). **742 tests green** — 343 engine, 399 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -217,7 +217,9 @@ standard PID the engine computer's own supported-PID answers (heard in the traff
 **Middle:** every identifier FORScan asks (`TrafficReader` follows `ATSH`, `ATTP6`/`STP53`, `STPX`, the
 count digit). **Right:** match live — type what FORScan shows, `ScalingFitter` tries Ford's usual steps
 and offsets in metric (°F/psi/mph converted) and fits a line once the raw value moves — or import the
-PID log CSV (`ForscanCsv`, `LogMatcher`, R²). Pairing keeps the DashDeck signal's id, name, range and
+PID log CSV (`ForscanCsv`, `LogMatcher`, R²). **Switches** (On/Off, Open/Closed — no unit) are matched
+to a **bit**, not a line: `ScalingFitter.FromStates` keeps the bits that agree with every typed state,
+`FromBinarySeries` scores a two-valued log column (≥ 97% agreement), and the decode carries a `mask`. Pairing keeps the DashDeck signal's id, name, range and
 rate, takes the truck's module/mode/PID/decode in the signal's unit (`SignalPairing.Pair`), and saves
 to **`signals.user.json`** or exports **pack entries**; TEST still confirms before a pack commit. The
 tap code lives in `DashDeck.Vehicle.Tap` now, shared with SerialTap. **Signals are added, edited,

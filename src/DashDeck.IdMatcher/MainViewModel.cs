@@ -673,9 +673,20 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
 
         var typed = ShownText.Trim().Replace(',', '.');
-        if (!double.TryParse(typed, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
+        var isNumber = double.TryParse(typed, NumberStyles.Float, CultureInfo.InvariantCulture, out var number);
+
+        // A switch: FORScan shows On/Off, Open/Closed, Yes/No — or 1/0 with the unit set to on / off.
+        var state = UnitConversion.ParseState(typed);
+        if (state is null && isNumber && SelectedUnit.Unit == ShownUnit.OnOff && number is 0 or 1)
         {
-            MatchHint = "Type the number FORScan shows, then Enter.";
+            state = number == 1;
+        }
+
+        if (state is null && !isNumber)
+        {
+            MatchHint = SelectedUnit.Unit == ShownUnit.OnOff
+                ? "Type On or Off (or Open/Closed, Yes/No, 1/0) as FORScan shows it, then Enter."
+                : "Type the number FORScan shows, then Enter. For a switch, type On or Off.";
             return;
         }
 
@@ -686,9 +697,44 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             return;
         }
 
+        if (state is { } on)
+        {
+            AddStateSample(typed, on, payload);
+            return;
+        }
+
+        if (Samples.Any(s => s.State is not null))
+        {
+            // A number after switch states: a different kind of value, so start again.
+            Samples.Clear();
+            if (SelectedUnit.Unit == ShownUnit.OnOff)
+            {
+                SelectedUnit = Units.First(u => u.Unit == ShownUnit.None);
+            }
+        }
+
         var (value, factor, _) = UnitConversion.ToMetric(number, SelectedUnit.Unit);
         var sample = new Sample(_clock.UtcNow, payload, value, UnitConversion.Tolerance(typed, number) * factor);
         Samples.Add(new SampleRow(sample, $"{typed} {SelectedUnit.Label}", Convert.ToHexString(payload)));
+        ShownText = "";
+        Refit();
+    }
+
+    private void AddStateSample(string typed, bool on, byte[] payload)
+    {
+        if (Samples.Any(s => s.State is null))
+        {
+            // Switch states after numbers: a different kind of value, so start again.
+            Samples.Clear();
+        }
+
+        if (SelectedUnit.Unit != ShownUnit.OnOff)
+        {
+            SelectedUnit = Units.First(u => u.Unit == ShownUnit.OnOff);
+        }
+
+        var sample = new Sample(_clock.UtcNow, payload, on ? 1 : 0, 0);
+        Samples.Add(new SampleRow(sample, $"{typed} ({(on ? "on" : "off")})", Convert.ToHexString(payload), on));
         ShownText = "";
         Refit();
     }
@@ -703,8 +749,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private void Refit()
     {
-        var candidates = ScalingFitter.FromSamples([.. Samples.Select(s => s.Sample)]);
-        var unit = UnitConversion.ToMetric(0, SelectedUnit.Unit).Unit;
+        var switched = Samples.Count > 0 && Samples.All(s => s.State is not null);
+        var candidates = switched
+            ? ScalingFitter.FromStates([.. Samples.Select(s => (s.Sample.Payload, s.State!.Value))])
+            : ScalingFitter.FromSamples([.. Samples.Select(s => s.Sample)]);
+        var unit = switched ? "" : UnitConversion.ToMetric(0, SelectedUnit.Unit).Unit;
         Candidates.Clear();
 
         foreach (var candidate in candidates)
@@ -714,6 +763,26 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         SelectedCandidate = Candidates.FirstOrDefault();
         var distinct = Samples.Select(s => s.Raw).Distinct().Count();
+
+        if (switched)
+        {
+            var states = Samples.Select(s => s.State).Distinct().Count();
+            var other = Samples[^1].State == true ? "off" : "on";
+            MatchHint = Candidates.Count == 0
+                ? "No bit agrees with every state. Check this is the identifier FORScan is reading, and that each was typed as it changed."
+                : states < 2
+                    ? $"Now switch it {other} in the truck, wait for FORScan to show it, and add that too."
+                    : Candidates.Count == 1
+                        ? "One bit fits, seen both ways. Ctrl+Enter accepts it."
+                        : $"{Candidates.Count} bits fit. Switch it back and forth and add each — the rest drop away.";
+
+            if (SelectedIdentifier is { } switchRow)
+            {
+                RefreshReadsNow(switchRow);
+            }
+
+            return;
+        }
 
         MatchHint = Candidates.Count == 0
             ? "Nothing fits every sample. Check the unit, or that this is the identifier FORScan is reading."
@@ -733,7 +802,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         for (var i = 0; i < Candidates.Count; i++)
         {
             var c = Candidates[i];
-            var reads = c.Candidate.Apply(payload) is { } v ? $"{v.ToString("0.##", CultureInfo.InvariantCulture)} {c.Unit}" : "";
+            var reads = c.Candidate.Apply(payload) is not { } v ? ""
+                : c.Candidate.Bit is not null ? (v >= 0.5 ? "on" : "off")
+                : $"{v.ToString("0.##", CultureInfo.InvariantCulture)} {c.Unit}";
             if (reads != c.ReadsNow)
             {
                 var selected = ReferenceEquals(SelectedCandidate, c);
@@ -757,7 +828,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         }
 
         var name = NameText.Trim().Length > 0 ? NameText.Trim() : row.Key.ToString();
-        var evidence = $"{Samples.Count} value{(Samples.Count == 1 ? "" : "s")} typed from FORScan, {candidate.Candidate.DistinctRaw} different raw";
+        var evidence = candidate.Candidate.Bit is not null
+            ? $"{Samples.Count} switch state{(Samples.Count == 1 ? "" : "s")} typed from FORScan, {(candidate.Candidate.DistinctRaw >= 2 ? "on and off" : "one way only")}"
+            : $"{Samples.Count} value{(Samples.Count == 1 ? "" : "s")} typed from FORScan, {candidate.Candidate.DistinctRaw} different raw";
         AddAccepted(new AcceptedMatch(row.Key, name, candidate.Candidate, candidate.Unit, evidence), SelectedSignal?.Definition);
         row.MatchedName = name;
         Samples.Clear();

@@ -47,7 +47,7 @@ public static class MatchExport
                 text.AppendLine(inv, $"    \"module\": \"{module}\",");
             }
 
-            text.AppendLine(inv, $"    \"decode\": {{ \"byteOffset\": {d.Window.Offset}, \"byteLength\": {d.Window.Length}, \"signed\": {(d.Window.Signed ? "true" : "false")}, \"scale\": {Num(d.Scale)}, \"offset\": {Num(d.Offset)}, \"unit\": \"{Escape(m.Unit)}\" }},");
+            text.AppendLine(inv, $"    \"decode\": {{ \"byteOffset\": {d.Window.Offset}, \"byteLength\": {d.Window.Length}, \"signed\": {(d.Window.Signed ? "true" : "false")}, \"scale\": {Num(d.Scale)}, \"offset\": {Num(d.Offset)}, \"unit\": \"{Escape(m.Unit)}\"{MaskText(d.Mask)} }},");
             text.AppendLine("    \"defaultRateHz\": 1");
             text.Append("  }");
         }
@@ -85,7 +85,7 @@ public static class MatchExport
             }
 
             var c = d.Decode;
-            text.AppendLine(inv, $"    \"decode\": {{ \"byteOffset\": {c.ByteOffset}, \"byteLength\": {c.ByteLength}, \"signed\": {(c.Signed ? "true" : "false")}, \"scale\": {Num(c.Scale)}, \"offset\": {Num(c.Offset)}, \"unit\": \"{Escape(c.Unit)}\" }},");
+            text.AppendLine(inv, $"    \"decode\": {{ \"byteOffset\": {c.ByteOffset}, \"byteLength\": {c.ByteLength}, \"signed\": {(c.Signed ? "true" : "false")}, \"scale\": {Num(c.Scale)}, \"offset\": {Num(c.Offset)}, \"unit\": \"{Escape(c.Unit)}\"{MaskText(c.Mask)} }},");
             if (d.Min is { } min)
             {
                 text.AppendLine(inv, $"    \"min\": {Num(min)},");
@@ -103,6 +103,9 @@ public static class MatchExport
         text.AppendLine();
         return text.ToString();
     }
+
+    private static string MaskText(long? mask) =>
+        mask is { } m ? string.Create(CultureInfo.InvariantCulture, $", \"mask\": {m}") : "";
 
     private static string Num(double v) => v.ToString("0.##########", CultureInfo.InvariantCulture);
 
