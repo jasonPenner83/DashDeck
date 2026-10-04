@@ -814,3 +814,34 @@ The guide itself: [id-hunter](id-hunter.md).
 - every message *not heard* with the engine running;
 - any warning on the cluster. Listening is silent, so there should be none.
 
+
+## The serial tap — recording FORScan (ADR-0048)
+
+**You need:**
+- the laptop or tablet with FORScan;
+- the adapter, plugged into the truck and the computer;
+- the ignition **on**, or the engine running for values that need it; parked;
+- DashDeck and the ID hunter closed.
+
+1. Double-click `SerialTap\SerialTap.exe` and pick the adapter's port. **Expect:** *Holding COM7 at
+   115200 baud*, the FORScan settings to use, and the log file's path.
+2. In FORScan, set **Settings ▸ Connection** to type **WiFi**, IP **127.0.0.1**, port **35000**, and
+   connect. **Expect:**
+   - FORScan connects and finds the truck as it normally does;
+   - the tap window fills with `>>` and `<<` lines, starting with `--  connected`.
+3. Open **one** value in FORScan's live data, such as transmission fluid temperature. Start FORScan's
+   own PID log. **Expect:** the same `>>  22…` request repeating in the tap window, each with a
+   `<<  62…` answer.
+4. Make the value move: let it warm, or rev. Then stop FORScan's log and disconnect. **Expect:**
+   `--  disconnected` in the tap.
+5. Press **Ctrl+C** in the tap. **Expect:** the command and answer totals, and *Saved:* with the
+   file's path.
+6. Send me the `.log` file and FORScan's CSV, and say which value it was. Repeat for each value.
+
+**A failure looks like:**
+- *Could not open COMn*: something else holds the port;
+- FORScan refusing to connect to 127.0.0.1;
+- FORScan connected but finding no adapter;
+- the log ending in garbage after an `STBR` or `ATBRD` line.
+
+Send the log in any of these cases.

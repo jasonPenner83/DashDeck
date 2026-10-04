@@ -87,6 +87,18 @@ dotnet publish src\DashDeck.IdHunter\DashDeck.IdHunter.csproj `
 
 if ($LASTEXITCODE -ne 0) { throw "ID hunter publish failed" }
 
+# The serial tap (ADR-0048) records what FORScan says to the adapter by standing between them.
+# Self-contained in its own folder, so it can be copied to a laptop as it is.
+$tap = Join-Path $Output 'SerialTap'
+dotnet publish src\DashDeck.SerialTap\DashDeck.SerialTap.csproj `
+    --configuration Release `
+    --runtime $Runtime `
+    --self-contained true `
+    --output $tap `
+    --nologo
+
+if ($LASTEXITCODE -ne 0) { throw "Serial tap publish failed" }
+
 $bytes = (Get-ChildItem $Output -Recurse -File | Measure-Object -Property Length -Sum).Sum
 
 Write-Output ""
@@ -95,6 +107,7 @@ Write-Output ("  {0,-22} {1} MB in {2} files" -f 'size', [math]::Round($bytes / 
 Write-Output ("  {0,-22} {1}" -f 'catalog', 'included')
 Write-Output ("  {0,-22} {1}" -f 'libvlc', $(if (Test-Path (Join-Path $Output 'libvlc')) { 'included' } else { 'MISSING' }))
 Write-Output ("  {0,-22} {1}" -f 'id hunter', $(if (Test-Path (Join-Path $hunter 'IdHunter.exe')) { 'IdHunter\IdHunter.exe' } else { 'MISSING' }))
+Write-Output ("  {0,-22} {1}" -f 'serial tap', $(if (Test-Path (Join-Path $tap 'SerialTap.exe')) { 'SerialTap\SerialTap.exe' } else { 'MISSING' }))
 Write-Output ("  {0,-22} {1}" -f 'components', $(if ($componentCount -gt 0) { "$componentCount included" } else { 'none' }))
 
 if ($Shortcut) {

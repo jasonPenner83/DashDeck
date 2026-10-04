@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **634 tests green** — 242 engine, 392 shell.
+(ADR-0010). **646 tests green** — 254 engine, 392 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -198,6 +198,14 @@ heard. **D** checks a **CAN database** (`.dbc`, `CanDatabase`) the person keeps 
 of its messages the truck sends, then picked signals decoded live to confirm (ADR-0045). **A database
 is a lead, never committed** — the one found so far is for the 2021+ F-150 (P702) and unlicensed;
 only our own confirmed measurements reach the vehicle pack. Reference: [`docs/id-hunter.md`](docs/id-hunter.md).
+
+**The serial tap records FORScan** (ADR-0048): `src/DashDeck.SerialTap`, `SerialTap.exe` in
+`SerialTap\` beside the dash. Serial port monitors need filter drivers and kept failing, so the tap
+**holds the adapter's COM port itself and offers it on TCP** (`127.0.0.1:35000`); FORScan connects as
+to a Wi-Fi adapter, and `TapBridge` relays every byte both ways while `TapRecorder` writes
+timestamped `>>` command and `<<` answer lines to `%LOCALAPPDATA%\DashDeck\tap\tap-<time>.log`. It
+sends nothing of its own. The logs can hold the VIN — never in the repo. Reference:
+[`docs/serial-tap.md`](docs/serial-tap.md).
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
@@ -426,7 +434,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Forty-seven exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Forty-eight exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -452,7 +460,7 @@ climate panel drawn from a layout file in place of the cards, and DASH as a cons
 warning lights while the cards move onto the stage, and clean, typographic defaults for both, and two default themes, Modern and Glass, with LCARS made
 the user's own, and a separate guided ID hunter that listens silently, follows and matches, and CAN databases as leads checked on the truck, never shipped, and a scroll strip for programs
 that ignore touch — tried and withdrawn (ADR-0046, superseded by ADR-0047): a hosted program gets the
-whole stage.
+whole stage, and a serial tap that records FORScan by standing between it and the adapter.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.
