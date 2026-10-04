@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **742 tests green** — 343 engine, 399 shell.
+(ADR-0010). **745 tests green** — 346 engine, 399 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -228,7 +228,10 @@ in the overlay — out of the card picker via `ValueChoice.Offered`, still worki
 them), never deleted; REMOVE takes away only your entry (yours removed, a correction reverted); a
 definition **typed by hand** is `"unconfirmed": true` — not offered in the picker until the tablet's
 TEST answers exactly that request and it is saved from Settings ▸ Sensors. Changing a signal's source
-or decode makes it unconfirmed; renaming does not. Reference:
+or decode makes it unconfirmed; renaming does not. **LISTEN TO THE BUS** (ADR-0054, `BusWatch`) hears
+the bus silently, exclusive with the tap: LEARN NOISE marks bytes that move on their own, MARK (F5)
+shows what changed since in [brackets], STATE A/B (F6/F7) and RANK (F8) narrow it with the hunter's
+`BroadcastRanker`. Reference:
 [`docs/id-matcher.md`](docs/id-matcher.md).
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
@@ -467,7 +470,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Fifty-one exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Fifty-four exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -496,7 +499,8 @@ that ignore touch — tried and withdrawn (ADR-0046, superseded by ADR-0047): a 
 whole stage, and a serial tap that records FORScan by standing between it and the adapter, and fast
 requests asked FORScan's way — filtered to the engine computer, with a count of one, and the
 ID matcher, a desktop program where DashDeck's identifiers are managed against FORScan — signals
-added, edited and hidden there, typed ones held unconfirmed until TEST.
+added, edited and hidden there, typed ones held unconfirmed until TEST, and free listening there —
+noise learned, a MARK, states A and B ranked.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

@@ -48,6 +48,15 @@ public sealed record BroadcastCandidate(
     /// <summary>True when it told every state apart — not only some of them.</summary>
     public bool SeparatesAll => Separated == Pairs;
 
+    /// <summary>The value read in each phase, in order: <c>0 1 0 1</c>.</summary>
+    public string ValuesText => string.Join(' ', Values);
+
+    /// <summary>How steady it held, as a percentage.</summary>
+    public string StabilityText => Stability.ToString("P0", CultureInfo.InvariantCulture);
+
+    /// <summary>Pairs of different states it told apart, of all of them: <c>3/3</c>.</summary>
+    public string SeparatesText => string.Create(CultureInfo.InvariantCulture, $"{Separated}/{Pairs}");
+
     /// <summary>The identifier as the adapter prints it.</summary>
     public string IdText => Id > 0x7FF ? Id.ToString("X8", CultureInfo.InvariantCulture) : Id.ToString("X3", CultureInfo.InvariantCulture);
 

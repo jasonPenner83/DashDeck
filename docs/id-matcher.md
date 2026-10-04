@@ -97,6 +97,31 @@ A column of *On*/*Off* (or *Open*/*Closed*, *Yes*/*No*) is a switch: it is match
 that follows it, scored by how often they agree (at least 97%, shown in the R² column), not by a
 line. Flip the switch a few times during the log — once each way is the least that proves anything.
 
+## Listening to the bus: do something, see what changed
+
+The middle panel's second tab, **LISTEN TO THE BUS**, hears the bus directly — no FORScan — and
+sends nothing: the adapter is set up with AT commands only and listens silently (`ATCSM1`, it does
+not even acknowledge frames). It holds the adapter, so **stop the tap first** (and close FORScan).
+
+1. Tick **Pins 3/11** for the body bus, or leave it for HS-CAN. On pins 3/11 the rate comes from your
+   vehicle file, or is found by listening at 125 then 500 kbit/s. Click **LISTEN**.
+2. **LEARN NOISE**, touch nothing for 10–20 seconds, click again. Every byte that moved on its own
+   (counters, checksums, engine values) is marked `~` and ignored from then on.
+3. **MARK** (F5), then do *one* thing: open the tailgate, press the wheel-heat button. The list
+   narrows to identifiers that changed since MARK, the changed bytes in `[brackets]`; one first heard
+   after MARK is yellow. MARK again to start over.
+4. **To be sure**, narrow it down with states: put the truck one way (tailgate shut) and press
+   **STATE A** (F6), wait two seconds; the other way (open) and **STATE B** (F7); repeat twice. Then
+   **RANK** (F8): the fields that are steady within each state and differ between them, best first.
+   *Separates 3/3* and *Steady 100%* is the one.
+5. **Save capture** writes every frame to `%LOCALAPPDATA%\DashDeck\listen\` as CSV. It can hold the
+   VIN — keep it out of the repository.
+
+**What a find is good for.** A broadcast frame is something the truck *sends*, not an identifier
+DashDeck can *ask* — the dash can't show it yet (signals are requested, not heard). Use it to learn
+which module and byte carry the thing, then look for the same value in FORScan's live data (the `SW`
+items) and pair that in the LIVE tab.
+
 ## Adding, editing, hiding and removing signals
 
 Under the left list (ADR-0051):
@@ -138,11 +163,15 @@ its next launch.
 | Ctrl+O | Open a saved tap log |
 | Ctrl+S | Save to DashDeck |
 | Ctrl+E | Export for the vehicle pack |
+| F5 | LISTEN: mark a baseline |
+| F6 / F7 | LISTEN: hold state A / state B |
+| F8 | LISTEN: rank what told the states apart |
 
 ## Notes
 
 - Tap logs and exports can hold the **VIN**: FORScan reads it as it connects. They stay on your
   machines and never go in the repo.
-- The matcher sends nothing of its own to the truck. Everything the truck sees is FORScan's.
+- The matcher sends nothing of its own to the truck. Everything the truck sees is FORScan's; while
+  listening, nothing at all.
 - A FORScan value worked out from several identifiers can't be matched to one. It shows as
   unmatched.

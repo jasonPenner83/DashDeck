@@ -158,6 +158,44 @@ public sealed class CanMonitor
     }
 
     /// <summary>
+    /// Find the rate of the bus on pins 3 and 11 by listening only — silently, so nothing is sent
+    /// whichever rate is wrong: 125 kbit/s (MS-CAN on many vehicles), then 500 kbit/s. Null when
+    /// nothing is heard at either. The display settings are put back after each try.
+    /// </summary>
+    public async Task<int?> DetectPins311Async(CancellationToken ct, TimeSpan? window = null)
+    {
+        foreach (var rate in (int[])[125000, 500000])
+        {
+            var heard = 0;
+            using var listen = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            listen.CancelAfter(window ?? TimeSpan.FromSeconds(1.5));
+
+            try
+            {
+                await foreach (var _ in ListenAsync(CanBus.Ms, null, listen.Token, rate).ConfigureAwait(false))
+                {
+                    if (++heard >= 20)
+                    {
+                        break;
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+            }
+
+            await RestoreAsync(ct).ConfigureAwait(false);
+
+            if (heard > 0)
+            {
+                return rate;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Put the adapter's display settings back the way requests expect. A full
     /// <c>InitializeAsync</c> on the adapter does this and more; this is for a caller without one.
     /// </summary>

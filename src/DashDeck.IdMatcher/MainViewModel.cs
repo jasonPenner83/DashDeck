@@ -52,10 +52,21 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         RefreshPorts();
         LoadCatalog();
 
+        Listen = new ListenViewModel(
+            () => int.TryParse(BaudText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var baud) && !string.IsNullOrWhiteSpace(SelectedPort)
+                ? (SelectedPort, baud)
+                : null,
+            () => IsTapRunning,
+            () => VehiclePacks.Pins311BitRate(_packs),
+            _clock);
+
         _timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = TimeSpan.FromMilliseconds(250) };
         _timer.Tick += (_, _) => Tick();
         _timer.Start();
     }
+
+    /// <summary>The LISTEN tab: the bus heard silently, for seeing what changes (ADR-0054).</summary>
+    public ListenViewModel Listen { get; }
 
     // ── The tap ───────────────────────────────────────────────────────────────
 
@@ -98,6 +109,12 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         if (IsTapRunning)
         {
             await StopTapAsync();
+            return;
+        }
+
+        if (Listen.IsListening)
+        {
+            Status = "LISTEN holds the adapter. Stop listening first — one program, one adapter.";
             return;
         }
 
@@ -613,6 +630,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     private void Tick()
     {
+        Listen.Refresh();
         var now = _clock.UtcNow;
 
         foreach (var stats in _table.Snapshot())
@@ -1008,6 +1026,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _timer.Stop();
+        Listen.Dispose();
         _tapStop?.Cancel();
 
         try

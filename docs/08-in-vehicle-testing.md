@@ -1003,3 +1003,21 @@ Send the log in any of these cases.
 - a match that reads anything other than 0 or 1;
 - the PID log's door column reported as "never changed" when the door was opened during it.
 
+
+## Listening for what changed (ID matcher, ADR-0054)
+
+**You need:** the laptop with the ID matcher and the adapter, FORScan closed, the tap stopped; the
+truck parked, ignition on.
+
+1. Middle panel ▸ **LISTEN TO THE BUS**. Tick **Pins 3/11**, click **LISTEN**. **Expect:** *Listening
+   to pins 3/11 at 500 kbit/s, silently* and a list of identifiers filling in, each with its rate.
+2. **LEARN NOISE**, touch nothing for 15 seconds, click again. **Expect:** many bytes now marked `~`.
+3. **MARK** (F5). Open the tailgate. **Expect:** the list narrows to a few identifiers, the changed
+   bytes in `[brackets]`.
+4. Shut it, **STATE A** (F6), wait; open it, **STATE B** (F7), wait; repeat twice; **RANK** (F8).
+   **Expect:** at the top, one field marked *3/3* and *100%*.
+5. Do the same with the heated steering wheel button.
+6. **STOP LISTENING**, then START TAP. **Expect:** the tap starts normally and FORScan connects.
+
+**A failure looks like:** a warning light or message on the cluster while listening (nothing should
+be sent); the list empty with the ignition on; the tap failing to start after listening.
