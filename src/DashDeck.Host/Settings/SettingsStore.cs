@@ -114,6 +114,13 @@ public sealed record UserSettings
     /// </summary>
     [JsonPropertyName("adapterIdentity")]
     public string AdapterIdentity { get; init; } = "";
+
+    /// <summary>
+    /// Ask the engine computer's standard values the fast way (ADR-0049): filtered to its answer,
+    /// with a response count. On by default; applied at the next launch.
+    /// </summary>
+    [JsonPropertyName("fastRequests")]
+    public bool FastRequests { get; init; } = true;
 }
 
 /// <summary>

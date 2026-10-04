@@ -902,6 +902,28 @@
                                Text="{Binding Adapter.ChoiceMessage}"
                                Visibility="{Binding Adapter.ChoiceMessage, Converter={StaticResource EmptyToCollapsed}}" />
 
+                    <!-- Fast requests (ADR-0049): the engine computer's standard values asked the way FORScan
+                         asks them, filtered to its answer with a count of one. -->
+                    <Button Style="{StaticResource StageLauncherButton}"
+                            Height="52" MinWidth="330" Margin="0,16,0,0"
+                            HorizontalAlignment="Left"
+                            Command="{Binding ToggleFastRequestsCommand}">
+                        <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="14">
+                            <Run Text="FAST REQUESTS —" />
+                            <Run Text="{Binding FastRequestsLabel, Mode=OneWay}" FontWeight="Bold" />
+                        </TextBlock>
+                    </Button>
+
+                    <TextBlock Margin="2,8,0,0" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                               FontFamily="{DynamicResource MonoFont}" FontSize="13"
+                               Foreground="{DynamicResource TextHighBrush}"
+                               Text="{Binding Adapter.RequestPathText}"
+                               Visibility="{Binding Adapter.RequestPathText, Converter={StaticResource EmptyToCollapsed}}" />
+
+                    <TextBlock Margin="2,6,0,0" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="Asks the engine computer's standard values listening for its answer alone, so the adapter stops waiting as soon as it arrives — FORScan's way, about twice the readings a second. Anything that comes back empty or busy is asked again the standard way. Turn it off if readings look wrong. Applies after a restart." />
+
                     <Button Style="{StaticResource StageLauncherButton}" Height="48" Margin="0,10,0,0"
                             HorizontalAlignment="Left" Command="{Binding Adapter.RestartCommand}"
                             Visibility="{Binding Adapter.ShowRestart, Converter={StaticResource BoolToVis}}">

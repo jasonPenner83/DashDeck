@@ -36,6 +36,77 @@ public sealed class ElmAdapter : IVehicleAdapter
     /// </remarks>
     public const double AssumedRequestsPerSecond = 19.0;
 
+    /// <summary>
+    /// The ceiling claimed when fast requests are on (ADR-0049). Not a measurement of DashDeck:
+    /// FORScan, through the serial tap on 2026-10-04, averaged 19.6–20.2 ms a request on the same
+    /// truck and adapter asking the same way, about 50 a second. The arbiter still plans against
+    /// what it measures, never above this, so a slower reality simply reads as a lower number.
+    /// </summary>
+    public const double FastRequestsPerSecond = 45.0;
+
+    /// <summary>Where the engine computer answers. The fast path listens for this id alone.</summary>
+    private const ushort EngineResponse = 0x7E8;
+
+    private bool _fastRequests;
+
+    /// <summary>
+    /// Ask the engine computer's standard values with a receive filter and a response count, so
+    /// the adapter stops waiting the moment the one answer arrives (ADR-0049). Off by default; the
+    /// dash turns it on from Settings ▸ Vehicle. Takes effect at the next configuration.
+    /// </summary>
+    public bool FastRequests
+    {
+        get => _fastRequests;
+        set
+        {
+            if (_fastRequests != value)
+            {
+                _fastRequests = value;
+                if (_initialized)
+                {
+                    _needsConfigure = true;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// True when fast requests are on <em>and</em> this adapter can do them. Read after
+    /// <see cref="InitializeAsync"/>.
+    /// </summary>
+    public bool FastRequestsActive => _fastActive;
+
+    private volatile bool _fastActive;
+
+    /// <summary>True while the broadcast's answers are filtered to the engine computer (<c>ATCRA7E8</c>).</summary>
+    private bool _broadcastFiltered;
+
+    /// <summary>
+    /// Requests that went back to the slow path for good: a value only another module gives,
+    /// whose answer the filter would hide.
+    /// </summary>
+    private readonly HashSet<(byte Mode, ushort Pid)> _slowOnly = [];
+
+    /// <summary>
+    /// How many times in a row each request came back empty the fast way and answered the slow way.
+    /// </summary>
+    /// <remarks>
+    /// Once is not evidence: the truck drops the odd answer whichever way it is asked (the
+    /// simulator drops 2%), and the slow retry then succeeds by chance. Sending rpm the slow way for
+    /// good on one dropped answer made the adapter switch its filter on and off around every other
+    /// request, which was slower than never filtering at all.
+    /// </remarks>
+    private readonly Dictionary<(byte Mode, ushort Pid), int> _hiddenStreak = [];
+
+    /// <summary>Fast-empty, slow-answered this many times in a row and a request goes slow for good.</summary>
+    public const int HiddenAnswersBeforeSlow = 3;
+
+    /// <summary>How many requests went the fast way, and how many fell back to the slow one.</summary>
+    public int FastCount { get; private set; }
+
+    /// <summary>Fast requests that were asked again the slow way: NO DATA, or a busy reply.</summary>
+    public int FallbackCount { get; private set; }
+
     private CanBus _selectedBus = CanBus.Hs;
 
     private int _pins311BitRate = 125000;
@@ -120,6 +191,7 @@ public sealed class ElmAdapter : IVehicleAdapter
         // broadcast header and no receive filter among them.
         _selectedBus = CanBus.Hs;
         _selectedHeader = null;
+        _broadcastFiltered = false;
 
         await _transport.ExchangeAsync("ATZ", ct).ConfigureAwait(false);      // reset
         await _transport.ExchangeAsync("ATE0", ct).ConfigureAwait(false);     // echo off
@@ -134,14 +206,66 @@ public sealed class ElmAdapter : IVehicleAdapter
 
         var buses = await ProbeBusesAsync(ct).ConfigureAwait(false);
 
+        _fastActive = _fastRequests && SupportsResponseCount(identity);
+
         Capabilities = new AdapterCapabilities(
             Name: string.IsNullOrWhiteSpace(identity) ? "Unknown ELM-compatible adapter" : identity,
             Buses: buses,
             SimultaneousBusAccess: buses.Count > 1,
-            MaxRequestsPerSecond: AssumedRequestsPerSecond);
+            MaxRequestsPerSecond: _fastActive ? FastRequestsPerSecond : AssumedRequestsPerSecond);
 
         ConfigureCount++;
     }
+
+    /// <summary>
+    /// Whether an adapter that calls itself <paramref name="identity"/> understands a response
+    /// count after a request (<c>010C1</c>).
+    /// </summary>
+    /// <remarks>
+    /// The ELM327 added it in v1.3; every STN chip (the OBDLink's) has it. Clones claim any version
+    /// they like, which is why a refusal at run time also turns the fast path off.
+    /// </remarks>
+    public static bool SupportsResponseCount(string identity)
+    {
+        if (identity.Contains("STN", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var match = System.Text.RegularExpressions.Regex.Match(identity, @"ELM327\s+v(\d+)\.(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        var major = int.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+        var minor = int.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
+        return major > 1 || (major == 1 && minor >= 3);
+    }
+
+    /// <summary>
+    /// Whether a request may go the fast way (ADR-0049): narrow on purpose.
+    /// </summary>
+    /// <remarks>
+    /// Only what is certain to be one single-frame answer from the engine computer:
+    /// <list type="bullet">
+    /// <item>standard mode 01 — every answer fits one CAN frame, so a count of one cannot cut it
+    /// short;</item>
+    /// <item>on the main bus, to the broadcast — not a named module, not pins 3/11;</item>
+    /// <item>not a supported-PID bitmap (<c>00</c>, <c>20</c>, …) — several modules answer those,
+    /// and a scan wants to know;</item>
+    /// <item>not a request already sent back to the slow path because the filter hid its
+    /// answer.</item>
+    /// </list>
+    /// Mode 22 identifiers, the VIN and module sweeps stay slow until their answers' lengths are
+    /// known; a count of one on a multi-frame answer is not something to guess about.
+    /// </remarks>
+    public static bool IsFastEligible(PidRequest request) =>
+        request.Mode == 0x01
+        && request.Bus == CanBus.Hs
+        && request.Header is null
+        && request.Pid <= 0xFF
+        && request.Pid % 0x20 != 0;
 
     /// <summary>
     /// Find out which buses this adapter can actually reach, rather than assuming.
@@ -228,7 +352,80 @@ public sealed class ElmAdapter : IVehicleAdapter
         }
 
         _selectedHeader = header;
+
+        // Either way the filter the fast path relies on is gone: a module's ATCRA replaced it, or
+        // the broadcast's ATAR cleared it.
+        _broadcastFiltered = false;
         return true;
+    }
+
+    /// <summary>Filter the broadcast's answers to the engine computer, or stop filtering them.</summary>
+    private async Task<bool> FilterBroadcastAsync(bool filtered, CancellationToken ct)
+    {
+        if (_broadcastFiltered == filtered)
+        {
+            return true;
+        }
+
+        var reply = await _transport.ExchangeAsync(filtered ? $"ATCRA{EngineResponse:X3}" : "ATAR", ct).ConfigureAwait(false);
+        if (reply.Contains('?', StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        _broadcastFiltered = filtered;
+        return true;
+    }
+
+    /// <summary>
+    /// One request the fast way: filtered to the engine computer, with a count of one.
+    /// Returns null when it should be asked again the slow way.
+    /// </summary>
+    /// <remarks>
+    /// Two answers are not trusted and go round again the slow way, which waits as long as it
+    /// always has:
+    /// <list type="bullet">
+    /// <item><b>NO DATA</b> — perhaps the engine computer does not have it but another module does,
+    /// and the filter hid that module's answer. If the slow way finds it, that request stays slow
+    /// for good.</item>
+    /// <item><b>"Busy, answer follows"</b> (<c>7F 01 78</c>) alone — with a count of one the adapter
+    /// stopped listening before the real answer came. The slow way waits for it. A late answer
+    /// that lands on a later request cannot be read as that request's: the parser checks that
+    /// an answer names the PID that was asked for.</item>
+    /// </list>
+    /// A <c>?</c> means the adapter does not understand the count after all; the fast path is
+    /// turned off until the next configuration.
+    /// </remarks>
+    private async Task<PidResponse?> RequestFastAsync(PidRequest request, CancellationToken ct)
+    {
+        if (!await FilterBroadcastAsync(true, ct).ConfigureAwait(false))
+        {
+            _fastActive = false;
+            return null;
+        }
+
+        var raw = await _transport.ExchangeAsync(request.ToCommand() + "1", ct).ConfigureAwait(false);
+        var trimmed = raw.Replace(">", string.Empty, StringComparison.Ordinal).Trim();
+
+        if (trimmed == "?")
+        {
+            _fastActive = false;
+            return null;
+        }
+
+        if (ElmResponseParser.IsOnlyPending(raw))
+        {
+            return null;
+        }
+
+        var response = ElmResponseParser.Parse(request, raw, _clock.UtcNow);
+        if (response.Failure == PidFailure.NoData)
+        {
+            return null;
+        }
+
+        FastCount++;
+        return response;
     }
 
     public async Task<PidResponse> RequestAsync(PidRequest request, CancellationToken ct)
@@ -262,8 +459,45 @@ public sealed class ElmAdapter : IVehicleAdapter
                 return PidResponse.Failed(request, PidFailure.BusError, _clock.UtcNow);
             }
 
+            var key = (request.Mode, request.Pid);
+            var fast = _fastActive && IsFastEligible(request) && !_slowOnly.Contains(key);
+
+            if (fast)
+            {
+                if (await RequestFastAsync(request, ct).ConfigureAwait(false) is { } quick)
+                {
+                    _hiddenStreak.Remove(key);
+                    return quick;
+                }
+
+                FallbackCount++;
+            }
+
+            // The slow way: every module that answers the broadcast is heard, and the adapter waits
+            // its full time for them.
+            if (request.Header is null && !await FilterBroadcastAsync(false, ct).ConfigureAwait(false))
+            {
+                return PidResponse.Failed(request, PidFailure.BusError, _clock.UtcNow);
+            }
+
             var raw = await _transport.ExchangeAsync(request.ToCommand(), ct).ConfigureAwait(false);
-            return ElmResponseParser.Parse(request, raw, _clock.UtcNow);
+            var response = ElmResponseParser.Parse(request, raw, _clock.UtcNow);
+
+            if (fast && response.IsSuccess)
+            {
+                // The engine computer said no and the slow way found it. Again and again, and it is
+                // another module that answers this one — the filter would hide it every time.
+                var streak = _hiddenStreak.GetValueOrDefault(key) + 1;
+                _hiddenStreak[key] = streak;
+
+                if (streak >= HiddenAnswersBeforeSlow)
+                {
+                    _slowOnly.Add(key);
+                    _hiddenStreak.Remove(key);
+                }
+            }
+
+            return response;
         }
         catch (OperationCanceledException)
         {

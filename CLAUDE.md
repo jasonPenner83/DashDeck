@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **646 tests green** — 254 engine, 392 shell.
+(ADR-0010). **677 tests green** — 284 engine, 393 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -340,6 +340,15 @@ measured:
   vehicle's response time dominates, so USB bought far less than hoped; risk R1 stands, and
   smooth high-rate gauges need request batching, not a faster link. The simulator now runs at
   the same 52 ms (`SyntheticFaults.Realistic`).
+- **Fast requests** (ADR-0049) are the first answer to R1: the serial tap timed FORScan at ~20 ms a
+  request on the same truck, asking mode 01 **filtered to the engine computer (`ATCRA7E8`) with a
+  count of one (`010C1`)** so the adapter stops waiting for other modules. `ElmAdapter.FastRequests`
+  does the same for mode 01 to the broadcast on HS, bitmaps excepted (`IsFastEligible`); NO DATA or a
+  lone busy reply is asked again the old way, and a value that answers only the old way three times
+  running goes slow for good (one dropped answer once sent rpm slow and made the filter thrash).
+  The claimed ceiling rises to 45; the arbiter still plans on measured time. Settings ▸ Vehicle ▸
+  FAST REQUESTS, on by default, at launch; the simulator measures 47 req/s against 19. **Unmeasured
+  in the cab (Q22).**
 - **MS-CAN is reachable from the OBD port** — the adapter accepts the switch and the Gateway
   Module does not get in the way (Q5). **But "MS" is a misnomer on this truck (Q21):** a silent listen on
   pins 3/11 heard nothing at 125 kbit/s and traffic at **500 kbit/s** — a second high-speed bus, not
@@ -434,7 +443,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Forty-eight exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Forty-nine exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -460,7 +469,8 @@ climate panel drawn from a layout file in place of the cards, and DASH as a cons
 warning lights while the cards move onto the stage, and clean, typographic defaults for both, and two default themes, Modern and Glass, with LCARS made
 the user's own, and a separate guided ID hunter that listens silently, follows and matches, and CAN databases as leads checked on the truck, never shipped, and a scroll strip for programs
 that ignore touch — tried and withdrawn (ADR-0046, superseded by ADR-0047): a hosted program gets the
-whole stage, and a serial tap that records FORScan by standing between it and the adapter.
+whole stage, and a serial tap that records FORScan by standing between it and the adapter, and fast
+requests asked FORScan's way — filtered to the engine computer, with a count of one.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

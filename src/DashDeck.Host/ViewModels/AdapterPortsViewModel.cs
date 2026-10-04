@@ -29,6 +29,9 @@ public interface IAdapterStatus
 
     /// <summary>Hold DashDeck's own adapter search still until the handle is disposed.</summary>
     Task<IDisposable> PauseSearchAsync(CancellationToken ct);
+
+    /// <summary>How requests are going out — fast or standard, and the counts (ADR-0049).</summary>
+    string RequestPathText => "";
 }
 
 /// <summary>Lists ports and tests one. A seam, so the list is testable without serial hardware.</summary>
@@ -154,6 +157,10 @@ public sealed partial class AdapterPortsViewModel : ObservableObject
     [ObservableProperty]
     private SignalQuality _statusQuality = SignalQuality.Simulated;
 
+    /// <summary>Whether fast requests are in use, and how many went each way (ADR-0049).</summary>
+    [ObservableProperty]
+    private string _requestPathText = "";
+
     /// <summary>What the last choice did.</summary>
     [ObservableProperty]
     private string _choiceMessage = "";
@@ -174,6 +181,8 @@ public sealed partial class AdapterPortsViewModel : ObservableObject
     /// <summary>Re-read the link. Called on the shell's one-second beat while the section is open.</summary>
     public void Refresh()
     {
+        RequestPathText = _status.RequestPathText;
+
         if (_status.LiveAdapter is { } live)
         {
             StatusText = $"LIVE — {live.Identity} on {live.Port} @ {live.BaudRate.ToString(CultureInfo.InvariantCulture)} baud"

@@ -206,6 +206,20 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// <summary>Which scripted drive is running.</summary>
     public string DriveName { get; }
 
+    private ElmAdapter? _elm;
+
+    /// <summary>
+    /// How requests are going out (ADR-0049): whether the fast way is in use, and how many went
+    /// each way. For Settings ▸ Vehicle, to confirm it on the truck.
+    /// </summary>
+    public string RequestPathText => _elm is not { } elm
+        ? ""
+        : elm.FastRequestsActive
+            ? $"Fast requests in use: {elm.FastCount} fast, {elm.FallbackCount} asked again the slow way."
+            : elm.FastRequests
+                ? "Fast requests are on, but this adapter cannot do them; requests go the standard way."
+                : "Fast requests are off; requests go the standard way.";
+
     /// <summary>Measured, not claimed â€” the number Q12 exists to replace with a real one.</summary>
     public double MeasuredRequestsPerSecond => _service.MeasuredRequestsPerSecond;
 
@@ -265,7 +279,8 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         AdapterLinkOptions? adapter,
         string driveName,
         CatalogSources sources,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool fastRequests = true)
     {
         var loaded = LoadCatalog(sources);
         var drive = Drives.ByName(driveName);
@@ -301,14 +316,18 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
             : new SyntheticTransport(new SimulatedF150(drive)) { Pins311BitRate = pins311 };
 
         var switchable = new SwitchableTransport(bottom);
-        var service = new VehicleService(new ElmAdapter(switchable) { Pins311BitRate = pins311 }, loaded.Catalog)
+
+        // Standard values from the engine computer, asked so the adapter stops waiting once it has
+        // the one answer (ADR-0049). Settings ▸ Vehicle can turn it off; it applies at launch.
+        var elm = new ElmAdapter(switchable) { Pins311BitRate = pins311, FastRequests = fastRequests };
+        var service = new VehicleService(elm, loaded.Catalog)
         {
             Quality = found is not null ? SignalQuality.Live : SignalQuality.Simulated,
         };
 
         await service.StartAsync(cancellationToken);
 
-        var stack = new VehicleStack(service, switchable, drive.Name, loaded, link, reserved);
+        var stack = new VehicleStack(service, switchable, drive.Name, loaded, link, reserved) { _elm = elm };
 
         if (found is not null)
         {
