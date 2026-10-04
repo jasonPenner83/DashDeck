@@ -1,0 +1,228 @@
+<Window x:Class="DashDeck.IdMatcher.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:DashDeck.IdMatcher"
+        Title="DashDeck ID Matcher" Width="1480" Height="920" MinWidth="1100" MinHeight="640"
+        WindowStartupLocation="CenterScreen" FontSize="13">
+
+    <Window.InputBindings>
+        <KeyBinding Gesture="Ctrl+Return" Command="{Binding AcceptCommand}" />
+        <KeyBinding Gesture="Ctrl+N" Command="{Binding SelectNewestCommand}" />
+        <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenTapLogCommand}" />
+        <KeyBinding Gesture="Ctrl+I" Command="{Binding ImportCsvCommand}" />
+        <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveToDashDeckCommand}" />
+        <KeyBinding Gesture="Ctrl+E" Command="{Binding ExportPackCommand}" />
+        <KeyBinding Gesture="Ctrl+P" Command="{Binding PairSelectedCommand}" />
+        <KeyBinding Gesture="Ctrl+L" Command="{Binding ClearSamplesCommand}" />
+        <KeyBinding Gesture="Escape" Command="{Binding StopPairingCommand}" />
+    </Window.InputBindings>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="6" />
+            <RowDefinition Height="210" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- ── The tap ─────────────────────────────────────────────────── -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="False">
+            <TextBlock Text="Adapter" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ComboBox Width="90" ItemsSource="{Binding Ports}" SelectedItem="{Binding SelectedPort}" IsEditable="True" Text="{Binding SelectedPort, UpdateSourceTrigger=PropertyChanged}" />
+            <Button Content="↻" ToolTip="Look for ports again" Margin="4,0,12,0" Command="{Binding RefreshPortsCommand}" />
+            <TextBlock Text="Baud" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBox Width="70" Text="{Binding BaudText}" Margin="0,0,12,0" />
+            <TextBlock Text="FORScan connects to 127.0.0.1 port" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBox Width="60" Text="{Binding ListenText}" Margin="0,0,12,0" />
+            <Button Content="{Binding TapButton}" Command="{Binding ToggleTapCommand}" FontWeight="SemiBold" MinWidth="100" />
+            <Button Content="Open tap log… (Ctrl+O)" Command="{Binding OpenTapLogCommand}" />
+            <Button Content="Clear traffic" Command="{Binding ClearTrafficCommand}" />
+        </DockPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="380" MinWidth="250" />
+                <ColumnDefinition Width="6" />
+                <ColumnDefinition Width="*" MinWidth="320" />
+                <ColumnDefinition Width="6" />
+                <ColumnDefinition Width="470" MinWidth="380" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ── DashDeck's signals ─────────────────────────────────── -->
+            <DockPanel Grid.Column="0">
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource Heading}" Text="DASHDECK SIGNALS — pick one to pair" />
+                <CheckBox DockPanel.Dock="Top" Content="Only those that need the truck's ID" IsChecked="{Binding OnlyNeedingId}" Margin="0,0,0,6" />
+                <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Text="{Binding SignalSummary}" Margin="0,6,0,0" />
+                <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Text="{Binding CatalogStatus}" Margin="0,4,0,0" />
+                <DataGrid x:Name="SignalGrid" ItemsSource="{Binding Signals}" SelectedItem="{Binding SelectedSignal}"
+                          AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal" CanUserAddRows="False">
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding NeedsId}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource NewBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" FontWeight="SemiBold" />
+                        <DataGridTextColumn Header="Signal" Binding="{Binding Name}" Width="*" />
+                        <DataGridTextColumn Header="Now asks" Binding="{Binding Where}" FontFamily="{StaticResource Mono}" />
+                        <DataGridTextColumn Header="Unit" Binding="{Binding Unit}" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="Transparent" />
+
+            <!-- ── The traffic ────────────────────────────────────────── -->
+            <DockPanel Grid.Column="2">
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource Heading}" Text="WHAT FORSCAN ASKS — yellow: just started, blue: changing (Ctrl+N: newest)" />
+                <DataGrid x:Name="IdentifierGrid" ItemsSource="{Binding Identifiers}" SelectedItem="{Binding SelectedIdentifier}"
+                          AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal" CanUserAddRows="False" FontFamily="{StaticResource Mono}">
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsMoving}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource MovingBrush}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsNew}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource NewBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.RowStyle>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Module" Binding="{Binding Module}" />
+                        <DataGridTextColumn Header="Bus" Binding="{Binding Bus}" />
+                        <DataGridTextColumn Header="Mode" Binding="{Binding Mode}" />
+                        <DataGridTextColumn Header="PID" Binding="{Binding Pid}" />
+                        <DataGridTextColumn Header="Answer" Binding="{Binding Raw}" />
+                        <DataGridTextColumn Header="As numbers" Binding="{Binding Numbers}" Width="*" />
+                        <DataGridTextColumn Header="Heard" Binding="{Binding Count}" />
+                        <DataGridTextColumn Header="Changed" Binding="{Binding Changes}" />
+                        <DataGridTextColumn Header="Matched" Binding="{Binding MatchedName}" FontFamily="Segoe UI" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="3" Width="6" HorizontalAlignment="Stretch" Background="Transparent" />
+
+            <!-- ── Matching ───────────────────────────────────────────── -->
+            <TabControl Grid.Column="4">
+                <TabItem Header="  LIVE  ">
+                    <DockPanel Margin="8">
+                        <Border DockPanel.Dock="Top" Background="#F4F6F8" Padding="8" Margin="0,0,0,8" CornerRadius="3">
+                            <TextBlock Text="{Binding TargetText}" TextWrapping="Wrap" />
+                        </Border>
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="FORScan's name (F2)" VerticalAlignment="Center" Margin="0,0,8,6" />
+                            <TextBox x:Name="NameBox" Grid.Column="1" Text="{Binding NameText, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" />
+                            <TextBlock Grid.Row="1" Text="It shows (F3)" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <DockPanel Grid.Row="1" Grid.Column="1">
+                                <ComboBox DockPanel.Dock="Right" Width="90" Margin="6,0,0,0" ItemsSource="{Binding Units}" SelectedItem="{Binding SelectedUnit}" />
+                                <TextBox x:Name="ShownBox" Text="{Binding ShownText, UpdateSourceTrigger=PropertyChanged}" FontFamily="{StaticResource Mono}" FontSize="15">
+                                    <TextBox.InputBindings>
+                                        <KeyBinding Key="Return" Command="{Binding AddSampleCommand}" />
+                                    </TextBox.InputBindings>
+                                </TextBox>
+                            </DockPanel>
+                        </Grid>
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Text="{Binding MatchHint}" Margin="0,0,0,8" />
+
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource Heading}" Text="TYPED FROM FORSCAN (Ctrl+L clears)" />
+                        <ListView DockPanel.Dock="Top" Height="110" ItemsSource="{Binding Samples}" FontFamily="{StaticResource Mono}">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="Time" DisplayMemberBinding="{Binding Time}" Width="80" />
+                                    <GridViewColumn Header="Shown" DisplayMemberBinding="{Binding Shown}" Width="130" />
+                                    <GridViewColumn Header="Answer then" DisplayMemberBinding="{Binding Raw}" Width="170" />
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+
+                        <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                            <Button Content="ACCEPT (Ctrl+Enter)" Command="{Binding AcceptCommand}" FontWeight="SemiBold" />
+                        </DockPanel>
+
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource Heading}" Text="SCALINGS THAT FIT EVERY VALUE" Margin="0,8,0,6" />
+                        <DataGrid ItemsSource="{Binding Candidates}" SelectedItem="{Binding SelectedCandidate}"
+                                  AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal" CanUserAddRows="False">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Formula" Binding="{Binding Formula}" Width="*" FontFamily="{StaticResource Mono}" />
+                                <DataGridTextColumn Header="Reads now" Binding="{Binding ReadsNow}" FontFamily="{StaticResource Mono}" />
+                                <DataGridTextColumn Header="Evidence" Binding="{Binding Evidence}" />
+                                <DataGridTextColumn Header="Worst off" Binding="{Binding Error}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </TabItem>
+
+                <TabItem Header="  PID LOG  ">
+                    <DockPanel Margin="8">
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
+                            <Button Content="Import FORScan PID log… (Ctrl+I)" Command="{Binding ImportCsvCommand}" />
+                            <Button Content="ACCEPT TICKED" Command="{Binding AcceptTickedCommand}" FontWeight="SemiBold" />
+                        </StackPanel>
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Text="{Binding LogSummary}" Margin="0,0,0,8" />
+                        <DataGrid ItemsSource="{Binding LogRows}" AutoGenerateColumns="False" HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal" CanUserAddRows="False">
+                            <DataGrid.Columns>
+                                <DataGridCheckBoxColumn Header="✓" Binding="{Binding Accept, UpdateSourceTrigger=PropertyChanged}" />
+                                <DataGridTextColumn Header="Column" Binding="{Binding Column}" IsReadOnly="True" Width="*" />
+                                <DataGridTextColumn Header="Identifier" Binding="{Binding Identifier}" IsReadOnly="True" FontFamily="{StaticResource Mono}" />
+                                <DataGridTextColumn Header="Formula" Binding="{Binding Formula}" IsReadOnly="True" FontFamily="{StaticResource Mono}" />
+                                <DataGridTextColumn Header="R²" Binding="{Binding Fit}" IsReadOnly="True" />
+                                <DataGridTextColumn Header="Next best" Binding="{Binding RunnersUp}" IsReadOnly="True" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </TabItem>
+            </TabControl>
+        </Grid>
+
+        <GridSplitter Grid.Row="2" Height="6" HorizontalAlignment="Stretch" Background="Transparent" />
+
+        <!-- ── Accepted, and saving ──────────────────────────────────── -->
+        <DockPanel Grid.Row="3">
+            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,6" LastChildFill="False">
+                <TextBlock Style="{StaticResource Heading}" Text="ACCEPTED" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <Button Content="Pair with selected signal (Ctrl+P)" Command="{Binding PairSelectedCommand}" />
+                <Button Content="Remove" Command="{Binding RemoveAcceptedCommand}" />
+                <Button Content="SAVE TO DASHDECK (Ctrl+S)" Command="{Binding SaveToDashDeckCommand}" FontWeight="SemiBold" Margin="18,0,6,0" />
+                <Button Content="Export for the vehicle pack (Ctrl+E)" Command="{Binding ExportPackCommand}" />
+                <TextBlock Text="Overlay:" VerticalAlignment="Center" Margin="12,0,6,0" />
+                <TextBox Width="330" Text="{Binding OverlayPath, UpdateSourceTrigger=LostFocus}" FontSize="11.5" />
+                <Button Content="…" Command="{Binding BrowseOverlayCommand}" Margin="4,0,0,0" />
+            </DockPanel>
+            <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Text="{Binding SaveStatus}" Margin="0,6,0,0" />
+            <DataGrid ItemsSource="{Binding Accepted}" SelectedItem="{Binding SelectedAccepted}" AutoGenerateColumns="False" IsReadOnly="True"
+                      SelectionMode="Single" HeadersVisibility="Column" GridLinesVisibility="Horizontal" CanUserAddRows="False">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Identifier" Binding="{Binding Identifier}" FontFamily="{StaticResource Mono}" />
+                    <DataGridTextColumn Header="FORScan's name" Binding="{Binding Name}" />
+                    <DataGridTextColumn Header="Reads as" Binding="{Binding Formula}" FontFamily="{StaticResource Mono}" />
+                    <DataGridTextColumn Header="DashDeck signal" Binding="{Binding TargetText}" FontWeight="SemiBold" />
+                    <DataGridTextColumn Header="Evidence" Binding="{Binding Evidence}" Width="*" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </DockPanel>
+
+        <Border Grid.Row="4" Background="#F4F6F8" Padding="8,5" Margin="0,8,0,0" CornerRadius="3">
+            <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+        </Border>
+    </Grid>
+</Window>

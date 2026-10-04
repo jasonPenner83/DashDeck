@@ -83,6 +83,8 @@ the truck, promote it by copying it into the right file here.
   },
   "defaultRateHz": 4,           // used when a component does not ask for a rate
   "stalenessSeconds": null,     // defaults to five poll intervals
+  "placeholder": false,         // true: the mode/PID are a stand-in until the truck's ID is found;
+                                // the ID matcher lists it as NEEDS ID (ADR-0050)
   "min": 0,                     // decoded values outside the range are rejected, not shown
   "max": 255
 }

@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text;
 using DashDeck.Abstractions;
 
-namespace DashDeck.SerialTap;
+namespace DashDeck.Vehicle.Tap;
 
 /// <summary>Which way bytes were travelling.</summary>
 public enum TapDirection
@@ -13,6 +13,9 @@ public enum TapDirection
     /// <summary>From the adapter to the program: answers.</summary>
     FromAdapter,
 }
+
+/// <summary>One line through the tap, as recorded: when, which way (null for a note), and the text.</summary>
+public sealed record TapLine(DateTimeOffset At, TapDirection? Direction, string Text, bool Prompt = false);
 
 /// <summary>
 /// Turns the two byte streams through the tap into timestamped lines.
@@ -41,6 +44,9 @@ public sealed class TapRecorder
         _clock = clock;
         _write = write;
     }
+
+    /// <summary>Raised for every line as it is written, for a program that reads the traffic live.</summary>
+    public event Action<TapLine>? Line;
 
     /// <summary>Lines written so far, each way.</summary>
     public int CommandLines { get; private set; }
@@ -118,7 +124,9 @@ public sealed class TapRecorder
     {
         lock (_gate)
         {
-            _write($"{Stamp(_clock.UtcNow)}  --  {text}");
+            var at = _clock.UtcNow;
+            _write($"{Stamp(at)}  --  {text}");
+            Line?.Invoke(new TapLine(at, null, text));
         }
     }
 
@@ -169,6 +177,7 @@ public sealed class TapRecorder
         }
 
         _write(line);
+        Line?.Invoke(new TapLine(started, direction, text, prompt));
     }
 
     private sealed class Partial

@@ -2,7 +2,7 @@ using System.Globalization;
 using System.IO.Ports;
 using System.Net;
 using DashDeck.Abstractions;
-using DashDeck.SerialTap;
+using DashDeck.Vehicle.Tap;
 
 // DashDeck serial tap: records everything FORScan (or any program) says to the adapter, and what
 // the adapter says back, by standing between them.

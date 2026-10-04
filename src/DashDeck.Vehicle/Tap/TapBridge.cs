@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 
-namespace DashDeck.SerialTap;
+namespace DashDeck.Vehicle.Tap;
 
 /// <summary>
 /// Passes bytes between a program on the network and the adapter's serial port, recording both ways.

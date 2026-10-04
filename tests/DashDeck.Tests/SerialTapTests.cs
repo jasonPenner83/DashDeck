@@ -3,7 +3,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Channels;
 using DashDeck.Abstractions;
-using DashDeck.SerialTap;
+using DashDeck.Vehicle.Tap;
 
 namespace DashDeck.Tests;
 

@@ -132,6 +132,15 @@ public sealed record SignalDefinition
 
     public required DecodeSpec Decode { get; init; }
 
+    /// <summary>
+    /// True for a signal whose mode and PID are a stand-in, not the truck's: the synthetic truck
+    /// answers it so the screen that shows it can be built, and a real truck reads Unavailable
+    /// until its identifier is found (ADR-0050). The ID matcher lists these as needing an ID; a
+    /// vehicle pack or overlay entry with the same id replaces it, and is not one.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Placeholder { get; init; }
+
     /// <summary>Rate used when a component does not ask for a specific one.</summary>
     public double DefaultRateHz { get; init; } = 1.0;
 

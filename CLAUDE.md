@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **677 tests green** — 284 engine, 393 shell.
+(ADR-0010). **714 tests green** — 321 engine, 393 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -206,6 +206,22 @@ to a Wi-Fi adapter, and `TapBridge` relays every byte both ways while `TapRecord
 timestamped `>>` command and `<<` answer lines to `%LOCALAPPDATA%\DashDeck\tap\tap-<time>.log`. It
 sends nothing of its own. The logs can hold the VIN — never in the repo. Reference:
 [`docs/serial-tap.md`](docs/serial-tap.md).
+
+**The ID matcher is where DashDeck's identifiers are managed** (ADR-0050): `src/DashDeck.IdMatcher`,
+`IdMatcher.exe` in `IdMatcher\` — a **desktop** WPF app for the laptop, keyboard and mouse (the owner's
+rule: find IDs the traditional way, keep touch for the dash). The tap is built in (FORScan on
+`127.0.0.1:35000`, every session saved as a tap log; saved logs reopen). **Left:** DashDeck's signals,
+standard → pack → overlay as the dash reads them, with **NEEDS ID** for `"placeholder": true` (new
+catalog field, on the 24 stand-ins — **a new stand-in must carry it**) and **NOT ON TRUCK** for a
+standard PID the engine computer's own supported-PID answers (heard in the traffic) say it lacks.
+**Middle:** every identifier FORScan asks (`TrafficReader` follows `ATSH`, `ATTP6`/`STP53`, `STPX`, the
+count digit). **Right:** match live — type what FORScan shows, `ScalingFitter` tries Ford's usual steps
+and offsets in metric (°F/psi/mph converted) and fits a line once the raw value moves — or import the
+PID log CSV (`ForscanCsv`, `LogMatcher`, R²). Pairing keeps the DashDeck signal's id, name, range and
+rate, takes the truck's module/mode/PID/decode in the signal's unit (`SignalPairing.Pair`), and saves
+to **`signals.user.json`** or exports **pack entries**; TEST still confirms before a pack commit. The
+tap code lives in `DashDeck.Vehicle.Tap` now, shared with SerialTap. Reference:
+[`docs/id-matcher.md`](docs/id-matcher.md).
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
@@ -443,7 +459,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Forty-nine exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Fifty exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -470,7 +486,8 @@ warning lights while the cards move onto the stage, and clean, typographic defau
 the user's own, and a separate guided ID hunter that listens silently, follows and matches, and CAN databases as leads checked on the truck, never shipped, and a scroll strip for programs
 that ignore touch — tried and withdrawn (ADR-0046, superseded by ADR-0047): a hosted program gets the
 whole stage, and a serial tap that records FORScan by standing between it and the adapter, and fast
-requests asked FORScan's way — filtered to the engine computer, with a count of one.
+requests asked FORScan's way — filtered to the engine computer, with a count of one, and the
+ID matcher, a desktop program where DashDeck's identifiers are managed against FORScan.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

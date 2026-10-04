@@ -2,10 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DashDeck.Abstractions\DashDeck.Abstractions.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="System.IO.Ports" Version="10.0.0" />
+    <ProjectReference Include="..\DashDeck.Vehicle\DashDeck.Vehicle.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -15,9 +12,5 @@
     <Nullable>enable</Nullable>
     <AssemblyName>SerialTap</AssemblyName>
   </PropertyGroup>
-
-  <ItemGroup>
-    <InternalsVisibleTo Include="DashDeck.Tests" />
-  </ItemGroup>
 
 </Project>
