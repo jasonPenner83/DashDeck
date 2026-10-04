@@ -36,7 +36,7 @@ public class IdentityTests
         // Made up, like every VIN in this repository — this one's remainder is 10, so its check
         // digit is the letter X.
         Assert.True(Vin.HasValidCheckDigit("ZZZZZZBZXZ0000000"));
-        Assert.True(Vin.HasValidCheckDigit(SyntheticTransport.SyntheticVin));
+        Assert.True(Vin.HasValidCheckDigit(SyntheticTruckData.Shipped().Vin!));
         Assert.False(Vin.HasValidCheckDigit("1FTEW1EP3KF000000"));
         Assert.Equal('2', Vin.ExpectedCheckDigit("1FTEW1EP3KF000000"));
     }
@@ -64,7 +64,7 @@ public class IdentityTests
         var read = await VinReader.ReadAsync(service.ProbeAsync, TestCancellation.Token);
 
         Assert.Null(read.Problem);
-        Assert.Equal(SyntheticTransport.SyntheticVin, read.Vin);
+        Assert.Equal(SyntheticTruckData.Shipped().Vin!, read.Vin);
     }
 
     [Fact]

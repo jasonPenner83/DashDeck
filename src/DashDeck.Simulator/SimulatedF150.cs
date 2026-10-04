@@ -17,7 +17,7 @@ namespace DashDeck.Simulator;
 /// so <see cref="FuelUsedLitres"/> is the ground truth a trip computer must reproduce.
 /// </para>
 /// </remarks>
-public sealed class SimulatedF150
+public sealed partial class SimulatedF150
 {
     // Vehicle constants, roughly a 2019 SuperCrew 4x4.
     private const double MassKg = 2400;

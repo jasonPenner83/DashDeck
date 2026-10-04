@@ -182,7 +182,7 @@ public class HuntTests
 
         var adapter = new ElmAdapter(truck);
         await adapter.InitializeAsync(CancellationToken.None);
-        var request = new PidRequest(0x22, 0xF113, CanBus.Ms, 0x726);
+        var request = new PidRequest(0x22, 0xF187, CanBus.Ms, 0x7A0);
         Assert.Equal(PidFailure.BusError, (await adapter.RequestAsync(request, CancellationToken.None)).Failure);
 
         adapter.Pins311BitRate = 500000;
@@ -199,7 +199,7 @@ public class HuntTests
         await adapter.InitializeAsync(CancellationToken.None);
         var before = log.Commands.Count;
 
-        var refused = await adapter.RequestAsync(new PidRequest(0x22, 0xF113, CanBus.Ms, 0x726), CancellationToken.None);
+        var refused = await adapter.RequestAsync(new PidRequest(0x22, 0xF187, CanBus.Ms, 0x7A0), CancellationToken.None);
 
         Assert.Equal(PidFailure.NoData, refused.Failure);
         Assert.Equal(before, log.Commands.Count);
@@ -235,7 +235,7 @@ public class HuntTests
         var adapter = new ElmAdapter(log) { Pins311BitRate = 500000 };
         await adapter.InitializeAsync(CancellationToken.None);
 
-        Assert.True((await adapter.RequestAsync(new PidRequest(0x22, 0xF113, CanBus.Ms, 0x726), CancellationToken.None)).IsSuccess);
+        Assert.True((await adapter.RequestAsync(new PidRequest(0x22, 0xF187, CanBus.Ms, 0x7A0), CancellationToken.None)).IsSuccess);
         var stp = log.Commands.LastIndexOf("STP53");
         Assert.Equal("STPBR500000", log.Commands[stp + 1]);
     }

@@ -130,7 +130,7 @@ public class DiscoveryTests
     {
         // Two independent transcriptions of J1979: the shipped catalog and the suggestion table.
         // Where both describe a PID, a disagreement means one of them is wrong.
-        foreach (var definition in TestCatalog.Load().Definitions.Where(d => d.Mode == 1 && d.Bus == CanBus.Hs))
+        foreach (var definition in TestCatalog.Load().Definitions.Where(d => d.HasRequest && d.Mode == 1 && d.Bus == CanBus.Hs))
         {
             Assert.True(TestCatalog.Reference().TryGet(definition.Pid, out var entry), $"{definition.Id} is not in the table");
 

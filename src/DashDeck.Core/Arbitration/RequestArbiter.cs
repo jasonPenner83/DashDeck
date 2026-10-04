@@ -12,7 +12,8 @@ public sealed record PlanEntry(SignalDefinition Signal, SignalPriority Priority,
 /// <summary>The merged, budget-respecting polling plan for every live declaration.</summary>
 public sealed record PollingPlan(IReadOnlyList<PlanEntry> Entries, double BudgetHz, double DemandHz)
 {
-    public double AllocatedHz => Entries.Sum(e => e.RateHz);
+    /// <summary>Requests per second planned; placeholders ask nothing, so they count for none (ADR-0052).</summary>
+    public double AllocatedHz => Entries.Where(e => e.Signal.HasRequest).Sum(e => e.RateHz);
 
     public bool IsDegraded => DemandHz > BudgetHz + 1e-9;
 
@@ -118,8 +119,15 @@ public sealed class RequestArbiter
             .ThenByDescending(x => x.RateHz)
             .ToList();
 
+        // A placeholder asks nothing (ADR-0052): it is planned at the rate wanted and costs none
+        // of the budget, so a screen full of them never slows a real signal.
+        var entries = merged
+            .Where(x => !x.Definition.HasRequest)
+            .Select(x => new PlanEntry(x.Definition, x.Priority, x.RateHz))
+            .ToList();
+        merged = [.. merged.Where(x => x.Definition.HasRequest)];
+
         var demand = merged.Sum(x => x.RateHz);
-        var entries = new List<PlanEntry>(merged.Count);
         var remaining = BudgetHz;
 
         foreach (var tier in merged.GroupBy(x => x.Priority).OrderByDescending(g => g.Key))

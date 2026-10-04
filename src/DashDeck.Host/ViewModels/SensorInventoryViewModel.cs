@@ -80,7 +80,7 @@ public sealed partial class SignalRowViewModel(SignalDefinition definition, Sign
     public bool IsPending { get; } = pending;
 
     /// <summary>The quiet second line: id, bus, the request on the wire, and the module it goes to.</summary>
-    public string Detail => string.Create(
+    public string Detail => !Definition.HasRequest ? $"{Definition.Id}  ·  placeholder: no ID yet, nothing is asked" : string.Create(
         CultureInfo.InvariantCulture,
         $"{Definition.Id}  ·  {(Definition.Bus is CanBus.Ms ? "MS" : "HS")}  ·  {Definition.Mode:X2} {(Definition.Pid <= 0xFF ? Definition.Pid.ToString("X2", CultureInfo.InvariantCulture) : Definition.Pid.ToString("X4", CultureInfo.InvariantCulture))}{(Definition.ModuleAddress is { } module ? $"  ·  module {module:X3}" : "")}");
 
@@ -418,8 +418,9 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
         Missing.Clear();
         Unsupported.Clear();
 
+        // Placeholders ask nothing, so they neither cover a PID nor count as unsupported (ADR-0052).
         var defined = _rows
-            .Where(r => r.Definition.Mode == 0x01)
+            .Where(r => r.Definition.HasRequest && r.Definition.Mode == 0x01)
             .ToLookup(r => (r.Definition.Bus, (int)r.Definition.Pid));
 
         foreach (var result in results.Where(r => r.Answered))
@@ -435,7 +436,8 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
 
             // Only standard-range PIDs on a bus that answered can be called unsupported: a bus
             // that said nothing has not said no, and Ford's own modes are not in the bitmaps.
-            foreach (var row in _rows.Where(r => r.Definition.Mode == 0x01
+            foreach (var row in _rows.Where(r => r.Definition.HasRequest
+                && r.Definition.Mode == 0x01
                 && r.Definition.Bus == result.Bus
                 && r.Definition.Pid <= 0xFF
                 && !result.Supported.Contains(r.Definition.Pid)))

@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **748 tests green** — 347 engine, 401 shell.
+(ADR-0010). **749 tests green** — 348 engine, 401 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -90,7 +90,15 @@ user's own files** in `%LOCALAPPDATA%\DashDeck\vehicles\` (ADR-0052); `catalog/v
 liability, code and the shipped catalog hold only what public standards define, and placeholders. The
 SAE J1979 mode 01 table and the ISO module names, identity question (`F187`) and identification range
 (`F100`–`F1FF`) are files in `catalog/reference/`, read by `ObdReference`; a vehicle file adds
-`identityDid` (Jason's: Ford's `F113`), `identifierRanges` and module names over them (`With`). The
+`identityDid` (Jason's: Ford's `F113`), `identifierRanges` and module names over them (`With`).
+**Placeholders have no identifier at all** — no bus, mode or PID; `HasRequest` is false, the
+arbiter plans them at no cost, and `VehicleService` never asks: Unavailable on a real truck, the
+synthetic truck's value by id (`SimulatedValues`) while simulated. **The synthetic truck answers from
+the catalog**: whatever request a signal lives at, encoded by its own decode from the truck's
+quantity of the same name (`SimulatedF150.Value`/`Reading`), plus the SAE reference for standard
+PIDs the catalog lacks; its invented modules (7E0, 7E1, 710, 740, 750; 7A0, 7A4, 7B0 on pins 3/11),
+their identifiers, broadcast frames and VIN are `catalog/simulator/synthetic-truck.json`
+(`SyntheticTruckData`). Change a signal's request in a file and the simulator follows. The
 tools read speed, rpm and coolant **by signal name** through the catalog (`SignalProbe`), never by PID
 number. The ID hunter's shipped `targets.json` names only `7E0`/`7E1`; the user's own copy in
 `%LOCALAPPDATA%\DashDeck\idhunter\` wins. Only the protocol's own fixed numbers stay in code (`7DF`,
@@ -157,7 +165,7 @@ theme's frosted panel ships as `catalog/climate/glass.json`); a theme names its 
 block, one template). The panel is **made when CLIMATE is chosen and disposed when left**, so it
 declares signals only while visible. Its thirteen `hvac.*` / `seat.*.climate` / `steeringWheel.heat`
 signals are
-**placeholders** (MS-CAN, mode 01 `C4`–`D0`, like TPMS): Simulated on the synthetic truck,
+**placeholders** (like TPMS — no request at all, ADR-0052): Simulated on the synthetic truck,
 **Unavailable on the real one** until the HVAC module is found. **Nothing is sent** — control is
 Phase 3 (ADR-0006).
 
@@ -169,9 +177,8 @@ its own (`"consoleLayout"`), yours live in
 draws one of nine original icons (path data, `WarningIcons`) lit by `bit`/`below`/`equals`/`onAt`.
 Real lights: check engine (`diagnostics.checkEngine`, PID 01 bit 7 — **decodes can `mask`**, so
 `diagnostics.dtcCount` comes from the same byte), low fuel, hot coolant, low voltage; oil, seatbelt,
-door, brake and tyres are `warning.*` **placeholders** (MS-CAN `D1`–`D5`), and so are the economy
-and range figures, `fuel.economy` and `fuel.range` (`D6`, `D7`) — the cluster shows both, so they
-are likely its identifiers to find. `vehicle.odometer` is PID `A6`. **CARDS** (`"type": "cards"`) shows the one `DashboardViewModel`; `IsShown` is false
+door, brake and tyres are `warning.*` **placeholders**, and so are the economy and range figures,
+`fuel.economy` and `fuel.range` — the cluster shows both, so they are likely its identifiers to find. `vehicle.odometer` is PID `A6`. **CARDS** (`"type": "cards"`) shows the one `DashboardViewModel`; `IsShown` is false
 while it is off the stage, so no card declares; MODIFY WIDGETS puts CARDS on the stage first; a
 launcher file that never mentions `cards` gets it at the end of the grid. The card editor and
 component details can open over CLIMATE now, so both panels hide beneath them.
@@ -349,10 +356,9 @@ overhead white F-150 that lights the low corner), and `RangeEstimator` (distance
 level over a recent economy it derives from fuel rate and speed, with a full-screen breakdown;
 the tank size comes from `VehicleProfile`, set in Settings ▸ Vehicle, with 136 L as the fallback). **TPMS is the
 first MS-CAN signal set** — its
-four `tire.*.pressure` ids carry **placeholder mode/PID** (documented in the catalog) because
-Ford's real body-module message is undiscovered (R2); the synthetic answers them on MS-CAN
-flagged Simulated, and on a real truck without the PID they read Unavailable and every corner
-shows a dash. Verify the loader alone with `--components <outfile>`
+four `tire.*.pressure` ids are **placeholders** because Ford's real body-module message is
+undiscovered (R2); the synthetic truck answers them by name, flagged Simulated, and on a real truck
+they read Unavailable and every corner shows a dash. Verify the loader alone with `--components <outfile>`
 (`--components-dwell <seconds>` to let it run); `--detail <n>` opens a card's detail for a
 screenshot. `publish.ps1` builds each component and ships `plugins/` beside the executable, the
 same way it ships the catalog. **How to write one:** [`docs/writing-a-component.md`](docs/writing-a-component.md).
@@ -484,7 +490,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Fifty-two exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Fifty-three exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -514,7 +520,8 @@ whole stage, and a serial tap that records FORScan by standing between it and th
 requests asked FORScan's way — filtered to the engine computer, with a count of one, and the
 ID matcher, a desktop program where DashDeck's identifiers are managed against FORScan — signals
 added, edited and hidden there, typed ones held unconfirmed until TEST, and nothing vehicle-specific
-shipped — standards' tables as files, vehicle files the user's own, pins 3/11 silent until measured.
+shipped — standards' tables as files, vehicle files the user's own, pins 3/11 silent until measured —
+and placeholders with no identifier at all, the synthetic truck answering from the catalog.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

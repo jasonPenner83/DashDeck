@@ -1041,3 +1041,33 @@ Send the log in any of these cases.
 - part numbers still missing after step 3;
 - the pack line not finding your file;
 - a sweep that runs while the truck is moving.
+
+## Placeholders ask nothing; the synthetic truck reads the catalog (ADR-0053)
+
+**You need:**
+- the new build on the tablet; your vehicle file in place (from the ADR-0052 walkthrough);
+- FORScan with the serial tap on the laptop, for step 4;
+- the truck, ignition on, parked.
+
+1. **At a desk first** (no adapter): open DashDeck. **Expect:**
+   - SIM badge; CLIMATE shows set temperatures, fan and seats; DASH shows economy and range; TPMS
+     shows four pressures with the rear left low — all flagged simulated, exactly as before;
+   - Settings ▸ Sensors lists the climate, tyre and warning signals with *placeholder: no ID yet,
+     nothing is asked* under each.
+2. Settings ▸ Sensors ▸ **SCAN FOR MODULES** at the desk. **Expect:** the synthetic modules with new
+   invented ids — 7E0, 7E1, 710, 740, 750 on HS and 7A0, 7A4, 7B0 on pins 3/11 — each with a
+   `SYNTH-…` identity (710 declines to give one).
+3. **In the truck**, open CLIMATE and DASH. **Expect:** every placeholder shows a dash with a grey
+   dot (**Unavailable**, not Stale amber); real values (speed, rpm, coolant, fuel) are live.
+4. With the tap recording, let DashDeck run on CLIMATE for a minute, then open the tap log.
+   **Expect:** no requests on pins 3/11 for `01 C0`–`01 D7` — nothing goes out for a placeholder.
+   (Before this change those went out every few seconds.)
+5. Pair one placeholder in the ID matcher (say the door ajar, from the switch walkthrough) and copy
+   the overlay. **Expect:** after a restart it reads live, and Sensors no longer calls it a
+   placeholder.
+
+**A failure looks like:**
+- a placeholder lit or showing a number on the real truck;
+- any `01 C…`/`01 D…` request in the tap log;
+- a placeholder showing amber Stale instead of a grey Unavailable;
+- the climate panel or TPMS blank at the desk.

@@ -326,9 +326,12 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         var measured = VehiclePacks.Pins311BitRate(loaded.ActivePacks);
         var synthetic = measured ?? 125000;
 
+        // The synthetic truck answers from the running catalog — whatever request each signal lives
+        // at, the user's own included — and its placeholders by name (ADR-0052).
+        var simulated = new SimulatedF150(drive);
         IVehicleTransport bottom = found is not null
             ? link!
-            : new SyntheticTransport(new SimulatedF150(drive)) { Pins311BitRate = synthetic };
+            : new SyntheticTransport(simulated, catalog: loaded.Catalog, reference: loaded.Reference) { Pins311BitRate = synthetic };
 
         var switchable = new SwitchableTransport(bottom);
 
@@ -338,6 +341,9 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         var service = new VehicleService(elm, loaded.Catalog)
         {
             Quality = found is not null ? SignalQuality.Live : SignalQuality.Simulated,
+
+            // Placeholders ask nothing; while simulated, they read the synthetic truck by name.
+            SimulatedValues = found is not null ? null : simulated.Reading,
         };
 
         await service.StartAsync(cancellationToken);

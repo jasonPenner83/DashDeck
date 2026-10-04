@@ -178,7 +178,9 @@ public sealed record SignalRow(SignalStanding Standing)
         _ => "STANDARD",
     }) + (Standing.Hidden ? " · HIDDEN" : "");
 
-    public string Where => Definition.Mode == 0x01 && Definition.Module is null
+    public string Where => !Definition.HasRequest
+        ? "no ID yet"
+        : Definition.Mode == 0x01 && Definition.Module is null
         ? $"01 {Definition.Pid:X2}"
         : $"{Definition.Module ?? "7DF"} {Definition.Mode:X2} {(Definition.Mode == 0x01 ? Definition.Pid.ToString("X2", CultureInfo.InvariantCulture) : Definition.Pid.ToString("X4", CultureInfo.InvariantCulture))}";
 

@@ -97,8 +97,10 @@ the truck, promote it by copying it into the right file here.
   },
   "defaultRateHz": 4,           // used when a component does not ask for a rate
   "stalenessSeconds": null,     // defaults to five poll intervals
-  "placeholder": false,         // true: the mode/PID are a stand-in until the truck's ID is found;
-                                // the ID matcher lists it as NEEDS ID (ADR-0050)
+  "placeholder": false,         // true: its identifier is still to be found — leave out bus, mode and
+                                // pid; nothing is ever asked for it (Unavailable on a real vehicle, the
+                                // synthetic truck's value by id); the ID matcher lists it as NEEDS ID
+                                // (ADR-0050, ADR-0052)
   "hidden": false,              // true (in your overlay): left out of the card editor's picker, still
                                 // working for anything already using it (ADR-0051)
   "unconfirmed": false,         // true: typed by hand; not offered until TEST answers it (ADR-0051)
