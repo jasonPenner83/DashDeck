@@ -110,6 +110,56 @@ public static class UnitConversion
         _ => (shown, 1, ""),
     };
 
+    /// <summary>The unit a log heading names — "°F", "psi", "km/h" — or <see cref="ShownUnit.None"/>.</summary>
+    public static ShownUnit Parse(string? text) => (text ?? "").Trim().ToLowerInvariant() switch
+    {
+        "°c" or "c" or "degc" or "deg c" => ShownUnit.Celsius,
+        "°f" or "f" or "degf" or "deg f" => ShownUnit.Fahrenheit,
+        "kpa" => ShownUnit.Kpa,
+        "psi" => ShownUnit.Psi,
+        "bar" => ShownUnit.Bar,
+        "inhg" or "in hg" => ShownUnit.InHg,
+        "km/h" or "kph" or "kmh" => ShownUnit.Kmh,
+        "mph" => ShownUnit.Mph,
+        "rpm" or "1/min" => ShownUnit.Rpm,
+        "%" => ShownUnit.Percent,
+        "v" => ShownUnit.Volt,
+        "l/h" or "lph" => ShownUnit.LitresPerHour,
+        "gal/h" or "gph" => ShownUnit.GallonsPerHour,
+        "l" => ShownUnit.Litres,
+        "gal" => ShownUnit.Gallons,
+        "km" => ShownUnit.Km,
+        "mi" or "miles" => ShownUnit.Miles,
+        "°" or "deg" => ShownUnit.Degrees,
+        "ms" => ShownUnit.Ms,
+        _ => ShownUnit.None,
+    };
+
+    /// <summary>The short label for a unit, as FORScan prints it.</summary>
+    public static string Label(ShownUnit unit) => unit switch
+    {
+        ShownUnit.Celsius => "°C",
+        ShownUnit.Fahrenheit => "°F",
+        ShownUnit.Kpa => "kPa",
+        ShownUnit.Psi => "psi",
+        ShownUnit.Bar => "bar",
+        ShownUnit.InHg => "inHg",
+        ShownUnit.Kmh => "km/h",
+        ShownUnit.Mph => "mph",
+        ShownUnit.Rpm => "rpm",
+        ShownUnit.Percent => "%",
+        ShownUnit.Volt => "V",
+        ShownUnit.LitresPerHour => "L/h",
+        ShownUnit.GallonsPerHour => "gal/h",
+        ShownUnit.Litres => "L",
+        ShownUnit.Gallons => "gal",
+        ShownUnit.Km => "km",
+        ShownUnit.Miles => "mi",
+        ShownUnit.Degrees => "°",
+        ShownUnit.Ms => "ms",
+        _ => "(no unit)",
+    };
+
     /// <summary>
     /// How far off a typed value may be: half its last digit (FORScan rounds what it shows), and
     /// never less than half a percent.
@@ -286,6 +336,23 @@ public static class ScalingFitter
             .ThenBy(c => c.Window.Length)
             .ThenBy(c => c.Window.Offset)
             .Take(limit)];
+    }
+
+    /// <summary>
+    /// A scaling fitted against values in <paramref name="unit"/> — a °F log column — carried into the
+    /// catalog's metric unit, and snapped to a usual step and offset when it lands within a hair of one.
+    /// </summary>
+    public static ScalingCandidate ToMetric(ScalingCandidate fitted, ShownUnit unit)
+    {
+        var (_, factor, _) = UnitConversion.ToMetric(0, unit);
+        if (Math.Abs(factor - 1) < 1e-12 && Math.Abs(UnitConversion.ToMetric(0, unit).Value) < 1e-12)
+        {
+            return fitted;
+        }
+
+        var scale = SnapScale(fitted.Scale * factor);
+        var offset = SnapOffset(UnitConversion.ToMetric(fitted.Offset, unit).Value, Math.Max(Math.Abs(scale), 0.05));
+        return fitted with { Scale = scale, Offset = offset, WorstError = fitted.WorstError * factor };
     }
 
     private static IEnumerable<ScalingCandidate> Rank(List<ScalingCandidate> found) => found

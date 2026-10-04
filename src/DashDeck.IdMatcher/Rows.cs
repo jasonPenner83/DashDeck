@@ -1,4 +1,5 @@
 using System.Globalization;
+using DashDeck.Core.Catalog;
 using CommunityToolkit.Mvvm.ComponentModel;
 using DashDeck.Core.Discovery.Matching;
 
@@ -120,9 +121,17 @@ public sealed partial class LogRow : ObservableObject
     private bool _accept;
 }
 
-/// <summary>An accepted match in the bottom list.</summary>
-public sealed record AcceptedRow(AcceptedMatch Match)
+/// <summary>An accepted match in the bottom list, and the DashDeck signal it fills, if any.</summary>
+public sealed partial class AcceptedRow : ObservableObject
 {
+    public AcceptedRow(AcceptedMatch match, SignalDefinition? target)
+    {
+        Match = match;
+        _target = target;
+    }
+
+    public AcceptedMatch Match { get; }
+
     public string Identifier => Match.Key.ToString();
 
     public string Name => Match.Name;
@@ -130,4 +139,42 @@ public sealed record AcceptedRow(AcceptedMatch Match)
     public string Formula => $"{Match.Scaling.Formula} {Match.Unit}";
 
     public string Evidence => Match.Evidence;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TargetText))]
+    private SignalDefinition? _target;
+
+    public string TargetText => Target is { } t ? $"→ {t.Id}" : "(not paired — new signal)";
+
+    /// <summary>What it becomes in DashDeck's catalog.</summary>
+    public SignalDefinition ToDefinition() => SignalPairing.Pair(Match, Target);
+}
+
+/// <summary>A DashDeck signal in the left list.</summary>
+public sealed record SignalRow(SignalStanding Standing)
+{
+    public SignalDefinition Definition => Standing.Definition;
+
+    public string Id => Definition.Id;
+
+    public string Name => Definition.Name;
+
+    public string Category => Definition.Category;
+
+    public bool NeedsId => Standing.NeedsId;
+
+    public string Status => Standing.Status switch
+    {
+        PairingStatus.Placeholder => "NEEDS ID",
+        PairingStatus.NotOnThisTruck => "NOT ON TRUCK",
+        PairingStatus.Pack => "PACK",
+        PairingStatus.Yours => "YOURS",
+        _ => "STANDARD",
+    };
+
+    public string Where => Definition.Mode == 0x01 && Definition.Module is null
+        ? $"01 {Definition.Pid:X2}"
+        : $"{Definition.Module ?? "7DF"} {Definition.Mode:X2} {(Definition.Mode == 0x01 ? Definition.Pid.ToString("X2", CultureInfo.InvariantCulture) : Definition.Pid.ToString("X4", CultureInfo.InvariantCulture))}";
+
+    public string Unit => Definition.Decode.Unit;
 }

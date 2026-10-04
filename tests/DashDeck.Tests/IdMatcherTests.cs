@@ -381,6 +381,18 @@ public sealed class IdMatcherTests
     }
 
     [Fact]
+    public void A_fahrenheit_fit_carries_into_celsius_as_the_usual_sixteenth()
+    {
+        var fitted = new ScalingCandidate(new RawWindow(0, 2, false), 0.1125, 32.0004, 0.05, 40, 30, true, 0.9999);
+
+        var metric = ScalingFitter.ToMetric(fitted, UnitConversion.Parse("°F"));
+
+        Assert.Equal(0.0625, metric.Scale);
+        Assert.Equal(0, metric.Offset);
+        Assert.Same(fitted, ScalingFitter.ToMetric(fitted, UnitConversion.Parse("°C")));
+    }
+
+    [Fact]
     public void A_column_that_never_moved_is_reported_not_matched()
     {
         var (table, _) = Traffic(Warming);

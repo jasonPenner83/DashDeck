@@ -879,3 +879,53 @@ Send the log in any of these cases.
 - a card that worked now NO DATA;
 - any number that is wrong, jumps between two values, or shows another card's value. In that case,
   turn it off and tell me which card.
+
+## The ID matcher — pairing DashDeck's IDs with FORScan (ADR-0050)
+
+**You need:**
+- the laptop with FORScan, and the DashDeck folder copied to it;
+- the adapter, plugged into the truck and the laptop;
+- ignition **on**, engine running for values that need it; parked;
+- DashDeck, the ID hunter and SerialTap closed.
+
+1. Start `IdMatcher\IdMatcher.exe`. **Expect:**
+   - the left list shows **NEEDS ID** rows: tyre pressures, warning lights, economy, range, climate;
+   - the status line under the list says how many of DashDeck's signals need an ID.
+2. Pick the adapter's port and click **START TAP**. **Expect:** *Holding COM7 at 115200 baud* in the
+   status line.
+3. Connect FORScan to WiFi **127.0.0.1**, port **35000**. **Expect:**
+   - FORScan finds the truck as usual;
+   - the middle list fills with identifiers;
+   - the left list adds **NOT ON TRUCK** for fuel rate, MAF and oil temperature, read from the
+     truck's own answers.
+4. **Coolant, which we already know.** Tick off *Only those that need the truck's ID* and click
+   *Coolant Temperature* on the left. In FORScan, open the engine's coolant temperature in live data.
+   Press **Ctrl+N**. **Expect:** a yellow row, `7DF 01 05` or a Ford identifier on `7E0`.
+5. Press **F3**, type FORScan's number, press **Enter**. As it warms, type it again a few times.
+   **Expect:**
+   - the top scaling to be **A − 40** (or a Ford one that agrees);
+   - *Reads now* tracking FORScan's value.
+6. **Transmission temperature.** Click any NEEDS ID or other signal to pair, or press Esc to make a
+   new one. Open FORScan's transmission fluid temperature, press **Ctrl+N**, and type three values as
+   it moves. **Expect:**
+   - `7E0 22 1E1C`;
+   - top scaling **(A·256+B) ÷ 16** in °C;
+   - *Reads now* agreeing with FORScan.
+
+   Press **Ctrl+Enter**.
+7. **A PID log.** Open three or four values in FORScan and start its PID log. Rev and let it idle
+   for a minute, then stop the log. In **PID LOG**, import the CSV. **Expect:**
+   - each column matched to an identifier;
+   - R² near 1 for anything that moved;
+   - *hardly moved* for anything that did not.
+8. Click **Export for the vehicle pack** (Ctrl+E) and send me the file it names. Also send the CSV
+   and the tap log from `%LOCALAPPDATA%\DashDeck\tap\`.
+9. Optional, on the tablet with a keyboard: **SAVE TO DASHDECK**, restart DashDeck, and check the
+   paired signal in Settings ▸ Sensors with TEST.
+
+**A failure looks like:**
+- an empty left list (the catalog was not found beside the program);
+- no rows in the middle while FORScan reads live data;
+- no scaling fits values you typed (check the unit beside the box);
+- a PID log where nothing matches though values moved. Send me that CSV: its format is the
+  unknown.

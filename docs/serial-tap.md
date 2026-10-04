@@ -5,6 +5,9 @@ file you can send back. It reads nothing from the truck itself and sends nothing
 passes FORScan's bytes through and writes them down. Why it works this way:
 [ADR-0048](decisions/ADR-0048-serial-tap.md).
 
+> **To match identifiers, use the [ID matcher](id-matcher.md)**: it has this tap built in, reads the
+> traffic as it passes and pairs it with DashDeck's signals. SerialTap stays for plain recording.
+
 ## Why not a serial port monitor
 
 Windows lets **one** program open a COM port. A monitor that watches another program's port has to
