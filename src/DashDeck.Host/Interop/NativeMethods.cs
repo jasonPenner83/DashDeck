@@ -234,61 +234,6 @@ internal static class NativeMethods
     [DllImport("user32.dll", EntryPoint = "GetWindowTextLengthW", SetLastError = true, CharSet = CharSet.Unicode)]
     public static extern int GetWindowTextLength(IntPtr window);
 
-    // ── Scrolling for a program that will not take a finger (ADR-0046) ────────
-
-    public const uint WmMouseWheel = 0x020A;
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct PointInt
-    {
-        public int X;
-        public int Y;
-    }
-
-    [DllImport("user32.dll")]
-    public static extern IntPtr WindowFromPoint(PointInt point);
-
-    [DllImport("user32.dll", EntryPoint = "PostMessageW", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool GetCursorPos(out PointInt point);
-
-    public const uint InputMouse = 0;
-    public const uint MouseEventMove = 0x0001;
-    public const uint MouseEventWheel = 0x0800;
-    public const uint MouseEventVirtualDesk = 0x4000;
-    public const uint MouseEventAbsolute = 0x8000;
-
-    public const int SmXVirtualScreen = 76;
-    public const int SmYVirtualScreen = 77;
-    public const int SmCxVirtualScreen = 78;
-    public const int SmCyVirtualScreen = 79;
-
-    /// <summary>
-    /// <c>INPUT</c> with its <c>MOUSEINPUT</c> member. The mouse member is the largest of the
-    /// union, so this is the right size on its own.
-    /// </summary>
-    [StructLayout(LayoutKind.Sequential)]
-    public struct MouseInputRecord
-    {
-        public uint Type;
-        public int Dx;
-        public int Dy;
-        public uint MouseData;
-        public uint Flags;
-        public uint Time;
-        public IntPtr ExtraInfo;
-    }
-
-    [DllImport("user32.dll", SetLastError = true)]
-    public static extern uint SendInput(uint count, MouseInputRecord[] inputs, int size);
-
-    [DllImport("user32.dll")]
-    public static extern int GetSystemMetrics(int index);
-
     /// <summary>Kill every process in the job when the last handle to it closes.</summary>
     public const uint JobObjectLimitKillOnJobClose = 0x2000;
 

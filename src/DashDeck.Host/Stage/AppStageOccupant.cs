@@ -54,15 +54,11 @@ public sealed class AppStageOccupant : IStageOccupant
     private readonly AppLaunchSpec _spec;
     private readonly ProcessJob _job = new();
     private readonly Grid _root = new();
-    private readonly Grid _area = new();
     private readonly TextBlock _message = new();
     private readonly DispatcherTimer _watch;
 
     private Process? _process;
     private OverlayHost? _host;
-    private IntPtr _window;
-    private ScrollStripView? _strip;
-    private int _wheelsRefused;
     private DateTimeOffset _startedAt;
     private bool _disposed;
 
@@ -96,36 +92,7 @@ public sealed class AppStageOccupant : IStageOccupant
         _message.FontSize = 15;
         _message.Foreground = (System.Windows.Media.Brush)Application.Current.FindResource("TextMidBrush");
 
-        // The program is placed over the area, not the whole stage, so the strip beside it is
-        // never under the program (ADR-0046).
-        _area.Children.Add(_message);
-        _root.Children.Add(_area);
-
-        if (_spec.Scroll.Side != ScrollStripSide.Off)
-        {
-            _strip = new ScrollStripView(_spec.Scroll.Side) { Visibility = Visibility.Collapsed };
-            _strip.Scrolled += OnScrolled;
-
-            var stripColumn = new ColumnDefinition { Width = GridLength.Auto };
-            var areaColumn = new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) };
-
-            if (_spec.Scroll.Side == ScrollStripSide.Left)
-            {
-                _root.ColumnDefinitions.Add(stripColumn);
-                _root.ColumnDefinitions.Add(areaColumn);
-                Grid.SetColumn(_strip, 0);
-                Grid.SetColumn(_area, 1);
-            }
-            else
-            {
-                _root.ColumnDefinitions.Add(areaColumn);
-                _root.ColumnDefinitions.Add(stripColumn);
-                Grid.SetColumn(_area, 0);
-                Grid.SetColumn(_strip, 1);
-            }
-
-            _root.Children.Add(_strip);
-        }
+        _root.Children.Add(_message);
 
         Start();
         return _root;
@@ -140,9 +107,7 @@ public sealed class AppStageOccupant : IStageOccupant
         $"pid={_process?.Id.ToString() ?? "-"} job={_job.IsUsable} " +
         $"clamped={_host?.IsClamped == true} " +
         $"offered={_host?.Placed.Width:0}x{_host?.Placed.Height:0} " +
-        $"took={_host?.MinimumSize.Width:0}x{_host?.MinimumSize.Height:0} " +
-        $"strip={_spec.Scroll.Side.ToString().ToLowerInvariant()}/{_spec.Scroll.Delivery.ToString().ToLowerInvariant()} " +
-        $"notches={_strip?.NotchesRaised ?? 0} refused={_wheelsRefused}";
+        $"took={_host?.MinimumSize.Width:0}x{_host?.MinimumSize.Height:0}";
 
     /// <inheritdoc />
     public void Dispose()
@@ -185,9 +150,8 @@ public sealed class AppStageOccupant : IStageOccupant
         _watch.Stop();
         _host?.Dispose();
         _host = null;
-        _window = IntPtr.Zero;
-        _area.Children.Clear();
-        _area.Children.Add(_message);
+        _root.Children.Clear();
+        _root.Children.Add(_message);
 
         try
         {
@@ -302,8 +266,7 @@ public sealed class AppStageOccupant : IStageOccupant
     {
         try
         {
-            _window = window;
-            _host = new OverlayHost(window, _area);
+            _host = new OverlayHost(window, _root);
 
             // Read back rather than assumed. Ownership can be refused, and an application that
             // destroys and recreates its window leaves a handle that is no longer one — either
@@ -352,54 +315,5 @@ public sealed class AppStageOccupant : IStageOccupant
         _message.Visibility = state is HostedAppState.Hosted && _host is not { IsClamped: true }
             ? Visibility.Collapsed
             : Visibility.Visible;
-
-        // Only beside a program that is there to scroll. Running outside, the program is
-        // somewhere else entirely, and a strip beside an empty stage would scroll nothing.
-        if (_strip is not null)
-        {
-            _strip.Visibility = state is HostedAppState.Hosted ? Visibility.Visible : Visibility.Collapsed;
-        }
-    }
-
-    /// <summary>
-    /// Send the strip's wheel to the program, at the finger's height just inside its edge.
-    /// </summary>
-    /// <remarks>
-    /// At the finger's height so a person chooses which pane scrolls by where they drag — the
-    /// list beside the finger, as with a wheel the pane under the pointer. Just inside the edge
-    /// because that is where a scroll bar is, and a scroll bar belongs to the pane that scrolls.
-    /// </remarks>
-    private void OnScrolled(int delta, double y)
-    {
-        if (_strip is null || _window == IntPtr.Zero || State != HostedAppState.Hosted || !NativeMethods.IsWindow(_window))
-        {
-            return;
-        }
-
-        const double Inside = 12;
-        var x = _spec.Scroll.Side == ScrollStripSide.Left ? _strip.ActualWidth + Inside : -Inside;
-
-        Point screen;
-
-        try
-        {
-            screen = _strip.PointToScreen(new Point(x, y));
-        }
-        catch (InvalidOperationException)
-        {
-            return;
-        }
-
-        var px = (int)Math.Round(screen.X);
-        var py = (int)Math.Round(screen.Y);
-
-        var sent = _spec.Scroll.Delivery == ScrollDelivery.Input
-            ? WheelSender.Inject(px, py, delta)
-            : WheelSender.Post(_window, _job.ProcessIds(), px, py, delta);
-
-        if (!sent)
-        {
-            _wheelsRefused++;
-        }
     }
 }

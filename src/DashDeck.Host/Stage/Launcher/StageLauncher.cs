@@ -109,19 +109,6 @@ public sealed record LauncherEntry
     /// <summary><c>app</c>: its command line.</summary>
     public string? Arguments { get; init; }
 
-    /// <summary>
-    /// <c>app</c>: where the scroll strip sits beside the program — <c>right</c>, <c>left</c> or
-    /// <c>off</c> (ADR-0046). Right when absent.
-    /// </summary>
-    public string? ScrollStrip { get; init; }
-
-    /// <summary>
-    /// <c>app</c>: how the strip's scrolling reaches the program — <c>message</c> (a wheel message
-    /// posted to its window) or <c>input</c> (a real wheel turn with the pointer over it). Message
-    /// when absent.
-    /// </summary>
-    public string? ScrollBy { get; init; }
-
     /// <summary>Whether it plays, with the type's default applied.</summary>
     [JsonIgnore]
     public bool PlaysAudio => KeepPlaying ?? LauncherTypes.PlaysByDefault(Type);
@@ -294,18 +281,6 @@ public sealed record StageLauncher
             {
                 problems.Add($"{name}: zoom {zoom} is outside 0.25–5 — following Settings ▸ Display instead");
                 entry = entry with { Zoom = null };
-            }
-
-            if (entry.ScrollStrip is { } strip && !ScrollStripOptions.Sides.Contains(strip.Trim().ToLowerInvariant()))
-            {
-                problems.Add($"{name}: scrollStrip '{strip}' is not right, left or off — on the right instead");
-                entry = entry with { ScrollStrip = null };
-            }
-
-            if (entry.ScrollBy is { } by && !ScrollStripOptions.Deliveries.Contains(by.Trim().ToLowerInvariant()))
-            {
-                problems.Add($"{name}: scrollBy '{by}' is not message or input — sending messages instead");
-                entry = entry with { ScrollBy = null };
             }
 
             kept.Add(entry);
