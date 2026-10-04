@@ -124,12 +124,24 @@ public sealed class SyntheticTransport : IStreamingTransport
 
         AdvanceModel();
 
-        if (_faults.LatencyMs > 0)
+        var trimmed = command.Trim().ToUpperInvariant();
+
+        // A request with a response count, listened for from the engine computer alone, comes back
+        // as soon as its one answer does — the adapter stops waiting for other modules (ADR-0049).
+        // FORScan measured this on the real truck at about 20 ms against the broadcast's 52.
+        var counted = IsCountedRequest(trimmed) && _receiveFilter == 0x7E8;
+        var latency = counted ? Math.Min(_faults.LatencyMs, FastLatencyMs) : _faults.LatencyMs;
+
+        if (latency > 0)
         {
-            await Task.Delay(_faults.LatencyMs, ct).ConfigureAwait(false);
+            await Task.Delay(latency, ct).ConfigureAwait(false);
         }
 
-        var trimmed = command.Trim().ToUpperInvariant();
+        if (counted)
+        {
+            // The count digit is the adapter's business, not the vehicle's.
+            trimmed = trimmed[..^1];
+        }
 
         if (trimmed.StartsWith("AT", StringComparison.Ordinal) ||
             trimmed.StartsWith("ST", StringComparison.Ordinal))
@@ -152,6 +164,17 @@ public sealed class SyntheticTransport : IStreamingTransport
 
         return HandlePid(trimmed);
     }
+
+    /// <summary>The round trip of a counted, filtered request on the real truck (ADR-0049).</summary>
+    public const int FastLatencyMs = 20;
+
+    /// <summary>A hex request followed by a single response-count digit: <c>010C1</c>.</summary>
+    private static bool IsCountedRequest(string command) =>
+        command.Length is 5 or 7
+        && !command.StartsWith("AT", StringComparison.Ordinal)
+        && !command.StartsWith("ST", StringComparison.Ordinal)
+        && command.All(Uri.IsHexDigit)
+        && command[^1] is >= '1' and <= '9';
 
     /// <summary>Step the truck by however much wall-clock time has passed.</summary>
     private void AdvanceModel()

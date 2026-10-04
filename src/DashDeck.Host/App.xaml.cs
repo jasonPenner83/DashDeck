@@ -83,7 +83,8 @@ public partial class App : Application
                 adapter,
                 drive,
                 new CatalogSources(identity, new Settings.UserSignalStore().Definitions),
-                CancellationToken.None);
+                CancellationToken.None,
+                fastRequests: stored.FastRequests);
         }
         catch (Exception ex)
         {

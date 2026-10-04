@@ -845,3 +845,37 @@ The guide itself: [id-hunter](id-hunter.md).
 - the log ending in garbage after an `STBR` or `ATBRD` line.
 
 Send the log in any of these cases.
+
+## Fast requests (ADR-0049)
+
+**You need:**
+- the truck, engine **running**, parked;
+- the tablet with DashDeck on the adapter (live, not simulated);
+- the CARDS stage with a few engine cards on it — rpm, speed, coolant.
+
+1. Before updating, note the **`req/s`** on the status strip with DASH and CARDS showing. **Expect:**
+   about 19.
+2. Update and start DashDeck. Open **Settings ▸ Vehicle**. Under OBD-II ADAPTER, **expect**:
+   - **FAST REQUESTS — ON**;
+   - a line *Fast requests in use: N fast, M asked again the slow way*, with N climbing quickly and M
+     small.
+3. Go back to the dash. **Expect:**
+   - **`req/s` around 35–50**, about twice before;
+   - the rpm card following a throttle blip more smoothly.
+4. Check the numbers against the cluster. **Expect:**
+   - rpm, speed and coolant agree with the cluster as before;
+   - nothing reads a value that belongs to another card;
+   - no card stuck on NO DATA that worked before.
+5. Turn it off: **FAST REQUESTS — OFF**, then RESTART NOW. **Expect:**
+   - `req/s` back to about 19;
+   - the line *Fast requests are off*.
+
+   Turn it back on and restart.
+6. Tell me the `req/s` you saw each way, and the N and M from step 2 after a few minutes.
+
+**A failure looks like:**
+- `req/s` no higher with it on;
+- M climbing as fast as N, so everything is being asked twice;
+- a card that worked now NO DATA;
+- any number that is wrong, jumps between two values, or shows another card's value. In that case,
+  turn it off and tell me which card.
