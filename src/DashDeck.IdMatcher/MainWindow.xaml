@@ -52,7 +52,16 @@
             <!-- ── DashDeck's signals ─────────────────────────────────── -->
             <DockPanel Grid.Column="0">
                 <TextBlock DockPanel.Dock="Top" Style="{StaticResource Heading}" Text="DASHDECK SIGNALS — pick one to pair" />
-                <CheckBox DockPanel.Dock="Top" Content="Only those that need the truck's ID" IsChecked="{Binding OnlyNeedingId}" Margin="0,0,0,6" />
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,6">
+                    <CheckBox Content="Only those that need the truck's ID" IsChecked="{Binding OnlyNeedingId}" Margin="0,0,14,0" />
+                    <CheckBox Content="Show hidden" IsChecked="{Binding ShowHidden}" />
+                </StackPanel>
+                <WrapPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
+                    <Button Content="NEW…" Command="{Binding NewSignalCommand}" ToolTip="A new signal: from the selected accepted match, or typed by hand (unconfirmed until TEST)" Margin="0,0,6,4" />
+                    <Button Content="EDIT…" Command="{Binding EditSignalCommand}" Margin="0,0,6,4" />
+                    <Button Content="{Binding HideButton}" Command="{Binding ToggleHiddenCommand}" ToolTip="Hidden signals leave the card editor's picker; anything already using one keeps working" Margin="0,0,6,4" />
+                    <Button Content="{Binding RemoveButton}" Command="{Binding RemoveSignalCommand}" Margin="0,0,6,4" />
+                </WrapPanel>
                 <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Text="{Binding SignalSummary}" Margin="0,6,0,0" />
                 <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource Hint}" Text="{Binding CatalogStatus}" Margin="0,4,0,0" />
                 <DataGrid x:Name="SignalGrid" ItemsSource="{Binding Signals}" SelectedItem="{Binding SelectedSignal}"
@@ -63,6 +72,9 @@
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding NeedsId}" Value="True">
                                     <Setter Property="Background" Value="{StaticResource NewBrush}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Hidden}" Value="True">
+                                    <Setter Property="Foreground" Value="#999" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>

@@ -19,11 +19,18 @@ public enum PairingStatus
 
     /// <summary>In the user's overlay (<c>signals.user.json</c>) — paired here, or edited in Settings.</summary>
     Yours,
+
+    /// <summary>Typed by hand, not measured: waits for TEST on the truck before the dash offers it (ADR-0051).</summary>
+    Unconfirmed,
 }
 
 /// <summary>One DashDeck signal, and where it stands.</summary>
-public sealed record SignalStanding(SignalDefinition Definition, PairingStatus Status)
+/// <param name="BuiltIn">The built-in definition under it (standard or pack), or null for one of yours.</param>
+public sealed record SignalStanding(SignalDefinition Definition, PairingStatus Status, SignalDefinition? BuiltIn = null)
 {
+    /// <summary>Hidden by the person (ADR-0051).</summary>
+    public bool Hidden => Definition.Hidden;
+
     /// <summary>True when it still needs the truck's identifier.</summary>
     public bool NeedsId => Status is PairingStatus.Placeholder or PairingStatus.NotOnThisTruck;
 }
@@ -59,23 +66,21 @@ public static class SignalPairing
 
         foreach (var id in ids)
         {
-            if (fromOverlay.TryGetValue(id, out var yours))
-            {
-                result.Add(new SignalStanding(yours, yours.Placeholder ? PairingStatus.Placeholder : PairingStatus.Yours));
-            }
-            else if (fromPack.TryGetValue(id, out var packed))
-            {
-                result.Add(new SignalStanding(packed, packed.Placeholder ? PairingStatus.Placeholder : PairingStatus.Pack));
-            }
-            else if (standard.TryGet(id, out var shipped) && shipped is not null)
-            {
-                var status = shipped.Placeholder
-                    ? PairingStatus.Placeholder
-                    : supportedPids is not null && IsStandardMode01(shipped) && !supportedPids.Contains((byte)shipped.Pid)
-                        ? PairingStatus.NotOnThisTruck
-                        : PairingStatus.Standard;
-                result.Add(new SignalStanding(shipped, status));
-            }
+            SignalDefinition? builtIn = fromPack.TryGetValue(id, out var packed)
+                ? packed
+                : standard.TryGet(id, out var shipped) ? shipped : null;
+
+            var definition = fromOverlay.TryGetValue(id, out var yours) ? yours : builtIn!;
+            var status =
+                definition.Placeholder ? PairingStatus.Placeholder
+                : definition.Unconfirmed ? PairingStatus.Unconfirmed
+                : yours is not null && (builtIn is null || yours with { Hidden = false } != builtIn) ? PairingStatus.Yours
+                : builtIn is not null && fromPack.ContainsKey(id) ? PairingStatus.Pack
+                : supportedPids is not null && IsStandardMode01(definition) && !supportedPids.Contains((byte)definition.Pid)
+                    ? PairingStatus.NotOnThisTruck
+                    : PairingStatus.Standard;
+
+            result.Add(new SignalStanding(definition, status, builtIn));
         }
 
         return [.. result

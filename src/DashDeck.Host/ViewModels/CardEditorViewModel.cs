@@ -291,7 +291,9 @@ public sealed partial class CardEditorViewModel : ObservableObject
         // catalogs -- the sensor catalog names vehicle.heading as the signal it prefers, so
         // one day both will define it -- and a picker keyed on the id alone would offer two
         // indistinguishable chips and select the wrong one.
-        Fill(Signals, [.. _choices.Select(c =>
+        // Hidden and unconfirmed signals are not offered (ADR-0051) — except the one this card already
+        // shows, so editing a card never silently changes what it is pointed at.
+        Fill(Signals, [.. _choices.Where(c => c.Offered || ReferenceEquals(c, choice)).Select(c =>
             new OptionChip("signal", c.Caption, c, c.Detail, category: c.Category))], Card.Choice);
 
         // Re-group from the freshly built chips, keeping whatever the search box is filtering to.

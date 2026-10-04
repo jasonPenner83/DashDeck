@@ -76,12 +76,17 @@ public sealed partial class SignalRowViewModel(SignalDefinition definition, Sign
         $"{Definition.Id}  ·  {(Definition.Bus is CanBus.Ms ? "MS" : "HS")}  ·  {Definition.Mode:X2} {(Definition.Pid <= 0xFF ? Definition.Pid.ToString("X2", CultureInfo.InvariantCulture) : Definition.Pid.ToString("X4", CultureInfo.InvariantCulture))}{(Definition.ModuleAddress is { } module ? $"  ·  module {module:X3}" : "")}");
 
     /// <summary>A tag for anything that is not plain shipped data.</summary>
-    public string OriginLabel => Origin switch
+    public string OriginLabel => string.Join("  ", new[]
     {
-        SignalOrigin.Yours => "YOURS",
-        SignalOrigin.Override => "CORRECTED",
-        _ => "",
-    };
+        Origin switch
+        {
+            SignalOrigin.Yours => "YOURS",
+            SignalOrigin.Override => "CORRECTED",
+            _ => "",
+        },
+        Definition.Unconfirmed ? "UNCONFIRMED — TEST IT" : "",
+        Definition.Hidden ? "HIDDEN" : "",
+    }.Where(t => t.Length > 0));
 
     /// <summary>What the truck has said, in a word or a number.</summary>
     [ObservableProperty]

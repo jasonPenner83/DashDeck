@@ -533,3 +533,99 @@ public sealed class SignalPairingTests
         Assert.Equal(2000, signal.Max);
     }
 }
+
+/// <summary>Adding, editing, hiding and removing signals from the matcher (ADR-0051).</summary>
+public sealed class SignalWorkbenchTests
+{
+    private static SignalCatalog Standard() => TestCatalog.Load();
+
+    private static SignalDefinition Maf => Standard().Definitions.Single(d => d.Id == "engine.mafRate");
+
+    [Fact]
+    public void Hiding_a_built_in_writes_a_hidden_copy_and_unhiding_removes_it()
+    {
+        var hidden = SignalWorkbench.Hide([], Maf);
+
+        var entry = Assert.Single(hidden);
+        Assert.True(entry.Hidden);
+        Assert.Equal(Maf with { Hidden = true }, entry);
+        Assert.True(SignalPairing.Stand(Standard(), [], hidden).Single(s => s.Definition.Id == "engine.mafRate").Hidden);
+
+        Assert.Empty(SignalWorkbench.Unhide(hidden, Maf.Id, Maf));
+    }
+
+    [Fact]
+    public void Unhiding_a_corrected_built_in_keeps_the_correction()
+    {
+        var corrected = Maf with { Name = "Air flow (MAF)", Hidden = true };
+
+        var after = SignalWorkbench.Unhide([corrected], Maf.Id, Maf);
+
+        var entry = Assert.Single(after);
+        Assert.False(entry.Hidden);
+        Assert.Equal("Air flow (MAF)", entry.Name);
+    }
+
+    [Fact]
+    public void A_plain_built_in_cannot_be_removed_only_hidden()
+    {
+        Assert.Equal(RemoveKind.None, SignalWorkbench.CanRemove([], Maf.Id, isBuiltIn: true));
+    }
+
+    [Fact]
+    public void Removing_a_correction_reverts_and_removing_yours_deletes()
+    {
+        var yours = Maf with { Id = "ford.transmissionTemp", Name = "TFT" };
+        var corrected = Maf with { Name = "Air flow (MAF)" };
+        var overlay = new[] { yours, corrected };
+
+        Assert.Equal(RemoveKind.Remove, SignalWorkbench.CanRemove(overlay, yours.Id, isBuiltIn: false));
+        Assert.Equal(RemoveKind.Revert, SignalWorkbench.CanRemove(overlay, corrected.Id, isBuiltIn: true));
+        Assert.Equal([corrected], SignalWorkbench.Remove(overlay, yours.Id));
+    }
+
+    [Fact]
+    public void Renaming_or_a_new_range_keeps_a_signal_measured()
+    {
+        var after = SignalWorkbench.Edited(Maf, Maf with { Name = "Air flow", Category = "Air", Max = 300, DefaultRateHz = 2 });
+
+        Assert.False(after.Unconfirmed);
+    }
+
+    [Fact]
+    public void Changing_where_it_comes_from_or_how_it_decodes_makes_it_unconfirmed()
+    {
+        var newPid = SignalWorkbench.Edited(Maf, Maf with { Mode = 0x22, Pid = 0x1E1C, Module = "7E0" });
+        var newScale = SignalWorkbench.Edited(Maf, Maf with { Decode = Maf.Decode with { Scale = 0.02 } });
+
+        Assert.True(newPid.Unconfirmed);
+        Assert.True(newScale.Unconfirmed);
+    }
+
+    [Fact]
+    public void A_placeholder_given_a_real_id_by_hand_stops_being_a_placeholder_and_waits_for_test()
+    {
+        var economy = Standard().Definitions.Single(d => d.Id == "fuel.economy");
+
+        var typed = SignalWorkbench.Edited(economy, economy with { Mode = 0x22, Pid = 0x404C, Module = "720" });
+        var standing = SignalPairing.Stand(Standard(), [], [typed]).Single(s => s.Definition.Id == "fuel.economy");
+
+        Assert.False(typed.Placeholder);
+        Assert.True(typed.Unconfirmed);
+        Assert.Equal(PairingStatus.Unconfirmed, standing.Status);
+        Assert.False(standing.NeedsId);
+    }
+
+    [Fact]
+    public void Hidden_and_unconfirmed_survive_the_overlay_file_and_default_to_absent()
+    {
+        var json = SignalCatalog.ToJson([Maf with { Hidden = true, Unconfirmed = true }, Maf with { Id = "x.y" }]);
+
+        var back = SignalCatalog.ParseList(json);
+
+        Assert.True(back[0].Hidden);
+        Assert.True(back[0].Unconfirmed);
+        Assert.False(back[1].Hidden);
+        Assert.DoesNotContain("\"hidden\": false", json, StringComparison.Ordinal);
+    }
+}

@@ -74,6 +74,20 @@ Without a DashDeck signal selected, a match becomes a new signal named after FOR
 A column that never moved can't be matched, because a constant fits anything. Make each value
 change while logging.
 
+## Adding, editing, hiding and removing signals
+
+Under the left list (ADR-0051):
+
+| | |
+|---|---|
+| **NEW…** | A new DashDeck signal. With an accepted match selected at the bottom, it starts from that match. It is measured, so it stays confirmed if you keep its request and scaling: name it, give it a category and range, save. With nothing selected, you type it by hand: module, mode, PID, bytes and scaling. A typed signal is saved **UNCONFIRMED**: the dash won't offer it in the card editor until **TEST** in Settings ▸ Sensors on the tablet answers it, and you save it from there. |
+| **EDIT…** | Change any signal. Changing its name, category, range, rate or unit label keeps it confirmed. Changing where it comes from or how it decodes makes it unconfirmed until TEST. Editing a built-in saves your correction over it. |
+| **HIDE / UNHIDE** | Takes a signal out of the card editor's picker and this list, without breaking anything that already uses it. Tick **Show hidden** to see hidden ones and bring them back. |
+| **REMOVE** | For signals you added: gone, after a confirmation (cards using one show NO DATA). For a built-in you corrected, it says **REVERT TO BUILT-IN** and puts the original back. A plain built-in can't be removed, only hidden: screens and components may rely on it. |
+
+Every change is written straight to `signals.user.json` (the path at the bottom). DashDeck reads it at
+its next launch.
+
 ## Saving
 
 - **SAVE TO DASHDECK** (Ctrl+S) writes the accepted matches into `signals.user.json`. The path is

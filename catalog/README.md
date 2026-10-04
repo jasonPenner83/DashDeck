@@ -85,6 +85,9 @@ the truck, promote it by copying it into the right file here.
   "stalenessSeconds": null,     // defaults to five poll intervals
   "placeholder": false,         // true: the mode/PID are a stand-in until the truck's ID is found;
                                 // the ID matcher lists it as NEEDS ID (ADR-0050)
+  "hidden": false,              // true (in your overlay): left out of the card editor's picker, still
+                                // working for anything already using it (ADR-0051)
+  "unconfirmed": false,         // true: typed by hand; not offered until TEST answers it (ADR-0051)
   "min": 0,                     // decoded values outside the range are rejected, not shown
   "max": 255
 }

@@ -929,3 +929,46 @@ Send the log in any of these cases.
 - no scaling fits values you typed (check the unit beside the box);
 - a PID log where nothing matches though values moved. Send me that CSV: its format is the
   unknown.
+
+## Managing signals from the ID matcher (ADR-0051)
+
+**You need:**
+- the laptop with the ID matcher;
+- for steps 6–8, the tablet with DashDeck and the adapter in the truck, ignition on;
+- the overlay saved where the tablet reads it: run the matcher on the tablet with a keyboard, or copy
+  `signals.user.json` over.
+
+1. In the matcher, untick *Only those that need the truck's ID*. Select **Mass Air Flow** (the truck
+   has no MAF) and click **HIDE**. **Expect:**
+   - it disappears from the list;
+   - the message says the card editor stops offering it.
+2. Tick **Show hidden**. **Expect:** it is back, greyed, marked **· HIDDEN**. Click **UNHIDE**: the
+   button reads UNHIDE while it is selected.
+3. Click **NEW…** with nothing accepted. Type:
+   - id `ford.test`;
+   - module `7E0`, mode `22`, PID `1E1C`;
+   - bytes from `0`, length `2`;
+   - scale `0.0625`, offset `0`, unit `°C`.
+
+   Save. **Expect:**
+   - it appears marked **UNCONFIRMED**;
+   - the message says to TEST it on the tablet.
+4. Select it and click **EDIT…**. Change only the name. **Expect:** still UNCONFIRMED, and nothing else
+   changes.
+5. Click **REMOVE** on `ford.test`, then OK. **Expect:** it is gone. On a built-in like *Engine RPM*,
+   REMOVE says to hide it instead.
+6. On the tablet, with the overlay copied and DashDeck restarted: open **MODIFY WIDGETS** and look for
+   the hidden MAF and an unconfirmed signal. **Expect:** neither is offered. A card that already showed
+   one still does.
+7. **Settings ▸ Sensors.** **Expect:**
+   - the unconfirmed one labelled **UNCONFIRMED — TEST IT**;
+   - the hidden one labelled **HIDDEN**.
+8. Open the unconfirmed one, tap **TEST** with the engine running, then **SAVE**. Restart. **Expect:**
+   - the label is gone;
+   - the card editor now offers it.
+
+**A failure looks like:**
+- a built-in actually removed;
+- a hidden signal breaking a card that used it;
+- an unconfirmed signal offered in the picker before TEST;
+- a renamed signal turning unconfirmed.

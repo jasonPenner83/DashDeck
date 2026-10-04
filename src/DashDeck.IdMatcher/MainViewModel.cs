@@ -29,6 +29,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private readonly object _feedGate = new();
 
     private SignalCatalog? _standard;
+    private SignalCatalog? _builtIn;
+    private IReadOnlyList<SignalStanding> _standings = [];
     private IReadOnlyList<VehiclePack> _packs = [];
     private IReadOnlySet<byte>? _supported;
     private CancellationTokenSource? _tapStop;
@@ -260,8 +262,17 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     partial void OnOnlyNeedingIdChanged(bool value) => RefreshStandings();
 
+    /// <summary>Show signals the person has hidden (ADR-0051).</summary>
+    [ObservableProperty]
+    private bool _showHidden;
+
+    partial void OnShowHiddenChanged(bool value) => RefreshStandings();
+
     partial void OnSelectedSignalChanged(SignalRow? value)
     {
+        OnPropertyChanged(nameof(HideButton));
+        OnPropertyChanged(nameof(RemoveButton));
+
         if (value is null)
         {
             return;
@@ -293,6 +304,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _standard = SignalCatalog.FromFile(Path.Combine(folder, "signals.obd2-standard.json"));
             var (packs, problems) = VehiclePacks.LoadFolder(Path.Combine(folder, "vehicles"));
             _packs = packs;
+            _builtIn = VehiclePacks.Apply(_standard, packs);
             CatalogStatus = $"{_standard.Definitions.Count} standard signals, {packs.Sum(p => p.Signals.Count)} from {packs.Count} vehicle pack(s)." +
                 (problems.Count > 0 ? " " + string.Join(" ", problems) : "");
         }
@@ -332,15 +344,18 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         var overlay = ReadOverlay(out var problem);
         var standings = SignalPairing.Stand(_standard, _packs, overlay, _supported);
+        _standings = standings;
         var selectedId = SelectedSignal?.Id;
 
         Signals.Clear();
-        foreach (var standing in standings.Where(s => !OnlyNeedingId || s.NeedsId))
+        foreach (var standing in standings.Where(s => (!OnlyNeedingId || s.NeedsId) && (ShowHidden || !s.Hidden)))
         {
             Signals.Add(new SignalRow(standing));
         }
 
         SelectedSignal = selectedId is null ? null : Signals.FirstOrDefault(s => s.Id == selectedId);
+        OnPropertyChanged(nameof(HideButton));
+        OnPropertyChanged(nameof(RemoveButton));
         var needing = standings.Count(s => s.NeedsId);
         SignalSummary = $"{needing} of {standings.Count} need the truck's ID" +
             (_supported is null ? " — standard PIDs the truck lacks show once FORScan connects through the tap." : ".") +
@@ -349,6 +364,191 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private string _signalSummary = "";
+
+    // ── Adding, editing, hiding and removing signals (ADR-0051) ───────────────
+
+    public string HideButton => SelectedSignal?.Hidden == true ? "UNHIDE" : "HIDE";
+
+    public string RemoveButton => SelectedSignal is { } s
+        ? SignalWorkbench.CanRemove(ReadOverlay(out _), s.Id, s.Standing.BuiltIn is not null) switch
+        {
+            RemoveKind.Remove => "REMOVE",
+            RemoveKind.Revert => "REVERT TO BUILT-IN",
+            _ => "REMOVE (built-in: hide it)",
+        }
+        : "REMOVE";
+
+    private bool IdTaken(string id) => _standings.Any(s => s.Definition.Id == id);
+
+    private bool WriteOverlay(IReadOnlyList<SignalDefinition> overlay, string done)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(OverlayPath)!);
+            File.WriteAllText(OverlayPath, SignalCatalog.ToJson(overlay));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            SaveStatus = $"Could not write {OverlayPath}: {ex.Message}";
+            return false;
+        }
+
+        SaveStatus = done + " DashDeck reads it at its next launch.";
+        RefreshStandings();
+        return true;
+    }
+
+    /// <summary>
+    /// A new signal: from the selected accepted match when there is one (measured), or blank, typed
+    /// by hand (unconfirmed until TEST on the tablet answers it).
+    /// </summary>
+    [RelayCommand]
+    private void NewSignal()
+    {
+        var overlay = ReadOverlay(out var problem);
+        if (problem is not null)
+        {
+            SaveStatus = problem;
+            return;
+        }
+
+        var fromMatch = SelectedAccepted is { Target: null } accepted ? accepted.ToDefinition() : null;
+        var start = fromMatch ?? new SignalDefinition
+        {
+            Id = "ford.",
+            Name = "",
+            Category = "Other",
+            Mode = 0x22,
+            Pid = 0,
+            Module = "7E0",
+            Decode = new DecodeSpec(0, 1, false, 1, 0, ""),
+            DefaultRateHz = 1,
+        };
+
+        var intro = fromMatch is not null
+            ? $"From the accepted match {SelectedAccepted!.Identifier}. Name it and give it a range; change the request or scaling and it becomes a typed signal, unconfirmed until TEST."
+            : "Typed by hand. It is saved UNCONFIRMED: the dash does not offer it in the card editor until TEST in Settings ▸ Sensors on the tablet answers it.";
+
+        var window = new SignalEditorWindow(start, isNew: true, intro, IdTaken) { Owner = Application.Current.MainWindow };
+        if (window.ShowDialog() != true || window.Result is not { } result)
+        {
+            return;
+        }
+
+        var measured = fromMatch is not null && SignalWorkbench.SameSource(fromMatch, result);
+        result = result with { Unconfirmed = !measured, Placeholder = false, Hidden = false };
+
+        if (WriteOverlay(SignalWorkbench.Upsert(overlay, result), $"Added {result.Id}{(result.Unconfirmed ? " (unconfirmed — TEST it on the tablet)" : "")}."))
+        {
+            if (fromMatch is not null && measured && SelectedAccepted is { } done)
+            {
+                Accepted.Remove(done);
+            }
+
+            SelectedSignal = Signals.FirstOrDefault(s => s.Id == result.Id);
+        }
+    }
+
+    /// <summary>Edit the selected signal; a built-in becomes your correction of it.</summary>
+    [RelayCommand]
+    private void EditSignal()
+    {
+        if (SelectedSignal is not { } row)
+        {
+            SaveStatus = "Select a signal on the left to edit.";
+            return;
+        }
+
+        var overlay = ReadOverlay(out var problem);
+        if (problem is not null)
+        {
+            SaveStatus = problem;
+            return;
+        }
+
+        var before = row.Definition;
+        var intro = row.Standing.BuiltIn is not null
+            ? "A built-in signal: your changes are saved as a correction over it, which REVERT TO BUILT-IN undoes. Changing the request or scaling makes it unconfirmed until TEST."
+            : "One of yours. Changing the request or scaling makes it unconfirmed until TEST on the tablet.";
+
+        var window = new SignalEditorWindow(before, isNew: false, intro, IdTaken) { Owner = Application.Current.MainWindow };
+        if (window.ShowDialog() != true || window.Result is not { } result)
+        {
+            return;
+        }
+
+        var edited = SignalWorkbench.Edited(before, result);
+        var list = row.Standing.BuiltIn is { } builtIn && edited == builtIn
+            ? SignalWorkbench.Remove(overlay, edited.Id)          // edited back to exactly the built-in
+            : SignalWorkbench.Upsert(overlay, edited);
+
+        WriteOverlay(list, $"Saved {edited.Id}{(edited.Unconfirmed && !before.Unconfirmed ? " — now unconfirmed until TEST" : "")}.");
+    }
+
+    /// <summary>Hide the selected signal from the card editor and this list, or bring it back.</summary>
+    [RelayCommand]
+    private void ToggleHidden()
+    {
+        if (SelectedSignal is not { } row)
+        {
+            SaveStatus = "Select a signal on the left first.";
+            return;
+        }
+
+        var overlay = ReadOverlay(out var problem);
+        if (problem is not null)
+        {
+            SaveStatus = problem;
+            return;
+        }
+
+        if (row.Hidden)
+        {
+            WriteOverlay(SignalWorkbench.Unhide(overlay, row.Id, row.Standing.BuiltIn), $"{row.Id} is shown again.");
+        }
+        else
+        {
+            WriteOverlay(SignalWorkbench.Hide(overlay, row.Definition),
+                $"Hid {row.Id}. Cards, screens and components already using it keep working; the card editor stops offering it. Tick Show hidden to find it again.");
+        }
+    }
+
+    /// <summary>Remove one of yours, or revert a corrected built-in. A plain built-in can only be hidden.</summary>
+    [RelayCommand]
+    private void RemoveSignal()
+    {
+        if (SelectedSignal is not { } row)
+        {
+            SaveStatus = "Select a signal on the left first.";
+            return;
+        }
+
+        var overlay = ReadOverlay(out var problem);
+        if (problem is not null)
+        {
+            SaveStatus = problem;
+            return;
+        }
+
+        switch (SignalWorkbench.CanRemove(overlay, row.Id, row.Standing.BuiltIn is not null))
+        {
+            case RemoveKind.Remove:
+                if (MessageBox.Show($"Remove {row.Id}? Any card using it will show NO DATA.", "Remove signal", MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK)
+                {
+                    WriteOverlay(SignalWorkbench.Remove(overlay, row.Id), $"Removed {row.Id}.");
+                }
+
+                break;
+
+            case RemoveKind.Revert:
+                WriteOverlay(SignalWorkbench.Remove(overlay, row.Id), $"{row.Id} is back to the built-in definition.");
+                break;
+
+            default:
+                SaveStatus = $"{row.Id} is built into DashDeck and can't be removed — HIDE it instead. Screens and components may rely on it.";
+                break;
+        }
+    }
 
     [RelayCommand]
     private void StopPairing() => SelectedSignal = null;
