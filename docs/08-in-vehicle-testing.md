@@ -1003,3 +1003,41 @@ Send the log in any of these cases.
 - a match that reads anything other than 0 or 1;
 - the PID log's door column reported as "never changed" when the door was opened during it.
 
+
+## Your vehicle file, and nothing vehicle-specific shipped (ADR-0052)
+
+**You need:**
+- the new build on the tablet (and the laptop, for the ID hunter and matcher);
+- your two files from this change: `ford-f150-2018-2020-2.7-ecoboost.json` and `targets.json`;
+- the truck, ignition on, parked.
+
+1. **Before copying anything**, open DashDeck on the tablet in the truck. Settings ▸ Vehicle.
+   **Expect:** the pack line says no signal pack (none ships any more).
+2. Settings ▸ Sensors ▸ **SCAN FOR MODULES**. **Expect:**
+   - the status says pins 3/11 are skipped because no vehicle file gives their measured rate;
+   - HS-CAN modules are still found, but with **no part numbers** (they are asked ISO's `F187`, which
+     Ford declines — a refusal still counts as found);
+   - the result line reads *pins 3/11: not asked*;
+   - the range chips offer only **F100–F1FF IDENTITY**.
+3. Close DashDeck. Copy `ford-f150-2018-2020-2.7-ecoboost.json` into
+   `%LOCALAPPDATA%\DashDeck\vehicles\` (make the folder). Copy `targets.json` into
+   `%LOCALAPPDATA%\DashDeck\idhunter\`. Do the same on the laptop.
+4. Open DashDeck. Settings ▸ Vehicle. **Expect:** the pack line names *Ford F-150 2.7 EcoBoost
+   (2018–2020)* again.
+5. **SCAN FOR MODULES** again. **Expect:**
+   - both buses asked, and the MS-CAN modules (720, 726, 733…) found at 500 kbit/s;
+   - **part numbers back** on each row (asked `F113`, from your file);
+   - module names *likely* from your file;
+   - range chips: F100–F1FF, then DD00, F400, 0000, 1000, 4000.
+6. Select the engine computer (7E0) and **SWEEP** F100–F1FF. While it runs, nothing else changes.
+   Then start the engine and try a sweep while rolling slowly in the yard. **Expect:** refused — *the
+   truck is moving*. (Speed now comes from the catalog's `vehicle.speed`, not a PID number.)
+7. On the laptop, run the ID hunter, pick a *match* target (tyre pressure). **Expect:** it suggests
+   your file's modules (726, 720) and ranges — your `targets.json` was read.
+
+**A failure looks like:**
+- anything sent on pins 3/11 before your file is in place (FORScan's CAN error counters rising, or
+  module rows on MS-CAN in step 2);
+- part numbers still missing after step 3;
+- the pack line not finding your file;
+- a sweep that runs while the truck is moving.

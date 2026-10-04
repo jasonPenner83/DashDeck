@@ -12,6 +12,13 @@ can add by dropping a folder into `plugins/`.
 It sits **alongside** the factory SYNC 3 unit, not in place of it. Close DashDeck and the
 truck is a completely normal F-150. It is **read-only**: nothing here writes to the vehicle.
 
+> **⚠ Use at your own risk.** DashDeck is a hobby project provided as is, with no warranty. Connecting
+> software to a vehicle can have consequences nobody predicted, and you are responsible for your
+> vehicle and for what you ask it. Never operate it while driving. The repository ships only what the
+> public OBD-II and ISO standards define — no manufacturer's identifiers; anything specific to your
+> vehicle lives in files you create on your own machine. Read **[DISCLAIMER.md](DISCLAIMER.md)** before
+> plugging anything in.
+
 > **Status: P0 engine complete; the WPF shell and component host are live — all on a
 > synthetic truck.** The vehicle stack, signal catalog, request arbiter, state bus and a
 > synthetic 2019 F-150 are built and tested with no adapter attached. The shell renders a

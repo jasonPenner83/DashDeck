@@ -233,24 +233,53 @@ public class IdentityTests
     }
 
     [Fact]
-    public void The_f150_pack_sends_at_the_measured_500_kbits_on_pins_3_and_11()
+    public void The_repository_ships_no_vehicle_files()
     {
+        // ADR-0052: what is specific to a vehicle is the user's, in %LOCALAPPDATA%\DashDeck\vehicles.
         var folder = Path.Combine(Path.GetDirectoryName(TestCatalog.Path())!, "vehicles");
-        var (packs, _) = VehiclePacks.LoadFolder(folder);
 
-        Assert.Equal(500000, VehiclePacks.Pins311BitRate(VehiclePacks.Select(packs, F150())));
+        Assert.Empty(Directory.EnumerateFiles(folder, "*.json"));
     }
 
     [Fact]
-    public void The_shipped_packs_all_load()
+    public void A_users_vehicle_file_replaces_a_shipped_one_of_the_same_name_and_adds_the_rest()
     {
-        var folder = Path.Combine(Path.GetDirectoryName(TestCatalog.Path())!, "vehicles");
-        var (packs, problems) = VehiclePacks.LoadFolder(folder);
+        var root = Path.Combine(Path.GetTempPath(), "dashdeck-packs-" + Guid.NewGuid().ToString("N"));
+        var shipped = Directory.CreateDirectory(Path.Combine(root, "shipped")).FullName;
+        var yours = Directory.CreateDirectory(Path.Combine(root, "yours")).FullName;
+        try
+        {
+            File.WriteAllText(Path.Combine(shipped, "a.json"), """{ "name": "Shipped A", "match": { "make": "Ford" } }""");
+            File.WriteAllText(Path.Combine(yours, "a.json"), """{ "name": "Your A", "match": { "make": "Ford" }, "pins311BitRate": 500000 }""");
+            File.WriteAllText(Path.Combine(yours, "b.json"), """{ "name": "Your B", "match": { "make": "Ford" } }""");
 
-        Assert.Empty(problems);
-        Assert.Contains(packs, p => p.Match.Matches(F150()));
+            var (packs, problems) = VehiclePacks.LoadFolders(shipped, yours, Path.Combine(root, "missing"));
 
-        // And together with the standard set they still make a valid catalog.
-        VehiclePacks.Apply(TestCatalog.Load(), packs);
+            Assert.Empty(problems);
+            Assert.Equal(["Your A", "Your B"], packs.Select(p => p.Name));
+            Assert.Equal(500000, VehiclePacks.Pins311BitRate(VehiclePacks.Select(packs, F150())));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void A_pack_can_name_its_identity_question_and_ranges_and_bad_ones_are_refused()
+    {
+        var pack = VehiclePacks.Parse("""
+            { "name": "P", "match": { "make": "Ford" }, "identityDid": "F113",
+              "identifierRanges": [ { "name": "Body", "from": "DD00", "to": "DDFF" } ] }
+            """, "p.json");
+        Assert.Equal("F113", pack.IdentityDid);
+        Assert.Single(pack.IdentifierRanges);
+
+        var ex = Assert.Throws<InvalidDataException>(() => VehiclePacks.Parse("""
+            { "name": "P", "match": { "make": "Ford" }, "identityDid": "XYZ",
+              "identifierRanges": [ { "from": "DDFF", "to": "DD00" } ] }
+            """, "p.json"));
+        Assert.Contains("identityDid", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("identifierRanges", ex.Message, StringComparison.Ordinal);
     }
 }

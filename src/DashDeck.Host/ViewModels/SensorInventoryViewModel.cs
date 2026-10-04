@@ -39,6 +39,15 @@ public interface ISignalInventorySource
     /// <summary>The vehicle packs laid over the catalog — where module names come from (ADR-0035).</summary>
     IReadOnlyList<VehiclePack> ActivePacks { get; }
 
+    /// <summary>The standards' reference tables, with what the user's vehicle files add (ADR-0052).</summary>
+    ObdReference Reference { get; }
+
+    /// <summary>
+    /// True when requests may go to OBD pins 3 and 11: on the synthetic truck, or at the rate the
+    /// user's vehicle file says was measured. False sends nothing there (ADR-0052).
+    /// </summary>
+    bool CanAskPins311 { get; }
+
     /// <summary>True while the synthetic truck is answering, so a sweep's results can say so.</summary>
     bool IsSimulated { get; }
 }
@@ -420,8 +429,8 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
                 Missing.Add(new MissingPidViewModel(
                     pid,
                     result.Bus,
-                    StandardPids.NameOf(pid),
-                    StandardPids.TryGet(pid, out var entry) && entry.HasDecode));
+                    _vehicle.Reference.NameOf(pid),
+                    _vehicle.Reference.TryGet(pid, out var entry) && entry.HasDecode));
             }
 
             // Only standard-range PIDs on a bus that answered can be called unsupported: a bus
@@ -493,7 +502,7 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
             return;
         }
 
-        var suggestion = StandardPids.Suggest(missing.Pid, missing.Bus);
+        var suggestion = _vehicle.Reference.Suggest(missing.Pid, missing.Bus);
         var note = missing.HasStandardDecode
             ? "Formula from SAE J1979. TEST it against the truck before you save."
             : "The standard does not give this as one number. TEST it, read the bytes, and work the formula out before trusting it.";
@@ -534,7 +543,7 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
             note,
             _vehicle.ProbeAsync,
             IdTaken,
-            address => ModuleNames.Likely(address, _vehicle.ActivePacks),
+            address => _vehicle.Reference.Modules.GetValueOrDefault(address),
             save: definition =>
             {
                 _store.Upsert(definition);

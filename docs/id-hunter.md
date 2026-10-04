@@ -5,8 +5,8 @@ carries the door switch, which identifier is the transmission temperature, which
 distance to empty comes from. It reads only. Why it exists and how it ranks:
 [ADR-0044](decisions/ADR-0044-id-hunter.md).
 
-It writes a `findings.csv` for you to send back. Confirmed values go into the F-150 vehicle pack by a
-PR, with the evidence.
+It writes a `findings.csv`. Confirmed values go into **your own vehicle file** in
+`%LOCALAPPDATA%\DashDeck\vehicles\`, never into the repository (ADR-0052).
 
 ## Starting it
 
@@ -185,7 +185,10 @@ repository.
 
 ## Changing the checklist
 
-`IdHunter\targets.json` is plain JSON:
+The shipped `IdHunter\targets.json` is generic: it names only the ISO engine and transmission ids
+(`7E0`, `7E1`) and no ranges, so the hunter asks which module and suggests the ranges your vehicle file
+offers. **Your own copy wins**: put it at `%LOCALAPPDATA%\DashDeck\idhunter\targets.json` with your
+vehicle's module and range hints, and the hunter reads it instead (ADR-0052). It is plain JSON:
 
 - **Add a listen target:** a list of `steps`, each with a `label`, a `state` number (steps that should
   read alike share one) and the instruction in `do`.
