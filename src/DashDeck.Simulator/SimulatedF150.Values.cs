@@ -127,6 +127,9 @@ public sealed partial class SimulatedF150
             ["seat.passenger.climate"] = () => PassengerSeat,
             ["steeringWheel.heat"] = () => On(SteeringWheelHeat),
 
+            // Body (placeholder): the tailgate, set by hand like the cabin's switches.
+            ["body.tailgate"] = () => On(Cabin.TailgateOpen),
+
             // Only the simulator's own data file asks for these (catalog/simulator/).
             ["oil.temp"] = () => OilTempC,
             ["transmission.temp"] = () => TransmissionTempC,

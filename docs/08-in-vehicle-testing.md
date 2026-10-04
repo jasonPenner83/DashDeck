@@ -1071,3 +1071,17 @@ Send the log in any of these cases.
 - any `01 C…`/`01 D…` request in the tap log;
 - a placeholder showing amber Stale instead of a grey Unavailable;
 - the climate panel or TPMS blank at the desk.
+
+## Pairing the tailgate (placeholder `body.tailgate`)
+
+**You need:** the laptop with FORScan, the tap and the ID matcher; the truck parked, ignition on.
+
+1. In the matcher, select **Tailgate — Open** (marked NEEDS ID). In FORScan, open the body module's
+   live data and pick the tailgate switch (an `SW` item). Press **Ctrl+N**.
+2. With the tailgate shut, press **F3**, type what FORScan shows (`Closed`/`Off`), **Enter**. Open it,
+   type `Open`/`On`. Shut it and open it again, adding each. **Expect:** one bit, *seen on and off*.
+3. **Ctrl+Enter**, save, copy the overlay to the tablet, restart. In Settings ▸ Sensors, TEST with the
+   tailgate open and shut. **Expect:** 1 open, 0 shut; the row stops saying *placeholder*.
+
+**A failure looks like:** the tailgate reading anything before pairing; a value other than 0 or 1;
+DashDeck sending anything to the tailgate — it only reads.

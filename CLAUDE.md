@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **749 tests green** — 348 engine, 401 shell.
+(ADR-0010). **750 tests green** — 349 engine, 401 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -230,7 +230,7 @@ sends nothing of its own. The logs can hold the VIN — never in the repo. Refer
 rule: find IDs the traditional way, keep touch for the dash). The tap is built in (FORScan on
 `127.0.0.1:35000`, every session saved as a tap log; saved logs reopen). **Left:** DashDeck's signals,
 standard → pack → overlay as the dash reads them, with **NEEDS ID** for `"placeholder": true` (new
-catalog field, on the 24 stand-ins — **a new stand-in must carry it**) and **NOT ON TRUCK** for a
+catalog field, on the 25 stand-ins (the tailgate, `body.tailgate`, the latest) — **a new stand-in must carry it**) and **NOT ON TRUCK** for a
 standard PID the engine computer's own supported-PID answers (heard in the traffic) say it lacks.
 **Middle:** every identifier FORScan asks (`TrafficReader` follows `ATSH`, `ATTP6`/`STP53`, `STPX`, the
 count digit). **Right:** match live — type what FORScan shows, `ScalingFitter` tries Ford's usual steps

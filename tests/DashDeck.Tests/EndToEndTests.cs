@@ -129,6 +129,7 @@ public class EndToEndTests
     /// </summary>
     [Theory]
     [InlineData("hvac.driverSetTemp", 21.5, 21.5)]
+    [InlineData("body.tailgate", 0, 0)]
     [InlineData("hvac.passengerSetTemp", 22.0, 22.0)]
     [InlineData("hvac.fanSpeed", 1, 7)]
     [InlineData("hvac.auto", 1, 1)]
