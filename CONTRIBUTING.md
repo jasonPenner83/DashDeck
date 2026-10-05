@@ -78,6 +78,11 @@ These are the reasons a PR gets sent back. The full list, with context, is in `C
     [docs/08-in-vehicle-testing.md](docs/08-in-vehicle-testing.md): what you need, numbered steps
     with what you should see, and what a failure looks like. Passing on the synthetic truck is
     not the same as working in the cab.
+12. **Ship nothing vehicle-specific** (ADR-0052, [DISCLAIMER.md](DISCLAIMER.md)). Code and the
+    shipped catalog hold only what public standards define (SAE J1979, ISO 15765, ISO 14229) and
+    placeholders. A manufacturer's identifier, module address, bus rate or scaling goes in the
+    user's own vehicle file in `%LOCALAPPDATA%\DashDeck\vehicles\` — never in a PR. Identifiers
+    the protocol itself fixes (`7DF`, `7E8`, service `22`, the bitmap PIDs) may stay named constants.
 
 ## Writing a component
 

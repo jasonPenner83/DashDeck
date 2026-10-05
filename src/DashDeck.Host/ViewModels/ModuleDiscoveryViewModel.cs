@@ -186,17 +186,13 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
         _store = store;
         _clock = clock ?? SystemClock.Instance;
 
-        Ranges =
-        [
-            new("F100–F1FF  IDENTITY", 0xF100, 0xF1FF),
-            new("DD00–DDFF", 0xDD00, 0xDDFF),
-            new("F400–F4FF", 0xF400, 0xF4FF),
-            new("0000–0FFF", 0x0000, 0x0FFF),
-            new("1000–1FFF", 0x1000, 0x1FFF),
-            new("4000–4FFF", 0x4000, 0x4FFF),
-        ];
+        // The standard's ranges and what the user's vehicle file adds (ADR-0052) — none compiled in.
+        Ranges = [.. vehicle.Reference.IdentifierRanges.Select(r => new DidRangeOption(r.Name, r.First, r.Last))];
 
-        SelectRange(Ranges[0]);
+        if (Ranges.Count > 0)
+        {
+            SelectRange(Ranges[0]);
+        }
 
         // What the truck answered last time, so a restart does not cost another minute parked.
         if (store?.LoadModules() is { } saved)
@@ -379,11 +375,15 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
         }
 
         using var cts = Begin();
-        Status = "Asking every address on HS-CAN, then MS-CAN…";
+        // Pins 3/11 only at a rate somebody measured; otherwise nothing is sent there (ADR-0052).
+        IReadOnlyList<CanBus> buses = _vehicle.CanAskPins311 ? [CanBus.Hs, CanBus.Ms] : [CanBus.Hs];
+        Status = _vehicle.CanAskPins311
+            ? "Asking every address on HS-CAN, then MS-CAN…"
+            : "Asking every address on HS-CAN. Pins 3/11 are skipped: no vehicle file gives their measured rate.";
 
         try
         {
-            var result = await ModuleScanner.ScanAsync(_vehicle.ProbeAsync, [CanBus.Hs, CanBus.Ms], Reporter(), cts.Token);
+            var result = await ModuleScanner.ScanAsync(_vehicle.ProbeAsync, buses, _vehicle.Reference.IdentityDid, Reporter(), cts.Token);
 
             // Kept for the next launch — the real truck only, never the synthetic one.
             if (!_vehicle.IsSimulated && result.Completed)
@@ -410,7 +410,7 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
 
         foreach (var module in result.Modules.OrderBy(m => m.Bus).ThenBy(m => m.Address))
         {
-            Found.Add(new ModuleRowViewModel(module, ModuleNames.Likely(module.Address, _vehicle.ActivePacks))
+            Found.Add(new ModuleRowViewModel(module, _vehicle.Reference.Modules.GetValueOrDefault(module.Address))
             {
                 SweptRanges = _store?.SweptRanges(module.Bus, module.Address) ?? [],
             });
@@ -422,7 +422,9 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
         var parts = new List<string>
         {
             result.Problems.TryGetValue(CanBus.Hs, out var hsProblem) ? $"HS-CAN: {hsProblem}" : $"HS-CAN: {hs} module{(hs == 1 ? "" : "s")}",
-            result.Problems.TryGetValue(CanBus.Ms, out var msProblem) ? $"MS-CAN: {msProblem}" : $"MS-CAN: {ms} module{(ms == 1 ? "" : "s")}",
+            result.Problems.TryGetValue(CanBus.Ms, out var msProblem) ? $"MS-CAN: {msProblem}"
+                : ms == 0 && !_vehicle.CanAskPins311 ? "pins 3/11: not asked — no vehicle file gives their measured rate"
+                : $"MS-CAN: {ms} module{(ms == 1 ? "" : "s")}",
         };
 
         if (!result.Completed)
@@ -642,8 +644,7 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
     {
         try
         {
-            var reply = await _vehicle.ProbeAsync(new PidRequest(0x01, 0x0C, CanBus.Hs), ct);
-            return reply.IsSuccess && reply.Data.Length >= 2 ? ((reply.Data[0] * 256) + reply.Data[1]) / 4.0 : null;
+            return await SignalProbe.ReadAsync(_vehicle.Catalog, SignalProbe.Rpm, _vehicle.ProbeAsync, ct);
         }
         catch (OperationCanceledException)
         {
@@ -741,9 +742,9 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-            var speed = await _vehicle.ProbeAsync(new PidRequest(0x01, 0x0D, CanBus.Hs), timeout.Token);
+            var speed = await SignalProbe.ReadAsync(_vehicle.Catalog, SignalProbe.Speed, _vehicle.ProbeAsync, timeout.Token);
 
-            return speed.IsSuccess && speed.Data.Length > 0 && speed.Data[0] > 0
+            return speed > 0
                 ? "The truck is moving. A sweep takes most of the adapter's time and the dash goes stale while it runs — park first."
                 : null;
         }

@@ -158,7 +158,7 @@ public class ModuleDiscoveryTests
         var (adapter, _) = await AdapterAsync();
         await using var _adapter = adapter;
 
-        var result = await ModuleScanner.ScanAsync(adapter.RequestAsync, [CanBus.Hs, CanBus.Ms], null, TestCancellation.Token);
+        var result = await ModuleScanner.ScanAsync(adapter.RequestAsync, [CanBus.Hs, CanBus.Ms], SyntheticIdentity, null, TestCancellation.Token);
 
         Assert.True(result.Completed);
         Assert.Empty(result.Problems);
@@ -183,7 +183,7 @@ public class ModuleDiscoveryTests
         var (adapter, _) = await AdapterAsync(SyntheticFaults.HsCanOnly with { LatencyMs = 0, DropProbability = 0 });
         await using var _adapter = adapter;
 
-        var result = await ModuleScanner.ScanAsync(adapter.RequestAsync, [CanBus.Hs, CanBus.Ms], null, TestCancellation.Token);
+        var result = await ModuleScanner.ScanAsync(adapter.RequestAsync, [CanBus.Hs, CanBus.Ms], SyntheticIdentity, null, TestCancellation.Token);
 
         Assert.DoesNotContain(result.Modules, m => m.Bus == CanBus.Ms);
         Assert.True(result.Problems.ContainsKey(CanBus.Ms));
@@ -197,7 +197,7 @@ public class ModuleDiscoveryTests
         await using var _adapter = adapter;
 
         var reports = new List<SweepProgress>();
-        await ModuleScanner.ScanAsync(adapter.RequestAsync, [CanBus.Hs], new SyncProgress<SweepProgress>(reports.Add), TestCancellation.Token);
+        await ModuleScanner.ScanAsync(adapter.RequestAsync, [CanBus.Hs], SyntheticIdentity, new SyncProgress<SweepProgress>(reports.Add), TestCancellation.Token);
 
         Assert.Equal(128, reports[^1].Done);
         Assert.Equal(128, reports[^1].Total);
@@ -322,7 +322,7 @@ public class ModuleDiscoveryTests
     // ── Names ─────────────────────────────────────────────────────────────────
 
     [Fact]
-    public void Names_come_from_the_pack_then_the_standard()
+    public void Names_come_from_the_users_file_then_the_standard()
     {
         var pack = new VehiclePack
         {
@@ -331,20 +331,33 @@ public class ModuleDiscoveryTests
             Modules = new Dictionary<string, string> { ["726"] = "BCM — body control" },
         };
 
-        Assert.Equal("BCM — body control", ModuleNames.Likely(0x726, [pack]));
-        Assert.StartsWith("Engine", ModuleNames.Likely(0x7E0, [pack]));
-        Assert.Null(ModuleNames.Likely(0x750, [pack]));
+        var reference = TestCatalog.Reference().With([pack]);
+
+        Assert.Equal("BCM — body control", reference.Modules[0x726]);
+        Assert.StartsWith("Engine", reference.Modules[0x7E0]);
+        Assert.False(reference.Modules.ContainsKey(0x750));
     }
 
     [Fact]
-    public void The_shipped_f150_pack_names_its_modules_with_valid_addresses()
+    public void The_standard_asks_the_iso_identity_and_a_users_file_can_ask_its_makers()
     {
-        var folder = Path.Combine(Path.GetDirectoryName(TestCatalog.Path())!, "vehicles");
-        var (packs, problems) = VehiclePacks.LoadFolder(folder);
+        var standard = TestCatalog.Reference();
+        Assert.Equal(0xF187, standard.IdentityDid);
+        Assert.Equal([(0xF100, 0xF1FF)], standard.IdentifierRanges.Select(r => ((int)r.First, (int)r.Last)));
 
-        Assert.Empty(problems);
-        Assert.Contains(packs, p => p.Modules.Count > 0);
+        var pack = VehiclePacks.Parse("""
+            { "name": "P", "match": { "make": "Ford" }, "identityDid": "F113",
+              "identifierRanges": [ { "name": "DD00–DDFF", "from": "DD00", "to": "DDFF" },
+                                    { "from": "F100", "to": "F1FF" } ] }
+            """, "p.json");
+        var yours = standard.With([pack]);
+
+        Assert.Equal(0xF113, yours.IdentityDid);
+        Assert.Equal(["F100–F1FF  IDENTITY", "DD00–DDFF"], yours.IdentifierRanges.Select(r => r.Name));
     }
+
+    /// <summary>The identity the synthetic truck's modules answer with their part numbers.</summary>
+    private const ushort SyntheticIdentity = 0xF113;
 
     /// <summary><see cref="Progress{T}"/> posts to a context; this reports in line, so a test sees every one.</summary>
     private sealed class SyncProgress<T>(Action<T> report) : IProgress<T>

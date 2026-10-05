@@ -181,7 +181,7 @@ public sealed class IdHunterTests : IDisposable
     {
         var (io, findings) = await Run(
             Number("tire.pressure").ToString(System.Globalization.CultureInfo.InvariantCulture), "",
-            "", "", "",       // module 726, the simulated range, sweep
+            "726", "", "",    // module 726 (the shipped checklist names no body module), the simulated range, sweep
             "35.5", "35", "27", "34.5",
             "",
             "q");

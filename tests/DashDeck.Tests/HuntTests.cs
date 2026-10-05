@@ -1,4 +1,5 @@
 using DashDeck.Abstractions;
+using DashDeck.Core.Catalog;
 using DashDeck.Core.Discovery;
 using DashDeck.Core.Discovery.Hunt;
 using DashDeck.Simulator;
@@ -186,6 +187,43 @@ public class HuntTests
 
         adapter.Pins311BitRate = 500000;
         Assert.True((await adapter.RequestAsync(request, CancellationToken.None)).IsSuccess);
+    }
+
+    [Fact]
+    public async Task With_no_measured_rate_nothing_is_sent_on_pins_3_and_11()
+    {
+        // ADR-0052: a real vehicle with no vehicle file giving the rate is never sent anything there.
+        var truck = Truck();
+        var log = new Recording(truck);
+        var adapter = new ElmAdapter(log) { Pins311BitRate = null };
+        await adapter.InitializeAsync(CancellationToken.None);
+        var before = log.Commands.Count;
+
+        var refused = await adapter.RequestAsync(new PidRequest(0x22, 0xF113, CanBus.Ms, 0x726), CancellationToken.None);
+
+        Assert.Equal(PidFailure.NoData, refused.Failure);
+        Assert.Equal(before, log.Commands.Count);
+        Assert.True((await adapter.RequestAsync(new PidRequest(0x01, 0x0C, CanBus.Hs), CancellationToken.None)).IsSuccess);
+    }
+
+    [Fact]
+    public async Task Speed_and_rpm_are_read_through_the_catalog_by_name()
+    {
+        var truck = new SyntheticTransport(new SimulatedF150(Drives.HighwayCruise), faults: SyntheticFaults.Perfect);
+        truck.Truck.Advance(TimeSpan.FromSeconds(60));
+        var adapter = new ElmAdapter(truck);
+        await adapter.InitializeAsync(CancellationToken.None);
+        var catalog = TestCatalog.Load();
+
+        var speed = await SignalProbe.ReadAsync(catalog, SignalProbe.Speed, adapter.RequestAsync, CancellationToken.None);
+        var rpm = await SignalProbe.ReadAsync(catalog, SignalProbe.Rpm, adapter.RequestAsync, CancellationToken.None);
+
+        Assert.True(speed > 50, $"speed {speed}");
+        Assert.True(rpm > 500, $"rpm {rpm}");
+
+        // A catalog without the signal answers nothing, rather than guessing a PID.
+        var empty = SignalCatalog.FromDefinitions([]);
+        Assert.Null(await SignalProbe.ReadAsync(empty, SignalProbe.Speed, adapter.RequestAsync, CancellationToken.None));
     }
 
     [Fact]

@@ -9,6 +9,12 @@ internal static class TestCatalog
 
     public static SignalCatalog Load() => _cached ??= SignalCatalog.FromFile(Path());
 
+    private static DashDeck.Core.Discovery.ObdReference? _reference;
+
+    /// <summary>The shipped reference tables, <c>catalog/reference/</c> (ADR-0052).</summary>
+    public static DashDeck.Core.Discovery.ObdReference Reference() =>
+        _reference ??= DashDeck.Core.Discovery.ObdReference.Load(System.IO.Path.GetDirectoryName(Path())).Reference;
+
     public static string Path()
     {
         var dir = AppContext.BaseDirectory;

@@ -46,6 +46,12 @@ public sealed class AdapterFailover : IAsyncDisposable
         _interval = interval ?? TimeSpan.FromSeconds(5);
     }
 
+    /// <summary>
+    /// Raised just before the switch, while requests still go to the simulator — for settings the
+    /// real vehicle must have before its first request, like an unmeasured bus left alone (ADR-0052).
+    /// </summary>
+    public event Action? GoingLive;
+
     /// <summary>True once the switch to the real adapter has happened.</summary>
     public bool IsLive { get; private set; }
 
@@ -125,6 +131,7 @@ public sealed class AdapterFailover : IAsyncDisposable
         // Switch first, then Live. A poll takes its quality before it asks (VehicleService), so
         // this order means a simulated reply can never be stamped Live; at worst one real reply
         // is labelled Simulated, which errs the safe way.
+        GoingLive?.Invoke();
         await _switchable.SwitchToAsync(live, ct).ConfigureAwait(false);
         _service.Quality = SignalQuality.Live;
         _service.ResetLearning();

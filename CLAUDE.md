@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **742 tests green** — 343 engine, 399 shell.
+(ADR-0010). **748 tests green** — 347 engine, 401 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -83,8 +83,19 @@ a sweep that does not end, so it is refused while moving and stops by itself if 
 VIN is **read from the truck** (mode 09) or typed, **decoded once by NHTSA vPIC** and cached in
 `%LOCALAPPDATA%\DashDeck\vehicle.json`, and every decoded field is correctable by hand. It fills
 `VehicleProfile` (year, make, model, engine — `apiVersion 1.2`, **never the VIN**) and picks a
-**vehicle signal pack** from `catalog/vehicles/` to lay over the standard set
-(standard → pack → your overlay). The F-150 2.7 pack is empty until TEST confirms Ford PIDs.
+**vehicle signal pack** to lay over the standard set (standard → pack → your overlay). **Packs are the
+user's own files** in `%LOCALAPPDATA%\DashDeck\vehicles\` (ADR-0052); `catalog/vehicles/` ships empty.
+
+**Nothing vehicle-specific is shipped** (ADR-0052, [`DISCLAIMER.md`](DISCLAIMER.md)): to manage
+liability, code and the shipped catalog hold only what public standards define, and placeholders. The
+SAE J1979 mode 01 table and the ISO module names, identity question (`F187`) and identification range
+(`F100`–`F1FF`) are files in `catalog/reference/`, read by `ObdReference`; a vehicle file adds
+`identityDid` (Jason's: Ford's `F113`), `identifierRanges` and module names over them (`With`). The
+tools read speed, rpm and coolant **by signal name** through the catalog (`SignalProbe`), never by PID
+number. The ID hunter's shipped `targets.json` names only `7E0`/`7E1`; the user's own copy in
+`%LOCALAPPDATA%\DashDeck\idhunter\` wins. Only the protocol's own fixed numbers stay in code (`7DF`,
+`7E8`, `700`–`7F7`, service `22`, the bitmap PIDs, mode 09). **Never put a manufacturer's identifier in a
+PR** — Jason's F-150 file lives on his tablet and laptop.
 
 **Themes are files of named tokens** (ADR-0036), modelled on Home Assistant's: 26 tokens —
 surface and text ramps, accent and how solidly a selection is filled, captions, strip, nav and
@@ -377,9 +388,12 @@ measured:
   Module does not get in the way (Q5). **But "MS" is a misnomer on this truck (Q21):** a silent listen on
   pins 3/11 heard nothing at 125 kbit/s and traffic at **500 kbit/s** — a second high-speed bus, not
   MS-CAN. DashDeck's requests there went out at 125 kbit/s and made error frames on it until the F-150
-  pack gained `"pins311BitRate": 500000`; `VehicleStack` now sets `ElmAdapter.Pins311BitRate` (and the
-  synthetic truck's) from the pack, and the adapter sends `STPBR` after `STP53`. **Never send on pins
-  3/11 at a rate nobody measured.** `CanBus.Ms` still means "pins 3/11", whatever the rate.
+  pack gained `"pins311BitRate": 500000` (now in Jason's own vehicle file); `VehicleStack` sets
+  `ElmAdapter.Pins311BitRate` from the user's vehicle file, and the adapter sends `STPBR` after `STP53`.
+  **Never send on pins 3/11 at a rate nobody measured** — and now the code enforces it: the rate is
+  nullable, **null sends nothing there** (NO DATA), and a real vehicle with no file giving the rate gets
+  null, including on a simulated start that goes live (`AdapterFailover.GoingLive`). `CanBus.Ms` still
+  means "pins 3/11", whatever the rate.
 - **The truck answers 48 standard PIDs but neither fuel rate (`5E`) nor MAF (`10`)** (Q4). So
   **Fuel Economy, Avg Economy and Range Estimator read blank on the real truck** — they need
   `engine.fuelRate`. The fix is decided, not built: speed-density from MAP, IAT, RPM and lambda,
@@ -431,6 +445,9 @@ is built against a synthetic transport behind a seam, so it is not blocking.
    `Unavailable` / `Simulated`. A confidently wrong number on a dash is worse than a blank.
 8. **`IClock` is injected.** Never `DateTime.Now` — it breaks replay and scripted-drive
    tests.
+9. **Ship nothing vehicle-specific** (ADR-0052). No manufacturer's identifier, module address, bus
+   rate or scaling in code or the shipped catalog — the user's vehicle file holds those. Standards'
+   tables are files in `catalog/reference/`; tools ask signals by name.
 
 ## Branching and versions
 
@@ -467,7 +484,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Fifty-one exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Fifty-two exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -496,7 +513,8 @@ that ignore touch — tried and withdrawn (ADR-0046, superseded by ADR-0047): a 
 whole stage, and a serial tap that records FORScan by standing between it and the adapter, and fast
 requests asked FORScan's way — filtered to the engine computer, with a count of one, and the
 ID matcher, a desktop program where DashDeck's identifiers are managed against FORScan — signals
-added, edited and hidden there, typed ones held unconfirmed until TEST.
+added, edited and hidden there, typed ones held unconfirmed until TEST, and nothing vehicle-specific
+shipped — standards' tables as files, vehicle files the user's own, pins 3/11 silent until measured.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.
