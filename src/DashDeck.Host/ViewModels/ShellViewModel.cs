@@ -275,6 +275,18 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         Settings = new SettingsViewModel(theme, Display, Sensors, _userApps, _launcher, Inventory, VehicleIdentity, Adapter);
 
+        // The warning lights (ADR-0055): built before the stage, because whether the occupant is
+        // drawn depends on whether the warning window is up.
+        Warnings = BuildWarnings(vehicle, clock, Display);
+        Warnings.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(WarningsViewModel.ShowWindow))
+            {
+                OnPropertyChanged(nameof(IsOccupantVisible));
+                OnPropertyChanged(nameof(IsSourceVisible));
+            }
+        };
+
         RebuildStageOptions();
 
         // The cards come from a file now, not from this constructor. Rates are still declared
@@ -356,6 +368,34 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _timer.Tick += (_, _) => Refresh();
         _timer.Start();
         Refresh();
+    }
+
+    /// <summary>The warning lights, their popups, and the trouble codes (ADR-0055).</summary>
+    public WarningsViewModel Warnings { get; }
+
+    private static WarningsViewModel BuildWarnings(VehicleStack vehicle, IClock clock, DisplaySettings display)
+    {
+        var (warnings, problems) = Core.Warnings.WarningCatalog.Load(CatalogPath.Find(Core.Warnings.WarningCatalog.FileName));
+        var (descriptions, descriptionProblem) = Core.Diagnostics.TroubleCodeDescriptions.Load(CatalogPath.FindFolder("reference"));
+
+        var diagnostics = new Warnings.VehicleDiagnostics(
+            vehicle.ProbeAsync,
+            () => vehicle.Catalog,
+            () => vehicle.Reference,
+            () => display.AllowClearCodes,
+            descriptions,
+            JsonFile.InLocalAppData("actions.log"),
+            clock);
+
+        return new WarningsViewModel(
+            vehicle.Signals,
+            warnings,
+            diagnostics,
+            new Warnings.StoredWarningPreferences(),
+            clock,
+            () => display.AllowClearCodes,
+            on => display.AllowClearCodes = on,
+            [.. problems, .. descriptionProblem is null ? [] : new[] { descriptionProblem }]);
     }
 
     /// <summary>Display preferences the web occupants follow. Shared, so a change re-zooms live.</summary>
@@ -613,9 +653,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <para>
     /// Video keeps playing underneath, so audio continues while you choose.
     /// </para>
+    /// <para>
+    /// Collapsed under the warning window too (ADR-0055), for the same reason: it would draw over it.
+    /// </para>
     /// </remarks>
     public bool IsOccupantVisible =>
-        StageContent is not null && !IsStagePickerOpen && !IsFullScreenOpen;
+        StageContent is not null && !IsStagePickerOpen && !IsFullScreenOpen && !Warnings.ShowWindow;
 
     /// <summary>
     /// Whether the source's own host is the thing on screen — only when no screen is over it.
@@ -625,7 +668,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// reparented; this is what draws it when it is the one in front (ADR-0026).
     /// </remarks>
     public bool IsSourceVisible =>
-        SourceContent is not null && _screen is null && !IsStagePickerOpen && !IsFullScreenOpen;
+        SourceContent is not null && _screen is null && !IsStagePickerOpen && !IsFullScreenOpen && !Warnings.ShowWindow;
 
     /// <summary>True when a card is open in the editor.</summary>
     public bool IsCardEditorOpen => Dashboard.IsCardEditorOpen;
@@ -1100,6 +1143,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         Dashboard.Dispose();
         Sensors.Dispose();
+        Warnings.Dispose();
 
         // The stage is a layer with its own lifecycle (B2) — it outlives navigation, but
         // not the shell. Both slots go: a backgrounded source is still ours to close.
@@ -1114,6 +1158,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // An armed CLOSE left alone goes back to harmless on its own.
         OnPropertyChanged(nameof(CloseCaption));
         OnPropertyChanged(nameof(IsCloseArmed));
+
+        // The warning lights look on the same beat (ADR-0055).
+        Warnings.Refresh();
 
         // IClock, never DateTimeOffset.Now — the convention holds in the UI too, so a
         // replayed drive shows the time the drive happened rather than the time you watched it.

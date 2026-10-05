@@ -121,6 +121,27 @@ public sealed record UserSettings
     /// </summary>
     [JsonPropertyName("fastRequests")]
     public bool FastRequests { get; init; } = true;
+
+    /// <summary>
+    /// The master switch for clearing trouble codes (ADR-0006 gate 2, ADR-0055). Off by default;
+    /// read at the moment of clearing, so turning it off stops the next one at once.
+    /// </summary>
+    [JsonPropertyName("allowClearCodes")]
+    public bool AllowClearCodes { get; init; }
+
+    /// <summary>
+    /// Which warnings interrupt the screen, where the user has said otherwise than the warnings
+    /// file (ADR-0055). Keyed by warning id; absent means the file's default.
+    /// </summary>
+    [JsonPropertyName("warningPopups")]
+    public Dictionary<string, bool> WarningPopups { get; init; } = [];
+
+    /// <summary>
+    /// Warnings dismissed while lit, and the trouble-code count each was dismissed at, so a light
+    /// that stays on does not pop again at every start. Forgotten when the light is seen off.
+    /// </summary>
+    [JsonPropertyName("dismissedWarnings")]
+    public Dictionary<string, double?> DismissedWarnings { get; init; } = [];
 }
 
 /// <summary>
