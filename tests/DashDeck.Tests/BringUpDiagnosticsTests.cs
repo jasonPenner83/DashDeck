@@ -68,26 +68,27 @@ public class BringUpDiagnosticsTests
     }
 
     [Fact]
-    public void Declared_support_list_matches_what_the_simulator_actually_implements()
+    public async Task The_bitmaps_claim_exactly_the_pids_the_simulator_answers()
     {
-        // Drift guard: the declared list exists so building a bitmap does not consume
-        // random numbers and break determinism. This keeps the two honest.
+        // The synthetic truck answers from the catalog and the reference table (ADR-0052), and
+        // builds its bitmaps from the same list: a PID it claims must answer, and one it does not
+        // claim must not.
         var transport = new SyntheticTransport(
             new SimulatedF150(Drives.Idle), faults: SyntheticFaults.Perfect);
+        await using var adapter = new ElmAdapter(transport);
+        await adapter.InitializeAsync(TestCancellation.Token);
 
-        var declared = SyntheticTransport.SupportedHsPids.ToHashSet();
+        var report = await PidSupportScanner.ScanAsync(adapter, CanBus.Hs, TestCancellation.Token);
 
-        for (var pid = 0; pid <= 0xFF; pid++)
+        for (var pid = 1; pid <= 0xFF; pid++)
         {
-            var implemented = transport.ImplementsHsPid((byte)pid);
-
-            // The range-query PIDs are answered by the bitmap builder, not by EncodePid.
-            if (pid is 0x00 or 0x20 or 0x40 or 0x60 or 0x80)
+            if (pid % 0x20 == 0)
             {
                 continue;
             }
 
-            Assert.Equal(implemented, declared.Contains((byte)pid));
+            var answered = (await adapter.RequestAsync(new DashDeck.Vehicle.PidRequest(0x01, (ushort)pid, CanBus.Hs), TestCancellation.Token)).IsSuccess;
+            Assert.True(answered == report.Supports((ushort)pid), $"PID {pid:X2}: answered {answered}, claimed {report.Supports((ushort)pid)}");
         }
     }
 

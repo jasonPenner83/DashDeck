@@ -559,6 +559,7 @@ public sealed class SignalPairingTests
         Assert.Contains("tire.frontLeft.pressure", needs);
         Assert.Contains("hvac.cabinTemp", needs);
         Assert.Contains("warning.doorAjar", needs);
+        Assert.Contains("body.tailgate", needs);
         Assert.DoesNotContain("engine.rpm", needs);
         Assert.True(standings[0].NeedsId);   // listed first
     }

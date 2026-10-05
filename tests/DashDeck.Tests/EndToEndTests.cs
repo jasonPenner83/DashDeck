@@ -23,6 +23,7 @@ public class EndToEndTests
         var service = new VehicleService(new ElmAdapter(transport), TestCatalog.Load())
         {
             Quality = SignalQuality.Simulated,
+            SimulatedValues = transport.Truck.Reading,
         };
 
         await service.StartAsync(TestCancellation.Token);
@@ -101,11 +102,9 @@ public class EndToEndTests
     }
 
     [Fact]
-    public async Task An_ms_can_tpms_signal_answers_on_the_ms_bus()
+    public async Task A_tpms_placeholder_reads_the_synthetic_truck_by_name()
     {
-        // TPMS are the first signals on MS-CAN, so this is also the first end-to-end exercise
-        // of the bus switch: the arbiter must select MS-CAN, the adapter send STP53, and the
-        // synthetic answer the body-module PID rather than NO DATA.
+        // The tyres are placeholders (ADR-0052): no request, so the synthetic truck answers by id.
         var (service, _) = await StartAsync();
         await using var _service = service;
 
@@ -116,7 +115,8 @@ public class EndToEndTests
             TimeSpan.FromSeconds(8));
 
         var reading = service.Bus.Current("tire.rearLeft.pressure");
-        Assert.True(reading.IsUsable, "the rear-left tyre pressure never answered on MS-CAN.");
+        Assert.True(reading.IsUsable, "the rear-left tyre pressure never answered.");
+        Assert.Equal(SignalQuality.Simulated, reading.Quality);
         Assert.Equal("psi", reading.Unit);
 
         // The rear left is the deliberately-low tyre; it should read low but not absurd.
@@ -124,11 +124,12 @@ public class EndToEndTests
     }
 
     /// <summary>
-    /// The climate panel's placeholders (ADR-0040) answer on MS-CAN from the synthetic truck,
-    /// decoded as the catalog says: a set temperature in half degrees, a seat that can go negative.
+    /// The climate panel's and console's placeholders (ADR-0040, ADR-0041) read the synthetic truck
+    /// by name (ADR-0052): a set temperature, a seat that can go negative.
     /// </summary>
     [Theory]
     [InlineData("hvac.driverSetTemp", 21.5, 21.5)]
+    [InlineData("body.tailgate", 0, 0)]
     [InlineData("hvac.passengerSetTemp", 22.0, 22.0)]
     [InlineData("hvac.fanSpeed", 1, 7)]
     [InlineData("hvac.auto", 1, 1)]
@@ -138,7 +139,7 @@ public class EndToEndTests
     [InlineData("warning.oilPressure", 0, 0)]      // the warning-light placeholders (ADR-0041): off
     [InlineData("warning.doorAjar", 0, 0)]
     [InlineData("fuel.range", 100, 2000)]          // economy and range placeholders (ADR-0041)
-    public async Task A_climate_placeholder_answers_on_the_ms_bus(string id, double min, double max)
+    public async Task A_placeholder_reads_the_synthetic_truck_by_name(string id, double min, double max)
     {
         var (service, _) = await StartAsync();
         await using var _service = service;
@@ -147,8 +148,32 @@ public class EndToEndTests
         await WaitUntilAsync(() => service.Bus.Current(id).IsUsable, TimeSpan.FromSeconds(8));
 
         var reading = service.Bus.Current(id);
-        Assert.True(reading.IsUsable, $"{id} never answered on MS-CAN.");
+        Assert.True(reading.IsUsable, $"{id} never answered.");
         Assert.InRange(reading.Value, min, max);
+    }
+
+    [Fact]
+    public async Task On_a_real_vehicle_a_placeholder_asks_nothing_and_reads_unavailable()
+    {
+        // ADR-0052: an identifier nobody has found is never guessed at on the wire.
+        var transport = new SyntheticTransport(new SimulatedF150(Drives.Idle), faults: SyntheticFaults.Perfect);
+        await using var service = new VehicleService(new ElmAdapter(transport), TestCatalog.Load())
+        {
+            Quality = SignalQuality.Live,
+            SimulatedValues = transport.Truck.Reading,
+        };
+        await service.StartAsync(TestCancellation.Token);
+        var asked = transport.RequestCount;
+
+        using var demand = service.Bus.Require("hvac.fanSpeed", SignalPriority.High, 10);
+        await WaitUntilAsync(() => service.StatusOf("hvac.fanSpeed") != SignalPollStatus.NotAsked, TimeSpan.FromSeconds(3));
+        await Task.Delay(300, TestCancellation.Token);
+
+        Assert.NotEqual(SignalPollStatus.NotAsked, service.StatusOf("hvac.fanSpeed"));
+
+        Assert.Equal(SignalQuality.Unavailable, service.Bus.Current("hvac.fanSpeed").Quality);
+        Assert.Equal(asked, transport.RequestCount);
+        Assert.Equal(0, service.Arbiter.CurrentPlan.AllocatedHz);
     }
 
     /// <summary>

@@ -52,6 +52,9 @@ await using var service = new VehicleService(adapter, catalog)
     // Mock data says so, always. This is what stops a simulated number ever being
     // mistaken for a real one on screen.
     Quality = replayPath is null ? SignalQuality.Simulated : SignalQuality.Live,
+
+    // Placeholders ask nothing (ADR-0052); simulated, they read the synthetic truck by name.
+    SimulatedValues = synthetic is null ? null : synthetic.Truck.Reading,
 };
 
 using var stopping = new CancellationTokenSource(TimeSpan.FromSeconds(seconds + 5));
