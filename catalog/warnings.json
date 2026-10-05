@@ -1,0 +1,125 @@
+// The warning lights DashDeck watches, and which of them interrupt the screen (ADR-0055).
+//
+// Each names a signal from the catalog and when it is lit — the same words the console's `warning`
+// elements use: `bit` (that bit set), `below`, `equals`, or `onAt` (at least; 1 unless said). The
+// light must read lit for `holdSeconds` before it counts, and off as long before it is off again, so
+// a voltage dip while cranking or one dropped answer never pops a window.
+//
+//   severity     "stop" (red: stop when it is safe) or "caution" (amber: have it looked at)
+//   popup        whether it interrupts the screen by default; each is a switch in Settings ▸ Diagnostics
+//   whenMoving   lit only counts while the truck moves — a parking brake set while parked is no news
+//   countSignal  a count that, when it rises, pops a dismissed warning again (a new trouble code)
+//   codes        the window reads and shows the trouble codes, and offers CLEAR CODES
+//
+// Signals that are placeholders (oil pressure, brake, seatbelt, door, tyres — ADR-0053) read
+// Unavailable on a real truck until their identifiers are found, so those warnings never fire there.
+// A warning with no reading is never "off" and never lit: it waits.
+[
+  {
+    "id": "checkEngine",
+    "title": "CHECK ENGINE",
+    "reason": "ENGINE",
+    "icon": "checkEngine",
+    "signal": "diagnostics.checkEngine",
+    "onAt": 1,
+    "severity": "caution",
+    "popup": true,
+    "holdSeconds": 3,
+    "countSignal": "diagnostics.dtcCount",
+    "codes": true,
+    "advice": "The engine computer has found a fault and stored a code. A steady light: have it checked soon. A flashing light means a misfire that can damage the catalytic converter — ease off and have it looked at today."
+  },
+  {
+    "id": "oilPressure",
+    "title": "OIL PRESSURE",
+    "reason": "OIL",
+    "icon": "oil",
+    "signal": "warning.oilPressure",
+    "severity": "stop",
+    "popup": true,
+    "holdSeconds": 2,
+    "advice": "Low oil pressure can wreck an engine in minutes. Stop when it is safe, turn the engine off, and check the oil level. Do not drive on it."
+  },
+  {
+    "id": "coolantHot",
+    "title": "ENGINE HOT",
+    "reason": "HOT",
+    "icon": "coolant",
+    "signal": "engine.coolantTemp",
+    "onAt": 112,
+    "severity": "stop",
+    "popup": true,
+    "holdSeconds": 5,
+    "advice": "The coolant is over 112 °C. Ease off, turn the heater to full heat and fan to full, and stop when it is safe. Never open the radiator cap while it is hot."
+  },
+  {
+    "id": "charging",
+    "title": "LOW VOLTAGE",
+    "reason": "BATTERY",
+    "icon": "battery",
+    "signal": "vehicle.controlModuleVoltage",
+    "below": 11.8,
+    "severity": "caution",
+    "popup": true,
+    "holdSeconds": 20,
+    "advice": "The electrical system is under 11.8 V. With the engine running the alternator is not charging; with it off the battery is low. Avoid switching the engine off until you can get help or a boost."
+  },
+  {
+    "id": "brake",
+    "title": "BRAKE",
+    "reason": "BRAKE",
+    "icon": "brake",
+    "signal": "warning.parkingBrake",
+    "severity": "stop",
+    "popup": true,
+    "whenMoving": true,
+    "holdSeconds": 3,
+    "advice": "The brake light is on while moving. Check the parking brake is fully off. If it is, the brake fluid may be low — stop when it is safe and have the brakes checked before driving on."
+  },
+  {
+    "id": "lowFuel",
+    "title": "LOW FUEL",
+    "reason": "FUEL",
+    "icon": "fuel",
+    "signal": "fuel.levelPercent",
+    "below": 12,
+    "severity": "caution",
+    "popup": false,
+    "holdSeconds": 30,
+    "advice": "Under an eighth of a tank. Time to fill up."
+  },
+  {
+    "id": "door",
+    "title": "DOOR OPEN",
+    "reason": "DOOR",
+    "icon": "door",
+    "signal": "warning.doorAjar",
+    "severity": "caution",
+    "popup": false,
+    "whenMoving": true,
+    "holdSeconds": 2,
+    "advice": "A door is not fully shut."
+  },
+  {
+    "id": "seatbelt",
+    "title": "SEATBELT",
+    "reason": "BELT",
+    "icon": "seatbelt",
+    "signal": "warning.seatbelt",
+    "severity": "caution",
+    "popup": false,
+    "holdSeconds": 2,
+    "advice": "A seatbelt is not fastened."
+  },
+  {
+    "id": "tyres",
+    "title": "TYRE PRESSURE",
+    "reason": "TYRES",
+    "icon": "tpms",
+    "signal": "warning.tirePressure",
+    "severity": "caution",
+    "popup": false,
+    "holdSeconds": 10,
+    "advice": "A tyre is low. Check the pressures when you can, cold, against the door-jamb label."
+  }
+]

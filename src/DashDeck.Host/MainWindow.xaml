@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="clr-namespace:DashDeck.Host.Converters"
         xmlns:views="clr-namespace:DashDeck.Host.Views"
+        xmlns:warn="clr-namespace:DashDeck.Host.Warnings"
         Title="DashDeck"
         WindowStyle="None"
         ResizeMode="NoResize"
@@ -191,6 +192,51 @@
                         </Border>
                     </Border>
                 </Grid>
+            </Border>
+
+            <!--
+                A warning while moving (ADR-0055): one strip across the top, over the status strip,
+                with the light, one word and a big DISMISS — nothing to read at speed. It lives in the
+                strip's row rather than over the stage because a stage occupant's child window (video,
+                web, a program) draws over any WPF content there. Red for stop, amber for caution:
+                fixed colours, like the quality colours, so no theme can quieten them.
+            -->
+            <Border Grid.Row="0"
+                    DataContext="{Binding Warnings}"
+                    Visibility="{Binding ShowBanner, Converter={StaticResource BoolToVis}}">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="#FF2A1C00" />
+                        <Setter Property="BorderBrush" Value="#FFB020" />
+                        <Setter Property="BorderThickness" Value="0,0,0,3" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsStop}" Value="True">
+                                <Setter Property="Background" Value="#FF2E0A08" />
+                                <Setter Property="BorderBrush" Value="#FF453A" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <DockPanel Margin="24,0,10,0" LastChildFill="True">
+                    <Button DockPanel.Dock="Right"
+                            Style="{StaticResource StageLauncherButton}"
+                            Width="230" Height="70" VerticalAlignment="Center"
+                            Command="{Binding DismissCommand}">
+                        <TextBlock Text="DISMISS" FontFamily="{DynamicResource MonoFont}" FontSize="24" FontWeight="Bold"
+                                   Foreground="White" />
+                    </Button>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Viewbox Width="54" Height="54">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="{Binding IconData}" Fill="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=Border}}" />
+                            </Canvas>
+                        </Viewbox>
+                        <TextBlock Margin="20,0,0,0" VerticalAlignment="Center"
+                                   FontFamily="{DynamicResource UiFont}" FontSize="40" FontWeight="Bold"
+                                   Foreground="White"
+                                   Text="{Binding BannerWord}" />
+                    </StackPanel>
+                </DockPanel>
             </Border>
 
             <!-- The six bands -->
@@ -693,6 +739,69 @@
                             </TextBlock>
                         </Button>
                     </StackPanel>
+                </Border>
+            </Grid>
+
+            <!--
+                A warning while stopped (ADR-0055): the whole screen, because it is the moment to read
+                it. The stage occupant is collapsed underneath (its child window would draw over this)
+                and keeps running. DISMISS keeps it quiet until the light goes off and comes back, or a
+                new code is stored; the console's light stays lit either way.
+            -->
+            <Grid Grid.Row="0" Grid.RowSpan="3"
+                  DataContext="{Binding Warnings}"
+                  Visibility="{Binding ShowWindow, Converter={StaticResource BoolToVis}}">
+                <Border Background="#E6000000" />
+                <Border Margin="28,120,28,120"
+                        Padding="34,30"
+                        CornerRadius="22"
+                        Background="{DynamicResource SurfaceBrush}"
+                        BorderThickness="3">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="BorderBrush" Value="#FFB020" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsStop}" Value="True">
+                                    <Setter Property="BorderBrush" Value="#FF453A" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <DockPanel LastChildFill="True">
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+                            <Viewbox Width="76" Height="76">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="{Binding IconData}"
+                                          Fill="{Binding BorderBrush, RelativeSource={RelativeSource AncestorType=Border}}" />
+                                </Canvas>
+                            </Viewbox>
+                            <TextBlock Margin="22,0,0,0" VerticalAlignment="Center"
+                                       FontFamily="{DynamicResource UiFont}" FontSize="44" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextHighBrush}"
+                                       Text="{Binding Title}" />
+                        </StackPanel>
+
+                        <Button DockPanel.Dock="Bottom"
+                                Style="{StaticResource StageLauncherButton}"
+                                Height="96" Margin="0,22,0,0"
+                                Command="{Binding DismissCommand}">
+                            <TextBlock Text="DISMISS" FontFamily="{DynamicResource MonoFont}" FontSize="28" FontWeight="Bold" />
+                        </Button>
+
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,22,0,0" PanningMode="VerticalOnly">
+                            <StackPanel>
+                                <TextBlock TextWrapping="Wrap"
+                                           FontFamily="{DynamicResource UiFont}" FontSize="24"
+                                           Foreground="{DynamicResource TextHighBrush}"
+                                           Text="{Binding Advice}" />
+
+                                <StackPanel Margin="0,28,0,0"
+                                            Visibility="{Binding ShowsCodes, Converter={StaticResource BoolToVis}}">
+                                    <views:TroubleCodesPanel />
+                                </StackPanel>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </DockPanel>
                 </Border>
             </Grid>
 

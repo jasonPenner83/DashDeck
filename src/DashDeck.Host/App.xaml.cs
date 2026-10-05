@@ -315,6 +315,18 @@ public partial class App : Application
                 FindVisualChild<Views.DashboardView>(window)?.TapFirstDetailCard());
         }
 
+        // Development affordance: --fault <fault>, as many as wanted, sets faults on the synthetic
+        // truck so a warning can be seen at a desk (ADR-0055): P0420, P0171/pending,
+        // warning.oilPressure, engine.coolantTemp=118, engine.rpm=0 (engine off, so CLEAR CODES can
+        // be tried) — each optionally @from or @from-to, in seconds. Ignored on a real truck.
+        for (var i = 0; i < e.Args.Length - 1; i++)
+        {
+            if (e.Args[i] == "--fault" && _vehicle?.Synthetic is { } synthetic && synthetic.Truck.Faults.Add(e.Args[i + 1]) is { } problem)
+            {
+                Fail("Could not read --fault", new ArgumentException(problem));
+            }
+        }
+
         // Development affordance: --unplug <seconds> pulls the adapter mid-run, so the
         // degraded state can be watched happening rather than only reasoned about.
         if (ArgValue(e.Args, "--unplug") is { } unplugAt)

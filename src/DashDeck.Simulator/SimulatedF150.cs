@@ -179,11 +179,20 @@ public sealed partial class SimulatedF150
     /// <summary>Distance to empty, at a steady 13 L/100 km — what the cluster would show.</summary>
     public double RangeKm => FuelLevelLitres / 13.0 * 100;
 
-    /// <summary>The check-engine light. Off: a synthetic truck has nothing wrong with it.</summary>
-    public bool CheckEngine => false;
+    /// <summary>Codes and held values set by hand (ADR-0055); none unless a test or <c>--fault</c> adds them.</summary>
+    public SimulatedFaults Faults { get; } = new();
+
+    /// <summary>The stored trouble codes now.</summary>
+    public IReadOnlyList<string> StoredCodeList => Faults.Codes(_elapsed, pending: false);
+
+    /// <summary>The pending trouble codes now.</summary>
+    public IReadOnlyList<string> PendingCodeList => Faults.Codes(_elapsed, pending: true);
+
+    /// <summary>The check-engine light: lit while a code is stored. A synthetic truck has none unless one is set.</summary>
+    public bool CheckEngine => StoredCodeList.Count > 0;
 
     /// <summary>Stored trouble codes.</summary>
-    public int StoredCodes => 0;
+    public int StoredCodes => StoredCodeList.Count;
 
     /// <summary>True once the scripted drive has run to completion.</summary>
     public bool IsFinished => _segmentIndex >= _drive.Segments.Count;
