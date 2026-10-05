@@ -34,12 +34,15 @@ public sealed partial class SimulatedF150
     public bool Knows(string name) => Values.ContainsKey(name);
 
     /// <summary>The quantity's true value now, with no noise, or null for a name it does not know.</summary>
-    public double? Value(string name) => Values.TryGetValue(name, out var read) ? read() : null;
+    /// <remarks>A fault holding the name (<see cref="Faults"/>) wins.</remarks>
+    public double? Value(string name) =>
+        Faults.TryHeld(name, _elapsed, out var held) ? held
+        : Values.TryGetValue(name, out var read) ? read() : null;
 
     /// <summary>The quantity as a sensor reports it: with its noise, or null for a name it does not know.</summary>
     public double? Reading(string name) =>
         Value(name) is { } value
-            ? Noise.TryGetValue(name, out var magnitude) ? Jitter(value, magnitude) : value
+            ? Noise.TryGetValue(name, out var magnitude) && !Faults.TryHeld(name, _elapsed, out _) ? Jitter(value, magnitude) : value
             : null;
 
     private Dictionary<string, Func<double>> Values => _values ??= BuildValues();

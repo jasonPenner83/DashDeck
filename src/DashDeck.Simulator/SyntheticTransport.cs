@@ -303,6 +303,13 @@ public sealed class SyntheticTransport : IStreamingTransport
 
     private string HandlePid(string command)
     {
+        if (command.Length == 2 &&
+            byte.TryParse(command, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var service) &&
+            ObdService.TakesNoPid(service))
+        {
+            return _faults.VehiclePresent ? HandleCodes(service) : "SEARCHING...\rUNABLE TO CONNECT\r\r>";
+        }
+
         if (command.Length < 4 ||
             !byte.TryParse(command.AsSpan(0, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var mode))
         {
@@ -355,6 +362,75 @@ public sealed class SyntheticTransport : IStreamingTransport
         var payload = Encode(_bus, null, mode, pid);
         return payload is null ? "NO DATA\r\r>" : Respond(mode, pid, payload);
     }
+
+    /// <summary>
+    /// The trouble-code services (ADR-0055): the engine computer has whatever codes are set on the
+    /// truck (<see cref="SimulatedF150.Faults"/>), the transmission computer none; clearing clears them.
+    /// </summary>
+    private string HandleCodes(byte service)
+    {
+        var engine = _header is null || _header == EngineRequest;
+        if (_bus != CanBus.Hs || !(engine || _header == TransmissionRequest))
+        {
+            return "NO DATA\r\r>";
+        }
+
+        if (service == ObdService.ClearCodes)
+        {
+            if (engine)
+            {
+                _truck.Faults.ClearCodes(_truck.RunTimeSeconds);
+            }
+
+            return "44\r\r>";
+        }
+
+        var codes = !engine
+            ? []
+            : service switch
+            {
+                ObdService.StoredCodes => _truck.StoredCodeList,
+                ObdService.PendingCodes => _truck.PendingCodeList,
+                _ => [],
+            };
+
+        var bytes = new List<byte> { (byte)(service + 0x40), (byte)codes.Count };
+        foreach (var text in codes)
+        {
+            var system = "PCBU".IndexOf(text[0], StringComparison.Ordinal);
+            var rest = ushort.Parse(text.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+            var raw = (ushort)((system << 14) | ((text[1] - '0') << 12) | rest);
+            bytes.Add((byte)(raw >> 8));
+            bytes.Add((byte)raw);
+        }
+
+        return Framed(bytes);
+    }
+
+    /// <summary>
+    /// Bytes as an ELM with spaces off prints them: one line when they fit a CAN frame (seven), or a
+    /// byte count and ISO-TP frames with their index glued on — six bytes in the first, seven after.
+    /// </summary>
+    private static string Framed(List<byte> bytes)
+    {
+        var hex = Convert.ToHexString([.. bytes]);
+        if (bytes.Count <= 7)
+        {
+            return $"{hex}\r\r>";
+        }
+
+        var text = new StringBuilder(string.Create(CultureInfo.InvariantCulture, $"{bytes.Count:X3}\r0:{hex[..12]}\r"));
+        var index = 1;
+        for (var at = 12; at < hex.Length; at += 14, index++)
+        {
+            text.Append(CultureInfo.InvariantCulture, $"{index % 16:X}:{hex[at..Math.Min(hex.Length, at + 14)]}\r");
+        }
+
+        return text.Append("\r>").ToString();
+    }
+
+    /// <summary>ISO 15765-4's second emissions ECU — the transmission computer.</summary>
+    private const ushort TransmissionRequest = 0x7E1;
 
     /// <summary>ISO 15765-4's first emissions ECU — the engine computer.</summary>
     private const ushort EngineRequest = 0x7E0;
