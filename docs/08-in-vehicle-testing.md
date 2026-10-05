@@ -1102,3 +1102,46 @@ truck parked, ignition on.
 
 **A failure looks like:** a warning light or message on the cluster while listening (nothing should
 be sent); the list empty with the ignition on; the tap failing to start after listening.
+
+## Warning popups and clearing codes (ADR-0055)
+
+**First at the desk** (no truck): `DashDeck.exe --fault P0420 --fault P0171/pending`.
+
+1. **Expect**, within about five seconds: the whole screen dims and a window reads **CHECK ENGINE**
+   with the amber engine icon, the advice, and under TROUBLE CODES **P0420** *Catalytic converter below
+   efficiency, bank 1* (STORED) and **P0171** *Running lean, bank 1* (PENDING). The DASH console's
+   check-engine light is lit.
+2. Tap **DISMISS**. **Expect:** the window goes; the console light stays lit. Settings ▸ Diagnostics
+   shows CHECK ENGINE *LIT · DISMISSED*. Close and reopen DashDeck with the same flags: **no window**.
+3. Run `DashDeck.exe highway-cruise --fault warning.oilPressure@20`. **Expect** after 20 s, while
+   "driving": a red strip across the top reading **OIL** with a big **DISMISS**, not the window.
+4. Settings ▸ Diagnostics ▸ **ALLOW CLEARING CODES — ON**. Run `DashDeck.exe --fault P0420 --fault
+   engine.rpm=0`. In the window, **HOLD TO CLEAR CODES** — let go after one second: **nothing**. Hold
+   until it fills: **Expect** *Codes cleared…*, the list empty, *No codes*, and the window gone a few
+   seconds later. `%LOCALAPPDATA%\DashDeck\actions.log` has a SENDING line naming P0420 and a DONE line.
+5. Same, without `engine.rpm=0`. **Expect** the hold refused: *Only with the engine off and the
+   ignition on…*, and a REFUSED line in the log.
+
+**In the truck.** You need: the tablet on the adapter. **Clearing resets the readiness monitors** —
+only do steps 9–10 when you want the codes cleared anyway (an emissions test would fail until a few
+days of driving).
+
+6. **Engine running, parked.** **Expect:** no window and no strip (unless the check-engine light is on
+   in the cluster — then the window, with the codes FORScan also shows). Settings ▸ Diagnostics: CHECK
+   ENGINE, ENGINE HOT and LOW VOLTAGE read **OFF**; OIL PRESSURE, BRAKE, DOOR OPEN, SEATBELT and TYRE
+   PRESSURE read **NO READING** (their identifiers are not found yet).
+7. **READ CODES.** **Expect:** *No codes, stored or pending (7E0 …, 7E1 … answered)* — or the codes
+   FORScan shows. Both modules should answer; if only 7E0 does, note it.
+8. Drive. **Expect:** nothing pops; the dash runs as before. No new light on the cluster.
+9. *(Only if clearing is wanted.)* Park, switch the engine **off**, push START **without** the brake
+   (ignition on). ALLOW CLEARING CODES — ON; READ CODES; hold **HOLD TO CLEAR CODES**. **Expect:**
+   *Codes cleared*, a fresh read showing none, and the cluster's check-engine light out.
+10. Try the hold with the engine running. **Expect:** refused, *Only with the engine off…*, and nothing
+    sent (the log says REFUSED).
+11. Turn ALLOW CLEARING CODES **OFF** again.
+
+**A failure looks like:** a window or strip with no light on the cluster (a false alarm — note which
+and the reading in Settings); a light on the cluster with no window when its popup is on; anything
+sent with the switch off or the engine running (a SENDING line in the log); a cluster message or
+new light after clearing other than the check-engine light going out; the stage not coming back after
+DISMISS.

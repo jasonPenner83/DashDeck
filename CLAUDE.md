@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **753 tests green** — 352 engine, 401 shell.
+(ADR-0010). **799 tests green** — 390 engine, 409 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -252,6 +252,24 @@ shows what changed since in [brackets], STATE A/B (F6/F7) and RANK (F8) narrow i
 `BroadcastRanker`. Reference:
 [`docs/id-matcher.md`](docs/id-matcher.md).
 
+**Warning lights pop up, and codes can be cleared** (ADR-0055) — **the first write, and the only
+one.** `catalog/warnings.json` lists each warning (signal and console-style condition, severity
+`stop`/`caution`, `popup` default, `holdSeconds`, `whenMoving`, `countSignal`, `codes`);
+`WarningMonitor` debounces on the shell's beat, counts only Live/Simulated readings (no answer is
+never "off"), and keeps a dismissal — across launches, in `settings.json` — until the light is seen
+off and comes back or the stored-code count rises. Default popups: check engine, oil, hot coolant, low
+voltage, brake (while moving). **Moving: a strip over the status strip** (one word, DISMISS — in the
+strip's row because occupants' child windows draw over the stage); **stopped: a full-screen window**
+with advice and the codes, the occupant collapsed beneath it and still running. Codes are modes 03/07
+(`PidRequest.Service` — no PID), asked of each emissions module **by address**; descriptions from
+`catalog/reference/dtc-descriptions.json` (groups only, plus a few standard codes). **Clearing (mode
+04) goes only through `VehicleActions`**, all five ADR-0006 gates: shell-only (components' `Actions`
+stays null, `apiVersion` unchanged), **ALLOW CLEARING CODES off by default**, an interlock read fresh
+(speed 0, rpm 0, engine computer answering), a 2-second `HoldButton` used once within 10 s, and
+`%LOCALAPPDATA%\DashDeck\actions.log` — **no log line, no send**. At a desk: `--fault P0420`,
+`P0171/pending`, `warning.oilPressure@20-60`, `engine.coolantTemp=118`, `engine.rpm=0` (engine off).
+**Next:** signals with several named states — 4WD 2H/4A/4H/4L (Q24).
+
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
 gets all 708 of it, minus the 72 launcher bar. **Occupants hand back verbs, not chrome**
@@ -446,8 +464,9 @@ is built against a synthetic transport behind a seam, so it is not blocking.
    Settings sweeps (ADR-0032, ADR-0035) go through the same serialised adapter and take most of
    it while they run, which is why they are refused while moving.
    Signals also declare a bus (`hs` / `ms`) and the arbiter interleaves across both.
-5. **Read-only until Phase 3.** No writes to the vehicle. When they arrive they pass the
-   five gates in ADR-0006 — all five, or it does not ship.
+5. **Read-only, with one gated exception.** The only write is clearing trouble codes (ADR-0055),
+   and it goes through `VehicleActions` and nowhere else. Any further write passes the five gates
+   in ADR-0006 — all five, or it does not ship — and gets its own ADR.
 6. **The truck must work without us** (ADR-0006). SYNC 3 stays. Nothing here may degrade
    the vehicle when DashDeck is closed or absent.
 7. **Signal quality is rendered, never hidden.** Every value carries `Live` / `Stale` /
@@ -493,7 +512,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Fifty-four exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Fifty-five exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -525,7 +544,9 @@ ID matcher, a desktop program where DashDeck's identifiers are managed against F
 added, edited and hidden there, typed ones held unconfirmed until TEST, and nothing vehicle-specific
 shipped — standards' tables as files, vehicle files the user's own, pins 3/11 silent until measured —
 and placeholders with no identifier at all, the synthetic truck answering from the catalog, and free
-listening there — noise learned, a MARK, states A and B ranked.
+listening there — noise learned, a MARK, states A and B ranked — and warning lights that pop up
+(a strip while moving, a window when stopped, dismissed until they relight), with clearing the codes
+as the first write through the five gates.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.
