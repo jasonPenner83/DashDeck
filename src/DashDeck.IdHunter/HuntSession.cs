@@ -90,37 +90,16 @@ internal sealed class HuntSession : IAsyncDisposable
     {
         Pins311BitRate = null;
 
-        foreach (var rate in (int[])[125000, 500000])
+        var rate = await Monitor.DetectPins311Async(ct).ConfigureAwait(false);
+        await RestoreAsync(ct).ConfigureAwait(false);
+
+        if (rate is { } heard)
         {
-            var heard = 0;
-            using var window = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            window.CancelAfter(TimeSpan.FromSeconds(1.5));
-
-            try
-            {
-                await foreach (var _ in Monitor.ListenAsync(CanBus.Ms, null, window.Token, rate).ConfigureAwait(false))
-                {
-                    if (++heard >= 20)
-                    {
-                        break;
-                    }
-                }
-            }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-            {
-            }
-
-            await RestoreAsync(ct).ConfigureAwait(false);
-
-            if (heard > 0)
-            {
-                Pins311BitRate = rate;
-                Adapter.Pins311BitRate = rate;
-                return rate;
-            }
+            Pins311BitRate = heard;
+            Adapter.Pins311BitRate = heard;
         }
 
-        return null;
+        return rate;
     }
 
     /// <summary>What a bus is called on screen.</summary>

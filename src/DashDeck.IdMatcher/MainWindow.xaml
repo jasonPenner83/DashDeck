@@ -15,6 +15,10 @@
         <KeyBinding Gesture="Ctrl+P" Command="{Binding PairSelectedCommand}" />
         <KeyBinding Gesture="Ctrl+L" Command="{Binding ClearSamplesCommand}" />
         <KeyBinding Gesture="Escape" Command="{Binding StopPairingCommand}" />
+        <KeyBinding Key="F5" Command="{Binding Listen.MarkCommand}" />
+        <KeyBinding Key="F6" Command="{Binding Listen.HoldACommand}" />
+        <KeyBinding Key="F7" Command="{Binding Listen.HoldBCommand}" />
+        <KeyBinding Key="F8" Command="{Binding Listen.RankCommand}" />
     </Window.InputBindings>
 
     <Grid Margin="10">
@@ -90,8 +94,10 @@
 
             <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Stretch" Background="Transparent" />
 
-            <!-- ── The traffic ────────────────────────────────────────── -->
-            <DockPanel Grid.Column="2">
+            <!-- ── The traffic, and listening ─────────────────────────── -->
+            <TabControl Grid.Column="2">
+            <TabItem Header="  FORSCAN TRAFFIC  ">
+            <DockPanel Margin="0,6,0,0">
                 <TextBlock DockPanel.Dock="Top" Style="{StaticResource Heading}" Text="WHAT FORSCAN ASKS — yellow: just started, blue: changing (Ctrl+N: newest)" />
                 <DataGrid x:Name="IdentifierGrid" ItemsSource="{Binding Identifiers}" SelectedItem="{Binding SelectedIdentifier}"
                           AutoGenerateColumns="False" IsReadOnly="True" SelectionMode="Single" HeadersVisibility="Column"
@@ -121,6 +127,66 @@
                     </DataGrid.Columns>
                 </DataGrid>
             </DockPanel>
+            </TabItem>
+
+            <!-- Free listening (ADR-0054): silent, holds the adapter, so not while the tap runs. -->
+            <TabItem Header="  LISTEN TO THE BUS  " DataContext="{Binding Listen}">
+                <DockPanel Margin="0,6,0,0">
+                    <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,6">
+                        <Button Content="{Binding ListenButton}" Command="{Binding ToggleListenCommand}" FontWeight="SemiBold" MinWidth="120" Margin="0,0,6,4" />
+                        <CheckBox Content="Pins 3/11 (else HS-CAN)" IsChecked="{Binding OnPins311}" VerticalAlignment="Center" Margin="0,0,14,4" />
+                        <Button Content="{Binding NoiseButton}" Command="{Binding ToggleNoiseCommand}" Margin="0,0,6,4" ToolTip="While nothing happens: everything that moves is marked ~ and ignored" />
+                        <Button Content="MARK (F5)" Command="{Binding MarkCommand}" FontWeight="SemiBold" Margin="0,0,6,4" ToolTip="Baseline now; what changes after shows in [brackets]" />
+                        <CheckBox Content="Only what changed since MARK" IsChecked="{Binding OnlyChanged}" VerticalAlignment="Center" Margin="6,0,14,4" />
+                        <Button Content="Save capture" Command="{Binding SaveCaptureCommand}" Margin="0,0,6,4" />
+                    </WrapPanel>
+                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Text="{Binding Summary}" Margin="0,0,0,6" />
+
+                    <DockPanel DockPanel.Dock="Bottom" Height="230" Margin="0,8,0,0">
+                        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+                            <TextBlock Style="{StaticResource Heading}" Text="NARROW IT DOWN" VerticalAlignment="Center" Margin="0,0,12,0" />
+                            <Button Content="STATE A (F6)" Command="{Binding HoldACommand}" Margin="0,0,6,4" ToolTip="Hold the truck one way: shut, off" />
+                            <Button Content="STATE B (F7)" Command="{Binding HoldBCommand}" Margin="0,0,6,4" ToolTip="Hold it the other way: open, on" />
+                            <Button Content="RANK (F8)" Command="{Binding RankCommand}" FontWeight="SemiBold" Margin="0,0,6,4" />
+                            <Button Content="Clear states" Command="{Binding ClearStatesCommand}" Margin="0,0,6,4" />
+                        </WrapPanel>
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Text="{Binding RankSummary}" Margin="0,0,0,4" />
+                        <DataGrid ItemsSource="{Binding Ranked}" AutoGenerateColumns="False" IsReadOnly="True" HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal" CanUserAddRows="False" FontFamily="{StaticResource Mono}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="ID" Binding="{Binding IdText}" />
+                                <DataGridTextColumn Header="Field" Binding="{Binding Field}" FontFamily="Segoe UI" />
+                                <DataGridTextColumn Header="Values by state" Binding="{Binding ValuesText}" Width="*" />
+                                <DataGridTextColumn Header="Steady" Binding="{Binding StabilityText}" />
+                                <DataGridTextColumn Header="Separates" Binding="{Binding SeparatesText}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+
+                    <DataGrid ItemsSource="{Binding Ids}" SelectedItem="{Binding SelectedId}" AutoGenerateColumns="False" IsReadOnly="True"
+                              SelectionMode="Single" HeadersVisibility="Column" GridLinesVisibility="Horizontal" CanUserAddRows="False"
+                              FontFamily="{StaticResource Mono}">
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding NewSinceMark}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource NewBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </DataGrid.RowStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="ID" Binding="{Binding IdText}" />
+                            <DataGridTextColumn Header="Bytes  ([changed] ~noise)" Binding="{Binding DataText}" Width="*" />
+                            <DataGridTextColumn Header="Changed since MARK" Binding="{Binding ChangedText}" FontFamily="Segoe UI" />
+                            <DataGridTextColumn Header="Changes" Binding="{Binding ChangesSinceMark}" />
+                            <DataGridTextColumn Header="Hz" Binding="{Binding RateText}" />
+                            <DataGridTextColumn Header="Frames" Binding="{Binding Frames}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+            </TabControl>
 
             <GridSplitter Grid.Column="3" Width="6" HorizontalAlignment="Stretch" Background="Transparent" />
 
