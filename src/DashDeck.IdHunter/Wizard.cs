@@ -15,7 +15,6 @@ internal sealed partial class Wizard
     private readonly HuntSession _session;
     private readonly IReadOnlyList<HuntTarget> _targets;
     private readonly HuntOutput _output;
-    private readonly IReadOnlyList<VehiclePack> _packs;
     private readonly IClock _clock;
     private readonly Dictionary<string, string> _status = [];
 
@@ -25,7 +24,8 @@ internal sealed partial class Wizard
         _session = session;
         _targets = targets;
         _output = output;
-        _packs = packs;
+        // Module names, the identity question and sweep ranges: the standards', then the user's vehicle files'.
+        session.Reference = session.Reference.With(packs);
         _clock = clock ?? SystemClock.Instance;
     }
 
@@ -186,7 +186,7 @@ internal sealed partial class Wizard
         return true;
     }
 
-    private string? ModuleName(ushort address) => ModuleNames.Likely(address, _packs);
+    private string? ModuleName(ushort address) => _session.Reference.Modules.GetValueOrDefault(address);
 
     private static string Hex(ushort value) => value.ToString("X3", CultureInfo.InvariantCulture);
 
@@ -210,7 +210,7 @@ internal sealed partial class Wizard
             _io.WriteLine("Pins 3/11 were silent, so only HS-CAN is asked.");
         }
 
-        var result = await ModuleScanner.ScanAsync(_session.RequestAsync, _session.RequestBuses, progress, ct).ConfigureAwait(false);
+        var result = await ModuleScanner.ScanAsync(_session.RequestAsync, _session.RequestBuses, _session.Reference.IdentityDid, progress, ct).ConfigureAwait(false);
         progress.Done();
 
         using var capture = _output.Capture($"modules-{_clock.UtcNow.ToLocalTime():HHmmss}", "bus,module,likely,part_number,refusal");
@@ -289,14 +289,21 @@ internal sealed partial class Wizard
     private async Task<List<FoundIdentifier>?> SweepAsync(HuntTarget target, ushort module, CanBus bus, CancellationToken ct)
     {
         var defaults = _session.Simulated && target.SimulateRanges.Count > 0 ? target.SimulateRanges : target.Ranges;
-        var suggestion = defaults.Count > 0 ? string.Join(",", defaults) : "1000-1FFF";
+        // The checklist's ranges, else the standards' and the user's vehicle files' (ADR-0052).
+        var known = _session.Reference.IdentifierRanges.Select(r => $"{r.First:X4}-{r.Last:X4}").ToList();
+        var suggestion = defaults.Count > 0 ? string.Join(",", defaults) : string.Join(",", known);
 
         List<(ushort First, ushort Last)> ranges;
         while (true)
         {
-            var typed = Ask($"Identifier ranges to sweep [{suggestion}]");
+            var typed = Ask(suggestion.Length > 0 ? $"Identifier ranges to sweep [{suggestion}]" : "Identifier ranges to sweep (like 1000-1FFF)");
             if (typed.Length == 0)
             {
+                if (suggestion.Length == 0)
+                {
+                    continue;
+                }
+
                 typed = suggestion;
             }
 

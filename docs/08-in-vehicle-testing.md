@@ -1004,6 +1004,87 @@ Send the log in any of these cases.
 - the PID log's door column reported as "never changed" when the door was opened during it.
 
 
+## Your vehicle file, and nothing vehicle-specific shipped (ADR-0052)
+
+**You need:**
+- the new build on the tablet (and the laptop, for the ID hunter and matcher);
+- your two files from this change: `ford-f150-2018-2020-2.7-ecoboost.json` and `targets.json`;
+- the truck, ignition on, parked.
+
+1. **Before copying anything**, open DashDeck on the tablet in the truck. Settings ▸ Vehicle.
+   **Expect:** the pack line says no signal pack (none ships any more).
+2. Settings ▸ Sensors ▸ **SCAN FOR MODULES**. **Expect:**
+   - the status says pins 3/11 are skipped because no vehicle file gives their measured rate;
+   - HS-CAN modules are still found, but with **no part numbers** (they are asked ISO's `F187`, which
+     Ford declines — a refusal still counts as found);
+   - the result line reads *pins 3/11: not asked*;
+   - the range chips offer only **F100–F1FF IDENTITY**.
+3. Close DashDeck. Copy `ford-f150-2018-2020-2.7-ecoboost.json` into
+   `%LOCALAPPDATA%\DashDeck\vehicles\` (make the folder). Copy `targets.json` into
+   `%LOCALAPPDATA%\DashDeck\idhunter\`. Do the same on the laptop.
+4. Open DashDeck. Settings ▸ Vehicle. **Expect:** the pack line names *Ford F-150 2.7 EcoBoost
+   (2018–2020)* again.
+5. **SCAN FOR MODULES** again. **Expect:**
+   - both buses asked, and the MS-CAN modules (720, 726, 733…) found at 500 kbit/s;
+   - **part numbers back** on each row (asked `F113`, from your file);
+   - module names *likely* from your file;
+   - range chips: F100–F1FF, then DD00, F400, 0000, 1000, 4000.
+6. Select the engine computer (7E0) and **SWEEP** F100–F1FF. While it runs, nothing else changes.
+   Then start the engine and try a sweep while rolling slowly in the yard. **Expect:** refused — *the
+   truck is moving*. (Speed now comes from the catalog's `vehicle.speed`, not a PID number.)
+7. On the laptop, run the ID hunter, pick a *match* target (tyre pressure). **Expect:** it suggests
+   your file's modules (726, 720) and ranges — your `targets.json` was read.
+
+**A failure looks like:**
+- anything sent on pins 3/11 before your file is in place (FORScan's CAN error counters rising, or
+  module rows on MS-CAN in step 2);
+- part numbers still missing after step 3;
+- the pack line not finding your file;
+- a sweep that runs while the truck is moving.
+
+## Placeholders ask nothing; the synthetic truck reads the catalog (ADR-0053)
+
+**You need:**
+- the new build on the tablet; your vehicle file in place (from the ADR-0052 walkthrough);
+- FORScan with the serial tap on the laptop, for step 4;
+- the truck, ignition on, parked.
+
+1. **At a desk first** (no adapter): open DashDeck. **Expect:**
+   - SIM badge; CLIMATE shows set temperatures, fan and seats; DASH shows economy and range; TPMS
+     shows four pressures with the rear left low — all flagged simulated, exactly as before;
+   - Settings ▸ Sensors lists the climate, tyre and warning signals with *placeholder: no ID yet,
+     nothing is asked* under each.
+2. Settings ▸ Sensors ▸ **SCAN FOR MODULES** at the desk. **Expect:** the synthetic modules with new
+   invented ids — 7E0, 7E1, 710, 740, 750 on HS and 7A0, 7A4, 7B0 on pins 3/11 — each with a
+   `SYNTH-…` identity (710 declines to give one).
+3. **In the truck**, open CLIMATE and DASH. **Expect:** every placeholder shows a dash with a grey
+   dot (**Unavailable**, not Stale amber); real values (speed, rpm, coolant, fuel) are live.
+4. With the tap recording, let DashDeck run on CLIMATE for a minute, then open the tap log.
+   **Expect:** no requests on pins 3/11 for `01 C0`–`01 D7` — nothing goes out for a placeholder.
+   (Before this change those went out every few seconds.)
+5. Pair one placeholder in the ID matcher (say the door ajar, from the switch walkthrough) and copy
+   the overlay. **Expect:** after a restart it reads live, and Sensors no longer calls it a
+   placeholder.
+
+**A failure looks like:**
+- a placeholder lit or showing a number on the real truck;
+- any `01 C…`/`01 D…` request in the tap log;
+- a placeholder showing amber Stale instead of a grey Unavailable;
+- the climate panel or TPMS blank at the desk.
+
+## Pairing the tailgate (placeholder `body.tailgate`)
+
+**You need:** the laptop with FORScan, the tap and the ID matcher; the truck parked, ignition on.
+
+1. In the matcher, select **Tailgate — Open** (marked NEEDS ID). In FORScan, open the body module's
+   live data and pick the tailgate switch (an `SW` item). Press **Ctrl+N**.
+2. With the tailgate shut, press **F3**, type what FORScan shows (`Closed`/`Off`), **Enter**. Open it,
+   type `Open`/`On`. Shut it and open it again, adding each. **Expect:** one bit, *seen on and off*.
+3. **Ctrl+Enter**, save, copy the overlay to the tablet, restart. In Settings ▸ Sensors, TEST with the
+   tailgate open and shut. **Expect:** 1 open, 0 shut; the row stops saying *placeholder*.
+
+**A failure looks like:** the tailgate reading anything before pairing; a value other than 0 or 1;
+DashDeck sending anything to the tailgate — it only reads.
 ## Listening for what changed (ID matcher, ADR-0054)
 
 **You need:** the laptop with the ID matcher and the adapter, FORScan closed, the tap stopped; the

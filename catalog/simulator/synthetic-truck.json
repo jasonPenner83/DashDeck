@@ -1,0 +1,122 @@
+// The synthetic truck's own world, for the desk (ADR-0005, ADR-0052).
+//
+// EVERYTHING HERE IS INVENTED. No identifier, address or value is any real vehicle's: they exist so
+// the module scan, identifier sweeps, WATCH and the ID hunter can be practised without a truck.
+//
+// The truck's standard values and its placeholders do not live here. It answers those from the
+// signal catalog — whatever request the catalog says a signal lives at, encoded by the catalog's own
+// decode — and a placeholder by its id, never by an identifier.
+//
+// Encodings read the way the catalog's decodes do: value = raw × scale + offset.
+// "value" names a quantity the synthetic truck knows (SimulatedF150.Values).
+{
+  // Shaped like a real VIN with a correct check digit, but serial 000000 belongs to no vehicle.
+  "vin": "1FTEW1EP2KF000000",
+
+  // Modules on each bus, by request id. Each answers the identity question (whatever the scan asks:
+  // ISO 14229's F187, or what the user's vehicle file says) with "identity"; one with no identity
+  // declines it, so the "there but would not say" path runs too. "locked" identifiers refuse with
+  // security access denied.
+  "modules": [
+    {
+      "bus": "hs", "address": "7E0", "identity": "SYNTH-ENGINE-01",
+      "identifiers": [
+        { "did": "F188", "text": "SYNTH-STRATEGY-01" },
+        { "did": "F190", "text": "$vin" },
+        // For the ID hunter's follow path: oil temperature, transmission temperature in
+        // sixteenths, fuel flow in hundredths of a litre an hour, and noise.
+        { "did": "4101", "value": "oil.temp", "offset": -40, "jitter": 0.2 },
+        { "did": "4102", "value": "transmission.temp", "byteLength": 2, "scale": 0.0625, "offset": -40 },
+        { "did": "4103", "value": "engine.fuelRate", "byteLength": 2, "scale": 0.01, "jitter": 0.02 },
+        { "did": "4104", "random": true }
+      ]
+    },
+    { "bus": "hs", "address": "7E1", "identity": "SYNTH-TRANS-01" },
+    { "bus": "hs", "address": "740", "identity": "SYNTH-MODULE-740" },
+    { "bus": "hs", "address": "750", "identity": "SYNTH-MODULE-750" },
+    { "bus": "hs", "address": "710" },
+    {
+      "bus": "ms", "address": "7A0", "identity": "SYNTH-BODY-01",
+      "identifiers": [
+        { "did": "4001", "value": "battery.voltage", "byteLength": 2, "scale": 0.1, "jitter": 0.1 },
+        { "did": "4002", "value": "ambient.airTemp", "offset": -40 },
+        // Tyre pressures a quarter psi a count, for the ID hunter's match path.
+        { "did": "4301", "value": "tire.frontLeft.pressure", "scale": 0.25 },
+        { "did": "4302", "value": "tire.frontRight.pressure", "scale": 0.25 },
+        { "did": "4303", "value": "tire.rearLeft.pressure", "scale": 0.25 },
+        { "did": "4304", "value": "tire.rearRight.pressure", "scale": 0.25 }
+      ],
+      "locked": [ "4003" ]
+    },
+    {
+      "bus": "ms", "address": "7A4", "identity": "SYNTH-CLUSTER-01",
+      "identifiers": [
+        { "did": "4201", "value": "fuel.range", "byteLength": 2 },
+        { "did": "4202", "value": "cluster.economy", "byteLength": 2, "scale": 0.1 }
+      ]
+    },
+    {
+      "bus": "ms", "address": "7B0", "identity": "SYNTH-CLIMATE-01",
+      "identifiers": [
+        // The driver seat as the module holds it — heat in the low nibble, cooling in the high —
+        // and a counter beside it that a ranker must not take for it.
+        { "did": "4401", "value": "cabin.driverSeat", "encoding": "seat" },
+        { "did": "4402", "random": true }
+      ]
+    }
+  ],
+
+  // What the monitor hears (ADR-0044). Each byte is a number, a value, bits, a counter, noise, or
+  // the XOR of other bytes. "onChange" frames are sent only when their bytes change.
+  "broadcast": [
+    {
+      "bus": "ms", "id": "3B3", "periodMs": 100,
+      "bytes": [
+        { "bits": [ { "value": "cabin.driverDoor", "bit": 0 }, { "value": "cabin.passengerDoor", "bit": 1 } ] },
+        64,
+        { "value": "cabin.driverSeat", "encoding": "seat" },
+        { "value": "cabin.passengerSeat", "encoding": "seat" },
+        { "value": "cabin.wheelHeat" },
+        0, 0, 0
+      ]
+    },
+    {
+      "bus": "ms", "id": "3C1", "periodMs": 200,
+      "bytes": [
+        { "value": "cabin.fan" },
+        { "bits": [ { "value": "cabin.ac", "bit": 0 }, { "value": "cabin.recirc", "bit": 1 },
+                    { "value": "cabin.rearDefrost", "bit": 2 }, { "value": "cabin.auto", "bit": 3 } ] },
+        { "value": "cabin.driverSetTemp", "scale": 0.5 },
+        3
+      ]
+    },
+    {
+      "bus": "ms", "id": "42F", "periodMs": 500,
+      "bytes": [
+        { "bits": [ { "value": "cabin.seatbeltUnbuckled", "bit": 0 }, { "value": "cabin.parkingBrake", "bit": 1 } ] },
+        0
+      ]
+    },
+    {
+      "bus": "ms", "id": "3D5", "onChange": true,
+      "bytes": [ { "bits": [ { "value": "cabin.passengerDoor", "bit": 4 } ] } ]
+    },
+    {
+      "bus": "ms", "id": "4A0", "periodMs": 50,
+      "bytes": [ { "counter": 15 }, { "random": true }, 0, 0, 0, 0, 0, { "xor": [ 0, 1 ] } ]
+    },
+    {
+      "bus": "hs", "id": "201", "periodMs": 20,
+      "bytes": [
+        { "value": "engine.rpm", "byteLength": 2, "scale": 0.25 },
+        0, 0,
+        { "value": "vehicle.speed", "byteLength": 2, "scale": 0.01 },
+        0, 0
+      ]
+    },
+    {
+      "bus": "hs", "id": "420", "periodMs": 100,
+      "bytes": [ { "value": "engine.coolantTemp", "offset": -40 }, 0, 0 ]
+    }
+  ]
+}

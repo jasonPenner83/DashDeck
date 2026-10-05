@@ -94,7 +94,11 @@ public sealed record SignalDefinition
 
     public byte Mode { get; init; } = 0x01;
 
-    public required ushort Pid { get; init; }
+    /// <summary>
+    /// The PID or identifier. A placeholder has none (ADR-0052): it is never asked for, so it
+    /// leaves this, <see cref="Mode"/> and <see cref="Bus"/> out.
+    /// </summary>
+    public ushort Pid { get; init; }
 
     /// <summary>
     /// The module to ask, as its 11-bit request id in hex — <c>"726"</c> — or null to ask the
@@ -133,10 +137,11 @@ public sealed record SignalDefinition
     public required DecodeSpec Decode { get; init; }
 
     /// <summary>
-    /// True for a signal whose mode and PID are a stand-in, not the truck's: the synthetic truck
-    /// answers it so the screen that shows it can be built, and a real truck reads Unavailable
-    /// until its identifier is found (ADR-0050). The ID matcher lists these as needing an ID; a
-    /// vehicle pack or overlay entry with the same id replaces it, and is not one.
+    /// True for a signal whose identifier is still to be found (ADR-0050, ADR-0052): it is in the
+    /// catalog so the screens that show it can be built, but it has <b>no request</b> — nothing is
+    /// ever sent for it. A real vehicle reads Unavailable; the synthetic truck answers it by its id.
+    /// The ID matcher lists these as needing an ID; a vehicle file or overlay entry with the same id
+    /// and a real request replaces it, and is not one.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Placeholder { get; init; }
@@ -174,6 +179,10 @@ public sealed record SignalDefinition
     [JsonIgnore]
     public TimeSpan StalenessBudget => TimeSpan.FromSeconds(
         StalenessSeconds ?? Math.Max(2.0, 5.0 / Math.Max(DefaultRateHz, 0.05)));
+
+    /// <summary>True when there is something to ask: every signal except a placeholder (ADR-0052).</summary>
+    [JsonIgnore]
+    public bool HasRequest => !Placeholder;
 
     public PidRequestSpec ToRequest() => new(Mode, Pid, Bus, ModuleAddress);
 

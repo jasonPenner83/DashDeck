@@ -76,7 +76,7 @@ if (Test-Path $pluginsSource) {
 
 # The ID hunter (ADR-0044) travels in its own folder beside the dash: a separate console program
 # that guides finding identifiers. Self-contained like the dash, so the tablet needs nothing installed.
-# It finds catalog\vehicles one folder up, for module names.
+# It finds the catalog one folder up, and the user's vehicle files in %LOCALAPPDATA%\DashDeck\vehicles.
 $hunter = Join-Path $Output 'IdHunter'
 dotnet publish src\DashDeck.IdHunter\DashDeck.IdHunter.csproj `
     --configuration Release `

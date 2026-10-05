@@ -158,21 +158,22 @@ public class ModuleDiscoveryTests
         var (adapter, _) = await AdapterAsync();
         await using var _adapter = adapter;
 
-        var result = await ModuleScanner.ScanAsync(adapter.RequestAsync, [CanBus.Hs, CanBus.Ms], null, TestCancellation.Token);
+        var result = await ModuleScanner.ScanAsync(adapter.RequestAsync, [CanBus.Hs, CanBus.Ms], SyntheticIdentity, null, TestCancellation.Token);
 
         Assert.True(result.Completed);
         Assert.Empty(result.Problems);
 
         var hs = result.Modules.Where(m => m.Bus == CanBus.Hs).Select(m => (int)m.Address).Order();
         var ms = result.Modules.Where(m => m.Bus == CanBus.Ms).Select(m => (int)m.Address).Order();
-        Assert.Equal([0x716, 0x730, 0x760, 0x7E0, 0x7E1], hs);
-        Assert.Equal([0x720, 0x726, 0x733], ms);
+        // The synthetic truck's invented modules (catalog/simulator/synthetic-truck.json).
+        Assert.Equal([0x710, 0x740, 0x750, 0x7E0, 0x7E1], hs);
+        Assert.Equal([0x7A0, 0x7A4, 0x7B0], ms);
 
-        var pcm = result.Modules.Single(m => m.Address == 0x7E0);
-        Assert.Equal("SYNTH-PCM-14C204-AA", pcm.PartNumber);
+        var engine = result.Modules.Single(m => m.Address == 0x7E0);
+        Assert.Equal("SYNTH-ENGINE-01", engine.PartNumber);
 
-        // The gateway is there and declined to give a part number. Still found.
-        var gateway = result.Modules.Single(m => m.Address == 0x716);
+        // One is there and declines to give its identity. Still found.
+        var gateway = result.Modules.Single(m => m.Address == 0x710);
         Assert.Null(gateway.PartNumber);
         Assert.Equal((byte)0x31, gateway.RefusalCode);
     }
@@ -183,7 +184,7 @@ public class ModuleDiscoveryTests
         var (adapter, _) = await AdapterAsync(SyntheticFaults.HsCanOnly with { LatencyMs = 0, DropProbability = 0 });
         await using var _adapter = adapter;
 
-        var result = await ModuleScanner.ScanAsync(adapter.RequestAsync, [CanBus.Hs, CanBus.Ms], null, TestCancellation.Token);
+        var result = await ModuleScanner.ScanAsync(adapter.RequestAsync, [CanBus.Hs, CanBus.Ms], SyntheticIdentity, null, TestCancellation.Token);
 
         Assert.DoesNotContain(result.Modules, m => m.Bus == CanBus.Ms);
         Assert.True(result.Problems.ContainsKey(CanBus.Ms));
@@ -197,7 +198,7 @@ public class ModuleDiscoveryTests
         await using var _adapter = adapter;
 
         var reports = new List<SweepProgress>();
-        await ModuleScanner.ScanAsync(adapter.RequestAsync, [CanBus.Hs], new SyncProgress<SweepProgress>(reports.Add), TestCancellation.Token);
+        await ModuleScanner.ScanAsync(adapter.RequestAsync, [CanBus.Hs], SyntheticIdentity, new SyncProgress<SweepProgress>(reports.Add), TestCancellation.Token);
 
         Assert.Equal(128, reports[^1].Done);
         Assert.Equal(128, reports[^1].Total);
@@ -220,7 +221,7 @@ public class ModuleDiscoveryTests
         var (adapter, _) = await AdapterAsync();
         await using var _adapter = adapter;
 
-        var result = await DidScanner.ScanAsync(adapter.RequestAsync, CanBus.Ms, 0x726, 0x4000, 0x40FF, null, TestCancellation.Token);
+        var result = await DidScanner.ScanAsync(adapter.RequestAsync, CanBus.Ms, 0x7A0, 0x4000, 0x40FF, null, TestCancellation.Token);
 
         Assert.Null(result.Problem);
         Assert.Equal(256, result.Asked);
@@ -235,8 +236,8 @@ public class ModuleDiscoveryTests
         var (adapter, _) = await AdapterAsync();
         await using var _adapter = adapter;
 
-        // Nothing lives at 750.
-        var result = await DidScanner.ScanAsync(adapter.RequestAsync, CanBus.Hs, 0x750, 0x0000, 0x0FFF, null, TestCancellation.Token);
+        // Nothing lives at 770.
+        var result = await DidScanner.ScanAsync(adapter.RequestAsync, CanBus.Hs, 0x770, 0x0000, 0x0FFF, null, TestCancellation.Token);
 
         Assert.Equal(DidScanner.SilenceLimit, result.Asked);
         Assert.NotNull(result.Problem);
@@ -254,7 +255,7 @@ public class ModuleDiscoveryTests
 
     // ── Signals that name a module ────────────────────────────────────────────
 
-    private static SignalDefinition BodyVoltage(string? module = "726") => new()
+    private static SignalDefinition BodyVoltage(string? module = "7A0") => new()
     {
         Id = "body.voltage",
         Name = "Body module voltage",
@@ -289,7 +290,7 @@ public class ModuleDiscoveryTests
     public void The_module_survives_the_round_trip_through_the_user_file()
     {
         var json = SignalCatalog.ToJson([BodyVoltage()]);
-        Assert.Contains("\"module\": \"726\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"module\": \"7A0\"", json, StringComparison.Ordinal);
         Assert.Equal(BodyVoltage(), SignalCatalog.ParseList(json).Single());
 
         // And a broadcast signal writes no module at all.
@@ -322,7 +323,7 @@ public class ModuleDiscoveryTests
     // ── Names ─────────────────────────────────────────────────────────────────
 
     [Fact]
-    public void Names_come_from_the_pack_then_the_standard()
+    public void Names_come_from_the_users_file_then_the_standard()
     {
         var pack = new VehiclePack
         {
@@ -331,20 +332,33 @@ public class ModuleDiscoveryTests
             Modules = new Dictionary<string, string> { ["726"] = "BCM — body control" },
         };
 
-        Assert.Equal("BCM — body control", ModuleNames.Likely(0x726, [pack]));
-        Assert.StartsWith("Engine", ModuleNames.Likely(0x7E0, [pack]));
-        Assert.Null(ModuleNames.Likely(0x750, [pack]));
+        var reference = TestCatalog.Reference().With([pack]);
+
+        Assert.Equal("BCM — body control", reference.Modules[0x726]);
+        Assert.StartsWith("Engine", reference.Modules[0x7E0]);
+        Assert.False(reference.Modules.ContainsKey(0x750));
     }
 
     [Fact]
-    public void The_shipped_f150_pack_names_its_modules_with_valid_addresses()
+    public void The_standard_asks_the_iso_identity_and_a_users_file_can_ask_its_makers()
     {
-        var folder = Path.Combine(Path.GetDirectoryName(TestCatalog.Path())!, "vehicles");
-        var (packs, problems) = VehiclePacks.LoadFolder(folder);
+        var standard = TestCatalog.Reference();
+        Assert.Equal(0xF187, standard.IdentityDid);
+        Assert.Equal([(0xF100, 0xF1FF)], standard.IdentifierRanges.Select(r => ((int)r.First, (int)r.Last)));
 
-        Assert.Empty(problems);
-        Assert.Contains(packs, p => p.Modules.Count > 0);
+        var pack = VehiclePacks.Parse("""
+            { "name": "P", "match": { "make": "Ford" }, "identityDid": "F113",
+              "identifierRanges": [ { "name": "DD00–DDFF", "from": "DD00", "to": "DDFF" },
+                                    { "from": "F100", "to": "F1FF" } ] }
+            """, "p.json");
+        var yours = standard.With([pack]);
+
+        Assert.Equal(0xF113, yours.IdentityDid);
+        Assert.Equal(["F100–F1FF  IDENTITY", "DD00–DDFF"], yours.IdentifierRanges.Select(r => r.Name));
     }
+
+    /// <summary>The identity question the synthetic truck's modules answer: ISO 14229's, the standard default.</summary>
+    private const ushort SyntheticIdentity = 0xF187;
 
     /// <summary><see cref="Progress{T}"/> posts to a context; this reports in line, so a test sees every one.</summary>
     private sealed class SyncProgress<T>(Action<T> report) : IProgress<T>

@@ -15,6 +15,8 @@ public sealed class SimulatedCabin
 
     public bool PassengerDoorOpen { get; set; }
 
+    public bool TailgateOpen { get; set; }
+
     /// <summary>Heat 1–3 positive, cooling 1–3 negative, 0 off.</summary>
     public int DriverSeat { get; set; }
 
@@ -45,7 +47,7 @@ public sealed class SimulatedCabin
     public static IReadOnlyList<string> Names { get; } =
     [
         "driverDoor", "passengerDoor", "driverSeat", "passengerSeat", "wheelHeat", "fan", "ac",
-        "recirc", "rearDefrost", "auto", "driverSetTemp", "driverSeatbelt", "parkingBrake", "rev",
+        "recirc", "rearDefrost", "auto", "driverSetTemp", "driverSeatbelt", "parkingBrake", "rev", "tailgate",
     ];
 
     /// <summary>Set one control by name, as a guide's step names it. False for a name it does not know.</summary>
@@ -68,6 +70,7 @@ public sealed class SimulatedCabin
             case "driverSeatbelt": DriverSeatbeltBuckled = on; break;
             case "parkingBrake": ParkingBrake = on; break;
             case "rev": ExtraRpm = value; break;
+            case "tailgate": TailgateOpen = on; break;
             default: return false;
         }
 

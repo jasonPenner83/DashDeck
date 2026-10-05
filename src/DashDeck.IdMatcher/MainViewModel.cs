@@ -319,7 +319,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         try
         {
             _standard = SignalCatalog.FromFile(Path.Combine(folder, "signals.obd2-standard.json"));
-            var (packs, problems) = VehiclePacks.LoadFolder(Path.Combine(folder, "vehicles"));
+            // The shipped folder and the user's own (ADR-0052): what is specific to a vehicle is the user's.
+            var (packs, problems) = VehiclePacks.LoadFolders(
+                Path.Combine(folder, "vehicles"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DashDeck", "vehicles"));
             _packs = packs;
             _builtIn = VehiclePacks.Apply(_standard, packs);
             CatalogStatus = $"{_standard.Definitions.Count} standard signals, {packs.Sum(p => p.Signals.Count)} from {packs.Count} vehicle pack(s)." +

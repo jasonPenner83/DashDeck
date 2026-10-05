@@ -156,8 +156,8 @@ And from **`v0.3.0`**, the first build that reads the real truck:
   - A renumbered COM port is followed.
   - What the link does is logged to `%LOCALAPPDATA%\DashDeck\adapter.log`.
 - **Settings ▸ Vehicle ▸ VIN** (ADR-0033): read from the truck or typed, decoded once by NHTSA
-  (needs internet the first time), cached in `vehicle.json`, every field correctable. It picks the
-  F-150 2.7 vehicle pack.
+  (needs internet the first time), cached in `vehicle.json`, every field correctable. It picks your
+  vehicle file from `%LOCALAPPDATA%\DashDeck\vehicles\` (ADR-0052 — none ships in the repository).
 - **Settings ▸ Sensors** (ADR-0032):
   - every vehicle signal and tablet sensor, with what the truck has said;
   - **SCAN THE TRUCK** for supported standard PIDs;
@@ -186,8 +186,8 @@ in Settings ▸ Themes with wide, ordinary lettering, the `.ttf` files did not m
 - **Tire Pressure shows a dash at every corner on the real truck.** Its PIDs are placeholders
   until Ford's body-module values are found (R2). On the simulator, the rear-left tyre reads low on
   purpose.
-- **The F-150 2.7 vehicle pack has no signals yet.** Ford mode 22 values go there once TEST has
-  confirmed them on the truck.
+- **No vehicle file ships** (ADR-0052). Copy yours into `%LOCALAPPDATA%\DashDeck\vehicles\` on
+  each machine. Without it, module scans show no part numbers and **nothing is sent on pins 3/11**.
 - **Close FORScan before launching DashDeck.** Only one app can hold the adapter's port. TEST
   PORTS shows IN USE when something else has it.
 - **Signal edits apply at the next launch**, not immediately. So do the vehicle profile and the

@@ -1,0 +1,22 @@
+// What ISO 15765-4 and ISO 14229 (UDS) themselves define, for the module sweep (ADR-0035, ADR-0052).
+//
+// Standard, not any vehicle's: a vehicle file in %LOCALAPPDATA%\DashDeck\vehicles\ adds to these
+// (more module names, more identifier ranges) or replaces the identity question with the one its
+// maker answers.
+{
+  // The two request ids ISO 15765-4 gives meaning to: the first and second emissions ECUs, which on
+  // nearly every vehicle are the engine and the transmission. Labels only — the screen says "likely".
+  "modules": {
+    "7E0": "Engine — emissions ECU #1",
+    "7E1": "Transmission — emissions ECU #2"
+  },
+
+  // What each address is asked by SCAN FOR MODULES: ISO 14229's spare part number. Any answer — the
+  // number, or a refusal — proves a module is there; only silence means nothing is.
+  "identityDid": "F187",
+
+  // The identifier ranges offered for a module sweep. F100–F1FF is ISO 14229's identification range.
+  "identifierRanges": [
+    { "name": "F100–F1FF  IDENTITY", "from": "F100", "to": "F1FF" }
+  ]
+}

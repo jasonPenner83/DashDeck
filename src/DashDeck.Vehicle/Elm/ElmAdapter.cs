@@ -109,14 +109,19 @@ public sealed class ElmAdapter : IVehicleAdapter
 
     private CanBus _selectedBus = CanBus.Hs;
 
-    private int _pins311BitRate = 125000;
+    private int? _pins311BitRate = 125000;
 
     /// <summary>
     /// The rate of the bus on OBD pins 3 and 11, which <c>STP53</c> opens at 125 kbit/s — Ford's
     /// MS-CAN. Newer trucks put a 500 kbit/s bus there; sending at the wrong rate makes error frames
     /// on it, so a caller that has measured the rate (by listening, ADR-0044) sets it here.
     /// </summary>
-    public int Pins311BitRate
+    /// <remarks>
+    /// Null when nobody has measured it: then nothing is sent on pins 3 and 11 at all, and a
+    /// request there answers NO DATA without reaching the vehicle (ADR-0052). The dash sets null
+    /// for a real vehicle unless the user's own vehicle file gives a rate.
+    /// </remarks>
+    public int? Pins311BitRate
     {
         get => _pins311BitRate;
         set
@@ -308,9 +313,9 @@ public sealed class ElmAdapter : IVehicleAdapter
         await _transport.ExchangeAsync(bus == CanBus.Ms ? MsCanCommand : HsCanCommand, ct)
             .ConfigureAwait(false);
 
-        if (bus == CanBus.Ms && _pins311BitRate != 125000)
+        if (bus == CanBus.Ms && _pins311BitRate is { } rate && rate != 125000)
         {
-            await _transport.ExchangeAsync($"STPBR{_pins311BitRate}", ct).ConfigureAwait(false);
+            await _transport.ExchangeAsync($"STPBR{rate}", ct).ConfigureAwait(false);
         }
 
         _selectedBus = bus;
@@ -443,6 +448,12 @@ public sealed class ElmAdapter : IVehicleAdapter
             }
 
             if (Capabilities is { } caps && !caps.Supports(request.Bus))
+            {
+                return PidResponse.Failed(request, PidFailure.NoData, _clock.UtcNow);
+            }
+
+            // An unmeasured bus is never sent on: a wrong rate puts error frames on it (ADR-0052).
+            if (request.Bus == CanBus.Ms && _pins311BitRate is null)
             {
                 return PidResponse.Failed(request, PidFailure.NoData, _clock.UtcNow);
             }

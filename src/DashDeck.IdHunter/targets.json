@@ -4,7 +4,7 @@
     "listen: hold the truck in each step's state while the tool listens to the bus; 'state' numbers say which steps should read alike.",
     "follow: sweep a module's identifiers, then watch them while a standard reading (coolant or rpm) changes.",
     "match: sweep a module's identifiers and find the ones holding a number you read off the cluster.",
-    "'modules' and 'ranges' are where to SEARCH, not claims about where anything is. 'simulate' is used only with --simulate."
+    "'modules' and 'ranges' are where to SEARCH, not claims about where anything is. This shipped list names only the ISO engine and transmission ids and no ranges; put your vehicle's hints in your own copy, %LOCALAPPDATA%\\DashDeck\\idhunter\\targets.json, which is read instead (ADR-0052). 'simulate' and 'simulateRanges' are used only with --simulate."
   ],
   "targets": [
     {
@@ -774,9 +774,6 @@
       "modules": [
         "7E0"
       ],
-      "ranges": [
-        "1000-1FFF"
-      ],
       "minutes": 12,
       "simulateRanges": [
         "4100-41FF"
@@ -794,9 +791,6 @@
         "7E1",
         "7E0"
       ],
-      "ranges": [
-        "1000-1FFF"
-      ],
       "minutes": 12,
       "simulateRanges": [
         "4100-41FF"
@@ -812,9 +806,6 @@
       "instructions": "Every time the tool says REV, press the accelerator gently to about 2,000 rpm for two seconds and let it fall back to idle. Never above 3,000 rpm.",
       "modules": [
         "7E0"
-      ],
-      "ranges": [
-        "1000-1FFF"
       ],
       "minutes": 3,
       "blips": true,
@@ -833,9 +824,6 @@
       "modules": [
         "7E0"
       ],
-      "ranges": [
-        "1000-1FFF"
-      ],
       "minutes": 3,
       "blips": true,
       "simulateRanges": [
@@ -849,11 +837,7 @@
       "method": "match",
       "needs": "Ignition ON, parked. Show DISTANCE TO EMPTY on the cluster.",
       "modules": [
-        "720",
         "7E0"
-      ],
-      "ranges": [
-        "0000-0FFF"
       ],
       "rounds": 2,
       "between": "Run the engine (parked) for 10 minutes, or come back to this after a drive, so the number changes. The tool keeps what it found.",
@@ -875,11 +859,7 @@
       "method": "match",
       "needs": "Ignition ON, parked. Show the trip's AVERAGE economy on the cluster.",
       "modules": [
-        "720",
         "7E0"
-      ],
-      "ranges": [
-        "0000-0FFF"
       ],
       "rounds": 2,
       "between": "Come back to this after a drive, so the average changes.",
@@ -900,13 +880,6 @@
       "signal": "tire.*.pressure",
       "method": "match",
       "needs": "Ignition ON, parked. Show the TYRE PRESSURE screen on the cluster.",
-      "modules": [
-        "726",
-        "720"
-      ],
-      "ranges": [
-        "0000-0FFF"
-      ],
       "rounds": 1,
       "between": "",
       "readings": [

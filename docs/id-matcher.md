@@ -36,7 +36,7 @@ Every session is also saved as a tap log in `%LOCALAPPDATA%\DashDeck\tap\`. **Op
 
 | | |
 |---|---|
-| **Left: DashDeck signals** | Every signal the dash knows. **NEEDS ID** marks a placeholder: TPMS, the warning lights, economy and range, climate. **NOT ON TRUCK** marks a standard PID the truck says it doesn't have, read from its own answers when FORScan connects: fuel rate, MAF, oil temperature. Tick off *Only those that need the truck's ID* to see them all. **PACK** and **YOURS** are already paired. |
+| **Left: DashDeck signals** | Every signal the dash knows. **NEEDS ID** marks a placeholder: TPMS, the warning lights, economy and range, climate, the tailgate. **NOT ON TRUCK** marks a standard PID the truck says it doesn't have, read from its own answers when FORScan connects: fuel rate, MAF, oil temperature. Tick off *Only those that need the truck's ID* to see them all. **PACK** and **YOURS** are already paired. |
 | **Middle: what FORScan asks** | One row per identifier: module, bus (HS or 3/11), mode, PID, the latest answer in hex and as numbers, how often heard and how often it changed. **Yellow**: FORScan just started asking it. **Blue**: its answer is changing. |
 | **Right: LIVE** | Match one identifier by typing what FORScan shows. |
 | **Right: PID LOG** | Match many at once from FORScan's PID log. |

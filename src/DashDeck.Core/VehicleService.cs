@@ -301,6 +301,13 @@ public sealed class VehicleService : IAsyncDisposable
     private async Task PollAsync(PlanEntry entry, CancellationToken ct)
     {
         var definition = entry.Signal;
+
+        if (!definition.HasRequest)
+        {
+            PublishPlaceholder(definition);
+            return;
+        }
+
         var spec = definition.ToRequest();
         var request = new PidRequest(spec.Mode, spec.Pid, spec.Bus, spec.Module);
 
@@ -372,6 +379,34 @@ public sealed class VehicleService : IAsyncDisposable
             response.TimestampUtc,
             quality));
     }
+
+    /// <summary>
+    /// A placeholder's turn (ADR-0052): nothing is asked — it has no request. While simulated, the
+    /// synthetic truck's value of the same name is published, flagged Simulated; otherwise the
+    /// signal reads Unavailable, which is the truth about an identifier nobody has found.
+    /// </summary>
+    private void PublishPlaceholder(SignalDefinition definition)
+    {
+        lock (_statusLock)
+        {
+            _lastPolled[definition.Id] = _clock.UtcNow;
+        }
+
+        var quality = Quality;
+        if (quality == SignalQuality.Simulated && SimulatedValues?.Invoke(definition.Id) is { } value && double.IsFinite(value))
+        {
+            Bus.Publish(new SignalValue(definition.Id, value, definition.Decode.Unit, _clock.UtcNow, quality));
+            return;
+        }
+
+        Bus.Publish(SignalValue.Missing(definition.Id, definition.Decode.Unit));
+    }
+
+    /// <summary>
+    /// The synthetic truck's quantities by signal id, for placeholders while simulated (ADR-0052);
+    /// null when there is no synthetic truck.
+    /// </summary>
+    public Func<string, double?>? SimulatedValues { get; set; }
 
     /// <summary>
     /// Decide whether a <c>NO DATA</c> answer means the vehicle has no such PID, or simply

@@ -1,4 +1,6 @@
 using DashDeck.Abstractions;
+using DashDeck.Core.Catalog;
+using DashDeck.Core.Discovery;
 using DashDeck.Simulator;
 using DashDeck.Vehicle;
 using DashDeck.Vehicle.Elm;
@@ -30,6 +32,46 @@ internal sealed class HuntSession : IAsyncDisposable
     public string Description { get; }
 
     public bool Simulated => Truck is not null;
+
+    /// <summary>
+    /// The signals, as the dash reads them — where speed, rpm and coolant come from (ADR-0052).
+    /// The shipped standard catalog unless the program gives another.
+    /// </summary>
+    public SignalCatalog? Catalog { get; set; } = ShippedCatalog();
+
+    /// <summary>The standards' reference tables, with the user's vehicle files laid over them.</summary>
+    public ObdReference Reference { get; set; } = ObdReference.Load(CatalogFolder()).Reference;
+
+    /// <summary>The <c>catalog</c> folder beside or above the program, or null.</summary>
+    public static string? CatalogFolder()
+    {
+        var dir = AppContext.BaseDirectory;
+        for (var i = 0; i < 8 && dir is not null; i++)
+        {
+            var candidate = Path.Combine(dir, "catalog");
+            if (File.Exists(Path.Combine(candidate, "signals.obd2-standard.json")))
+            {
+                return candidate;
+            }
+
+            dir = Path.GetDirectoryName(dir.TrimEnd(Path.DirectorySeparatorChar));
+        }
+
+        return null;
+    }
+
+    private static SignalCatalog? ShippedCatalog()
+    {
+        var folder = CatalogFolder();
+        try
+        {
+            return folder is null ? null : SignalCatalog.FromFile(Path.Combine(folder, "signals.obd2-standard.json"));
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>
     /// The rate the bus on OBD pins 3 and 11 was heard at — 125 or 500 kbit/s — or null when nothing
@@ -106,30 +148,19 @@ internal sealed class HuntSession : IAsyncDisposable
         await RequestAsync(new PidRequest(0x01, 0x00, CanBus.Hs), ct).ConfigureAwait(false);
     }
 
-    /// <summary>Speed in km/h from the standard PID, or null when the truck does not answer.</summary>
-    public async Task<double?> SpeedAsync(CancellationToken ct)
-    {
-        var response = await RequestAsync(new PidRequest(0x01, 0x0D, CanBus.Hs), ct).ConfigureAwait(false);
-        return response.IsSuccess && response.Data.Length >= 1 ? response.Data[0] : null;
-    }
+    /// <summary>Speed in km/h, from the catalog's <c>vehicle.speed</c>, or null when the truck does not answer.</summary>
+    public Task<double?> SpeedAsync(CancellationToken ct) => ReadAsync(SignalProbe.Speed, ct);
 
-    /// <summary>A standard reading to compare against: <c>coolant</c> (°C) or <c>rpm</c>.</summary>
-    public async Task<double?> ReferenceAsync(string name, CancellationToken ct)
-    {
-        var pid = name == "rpm" ? (ushort)0x0C : (ushort)0x05;
-        var response = await RequestAsync(new PidRequest(0x01, pid, CanBus.Hs), ct).ConfigureAwait(false);
-        if (!response.IsSuccess)
-        {
-            return null;
-        }
+    /// <summary>A standard reading to compare against: <c>coolant</c> (°C) or <c>rpm</c>, from the catalog.</summary>
+    public Task<double?> ReferenceAsync(string name, CancellationToken ct) =>
+        ReadAsync(name == "rpm" ? SignalProbe.Rpm : SignalProbe.Coolant, ct);
 
-        var d = response.Data;
-        return name == "rpm"
-            ? d.Length >= 2 ? ((d[0] * 256) + d[1]) / 4.0 : null
-            : d.Length >= 1 ? d[0] - 40 : null;
-    }
+    private async Task<double?> ReadAsync(string signalId, CancellationToken ct) =>
+        Catalog is { } catalog
+            ? await SignalProbe.ReadAsync(catalog, signalId, RequestAsync, ct).ConfigureAwait(false)
+            : null;
 
-    /// <summary>Which bus a module answers on: asked for its part number on each.</summary>
+    /// <summary>Which bus a module answers on: asked for its identity on each.</summary>
     public async Task<CanBus?> FindModuleAsync(ushort address, CancellationToken ct)
     {
         if (KnownModules.TryGetValue(address, out var known))
@@ -142,7 +173,7 @@ internal sealed class HuntSession : IAsyncDisposable
             // Twice: one unanswered request is routine.
             for (var attempt = 0; attempt < 2; attempt++)
             {
-                var response = await RequestAsync(new PidRequest(0x22, 0xF113, bus, address), ct).ConfigureAwait(false);
+                var response = await RequestAsync(new PidRequest(ModuleScanner.ReadDataByIdentifier, Reference.IdentityDid, bus, address), ct).ConfigureAwait(false);
                 if (response.ModuleAnswered)
                 {
                     KnownModules[address] = bus;

@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **745 tests green** — 346 engine, 399 shell.
+(ADR-0010). **753 tests green** — 352 engine, 401 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -83,8 +83,27 @@ a sweep that does not end, so it is refused while moving and stops by itself if 
 VIN is **read from the truck** (mode 09) or typed, **decoded once by NHTSA vPIC** and cached in
 `%LOCALAPPDATA%\DashDeck\vehicle.json`, and every decoded field is correctable by hand. It fills
 `VehicleProfile` (year, make, model, engine — `apiVersion 1.2`, **never the VIN**) and picks a
-**vehicle signal pack** from `catalog/vehicles/` to lay over the standard set
-(standard → pack → your overlay). The F-150 2.7 pack is empty until TEST confirms Ford PIDs.
+**vehicle signal pack** to lay over the standard set (standard → pack → your overlay). **Packs are the
+user's own files** in `%LOCALAPPDATA%\DashDeck\vehicles\` (ADR-0052); `catalog/vehicles/` ships empty.
+
+**Nothing vehicle-specific is shipped** (ADR-0052, [`DISCLAIMER.md`](DISCLAIMER.md)): to manage
+liability, code and the shipped catalog hold only what public standards define, and placeholders. The
+SAE J1979 mode 01 table and the ISO module names, identity question (`F187`) and identification range
+(`F100`–`F1FF`) are files in `catalog/reference/`, read by `ObdReference`; a vehicle file adds
+`identityDid` (Jason's: Ford's `F113`), `identifierRanges` and module names over them (`With`).
+**Placeholders have no identifier at all** — no bus, mode or PID; `HasRequest` is false, the
+arbiter plans them at no cost, and `VehicleService` never asks: Unavailable on a real truck, the
+synthetic truck's value by id (`SimulatedValues`) while simulated. **The synthetic truck answers from
+the catalog**: whatever request a signal lives at, encoded by its own decode from the truck's
+quantity of the same name (`SimulatedF150.Value`/`Reading`), plus the SAE reference for standard
+PIDs the catalog lacks; its invented modules (7E0, 7E1, 710, 740, 750; 7A0, 7A4, 7B0 on pins 3/11),
+their identifiers, broadcast frames and VIN are `catalog/simulator/synthetic-truck.json`
+(`SyntheticTruckData`). Change a signal's request in a file and the simulator follows. The
+tools read speed, rpm and coolant **by signal name** through the catalog (`SignalProbe`), never by PID
+number. The ID hunter's shipped `targets.json` names only `7E0`/`7E1`; the user's own copy in
+`%LOCALAPPDATA%\DashDeck\idhunter\` wins. Only the protocol's own fixed numbers stay in code (`7DF`,
+`7E8`, `700`–`7F7`, service `22`, the bitmap PIDs, mode 09). **Never put a manufacturer's identifier in a
+PR** — Jason's F-150 file lives on his tablet and laptop.
 
 **Themes are files of named tokens** (ADR-0036), modelled on Home Assistant's: 26 tokens —
 surface and text ramps, accent and how solidly a selection is filled, captions, strip, nav and
@@ -146,7 +165,7 @@ theme's frosted panel ships as `catalog/climate/glass.json`); a theme names its 
 block, one template). The panel is **made when CLIMATE is chosen and disposed when left**, so it
 declares signals only while visible. Its thirteen `hvac.*` / `seat.*.climate` / `steeringWheel.heat`
 signals are
-**placeholders** (MS-CAN, mode 01 `C4`–`D0`, like TPMS): Simulated on the synthetic truck,
+**placeholders** (like TPMS — no request at all, ADR-0052): Simulated on the synthetic truck,
 **Unavailable on the real one** until the HVAC module is found. **Nothing is sent** — control is
 Phase 3 (ADR-0006).
 
@@ -158,9 +177,8 @@ its own (`"consoleLayout"`), yours live in
 draws one of nine original icons (path data, `WarningIcons`) lit by `bit`/`below`/`equals`/`onAt`.
 Real lights: check engine (`diagnostics.checkEngine`, PID 01 bit 7 — **decodes can `mask`**, so
 `diagnostics.dtcCount` comes from the same byte), low fuel, hot coolant, low voltage; oil, seatbelt,
-door, brake and tyres are `warning.*` **placeholders** (MS-CAN `D1`–`D5`), and so are the economy
-and range figures, `fuel.economy` and `fuel.range` (`D6`, `D7`) — the cluster shows both, so they
-are likely its identifiers to find. `vehicle.odometer` is PID `A6`. **CARDS** (`"type": "cards"`) shows the one `DashboardViewModel`; `IsShown` is false
+door, brake and tyres are `warning.*` **placeholders**, and so are the economy and range figures,
+`fuel.economy` and `fuel.range` — the cluster shows both, so they are likely its identifiers to find. `vehicle.odometer` is PID `A6`. **CARDS** (`"type": "cards"`) shows the one `DashboardViewModel`; `IsShown` is false
 while it is off the stage, so no card declares; MODIFY WIDGETS puts CARDS on the stage first; a
 launcher file that never mentions `cards` gets it at the end of the grid. The card editor and
 component details can open over CLIMATE now, so both panels hide beneath them.
@@ -212,7 +230,7 @@ sends nothing of its own. The logs can hold the VIN — never in the repo. Refer
 rule: find IDs the traditional way, keep touch for the dash). The tap is built in (FORScan on
 `127.0.0.1:35000`, every session saved as a tap log; saved logs reopen). **Left:** DashDeck's signals,
 standard → pack → overlay as the dash reads them, with **NEEDS ID** for `"placeholder": true` (new
-catalog field, on the 24 stand-ins — **a new stand-in must carry it**) and **NOT ON TRUCK** for a
+catalog field, on the 25 stand-ins (the tailgate, `body.tailgate`, the latest) — **a new stand-in must carry it**) and **NOT ON TRUCK** for a
 standard PID the engine computer's own supported-PID answers (heard in the traffic) say it lacks.
 **Middle:** every identifier FORScan asks (`TrafficReader` follows `ATSH`, `ATTP6`/`STP53`, `STPX`, the
 count digit). **Right:** match live — type what FORScan shows, `ScalingFitter` tries Ford's usual steps
@@ -341,10 +359,9 @@ overhead white F-150 that lights the low corner), and `RangeEstimator` (distance
 level over a recent economy it derives from fuel rate and speed, with a full-screen breakdown;
 the tank size comes from `VehicleProfile`, set in Settings ▸ Vehicle, with 136 L as the fallback). **TPMS is the
 first MS-CAN signal set** — its
-four `tire.*.pressure` ids carry **placeholder mode/PID** (documented in the catalog) because
-Ford's real body-module message is undiscovered (R2); the synthetic answers them on MS-CAN
-flagged Simulated, and on a real truck without the PID they read Unavailable and every corner
-shows a dash. Verify the loader alone with `--components <outfile>`
+four `tire.*.pressure` ids are **placeholders** because Ford's real body-module message is
+undiscovered (R2); the synthetic truck answers them by name, flagged Simulated, and on a real truck
+they read Unavailable and every corner shows a dash. Verify the loader alone with `--components <outfile>`
 (`--components-dwell <seconds>` to let it run); `--detail <n>` opens a card's detail for a
 screenshot. `publish.ps1` builds each component and ships `plugins/` beside the executable, the
 same way it ships the catalog. **How to write one:** [`docs/writing-a-component.md`](docs/writing-a-component.md).
@@ -380,9 +397,12 @@ measured:
   Module does not get in the way (Q5). **But "MS" is a misnomer on this truck (Q21):** a silent listen on
   pins 3/11 heard nothing at 125 kbit/s and traffic at **500 kbit/s** — a second high-speed bus, not
   MS-CAN. DashDeck's requests there went out at 125 kbit/s and made error frames on it until the F-150
-  pack gained `"pins311BitRate": 500000`; `VehicleStack` now sets `ElmAdapter.Pins311BitRate` (and the
-  synthetic truck's) from the pack, and the adapter sends `STPBR` after `STP53`. **Never send on pins
-  3/11 at a rate nobody measured.** `CanBus.Ms` still means "pins 3/11", whatever the rate.
+  pack gained `"pins311BitRate": 500000` (now in Jason's own vehicle file); `VehicleStack` sets
+  `ElmAdapter.Pins311BitRate` from the user's vehicle file, and the adapter sends `STPBR` after `STP53`.
+  **Never send on pins 3/11 at a rate nobody measured** — and now the code enforces it: the rate is
+  nullable, **null sends nothing there** (NO DATA), and a real vehicle with no file giving the rate gets
+  null, including on a simulated start that goes live (`AdapterFailover.GoingLive`). `CanBus.Ms` still
+  means "pins 3/11", whatever the rate.
 - **The truck answers 48 standard PIDs but neither fuel rate (`5E`) nor MAF (`10`)** (Q4). So
   **Fuel Economy, Avg Economy and Range Estimator read blank on the real truck** — they need
   `engine.fuelRate`. The fix is decided, not built: speed-density from MAP, IAT, RPM and lambda,
@@ -434,6 +454,9 @@ is built against a synthetic transport behind a seam, so it is not blocking.
    `Unavailable` / `Simulated`. A confidently wrong number on a dash is worse than a blank.
 8. **`IClock` is injected.** Never `DateTime.Now` — it breaks replay and scripted-drive
    tests.
+9. **Ship nothing vehicle-specific** (ADR-0052). No manufacturer's identifier, module address, bus
+   rate or scaling in code or the shipped catalog — the user's vehicle file holds those. Standards'
+   tables are files in `catalog/reference/`; tools ask signals by name.
 
 ## Branching and versions
 
@@ -499,8 +522,10 @@ that ignore touch — tried and withdrawn (ADR-0046, superseded by ADR-0047): a 
 whole stage, and a serial tap that records FORScan by standing between it and the adapter, and fast
 requests asked FORScan's way — filtered to the engine computer, with a count of one, and the
 ID matcher, a desktop program where DashDeck's identifiers are managed against FORScan — signals
-added, edited and hidden there, typed ones held unconfirmed until TEST, and free listening there —
-noise learned, a MARK, states A and B ranked.
+added, edited and hidden there, typed ones held unconfirmed until TEST, and nothing vehicle-specific
+shipped — standards' tables as files, vehicle files the user's own, pins 3/11 silent until measured —
+and placeholders with no identifier at all, the synthetic truck answering from the catalog, and free
+listening there — noise learned, a MARK, states A and B ranked.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.
