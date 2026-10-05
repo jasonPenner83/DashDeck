@@ -194,6 +194,15 @@ public sealed partial class SimulatedF150
     /// <summary>Stored trouble codes.</summary>
     public int StoredCodes => StoredCodeList.Count;
 
+    /// <summary>
+    /// The gear selector, as the catalog orders its states (0 P … 3 D): in park while idling at the
+    /// kerb — the cold idle, the park at the end — and in drive otherwise.
+    /// </summary>
+    public int GearSelector => SpeedKph < 1 && (IsFinished || CurrentSegment.Contains("idle", StringComparison.Ordinal)) ? 0 : 3;
+
+    /// <summary>True while the drive is towing.</summary>
+    public bool Towing => !IsFinished && _drive.Segments[_segmentIndex].TowingKg > 0;
+
     /// <summary>True once the scripted drive has run to completion.</summary>
     public bool IsFinished => _segmentIndex >= _drive.Segments.Count;
 

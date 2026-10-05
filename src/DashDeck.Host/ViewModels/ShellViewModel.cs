@@ -192,6 +192,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         Display = new DisplaySettings();
 
+        // Which signals are shown by state name (ADR-0056), for the layouts' selector element.
+        Stage.Gauges.SignalStates.Of = id => vehicle.Catalog.TryGet(id, out var definition) ? definition.States : null;
+
         // The phone's GPS (ADR-0027), if it is turned on or a --gps override forces one. When
         // there is one, the tablet sensors and the phone GPS share a device behind the composite;
         // otherwise it is the tablet's sensors alone, exactly as before.

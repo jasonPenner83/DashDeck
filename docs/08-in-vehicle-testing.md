@@ -1145,3 +1145,34 @@ and the reading in Settings); a light on the cluster with no window when its pop
 sent with the switch off or the engine running (a SENDING line in the log); a cluster message or
 new light after clearing other than the check-engine light going out; the stage not coming back after
 DISMISS.
+
+## Multi-state signals: 4WD, gear, drive mode, wipers, headlights (ADR-0056)
+
+**At the desk first** (no truck): run DashDeck on the synthetic truck.
+
+1. DASH. **Expect** at the bottom centre of the console a row **P R N D M** with **P** lit while the
+   truck idles at the start, then **D** lit once it pulls away; under it **4WD 2H 4A 4H 4L** with
+   **2H** lit.
+2. MODIFY WIDGETS, add a card, pick **4WD Mode** (under Drivetrain). **Expect** the card to read
+   **2H**, not a number, and no bar style offered.
+
+**On the laptop with the ID matcher and the truck** (engine running, parked, FORScan through the tap):
+
+3. In FORScan, find the 4x4 mode among the transfer case or body module's values and add it to its
+   live data. In the matcher, select the identifier FORScan is now asking (Ctrl+N).
+4. With the truck in 2H, type `2H`, **Enter**. Turn the 4WD knob to 4A; when FORScan shows 4A, type
+   `4A`, **Enter**. Then 4H, then 4L (4L needs neutral and the brake — follow the truck's own
+   instructions). **Expect** the hint to ask for a second round.
+5. Go round again: 2H, 4A, 4H, 4L. **Expect:** *One field tells all 4 states apart, every time*, the
+   formula showing which bits and each state's value, and *Reads now* following the knob.
+6. Select **4WD Mode** (NEEDS ID) on the left, **Ctrl+Enter**, pair and save to `signals.user.json`.
+   Copy it to the tablet; on the tablet, Settings ▸ Sensors ▸ 4WD Mode ▸ EDIT ▸ **TEST**: **Expect**
+   *Decodes to 2H* (or whichever it is in). SAVE, RESTART NOW.
+7. DASH. **Expect** the 4WD row to light the mode the truck is in, following the knob within a couple
+   of seconds.
+8. The same for the gear selector (P R N D M from the shifter), drive mode, wipers and headlights,
+   each with every state typed twice.
+
+**A failure looks like:** a state lit that the truck is not in; a row that stays on one state while
+the knob moves; `?` with a number when the truck is in a state that was typed (the field is wrong —
+match again); TEST saying a number instead of a name.

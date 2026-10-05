@@ -99,6 +99,11 @@ public sealed partial class SignalEditorViewModel : ObservableObject
         // would quietly change a definition the user only meant to rename.
         _kind = start.Kind;
         _stalenessSeconds = start.StalenessSeconds;
+
+        // The mask (a switch's bit, a state's field) and the named states (ADR-0056): the ID
+        // matcher found them; TEST and save here must not quietly drop them.
+        _mask = start.Decode.Mask;
+        _states = start.States;
         _hidden = start.Hidden;
         _unconfirmed = start.Unconfirmed;
     }
@@ -117,6 +122,8 @@ public sealed partial class SignalEditorViewModel : ObservableObject
 
     private readonly SignalSourceKind _kind;
     private readonly double? _stalenessSeconds;
+    private readonly long? _mask;
+    private readonly IReadOnlyList<SignalState>? _states;
 
     /// <summary>True when this adds a signal rather than editing one.</summary>
     public bool IsNew { get; }
@@ -331,7 +338,8 @@ public sealed partial class SignalEditorViewModel : ObservableObject
             Mode = (byte)mode,
             Pid = (ushort)pid,
             Module = string.IsNullOrWhiteSpace(ModuleText) ? null : ModuleText.Trim().ToUpperInvariant().Replace("0X", "", StringComparison.Ordinal),
-            Decode = new DecodeSpec(byteOffset, _byteLength, IsSigned, scale, offset, (Unit ?? "").Trim()),
+            Decode = new DecodeSpec(byteOffset, _byteLength, IsSigned, scale, offset, (Unit ?? "").Trim(), _mask),
+            States = _states,
             DefaultRateHz = rate,
             StalenessSeconds = _stalenessSeconds,
             Min = min,
@@ -434,7 +442,7 @@ public sealed partial class SignalEditorViewModel : ObservableObject
                 return "Fix the formula above to decode these bytes.";
             }
 
-            var spec = new DecodeSpec(byteOffset, _byteLength, IsSigned, scale, offset, Unit ?? "");
+            var spec = new DecodeSpec(byteOffset, _byteLength, IsSigned, scale, offset, Unit ?? "", _mask);
 
             if (spec.Decode(_lastPayload) is not { } value)
             {
@@ -444,7 +452,9 @@ public sealed partial class SignalEditorViewModel : ObservableObject
             var min = ParseOptional(MinText, "", []);
             var max = ParseOptional(MaxText, "", []);
             var inRange = (min is null || value >= min) && (max is null || value <= max);
-            var shown = string.Create(CultureInfo.InvariantCulture, $"{value:0.###} {Unit}").Trim();
+            var shown = _states is { Count: > 0 }
+                ? SignalState.NameOf(_states, value) is { } state ? state : string.Create(CultureInfo.InvariantCulture, $"{value:0.###}, which names no state")
+                : string.Create(CultureInfo.InvariantCulture, $"{value:0.###} {Unit}").Trim();
 
             return inRange
                 ? $"Decodes to {shown}."

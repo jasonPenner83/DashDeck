@@ -659,5 +659,66 @@
     "defaultRateHz": 0.5,
     "min": 0,
     "max": 1
+  },
+
+  // ── Multi-state ───────────────────────────────────────────────────────────
+  // Signals that are one of several named things (ADR-0056). Placeholders: the values here are
+  // only the order of the states. When the ID matcher pairs one, the truck's own values — and
+  // the names as FORScan shows them — replace these.
+  {
+    "id": "drivetrain.4wdMode",
+    "placeholder": true,
+    "name": "4WD Mode",
+    "category": "Drivetrain",
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "states": [ { "value": 0, "name": "2H" }, { "value": 1, "name": "4A" }, { "value": 2, "name": "4H" }, { "value": 3, "name": "4L" } ],
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 255
+  },
+  {
+    "id": "transmission.gearSelector",
+    "placeholder": true,
+    "name": "Gear Selector",
+    "category": "Drivetrain",
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "states": [ { "value": 0, "name": "P" }, { "value": 1, "name": "R" }, { "value": 2, "name": "N" }, { "value": 3, "name": "D" }, { "value": 4, "name": "M" } ],
+    "defaultRateHz": 1,
+    "min": 0,
+    "max": 255
+  },
+  {
+    "id": "vehicle.driveMode",
+    "placeholder": true,
+    "name": "Drive Mode",
+    "category": "Drivetrain",
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "states": [ { "value": 0, "name": "Normal" }, { "value": 1, "name": "Eco" }, { "value": 2, "name": "Sport" }, { "value": 3, "name": "Tow/Haul" },
+                { "value": 4, "name": "Snow/Wet" }, { "value": 5, "name": "Mud/Rut" }, { "value": 6, "name": "Sand" } ],
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 255
+  },
+  {
+    "id": "body.wipers",
+    "placeholder": true,
+    "name": "Wipers",
+    "category": "Body",
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "states": [ { "value": 0, "name": "Off" }, { "value": 1, "name": "Interval" }, { "value": 2, "name": "Low" }, { "value": 3, "name": "High" } ],
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 255
+  },
+  {
+    "id": "body.headlights",
+    "placeholder": true,
+    "name": "Headlights",
+    "category": "Body",
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" },
+    "states": [ { "value": 0, "name": "Off" }, { "value": 1, "name": "Parking" }, { "value": 2, "name": "On" }, { "value": 3, "name": "Auto" } ],
+    "defaultRateHz": 0.5,
+    "min": 0,
+    "max": 255
   }
 ]

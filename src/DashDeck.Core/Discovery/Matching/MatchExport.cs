@@ -48,6 +48,11 @@ public static class MatchExport
             }
 
             text.AppendLine(inv, $"    \"decode\": {{ \"byteOffset\": {d.Window.Offset}, \"byteLength\": {d.Window.Length}, \"signed\": {(d.Window.Signed ? "true" : "false")}, \"scale\": {Num(d.Scale)}, \"offset\": {Num(d.Offset)}, \"unit\": \"{Escape(m.Unit)}\"{MaskText(d.Mask)} }},");
+            if (d.States is { Count: > 0 } states)
+            {
+                text.AppendLine(inv, $"    \"states\": {StatesText(states)},");
+            }
+
             text.AppendLine("    \"defaultRateHz\": 1");
             text.Append("  }");
         }
@@ -86,6 +91,11 @@ public static class MatchExport
 
             var c = d.Decode;
             text.AppendLine(inv, $"    \"decode\": {{ \"byteOffset\": {c.ByteOffset}, \"byteLength\": {c.ByteLength}, \"signed\": {(c.Signed ? "true" : "false")}, \"scale\": {Num(c.Scale)}, \"offset\": {Num(c.Offset)}, \"unit\": \"{Escape(c.Unit)}\"{MaskText(c.Mask)} }},");
+            if (d.States is { Count: > 0 } states)
+            {
+                text.AppendLine(inv, $"    \"states\": {StatesText(states)},");
+            }
+
             if (d.Min is { } min)
             {
                 text.AppendLine(inv, $"    \"min\": {Num(min)},");
@@ -103,6 +113,9 @@ public static class MatchExport
         text.AppendLine();
         return text.ToString();
     }
+
+    private static string StatesText(IEnumerable<SignalState> states) =>
+        "[ " + string.Join(", ", states.Select(st => $"{{ \"value\": {Num(st.Value)}, \"name\": \"{Escape(st.Name)}\" }}")) + " ]";
 
     private static string MaskText(long? mask) =>
         mask is { } m ? string.Create(CultureInfo.InvariantCulture, $", \"mask\": {m}") : "";

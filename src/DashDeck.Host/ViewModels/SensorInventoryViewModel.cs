@@ -131,8 +131,9 @@ public sealed partial class SignalRowViewModel(SignalDefinition definition, Sign
         };
     }
 
-    private static string Reading(SignalValue value) =>
-        string.Create(CultureInfo.CurrentCulture, $"{value.Value:0.##} {value.Unit}").Trim();
+    private string Reading(SignalValue value) =>
+        Definition.StateName(value.Value)
+        ?? string.Create(CultureInfo.CurrentCulture, $"{value.Value:0.##} {value.Unit}").Trim();
 }
 
 /// <summary>One function group of signals, as the picker groups them.</summary>

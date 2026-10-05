@@ -66,7 +66,7 @@ public sealed partial class WidgetCardViewModel : ObservableObject, IDashCard
     public double Width => BandGrid.CardWidth(Columns);
 
     /// <summary>True when the value should be drawn as a bar as well as a number.</summary>
-    public bool IsBar => Spec.ParsedStyle is CardStyle.Bar && Choice?.HasRange is true;
+    public bool IsBar => Spec.ParsedStyle is CardStyle.Bar && Choice?.HasRange is true && Choice.HasStates is false;
 
     /// <summary>How much this can be trusted. Missing is Unavailable, honestly.</summary>
     public SignalQuality Quality => _value?.Quality ?? SignalQuality.Unavailable;
@@ -79,6 +79,13 @@ public sealed partial class WidgetCardViewModel : ObservableObject, IDashCard
             if (IsMissing || _value is not { IsUsable: true } value || double.IsNaN(value.Value))
             {
                 return ObservableSignal.Placeholder;
+            }
+
+            // A multi-state signal shows its state's name (ADR-0056); a value with no name, itself.
+            if (Choice is { HasStates: true } choice)
+            {
+                return Core.Catalog.SignalState.NameOf(choice.States, value.Value)
+                    ?? $"?{value.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}";
             }
 
             return DisplayUnits.Format(value.Value, value.Unit, Spec.ParsedUnit, Spec.Format);

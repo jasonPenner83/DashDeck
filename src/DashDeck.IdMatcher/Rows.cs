@@ -75,8 +75,11 @@ public sealed partial class IdentifierRow : ObservableObject
 
 /// <summary>A value typed as FORScan showed it.</summary>
 /// <param name="State">For a switch: whether FORScan said on. Null for a number.</param>
-public sealed record SampleRow(Sample Sample, string Shown, string Raw, bool? State = null)
+public sealed record SampleRow(Sample Sample, string Shown, string Raw, bool? State = null, string? StateName = null)
 {
+    /// <summary>True for a named state — 2H, 4A, P, Interval (ADR-0056) — rather than a number or a switch.</summary>
+    public bool IsNamed => StateName is not null;
+
     public string Time => Sample.At.ToLocalTime().ToString("HH:mm:ss", CultureInfo.InvariantCulture);
 }
 
@@ -85,7 +88,9 @@ public sealed record CandidateRow(ScalingCandidate Candidate, string ReadsNow, s
 {
     public string Formula => Candidate.Formula;
 
-    public string Evidence => Candidate.Bit is not null
+    public string Evidence => Candidate.IsStates
+        ? $"{Candidate.States!.Count} states, {Candidate.Samples} typed"
+        : Candidate.Bit is not null
         ? Candidate.DistinctRaw >= 2 ? "seen on and off" : "seen one way only"
         : Candidate.Fitted
             ? $"{Candidate.DistinctRaw} raw values · fitted"

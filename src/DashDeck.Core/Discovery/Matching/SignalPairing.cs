@@ -157,8 +157,12 @@ public static class SignalPairing
             Module = match.Key.ModuleText,
             Decode = decode,
             DefaultRateHz = target?.DefaultRateHz ?? 1,
-            Min = target?.Min,
-            Max = target?.Max,
+
+            // A multi-state match brings the truck's own values and names (ADR-0056); its range is the
+            // field's, so a state not yet seen is still a reading rather than out of range.
+            Min = scaling.IsStates ? 0 : target?.Min,
+            Max = scaling.IsStates ? scaling.Mask ?? 255 : target?.Max,
+            States = scaling.IsStates ? scaling.States : null,
         };
     }
 

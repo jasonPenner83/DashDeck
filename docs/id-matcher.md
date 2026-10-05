@@ -78,6 +78,28 @@ every time you said off (or the other way round — *NOT bit…*, for a light th
 It is saved as a decode with a **mask** — `"mask": 8` for bit 3 — and reads 0 or 1 on the dash, which
 is what the console's warning lights (`warning.*`) and indicators expect.
 
+### States — things that are one of several (ADR-0056)
+
+4WD mode (*2H*, *4A*, *4H*, *4L*), the gear selector, drive mode, wipers, headlights: FORScan shows a
+word that is not on or off. Type the word as it is shown and press **Enter** — any word that is not a
+number or on/off is taken as a **state**.
+
+A state is usually a few bits of one byte — the byte might read `83` in 2H, `93` in 4A, `A3` in 4H
+and `B3` in 4L, with the mode in bits 4–5. The matcher looks for the narrowest run of bits in one
+byte that reads **the same every time you typed a state, and different between states**.
+
+1. Select the identifier. Put the truck in the first state (2H), wait for FORScan to show it, type
+   `2H`, **Enter**.
+2. Switch to the next (4A), wait, type `4A`, **Enter**. Then 4H, then 4L.
+3. **Go round once more**, every state again. Anything that moves on its own — a counter, a checksum —
+   drops away, because a state must read the same each time. The hint says when **one field tells all
+   the states apart, every time**; *Reads now* names the state as you switch. **Ctrl+Enter** accepts it.
+
+Spelling and case are yours: `4a` and `4A` are the same state, and the first spelling is kept. Pair it
+with the DashDeck signal (`drivetrain.4wdMode` — *NEEDS ID*) and save: the truck's own values and the
+names as you typed them replace the placeholder's, with a **mask** for the bits and a `"states"` list.
+On the tablet, TEST shows the state's name.
+
 ## Matching many, from FORScan's PID log
 
 1. With the tap running, open several values in FORScan and start its **PID log**.
