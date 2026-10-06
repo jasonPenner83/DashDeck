@@ -133,6 +133,13 @@ public sealed partial class SimulatedF150
             // Body (placeholder): the tailgate, set by hand like the cabin's switches.
             ["body.tailgate"] = () => On(Cabin.TailgateOpen),
 
+            // Multi-state (ADR-0056), by the catalog's order of states.
+            ["drivetrain.4wdMode"] = () => Cabin.FourWheelDrive,
+            ["transmission.gearSelector"] = () => GearSelector,
+            ["vehicle.driveMode"] = () => Towing ? 3 : Cabin.DriveMode,
+            ["body.wipers"] = () => Cabin.Wipers,
+            ["body.headlights"] = () => Cabin.Headlights,
+
             // Only the simulator's own data file asks for these (catalog/simulator/).
             ["oil.temp"] = () => OilTempC,
             ["transmission.temp"] = () => TransmissionTempC,

@@ -163,6 +163,21 @@ public sealed record SignalDefinition
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool Unconfirmed { get; init; }
 
+    /// <summary>
+    /// Named states, for a signal that is one of several things rather than a number (ADR-0056) —
+    /// 4WD mode 2H, 4A, 4H, 4L; the gear selector; wipers. Each names the value the decode gives
+    /// (raw, masked, scaled). A value with no name is shown as itself, never as the nearest state.
+    /// Null for a number or an on/off switch.
+    /// </summary>
+    public IReadOnlyList<SignalState>? States { get; init; }
+
+    /// <summary>True when the signal is shown by state name.</summary>
+    [JsonIgnore]
+    public bool HasStates => States is { Count: > 0 };
+
+    /// <summary>The state a value names, or null when none does.</summary>
+    public string? StateName(double value) => SignalState.NameOf(States, value);
+
     /// <summary>Rate used when a component does not ask for a specific one.</summary>
     public double DefaultRateHz { get; init; } = 1.0;
 
@@ -189,6 +204,16 @@ public sealed record SignalDefinition
     /// <summary>True when a decoded value falls inside the declared physical range.</summary>
     public bool InRange(double value) =>
         (Min is null || value >= Min) && (Max is null || value <= Max);
+}
+
+/// <summary>One named state of a multi-state signal: the decoded value, and what the truck calls it.</summary>
+public sealed record SignalState(double Value, string Name)
+{
+    /// <summary>The state a value names in a list, or null when none does.</summary>
+    public static string? NameOf(IReadOnlyList<SignalState>? states, double value) =>
+        states is null || double.IsNaN(value)
+            ? null
+            : states.FirstOrDefault(s => Math.Abs(s.Value - value) < 1e-6)?.Name;
 }
 
 /// <summary>A mode, PID, bus and module, kept free of the Vehicle layer so the catalog stays pure data.</summary>

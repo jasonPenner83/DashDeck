@@ -49,6 +49,12 @@ public enum StageElementType
     /// door (ADR-0041). Dark when off; dimmer still, with a grey dot, when the truck has not said.
     /// </summary>
     Warning,
+
+    /// <summary>
+    /// Every named state of a multi-state signal in a row, the current one lit — 4WD, the gear
+    /// selector, drive mode, wipers, headlights (ADR-0056). The names come from the catalog.
+    /// </summary>
+    Selector,
 }
 
 /// <summary>
@@ -323,6 +329,19 @@ public static class GaugeParts
             ["bit"] = "lit when this bit of the value is set — 0 for the lowest",
             ["litColour"] = "the icon when lit — default amber",
             ["unlitColour"] = "the icon when off — default a faint white",
+        },
+        [StageElementType.Selector] = new Dictionary<string, string>
+        {
+            ["litColour"] = "the current state — default the accent",
+            ["unlitColour"] = "the other states — default a quiet grey",
+            ["glow"] = "the glow behind the current state, or \"none\"",
+            ["fontSize"] = "the states' size, px — default half the height",
+            ["gap"] = "space between states, px",
+            ["align"] = "\"left\" (default), \"center\" or \"right\"",
+            ["valueWeight"] = "the states' weight",
+            ["labelColour"] = "the caption before them, if the element has a label",
+            ["labelSize"] = "the caption's size, px",
+            ["labelWeight"] = "the caption's weight",
         },
         [StageElementType.Glass] = new Dictionary<string, string>
         {
@@ -890,6 +909,16 @@ public sealed record StageLayout
           "source": { "signal": "warning.parkingBrake", "rateHz": 0.5 }, "parts": { "icon": "brake", "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
         { "id": "tyres", "type": "warning", "x": 603, "y": 250, "width": 26, "height": 26,
           "source": { "signal": "warning.tirePressure", "rateHz": 0.2 }, "parts": { "icon": "tpms", "litColour": "#FFB000", "unlitColour": "#14FFFFFF" } },
+
+        // ── Gear and 4WD ── every state in a row, the current one lit (ADR-0056). Placeholders until
+        // their identifiers are found: a dimmed row with a dash on the truck, never a guessed gear.
+        { "id": "gear", "type": "selector", "x": 316, "y": 296, "width": 280, "height": 38,
+          "source": { "signal": "transmission.gearSelector", "rateHz": 1 },
+          "parts": { "align": "center", "fontSize": 24, "gap": 16, "valueWeight": "semibold", "unlitColour": "#33FFFFFF" } },
+        { "id": "fourWheelDrive", "type": "selector", "x": 316, "y": 340, "width": 280, "height": 30, "label": "4WD",
+          "source": { "signal": "drivetrain.4wdMode", "rateHz": 0.5 },
+          "parts": { "align": "center", "fontSize": 17, "gap": 12, "valueWeight": "semibold", "unlitColour": "#33FFFFFF",
+                     "labelSize": 11, "labelColour": "@textLow" } },
 
         // ── Along the bottom ── small and quiet: the things you look for, not at.
         { "id": "odometer", "style": "digital", "x": 40, "y": 310, "width": 260, "height": 56,

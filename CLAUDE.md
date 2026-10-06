@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **799 tests green** — 390 engine, 409 shell.
+(ADR-0010). **809 tests green** — 397 engine, 412 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -230,7 +230,7 @@ sends nothing of its own. The logs can hold the VIN — never in the repo. Refer
 rule: find IDs the traditional way, keep touch for the dash). The tap is built in (FORScan on
 `127.0.0.1:35000`, every session saved as a tap log; saved logs reopen). **Left:** DashDeck's signals,
 standard → pack → overlay as the dash reads them, with **NEEDS ID** for `"placeholder": true` (new
-catalog field, on the 25 stand-ins (the tailgate, `body.tailgate`, the latest) — **a new stand-in must carry it**) and **NOT ON TRUCK** for a
+catalog field, on the 30 stand-ins (the five multi-state ones the latest) — **a new stand-in must carry it**) and **NOT ON TRUCK** for a
 standard PID the engine computer's own supported-PID answers (heard in the traffic) say it lacks.
 **Middle:** every identifier FORScan asks (`TrafficReader` follows `ATSH`, `ATTP6`/`STP53`, `STPX`, the
 count digit). **Right:** match live — type what FORScan shows, `ScalingFitter` tries Ford's usual steps
@@ -268,7 +268,16 @@ stays null, `apiVersion` unchanged), **ALLOW CLEARING CODES off by default**, an
 (speed 0, rpm 0, engine computer answering), a 2-second `HoldButton` used once within 10 s, and
 `%LOCALAPPDATA%\DashDeck\actions.log` — **no log line, no send**. At a desk: `--fault P0420`,
 `P0171/pending`, `warning.oilPressure@20-60`, `engine.coolantTemp=118`, `engine.rpm=0` (engine off).
-**Next:** signals with several named states — 4WD 2H/4A/4H/4L (Q24).
+**Multi-state signals** (ADR-0056): a catalog signal may carry **`states`** (`{ value, name }`, the
+decoded value — a masked field is not shifted); a value with no name shows as `?value`, never the
+nearest state. Cards show the name; layouts have a **`selector`** element (every state in a row, the
+current lit — names from the running catalog via `SignalStates.Of`); the Modern console shows the
+gear selector and 4WD at the bottom centre. Placeholders: `drivetrain.4wdMode`,
+`transmission.gearSelector`, `vehicle.driveMode`, `body.wipers`, `body.headlights`. In the **ID
+matcher** any typed word that is not a number or on/off is a state; `ScalingFitter.FromNamedStates`
+keeps the narrowest bit fields that read the same every time a state was typed and differently between
+states — go round every state twice. The tablet's signal editor now **carries mask and states**
+through TEST and save (it used to drop the mask).
 
 **The stage is always four bands** (ADR-0018) — it used to vary and the cards below moved with
 it, which on the road read as the dash rearranging itself. An occupant that wants less picture
@@ -512,7 +521,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Fifty-five exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Fifty-six exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -546,7 +555,8 @@ shipped — standards' tables as files, vehicle files the user's own, pins 3/11 
 and placeholders with no identifier at all, the synthetic truck answering from the catalog, and free
 listening there — noise learned, a MARK, states A and B ranked — and warning lights that pop up
 (a strip while moving, a window when stopped, dismissed until they relight), with clearing the codes
-as the first write through the five gates.
+as the first write through the five gates, and signals with named states — 4WD, gear, drive mode —
+shown as a row with the current one lit and matched by typing each state.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

@@ -41,6 +41,12 @@ public sealed record ValueChoice(
     /// </summary>
     public bool Offered { get; init; } = true;
 
+    /// <summary>The named states of a multi-state signal (ADR-0056), or null for a number.</summary>
+    public IReadOnlyList<Core.Catalog.SignalState>? States { get; init; }
+
+    /// <summary>True when a card on this shows a state's name rather than a number.</summary>
+    public bool HasStates => States is { Count: > 0 };
+
     /// <summary>The name as the dash draws it.</summary>
     public string Caption => Name.ToUpperInvariant();
 
@@ -68,6 +74,7 @@ public sealed record ValueChoice(
             d.Id, d.Name, d.Decode.Unit, d.DefaultRateHz, d.Min, d.Max, CardSource.Signal, d.Category)
         {
             Offered = !d.Hidden && !d.Unconfirmed,
+            States = d.States,
         });
 
     /// <summary>Project the sensor catalog the same way. Tablet sensors and the phone's GPS

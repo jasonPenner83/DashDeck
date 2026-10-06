@@ -210,10 +210,25 @@ public sealed record ScalingCandidate(
     bool Fitted,
     double? R2 = null,
     int? Bit = null,
-    bool Inverted = false)
+    bool Inverted = false,
+    long? FieldMask = null,
+    IReadOnlyList<SignalState>? States = null)
 {
-    /// <summary>The mask for a switch read from one bit, or null for a number.</summary>
-    public long? Mask => Bit is { } bit ? 1L << bit : null;
+    /// <summary>The mask for a switch read from one bit, or a multi-state field's bits, or null for a number.</summary>
+    public long? Mask => Bit is { } bit ? 1L << bit : FieldMask;
+
+    /// <summary>True for a multi-state signal: named states, read from a field of bits (ADR-0056).</summary>
+    public bool IsStates => States is { Count: > 0 };
+
+    /// <summary>
+    /// A multi-state signal: the bits of one byte that tell its states apart, each state the value
+    /// those bits take (masked, not shifted — what <see cref="DecodeSpec"/> reads).
+    /// </summary>
+    public static ScalingCandidate ForStates(int byteOffset, long mask, IReadOnlyList<SignalState> states, int samples) =>
+        new(new RawWindow(byteOffset, 1, false), 1, 0, 0, samples, states.Count, false, null, null, false, mask, states);
+
+    /// <summary>The state a value names, or null.</summary>
+    public string? StateName(double value) => SignalState.NameOf(States, value);
 
     /// <summary>A switch: one bit of one byte, read 1 for on.</summary>
     public static ScalingCandidate ForBit(int byteOffset, int bit, bool inverted, int samples, int statesSeen, double? agreement = null) =>
@@ -230,6 +245,14 @@ public sealed record ScalingCandidate(
             if (Bit is { } bit)
             {
                 return $"{(Inverted ? "NOT " : "")}bit {bit} of {Window.Letters}  (on when {(Inverted ? 0 : 1)})";
+            }
+
+            if (IsStates && FieldMask is { } bitsMask)
+            {
+                var low = System.Numerics.BitOperations.TrailingZeroCount(bitsMask);
+                var high = 63 - System.Numerics.BitOperations.LeadingZeroCount((ulong)bitsMask);
+                var bits = low == high ? $"bit {low}" : bitsMask == 0xFF ? "all" : $"bits {low}–{high}";
+                return $"{bits} of {Window.Letters}: " + string.Join("  ", States!.Select(st => $"{st.Name}={(long)st.Value:X2}"));
             }
 
             var text = Window.Letters;
@@ -433,6 +456,97 @@ public static class ScalingFitter
         }
 
         return [.. found.OrderBy(c => c.Inverted).ThenBy(c => c.Window.Offset).ThenBy(c => c.Bit).Take(limit)];
+    }
+
+    /// <summary>
+    /// The bits that tell a multi-state signal's states apart (ADR-0056): for each byte, every run of
+    /// adjacent bits whose value is the same each time a state was typed and different between states.
+    /// Each byte keeps only its narrowest such fields — a wider one that merely contains a working field
+    /// adds bits that never moved. Best first: narrowest, then lowest byte, then lowest bit.
+    /// </summary>
+    /// <remarks>
+    /// The person switches through the states in the truck and types each as FORScan shows it — 2H,
+    /// 4A, 4H, 4L — then goes round again. One pass proves little: any byte that happened to differ
+    /// fits. A second pass drops whatever moves on its own (a counter, a checksum), because a state
+    /// must read the same every time it is typed.
+    /// </remarks>
+    public static IReadOnlyList<ScalingCandidate> FromNamedStates(IReadOnlyList<(byte[] Payload, string State)> samples, int limit = 25)
+    {
+        if (samples.Count == 0)
+        {
+            return [];
+        }
+
+        // One spelling per state, the first typed; case and spaces do not make another state.
+        var names = new List<string>();
+        var index = new List<int>();
+        foreach (var (_, state) in samples)
+        {
+            var name = state.Trim();
+            var at = names.FindIndex(n => string.Equals(n, name, StringComparison.OrdinalIgnoreCase));
+            if (at < 0)
+            {
+                names.Add(name);
+                at = names.Count - 1;
+            }
+
+            index.Add(at);
+        }
+
+        var length = samples.Min(s => s.Payload.Length);
+        var needed = Math.Max(1, (int)Math.Ceiling(Math.Log2(Math.Max(2, names.Count))));
+        var found = new List<(ScalingCandidate Candidate, int Byte, int Low, int Width)>();
+
+        for (var i = 0; i < length; i++)
+        {
+            var fields = new List<(int Low, int Width, long[] Values)>();
+
+            for (var width = needed; width <= 8; width++)
+            {
+                for (var low = 0; low + width <= 8; low++)
+                {
+                    var mask = ((1L << width) - 1) << low;
+                    var values = new long[names.Count];
+                    var seen = new bool[names.Count];
+                    var consistent = true;
+
+                    for (var k = 0; k < samples.Count && consistent; k++)
+                    {
+                        var v = samples[k].Payload[i] & mask;
+                        if (!seen[index[k]])
+                        {
+                            seen[index[k]] = true;
+                            values[index[k]] = v;
+                        }
+                        else if (values[index[k]] != v)
+                        {
+                            consistent = false;
+                        }
+                    }
+
+                    if (!consistent || values.Distinct().Count() != names.Count)
+                    {
+                        continue;
+                    }
+
+                    // Narrowest only: a field holding a working field inside it adds nothing.
+                    if (fields.Any(f => f.Low >= low && f.Low + f.Width <= low + width))
+                    {
+                        continue;
+                    }
+
+                    fields.Add((low, width, values));
+                }
+            }
+
+            foreach (var (low, width, values) in fields)
+            {
+                var states = names.Select((n, k) => new SignalState(values[k], n)).ToList();
+                found.Add((ScalingCandidate.ForStates(i, ((1L << width) - 1) << low, states, samples.Count), i, low, width));
+            }
+        }
+
+        return [.. found.OrderBy(f => f.Width).ThenBy(f => f.Byte).ThenBy(f => f.Low).Select(f => f.Candidate).Take(limit)];
     }
 
     /// <summary>
