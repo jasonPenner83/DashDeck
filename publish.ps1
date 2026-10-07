@@ -76,7 +76,7 @@ if (Test-Path $pluginsSource) {
 
 # The ID hunter (ADR-0044) travels in its own folder beside the dash: a separate console program
 # that guides finding identifiers. Self-contained like the dash, so the tablet needs nothing installed.
-# It finds catalog\vehicles one folder up, for module names.
+# It finds the catalog one folder up, and the user's vehicle files in %LOCALAPPDATA%\DashDeck\vehicles.
 $hunter = Join-Path $Output 'IdHunter'
 dotnet publish src\DashDeck.IdHunter\DashDeck.IdHunter.csproj `
     --configuration Release `
@@ -87,6 +87,30 @@ dotnet publish src\DashDeck.IdHunter\DashDeck.IdHunter.csproj `
 
 if ($LASTEXITCODE -ne 0) { throw "ID hunter publish failed" }
 
+# The serial tap (ADR-0048) records what FORScan says to the adapter by standing between them.
+# Self-contained in its own folder, so it can be copied to a laptop as it is.
+$tap = Join-Path $Output 'SerialTap'
+dotnet publish src\DashDeck.SerialTap\DashDeck.SerialTap.csproj `
+    --configuration Release `
+    --runtime $Runtime `
+    --self-contained true `
+    --output $tap `
+    --nologo
+
+if ($LASTEXITCODE -ne 0) { throw "Serial tap publish failed" }
+
+# The ID matcher (ADR-0050): the desktop app, keyboard and mouse, where DashDeck's identifiers are
+# managed — the tap built in, FORScan matched live or from its PID log. It finds catalog\ one up.
+$matcher = Join-Path $Output 'IdMatcher'
+dotnet publish src\DashDeck.IdMatcher\DashDeck.IdMatcher.csproj `
+    --configuration Release `
+    --runtime $Runtime `
+    --self-contained true `
+    --output $matcher `
+    --nologo
+
+if ($LASTEXITCODE -ne 0) { throw "ID matcher publish failed" }
+
 $bytes = (Get-ChildItem $Output -Recurse -File | Measure-Object -Property Length -Sum).Sum
 
 Write-Output ""
@@ -95,6 +119,8 @@ Write-Output ("  {0,-22} {1} MB in {2} files" -f 'size', [math]::Round($bytes / 
 Write-Output ("  {0,-22} {1}" -f 'catalog', 'included')
 Write-Output ("  {0,-22} {1}" -f 'libvlc', $(if (Test-Path (Join-Path $Output 'libvlc')) { 'included' } else { 'MISSING' }))
 Write-Output ("  {0,-22} {1}" -f 'id hunter', $(if (Test-Path (Join-Path $hunter 'IdHunter.exe')) { 'IdHunter\IdHunter.exe' } else { 'MISSING' }))
+Write-Output ("  {0,-22} {1}" -f 'id matcher', $(if (Test-Path (Join-Path $matcher 'IdMatcher.exe')) { 'IdMatcher\IdMatcher.exe' } else { 'MISSING' }))
+Write-Output ("  {0,-22} {1}" -f 'serial tap', $(if (Test-Path (Join-Path $tap 'SerialTap.exe')) { 'SerialTap\SerialTap.exe' } else { 'MISSING' }))
 Write-Output ("  {0,-22} {1}" -f 'components', $(if ($componentCount -gt 0) { "$componentCount included" } else { 'none' }))
 
 if ($Shortcut) {

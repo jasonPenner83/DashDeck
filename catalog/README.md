@@ -12,28 +12,42 @@ discovering one must cost a config edit rather than a code change.
 | File | Contents |
 |---|---|
 | `signals.obd2-standard.json` | Legislated OBD-II mode 01 PIDs. Should work on any modern vehicle, not just the F-150. |
-| `vehicles/*.json` | **Vehicle signal packs** (ADR-0033): a manufacturer's own signals for one kind of vehicle, laid over the standard set when the decoded VIN matches. |
+| `reference/sae-j1979-mode01.json` | The SAE J1979 mode 01 table — names and formulas Settings ▸ Sensors uses to describe a PID a scan finds. A reference, never polled. |
+| `reference/iso-diagnostics.json` | What ISO 15765-4 / ISO 14229 define for the module sweep: the engine and transmission ids, the identity question (`F187`), the identification range. |
+| `vehicles/` | **Empty on purpose.** Vehicle files are yours — see below. |
 
-Manufacturer definitions — Ford's mode 22 PIDs — go in the pack for the vehicle they were
-confirmed on, never in the standard file. Keeping them apart matters: the standard set is
-known-good and should not be churned by the trial and error of PID discovery, and a Ford PID
-means nothing to somebody else's truck.
+**The repository ships nothing specific to a vehicle** (ADR-0052, [DISCLAIMER](../DISCLAIMER.md)):
+only what the public standards define, and placeholders with no identifier. No identifier, module
+address, bus rate or scaling for any manufacturer is compiled in or shipped. Those go in **your own
+vehicle file**, in `%LOCALAPPDATA%\DashDeck\vehicles\`, and your overlay, `signals.user.json` —
+on your machines, out of the repository.
 
-## Vehicle packs (ADR-0033)
+## Vehicle files (ADR-0033, ADR-0052)
+
+A vehicle file ("pack") holds a manufacturer's own signals for one kind of vehicle, laid over the
+standard set when the decoded VIN matches. **It lives in `%LOCALAPPDATA%\DashDeck\vehicles\`**,
+not here: the dash, the ID hunter and the ID matcher all read that folder. A file there with the
+same name as one in `catalog/vehicles/` replaces it.
 
 ```jsonc
 {
-  "name": "Ford F-150 2.7 EcoBoost (2018–2020)",
+  "name": "My truck",
   "match": {                      // every field given must match the decoded vehicle
-    "make": "Ford",               // required — a pack with no make would fit everything
-    "model": "F-150",             // case, spaces and dashes ignored: F150 = F-150
+    "make": "Example",            // required — a pack with no make would fit everything
+    "model": "X-100",             // case, spaces and dashes ignored: X100 = X-100
     "yearMin": 2018,
     "yearMax": 2020,
     "displacementLitres": 2.7     // to a tenth of a litre
   },
+  "pins311BitRate": 500000,       // the bus on OBD pins 3/11, MEASURED by listening (ADR-0044).
+                                  // Absent: nothing is ever sent on pins 3/11 of a real vehicle.
   "modules": {                    // likely names for module addresses, for the module sweep
-    "726": "BCM — body control"   // labels only; the screen says "likely" (ADR-0035)
+    "7A0": "Example module"       // labels only; the screen says "likely" (ADR-0035)
   },
+  "identityDid": "F187",          // what SCAN FOR MODULES asks each address; ISO 14229's F187 if absent
+  "identifierRanges": [           // offered for a module's identifier sweep, after F100–F1FF
+    { "name": "1000–1FFF", "from": "1000", "to": "1FFF" }
+  ],
   "signals": [ /* definitions, in the format below */ ]
 }
 ```
@@ -83,6 +97,13 @@ the truck, promote it by copying it into the right file here.
   },
   "defaultRateHz": 4,           // used when a component does not ask for a rate
   "stalenessSeconds": null,     // defaults to five poll intervals
+  "placeholder": false,         // true: its identifier is still to be found — leave out bus, mode and
+                                // pid; nothing is ever asked for it (Unavailable on a real vehicle, the
+                                // synthetic truck's value by id); the ID matcher lists it as NEEDS ID
+                                // (ADR-0050, ADR-0052)
+  "hidden": false,              // true (in your overlay): left out of the card editor's picker, still
+                                // working for anything already using it (ADR-0051)
+  "unconfirmed": false,         // true: typed by hand; not offered until TEST answers it (ADR-0051)
   "min": 0,                     // decoded values outside the range are rejected, not shown
   "max": 255
 }

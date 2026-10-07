@@ -7,6 +7,8 @@
     <Project Path="src/DashDeck.DebugConsole/DashDeck.DebugConsole.csproj" />
     <Project Path="src/DashDeck.Host/DashDeck.Host.csproj" />
     <Project Path="src/DashDeck.IdHunter/DashDeck.IdHunter.csproj" />
+    <Project Path="src/DashDeck.SerialTap/DashDeck.SerialTap.csproj" />
+    <Project Path="src/DashDeck.IdMatcher/DashDeck.IdMatcher.csproj" />
     <Project Path="src/DashDeck.Simulator/DashDeck.Simulator.csproj" />
     <Project Path="src/DashDeck.Vehicle/DashDeck.Vehicle.csproj" />
   </Folder>

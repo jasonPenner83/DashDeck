@@ -60,9 +60,10 @@ public static class ElmResponseParser
             return PidResponse.Refused(request, bytes[2], at);
         }
 
-        // A positive response echoes mode + 0x40, then the PID, then the payload.
+        // A positive response echoes mode + 0x40, then the PID, then the payload. The trouble-code
+        // services have no PID to echo (ADR-0055).
         var expectedMode = (byte)(request.Mode + 0x40);
-        var pidLength = request.Pid <= 0xFF ? 1 : 2;
+        var pidLength = !request.HasPid ? 0 : request.Pid <= 0xFF ? 1 : 2;
         var headerLength = 1 + pidLength;
 
         if (bytes.Count < headerLength || bytes[0] != expectedMode)
@@ -79,13 +80,42 @@ public static class ElmResponseParser
             }
         }
 
+        // Clearing the codes is answered by the echo alone: 44, and nothing after.
         var payload = bytes.Skip(headerLength).ToArray();
-        return payload.Length == 0
+        return payload.Length == 0 && request.Mode != ObdService.ClearCodes
             ? PidResponse.Failed(request, PidFailure.Malformed, at)
             : PidResponse.Ok(request, payload, at);
     }
 
     private const byte NegativeResponse = 0x7F;
+
+    /// <summary>
+    /// True when the only thing in <paramref name="raw"/> is "busy — the real answer follows"
+    /// (<c>7F xx 78</c>): the module has not answered yet, and the adapter stopped listening.
+    /// </summary>
+    public static bool IsOnlyPending(string raw)
+    {
+        var any = false;
+
+        foreach (var rawLine in raw.ToUpperInvariant().Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var line = rawLine.Replace(">", string.Empty, StringComparison.Ordinal).Trim();
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            var tokens = Tokenize(line, out _);
+            if (tokens is not [NegativeResponse, _, ResponsePending])
+            {
+                return false;
+            }
+
+            any = true;
+        }
+
+        return any;
+    }
 
     /// <summary>The negative response code that means "busy — the real answer follows".</summary>
     private const byte ResponsePending = 0x78;

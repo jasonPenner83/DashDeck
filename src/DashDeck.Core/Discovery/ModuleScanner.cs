@@ -30,7 +30,9 @@ public sealed record ModuleScanResult(
 /// <c>7F7</c>, answered on that id plus eight. This does the same: every address with the 8s
 /// bit clear, on HS-CAN and MS-CAN, 128 per bus.
 /// <para>
-/// The question is UDS <c>22 F113</c> — ReadDataByIdentifier, the module's part number. A
+/// The question is UDS <c>22</c> — ReadDataByIdentifier — for the identity the reference names
+/// (ISO 14229's spare part number, <c>F187</c>) or the one the user's vehicle file says its maker
+/// answers (ADR-0052). A
 /// read, never a write, and not even a session change or a tester-present: whatever a module
 /// is doing, being asked its part number does not change it. <b>Any answer</b> — the part
 /// number, or a negative response saying it does not do that — means a module lives there.
@@ -43,9 +45,6 @@ public static class ModuleScanner
     /// ReadDataByIdentifier. The only service the sweeps use, and it only reads.
     /// </summary>
     public const byte ReadDataByIdentifier = 0x22;
-
-    /// <summary>UDS identifier for the ECU's own part number — the question each address is asked.</summary>
-    public const ushort PartNumberDid = 0xF113;
 
     /// <summary>Every module request id: 700–7F7, 8s bit clear. 128 of them.</summary>
     public static IEnumerable<ushort> Addresses()
@@ -62,6 +61,7 @@ public static class ModuleScanner
     public static async Task<ModuleScanResult> ScanAsync(
         Func<PidRequest, CancellationToken, Task<PidResponse>> request,
         IReadOnlyList<CanBus> buses,
+        ushort identityDid,
         IProgress<SweepProgress>? progress,
         CancellationToken ct)
     {
@@ -91,7 +91,7 @@ public static class ModuleScanner
                 PidResponse response;
                 try
                 {
-                    response = await request(new PidRequest(ReadDataByIdentifier, PartNumberDid, bus, address), ct)
+                    response = await request(new PidRequest(ReadDataByIdentifier, identityDid, bus, address), ct)
                         .ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)

@@ -17,7 +17,7 @@ namespace DashDeck.Simulator;
 /// so <see cref="FuelUsedLitres"/> is the ground truth a trip computer must reproduce.
 /// </para>
 /// </remarks>
-public sealed class SimulatedF150
+public sealed partial class SimulatedF150
 {
     // Vehicle constants, roughly a 2019 SuperCrew 4x4.
     private const double MassKg = 2400;
@@ -179,11 +179,29 @@ public sealed class SimulatedF150
     /// <summary>Distance to empty, at a steady 13 L/100 km — what the cluster would show.</summary>
     public double RangeKm => FuelLevelLitres / 13.0 * 100;
 
-    /// <summary>The check-engine light. Off: a synthetic truck has nothing wrong with it.</summary>
-    public bool CheckEngine => false;
+    /// <summary>Codes and held values set by hand (ADR-0055); none unless a test or <c>--fault</c> adds them.</summary>
+    public SimulatedFaults Faults { get; } = new();
+
+    /// <summary>The stored trouble codes now.</summary>
+    public IReadOnlyList<string> StoredCodeList => Faults.Codes(_elapsed, pending: false);
+
+    /// <summary>The pending trouble codes now.</summary>
+    public IReadOnlyList<string> PendingCodeList => Faults.Codes(_elapsed, pending: true);
+
+    /// <summary>The check-engine light: lit while a code is stored. A synthetic truck has none unless one is set.</summary>
+    public bool CheckEngine => StoredCodeList.Count > 0;
 
     /// <summary>Stored trouble codes.</summary>
-    public int StoredCodes => 0;
+    public int StoredCodes => StoredCodeList.Count;
+
+    /// <summary>
+    /// The gear selector, as the catalog orders its states (0 P … 3 D): in park while idling at the
+    /// kerb — the cold idle, the park at the end — and in drive otherwise.
+    /// </summary>
+    public int GearSelector => SpeedKph < 1 && (IsFinished || CurrentSegment.Contains("idle", StringComparison.Ordinal)) ? 0 : 3;
+
+    /// <summary>True while the drive is towing.</summary>
+    public bool Towing => !IsFinished && _drive.Segments[_segmentIndex].TowingKg > 0;
 
     /// <summary>True once the scripted drive has run to completion.</summary>
     public bool IsFinished => _segmentIndex >= _drive.Segments.Count;

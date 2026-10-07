@@ -181,13 +181,13 @@ public sealed class IdHunterTests : IDisposable
     {
         var (io, findings) = await Run(
             Number("tire.pressure").ToString(System.Globalization.CultureInfo.InvariantCulture), "",
-            "", "", "",       // module 726, the simulated range, sweep
+            "7A0", "", "",    // the synthetic body module (the shipped checklist names none), the simulated range, sweep
             "35.5", "35", "27", "34.5",
             "",
             "q");
 
         Assert.Contains("FRONT LEFT — likeliest first:\n  #   ID     READ     DECODE                  GIVES     MATCHED\n  1   4301", io.Output.Replace("\r", "", StringComparison.Ordinal));
-        Assert.Contains("match,pins 3/11 (125 kbit/s),726,,4303,REAR LEFT", findings);
+        Assert.Contains("match,pins 3/11 (125 kbit/s),7A0,,4303,REAR LEFT", findings);
     }
 
     [Fact]
@@ -205,7 +205,7 @@ public sealed class IdHunterTests : IDisposable
 
         Assert.Equal(2, io.Output.Split("The truck says it is moving").Length - 1);
         Assert.DoesNotContain("Listening on", io.Output);
-        Assert.DoesNotContain("SYNTH-PCM", io.Output);
+        Assert.DoesNotContain("SYNTH-ENGINE", io.Output);
     }
 
     [Fact]
@@ -254,7 +254,7 @@ public sealed class IdHunterTests : IDisposable
             .RunAsync(CancellationToken.None);
 
         Assert.Contains("Pins 3/11 carry a 500 kbit/s bus", io.Output);
-        Assert.Contains("pins 3/11 (500 kbit/s)  726", io.Output);
+        Assert.Contains("pins 3/11 (500 kbit/s)  7A0", io.Output);
         Assert.Equal(500000, session.Adapter.Pins311BitRate);
     }
 
@@ -284,15 +284,15 @@ public sealed class IdHunterTests : IDisposable
             "",                    // no live check
             "b",                   // not HS-CAN
             "",                    // ask a module instead
-            "733", "4400-44FF", "", // the module, a range, sweep
+            "7B0", "4400-44FF", "", // the synthetic climate module, a range, sweep
             "",                    // ready
             "", "", "", "", "",    // the steps again
             "",                    // no live check
             "q");
 
-        Assert.Contains("What 733 changed with you", io.Output);
+        Assert.Contains("What 7B0 changed with you", io.Output);
         Assert.Contains("4401   byte 0 high nibble", io.Output);
-        Assert.Contains("ask,pins 3/11 (125 kbit/s),733,,4401,byte 0 high nibble", findings);
+        Assert.Contains("ask,pins 3/11 (125 kbit/s),7B0,,4401,byte 0 high nibble", findings);
         Assert.DoesNotContain(",4402,", findings);
     }
 

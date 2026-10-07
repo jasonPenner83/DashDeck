@@ -29,14 +29,50 @@ public readonly record struct PidRequest(byte Mode, ushort Pid, CanBus Bus, usho
     /// <summary>Where the addressed module answers: its request id plus eight.</summary>
     public ushort? ResponseHeader => Header is { } header ? (ushort)(header + 8) : null;
 
-    /// <summary>The ELM command text, e.g. <c>010D</c> for mode 01 PID 0D.</summary>
-    public string ToCommand() => Pid <= 0xFF
-        ? $"{Mode:X2}{Pid:X2}"
-        : $"{Mode:X2}{Pid:X4}";
+    /// <summary>
+    /// A request to one of the services that take no PID — stored, pending or permanent trouble
+    /// codes, or clearing them (<see cref="ObdService"/>).
+    /// </summary>
+    public static PidRequest Service(byte mode, CanBus bus, ushort? header = null) => new(mode, 0, bus, header);
+
+    /// <summary>True when the mode is asked with no PID after it: <c>03</c>, <c>04</c>, <c>07</c>, <c>0A</c>.</summary>
+    public bool HasPid => !ObdService.TakesNoPid(Mode);
+
+    /// <summary>The ELM command text, e.g. <c>010D</c> for mode 01 PID 0D, or <c>03</c> for stored codes.</summary>
+    public string ToCommand() => !HasPid
+        ? $"{Mode:X2}"
+        : Pid <= 0xFF
+            ? $"{Mode:X2}{Pid:X2}"
+            : $"{Mode:X2}{Pid:X4}";
 
     public override string ToString() => Header is { } header
         ? $"{ToCommand()} ({Bus} → {header:X3})"
         : $"{ToCommand()} ({Bus})";
+}
+
+/// <summary>
+/// The SAE J1979 services that are asked with no PID: the trouble codes, and clearing them. Fixed
+/// numbers of the protocol, not of any vehicle (ADR-0052).
+/// </summary>
+public static class ObdService
+{
+    /// <summary>Mode 03: the codes stored — what lights the check-engine light.</summary>
+    public const byte StoredCodes = 0x03;
+
+    /// <summary>
+    /// Mode 04: clear the codes, turn the light off, and reset the readiness monitors and freeze
+    /// frame. <b>The only write DashDeck sends</b>, and only through the gated choke point
+    /// (ADR-0006, ADR-0055).
+    /// </summary>
+    public const byte ClearCodes = 0x04;
+
+    /// <summary>Mode 07: the codes pending — seen once, not yet confirmed.</summary>
+    public const byte PendingCodes = 0x07;
+
+    /// <summary>Mode 0A: the permanent codes, which only the module itself clears.</summary>
+    public const byte PermanentCodes = 0x0A;
+
+    public static bool TakesNoPid(byte mode) => mode is StoredCodes or ClearCodes or PendingCodes or PermanentCodes;
 }
 
 /// <summary>Why a request produced no data.</summary>

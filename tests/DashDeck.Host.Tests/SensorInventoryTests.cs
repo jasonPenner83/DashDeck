@@ -45,6 +45,17 @@ public sealed class SensorInventoryTests : IDisposable
         Def("vehicle.speed", 0x0D, "Speed", category: "Speed & Distance"),
     ]);
 
+    /// <summary>The same, with engine rpm: the watch reads it through the catalog by name (ADR-0052).</summary>
+    private static SignalCatalog WithRpm() => SignalCatalog.FromDefinitions(
+    [
+        .. Shipped().Definitions,
+        new SignalDefinition { Id = "engine.rpm", Name = "Rpm", Pid = 0x0C, Decode = new DecodeSpec(0, 2, false, 0.25, 0, "rpm") },
+    ]);
+
+    /// <summary>The shipped reference tables (ADR-0052).</summary>
+    private static readonly ObdReference StandardReference =
+        ObdReference.Load(Path.GetDirectoryName(CatalogPath.FindFolder("reference"))).Reference;
+
     /// <summary>A running pipeline, as far as the inventory can tell.</summary>
     private sealed class FakeVehicle(SignalCatalog shipped, SignalCatalog? running = null) : ISignalInventorySource
     {
@@ -63,6 +74,10 @@ public sealed class SensorInventoryTests : IDisposable
         public IVehicleSignals Signals { get; } = new Components.FakeSignals();
 
         public IReadOnlyList<VehiclePack> ActivePacks { get; init; } = [];
+
+        public ObdReference Reference => StandardReference.With(ActivePacks);
+
+        public bool CanAskPins311 { get; init; } = true;
 
         public bool IsSimulated { get; init; }
 
@@ -372,6 +387,32 @@ public sealed class SensorInventoryTests : IDisposable
     }
 
     [Fact]
+    public async Task With_no_measured_rate_the_module_scan_leaves_pins_3_and_11_alone_and_says_so()
+    {
+        var vehicle = new FakeVehicle(Shipped()) { CanAskPins311 = false };
+        var modules = new SensorInventoryViewModel(vehicle, new UserSignalStore(FilePath)).Modules;
+
+        await modules.ScanModulesCommand.ExecuteAsync(null);
+
+        Assert.NotEmpty(vehicle.Asked);
+        Assert.All(vehicle.Asked.Where(r => r.Header is not null), r => Assert.Equal(CanBus.Hs, r.Bus));
+        Assert.All(vehicle.Asked.Where(r => r.Header is not null), r => Assert.Equal((ushort)0xF187, r.Pid));
+        Assert.Contains("pins 3/11: not asked", modules.Status, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_sweep_offers_the_standard_range_and_what_the_users_vehicle_file_adds()
+    {
+        var pack = VehiclePacks.Parse("""
+            { "name": "Yours", "match": { "make": "Ford" }, "identityDid": "F113",
+              "identifierRanges": [ { "name": "DD00–DDFF", "from": "DD00", "to": "DDFF" } ] }
+            """, "yours.json");
+        var modules = new SensorInventoryViewModel(new FakeVehicle(Shipped()) { ActivePacks = [pack] }, new UserSignalStore(FilePath)).Modules;
+
+        Assert.Equal(["F100–F1FF  IDENTITY", "DD00–DDFF"], modules.Ranges.Select(r => r.Label));
+    }
+
+    [Fact]
     public async Task Sweeping_a_module_asks_it_by_address_and_a_find_opens_the_editor_ready_to_test()
     {
         var vehicle = new FakeVehicle(Shipped()) { IsSimulated = true };
@@ -642,7 +683,7 @@ public sealed class SensorInventoryTests : IDisposable
     [Fact]
     public async Task Watch_records_every_pass_with_rpm_to_a_csv()
     {
-        var vehicle = new FakeVehicle(Shipped());
+        var vehicle = new FakeVehicle(WithRpm());
         vehicle.Answers[0x0C] = [0x0A, 0x80];
         vehicle.ModuleAnswers[(0x7E0, 0x1E3A)] = [0x00, 0x62];
 

@@ -814,3 +814,382 @@ The guide itself: [id-hunter](id-hunter.md).
 - every message *not heard* with the engine running;
 - any warning on the cluster. Listening is silent, so there should be none.
 
+
+## The serial tap — recording FORScan (ADR-0048)
+
+**You need:**
+- the laptop or tablet with FORScan;
+- the adapter, plugged into the truck and the computer;
+- the ignition **on**, or the engine running for values that need it; parked;
+- DashDeck and the ID hunter closed.
+
+1. Double-click `SerialTap\SerialTap.exe` and pick the adapter's port. **Expect:** *Holding COM7 at
+   115200 baud*, the FORScan settings to use, and the log file's path.
+2. In FORScan, set **Settings ▸ Connection** to type **WiFi**, IP **127.0.0.1**, port **35000**, and
+   connect. **Expect:**
+   - FORScan connects and finds the truck as it normally does;
+   - the tap window fills with `>>` and `<<` lines, starting with `--  connected`.
+3. Open **one** value in FORScan's live data, such as transmission fluid temperature. Start FORScan's
+   own PID log. **Expect:** the same `>>  22…` request repeating in the tap window, each with a
+   `<<  62…` answer.
+4. Make the value move: let it warm, or rev. Then stop FORScan's log and disconnect. **Expect:**
+   `--  disconnected` in the tap.
+5. Press **Ctrl+C** in the tap. **Expect:** the command and answer totals, and *Saved:* with the
+   file's path.
+6. Send me the `.log` file and FORScan's CSV, and say which value it was. Repeat for each value.
+
+**A failure looks like:**
+- *Could not open COMn*: something else holds the port;
+- FORScan refusing to connect to 127.0.0.1;
+- FORScan connected but finding no adapter;
+- the log ending in garbage after an `STBR` or `ATBRD` line.
+
+Send the log in any of these cases.
+
+## Fast requests (ADR-0049)
+
+**You need:**
+- the truck, engine **running**, parked;
+- the tablet with DashDeck on the adapter (live, not simulated);
+- the CARDS stage with a few engine cards on it — rpm, speed, coolant.
+
+1. Before updating, note the **`req/s`** on the status strip with DASH and CARDS showing. **Expect:**
+   about 19.
+2. Update and start DashDeck. Open **Settings ▸ Vehicle**. Under OBD-II ADAPTER, **expect**:
+   - **FAST REQUESTS — ON**;
+   - a line *Fast requests in use: N fast, M asked again the slow way*, with N climbing quickly and M
+     small.
+3. Go back to the dash. **Expect:**
+   - **`req/s` around 35–50**, about twice before;
+   - the rpm card following a throttle blip more smoothly.
+4. Check the numbers against the cluster. **Expect:**
+   - rpm, speed and coolant agree with the cluster as before;
+   - nothing reads a value that belongs to another card;
+   - no card stuck on NO DATA that worked before.
+5. Turn it off: **FAST REQUESTS — OFF**, then RESTART NOW. **Expect:**
+   - `req/s` back to about 19;
+   - the line *Fast requests are off*.
+
+   Turn it back on and restart.
+6. Tell me the `req/s` you saw each way, and the N and M from step 2 after a few minutes.
+
+**A failure looks like:**
+- `req/s` no higher with it on;
+- M climbing as fast as N, so everything is being asked twice;
+- a card that worked now NO DATA;
+- any number that is wrong, jumps between two values, or shows another card's value. In that case,
+  turn it off and tell me which card.
+
+## The ID matcher — pairing DashDeck's IDs with FORScan (ADR-0050)
+
+**You need:**
+- the laptop with FORScan, and the DashDeck folder copied to it;
+- the adapter, plugged into the truck and the laptop;
+- ignition **on**, engine running for values that need it; parked;
+- DashDeck, the ID hunter and SerialTap closed.
+
+1. Start `IdMatcher\IdMatcher.exe`. **Expect:**
+   - the left list shows **NEEDS ID** rows: tyre pressures, warning lights, economy, range, climate;
+   - the status line under the list says how many of DashDeck's signals need an ID.
+2. Pick the adapter's port and click **START TAP**. **Expect:** *Holding COM7 at 115200 baud* in the
+   status line.
+3. Connect FORScan to WiFi **127.0.0.1**, port **35000**. **Expect:**
+   - FORScan finds the truck as usual;
+   - the middle list fills with identifiers;
+   - the left list adds **NOT ON TRUCK** for fuel rate, MAF and oil temperature, read from the
+     truck's own answers.
+4. **Coolant, which we already know.** Tick off *Only those that need the truck's ID* and click
+   *Coolant Temperature* on the left. In FORScan, open the engine's coolant temperature in live data.
+   Press **Ctrl+N**. **Expect:** a yellow row, `7DF 01 05` or a Ford identifier on `7E0`.
+5. Press **F3**, type FORScan's number, press **Enter**. As it warms, type it again a few times.
+   **Expect:**
+   - the top scaling to be **A − 40** (or a Ford one that agrees);
+   - *Reads now* tracking FORScan's value.
+6. **Transmission temperature.** Click any NEEDS ID or other signal to pair, or press Esc to make a
+   new one. Open FORScan's transmission fluid temperature, press **Ctrl+N**, and type three values as
+   it moves. **Expect:**
+   - `7E0 22 1E1C`;
+   - top scaling **(A·256+B) ÷ 16** in °C;
+   - *Reads now* agreeing with FORScan.
+
+   Press **Ctrl+Enter**.
+7. **A PID log.** Open three or four values in FORScan and start its PID log. Rev and let it idle
+   for a minute, then stop the log. In **PID LOG**, import the CSV. **Expect:**
+   - each column matched to an identifier;
+   - R² near 1 for anything that moved;
+   - *hardly moved* for anything that did not.
+8. Click **Export for the vehicle pack** (Ctrl+E) and send me the file it names. Also send the CSV
+   and the tap log from `%LOCALAPPDATA%\DashDeck\tap\`.
+9. Optional, on the tablet with a keyboard: **SAVE TO DASHDECK**, restart DashDeck, and check the
+   paired signal in Settings ▸ Sensors with TEST.
+
+**A failure looks like:**
+- an empty left list (the catalog was not found beside the program);
+- no rows in the middle while FORScan reads live data;
+- no scaling fits values you typed (check the unit beside the box);
+- a PID log where nothing matches though values moved. Send me that CSV: its format is the
+  unknown.
+
+## Managing signals from the ID matcher (ADR-0051)
+
+**You need:**
+- the laptop with the ID matcher;
+- for steps 6–8, the tablet with DashDeck and the adapter in the truck, ignition on;
+- the overlay saved where the tablet reads it: run the matcher on the tablet with a keyboard, or copy
+  `signals.user.json` over.
+
+1. In the matcher, untick *Only those that need the truck's ID*. Select **Mass Air Flow** (the truck
+   has no MAF) and click **HIDE**. **Expect:**
+   - it disappears from the list;
+   - the message says the card editor stops offering it.
+2. Tick **Show hidden**. **Expect:** it is back, greyed, marked **· HIDDEN**. Click **UNHIDE**: the
+   button reads UNHIDE while it is selected.
+3. Click **NEW…** with nothing accepted. Type:
+   - id `ford.test`;
+   - module `7E0`, mode `22`, PID `1E1C`;
+   - bytes from `0`, length `2`;
+   - scale `0.0625`, offset `0`, unit `°C`.
+
+   Save. **Expect:**
+   - it appears marked **UNCONFIRMED**;
+   - the message says to TEST it on the tablet.
+4. Select it and click **EDIT…**. Change only the name. **Expect:** still UNCONFIRMED, and nothing else
+   changes.
+5. Click **REMOVE** on `ford.test`, then OK. **Expect:** it is gone. On a built-in like *Engine RPM*,
+   REMOVE says to hide it instead.
+6. On the tablet, with the overlay copied and DashDeck restarted: open **MODIFY WIDGETS** and look for
+   the hidden MAF and an unconfirmed signal. **Expect:** neither is offered. A card that already showed
+   one still does.
+7. **Settings ▸ Sensors.** **Expect:**
+   - the unconfirmed one labelled **UNCONFIRMED — TEST IT**;
+   - the hidden one labelled **HIDDEN**.
+8. Open the unconfirmed one, tap **TEST** with the engine running, then **SAVE**. Restart. **Expect:**
+   - the label is gone;
+   - the card editor now offers it.
+
+**A failure looks like:**
+- a built-in actually removed;
+- a hidden signal breaking a card that used it;
+- an unconfirmed signal offered in the picker before TEST;
+- a renamed signal turning unconfirmed.
+
+## Matching a switch — door ajar (ID matcher, ADR-0050)
+
+**You need:**
+- the laptop with FORScan and the ID matcher, the tap running, FORScan connected through it;
+- the truck parked, ignition on (engine off is fine), a door you can open and shut.
+
+1. In FORScan, open live data for the body module and pick **one** door-ajar value (it shows
+   *Open*/*Closed* or *On*/*Off*). In the matcher, select **Warning — Door Ajar** on the left, then
+   press **Ctrl+N**. **Expect:** the newest identifier is selected.
+2. With the door shut, press **F3**, type `Closed` (or whatever FORScan shows), **Enter**. **Expect:**
+   - the unit beside the box switches to **on / off** by itself;
+   - many candidates, each *bit n of X*, marked *seen one way only*;
+   - the hint says to switch it on in the truck and add that too.
+3. Open the door. When FORScan shows *Open*, type `Open`, **Enter**. Shut it, type `Closed`; open it,
+   type `Open`. **Expect:**
+   - the list shrinks to one bit (sometimes two that move together), *seen on and off*;
+   - *Reads now* follows the door as you open and shut it.
+4. **Ctrl+Enter.** Save to DashDeck, copy the overlay to the tablet, restart. In Settings ▸ Sensors,
+   TEST the door signal with the door open, then shut. **Expect:** 1 open, 0 shut. On DASH, the door
+   light lights when it is open.
+5. From the PID log instead: clear FORScan's traffic, start its log on the door value, open and shut
+   the door three times, stop it, import it (Ctrl+I). **Expect:** the column matched to the same bit,
+   ticked, with a score of 0.97 or more.
+
+**A failure looks like:**
+- typing *Open* or *Off* refused;
+- one state alone presented as a settled match;
+- a match that reads anything other than 0 or 1;
+- the PID log's door column reported as "never changed" when the door was opened during it.
+
+
+## Your vehicle file, and nothing vehicle-specific shipped (ADR-0052)
+
+**You need:**
+- the new build on the tablet (and the laptop, for the ID hunter and matcher);
+- your two files from this change: `ford-f150-2018-2020-2.7-ecoboost.json` and `targets.json`;
+- the truck, ignition on, parked.
+
+1. **Before copying anything**, open DashDeck on the tablet in the truck. Settings ▸ Vehicle.
+   **Expect:** the pack line says no signal pack (none ships any more).
+2. Settings ▸ Sensors ▸ **SCAN FOR MODULES**. **Expect:**
+   - the status says pins 3/11 are skipped because no vehicle file gives their measured rate;
+   - HS-CAN modules are still found, but with **no part numbers** (they are asked ISO's `F187`, which
+     Ford declines — a refusal still counts as found);
+   - the result line reads *pins 3/11: not asked*;
+   - the range chips offer only **F100–F1FF IDENTITY**.
+3. Close DashDeck. Copy `ford-f150-2018-2020-2.7-ecoboost.json` into
+   `%LOCALAPPDATA%\DashDeck\vehicles\` (make the folder). Copy `targets.json` into
+   `%LOCALAPPDATA%\DashDeck\idhunter\`. Do the same on the laptop.
+4. Open DashDeck. Settings ▸ Vehicle. **Expect:** the pack line names *Ford F-150 2.7 EcoBoost
+   (2018–2020)* again.
+5. **SCAN FOR MODULES** again. **Expect:**
+   - both buses asked, and the MS-CAN modules (720, 726, 733…) found at 500 kbit/s;
+   - **part numbers back** on each row (asked `F113`, from your file);
+   - module names *likely* from your file;
+   - range chips: F100–F1FF, then DD00, F400, 0000, 1000, 4000.
+6. Select the engine computer (7E0) and **SWEEP** F100–F1FF. While it runs, nothing else changes.
+   Then start the engine and try a sweep while rolling slowly in the yard. **Expect:** refused — *the
+   truck is moving*. (Speed now comes from the catalog's `vehicle.speed`, not a PID number.)
+7. On the laptop, run the ID hunter, pick a *match* target (tyre pressure). **Expect:** it suggests
+   your file's modules (726, 720) and ranges — your `targets.json` was read.
+
+**A failure looks like:**
+- anything sent on pins 3/11 before your file is in place (FORScan's CAN error counters rising, or
+  module rows on MS-CAN in step 2);
+- part numbers still missing after step 3;
+- the pack line not finding your file;
+- a sweep that runs while the truck is moving.
+
+## Placeholders ask nothing; the synthetic truck reads the catalog (ADR-0053)
+
+**You need:**
+- the new build on the tablet; your vehicle file in place (from the ADR-0052 walkthrough);
+- FORScan with the serial tap on the laptop, for step 4;
+- the truck, ignition on, parked.
+
+1. **At a desk first** (no adapter): open DashDeck. **Expect:**
+   - SIM badge; CLIMATE shows set temperatures, fan and seats; DASH shows economy and range; TPMS
+     shows four pressures with the rear left low — all flagged simulated, exactly as before;
+   - Settings ▸ Sensors lists the climate, tyre and warning signals with *placeholder: no ID yet,
+     nothing is asked* under each.
+2. Settings ▸ Sensors ▸ **SCAN FOR MODULES** at the desk. **Expect:** the synthetic modules with new
+   invented ids — 7E0, 7E1, 710, 740, 750 on HS and 7A0, 7A4, 7B0 on pins 3/11 — each with a
+   `SYNTH-…` identity (710 declines to give one).
+3. **In the truck**, open CLIMATE and DASH. **Expect:** every placeholder shows a dash with a grey
+   dot (**Unavailable**, not Stale amber); real values (speed, rpm, coolant, fuel) are live.
+4. With the tap recording, let DashDeck run on CLIMATE for a minute, then open the tap log.
+   **Expect:** no requests on pins 3/11 for `01 C0`–`01 D7` — nothing goes out for a placeholder.
+   (Before this change those went out every few seconds.)
+5. Pair one placeholder in the ID matcher (say the door ajar, from the switch walkthrough) and copy
+   the overlay. **Expect:** after a restart it reads live, and Sensors no longer calls it a
+   placeholder.
+
+**A failure looks like:**
+- a placeholder lit or showing a number on the real truck;
+- any `01 C…`/`01 D…` request in the tap log;
+- a placeholder showing amber Stale instead of a grey Unavailable;
+- the climate panel or TPMS blank at the desk.
+
+## Pairing the tailgate (placeholder `body.tailgate`)
+
+**You need:** the laptop with FORScan, the tap and the ID matcher; the truck parked, ignition on.
+
+1. In the matcher, select **Tailgate — Open** (marked NEEDS ID). In FORScan, open the body module's
+   live data and pick the tailgate switch (an `SW` item). Press **Ctrl+N**.
+2. With the tailgate shut, press **F3**, type what FORScan shows (`Closed`/`Off`), **Enter**. Open it,
+   type `Open`/`On`. Shut it and open it again, adding each. **Expect:** one bit, *seen on and off*.
+3. **Ctrl+Enter**, save, copy the overlay to the tablet, restart. In Settings ▸ Sensors, TEST with the
+   tailgate open and shut. **Expect:** 1 open, 0 shut; the row stops saying *placeholder*.
+
+**A failure looks like:** the tailgate reading anything before pairing; a value other than 0 or 1;
+DashDeck sending anything to the tailgate — it only reads.
+## Listening for what changed (ID matcher, ADR-0054)
+
+**You need:** the laptop with the ID matcher and the adapter, FORScan closed, the tap stopped; the
+truck parked, ignition on.
+
+1. Middle panel ▸ **LISTEN TO THE BUS**. Tick **Pins 3/11**, click **LISTEN**. **Expect:** *Listening
+   to pins 3/11 at 500 kbit/s, silently* and a list of identifiers filling in, each with its rate.
+2. **LEARN NOISE**, touch nothing for 15 seconds, click again. **Expect:** many bytes now marked `~`.
+3. **MARK** (F5). Open the tailgate. **Expect:** the list narrows to a few identifiers, the changed
+   bytes in `[brackets]`.
+4. Shut it, **STATE A** (F6), wait; open it, **STATE B** (F7), wait; repeat twice; **RANK** (F8).
+   **Expect:** at the top, one field marked *3/3* and *100%*.
+5. Do the same with the heated steering wheel button.
+6. **STOP LISTENING**, then START TAP. **Expect:** the tap starts normally and FORScan connects.
+
+**A failure looks like:** a warning light or message on the cluster while listening (nothing should
+be sent); the list empty with the ignition on; the tap failing to start after listening.
+
+## Warning popups and clearing codes (ADR-0055)
+
+**First at the desk** (no truck): `DashDeck.exe --fault P0420 --fault P0171/pending`.
+
+1. **Expect**, within about five seconds: the whole screen dims and a window reads **CHECK ENGINE**
+   with the amber engine icon, the advice, and under TROUBLE CODES **P0420** *Catalytic converter below
+   efficiency, bank 1* (STORED) and **P0171** *Running lean, bank 1* (PENDING). The DASH console's
+   check-engine light is lit.
+2. Tap **DISMISS**. **Expect:** the window goes; the console light stays lit. Settings ▸ Diagnostics
+   shows CHECK ENGINE *LIT · DISMISSED*. Close and reopen DashDeck with the same flags: **no window**.
+3. Run `DashDeck.exe highway-cruise --fault warning.oilPressure@20`. **Expect** after 20 s, while
+   "driving": a red strip across the top reading **OIL** with a big **DISMISS**, not the window.
+4. Settings ▸ Diagnostics ▸ **ALLOW CLEARING CODES — ON**. Run `DashDeck.exe --fault P0420 --fault
+   engine.rpm=0`. In the window, **HOLD TO CLEAR CODES** — let go after one second: **nothing**. Hold
+   until it fills: **Expect** *Codes cleared…*, the list empty, *No codes*, and the window gone a few
+   seconds later. `%LOCALAPPDATA%\DashDeck\actions.log` has a SENDING line naming P0420 and a DONE line.
+5. Same, without `engine.rpm=0`. **Expect** the hold refused: *Only with the engine off and the
+   ignition on…*, and a REFUSED line in the log.
+
+**In the truck.** You need: the tablet on the adapter. **Clearing resets the readiness monitors** —
+only do steps 9–10 when you want the codes cleared anyway (an emissions test would fail until a few
+days of driving).
+
+6. **Engine running, parked.** **Expect:** no window and no strip (unless the check-engine light is on
+   in the cluster — then the window, with the codes FORScan also shows). Settings ▸ Diagnostics: CHECK
+   ENGINE, ENGINE HOT and LOW VOLTAGE read **OFF**; OIL PRESSURE, BRAKE, DOOR OPEN, SEATBELT and TYRE
+   PRESSURE read **NO READING** (their identifiers are not found yet).
+7. **READ CODES.** **Expect:** *No codes, stored or pending (7E0 …, 7E1 … answered)* — or the codes
+   FORScan shows. Both modules should answer; if only 7E0 does, note it.
+8. Drive. **Expect:** nothing pops; the dash runs as before. No new light on the cluster.
+9. *(Only if clearing is wanted.)* Park, switch the engine **off**, push START **without** the brake
+   (ignition on). ALLOW CLEARING CODES — ON; READ CODES; hold **HOLD TO CLEAR CODES**. **Expect:**
+   *Codes cleared*, a fresh read showing none, and the cluster's check-engine light out.
+10. Try the hold with the engine running. **Expect:** refused, *Only with the engine off…*, and nothing
+    sent (the log says REFUSED).
+11. Turn ALLOW CLEARING CODES **OFF** again.
+
+**A failure looks like:** a window or strip with no light on the cluster (a false alarm — note which
+and the reading in Settings); a light on the cluster with no window when its popup is on; anything
+sent with the switch off or the engine running (a SENDING line in the log); a cluster message or
+new light after clearing other than the check-engine light going out; the stage not coming back after
+DISMISS.
+
+## Multi-state signals: 4WD, gear, drive mode, wipers, headlights (ADR-0056)
+
+**At the desk first** (no truck): run DashDeck on the synthetic truck.
+
+1. DASH. **Expect** at the bottom centre of the console a row **P R N D M** with **P** lit while the
+   truck idles at the start, then **D** lit once it pulls away; under it **4WD 2H 4A 4H 4L** with
+   **2H** lit.
+2. MODIFY WIDGETS, add a card, pick **4WD Mode** (under Drivetrain). **Expect** the card to read
+   **2H**, not a number, and no bar style offered.
+
+**On the laptop with the ID matcher and the truck** (engine running, parked, FORScan through the tap):
+
+3. In FORScan, find the 4x4 mode among the transfer case or body module's values and add it to its
+   live data. In the matcher, select the identifier FORScan is now asking (Ctrl+N).
+4. With the truck in 2H, type `2H`, **Enter**. Turn the 4WD knob to 4A; when FORScan shows 4A, type
+   `4A`, **Enter**. Then 4H, then 4L (4L needs neutral and the brake — follow the truck's own
+   instructions). **Expect** the hint to ask for a second round.
+5. Go round again: 2H, 4A, 4H, 4L. **Expect:** *One field tells all 4 states apart, every time*, the
+   formula showing which bits and each state's value, and *Reads now* following the knob.
+6. Select **4WD Mode** (NEEDS ID) on the left, **Ctrl+Enter**, pair and save to `signals.user.json`.
+   Copy it to the tablet; on the tablet, Settings ▸ Sensors ▸ 4WD Mode ▸ EDIT ▸ **TEST**: **Expect**
+   *Decodes to 2H* (or whichever it is in). SAVE, RESTART NOW.
+7. DASH. **Expect** the 4WD row to light the mode the truck is in, following the knob within a couple
+   of seconds.
+8. The same for the gear selector (P R N D M from the shifter), drive mode, wipers and headlights,
+   each with every state typed twice.
+
+**A failure looks like:** a state lit that the truck is not in; a row that stays on one state while
+the knob moves; `?` with a number when the truck is in a state that was typed (the field is wrong —
+match again); TEST saying a number instead of a name.
+
+## Scrolling with a finger (touch fix)
+
+**You need:** the tablet, in tablet mode, no keyboard or mouse attached. No truck needed.
+
+1. Settings ▸ **Sensors**. Put a finger on the list and drag up. **Expect** the list to follow the
+   finger and carry on a little when you let go, down to the last signal.
+2. Drag past the bottom. **Expect** the list to stop; the whole dash must **not** slide up with it.
+3. Tap a signal in the middle of the list. **Expect** its editor to open — a tap is still a tap, not
+   the start of a scroll. BACK.
+4. The same in Settings ▸ **Appearance**, **Themes**, **Vehicle**, **Apps** and **Diagnostics**, and
+   in the card editor (MODIFY WIDGETS, tap a card): each scrolls with a finger, and its buttons still
+   answer a tap.
+
+**A failure looks like:** a list that will not move under a finger; the whole window shifting when a
+list reaches its end; a button inside a list that no longer answers a tap (it would need the same
+fix the card strip has, `DashboardView.HandleTap`).

@@ -157,6 +157,27 @@ public sealed class SignalCatalog
             problems.Add($"'{d.Id}': min is greater than max");
         }
 
+        if (!d.Placeholder && d.Mode == 0x01 && d.Pid == 0)
+        {
+            problems.Add($"'{d.Id}': pid is missing — a signal whose identifier is still to be found is a placeholder (\"placeholder\": true)");
+        }
+
+        if (d.States is { } states)
+        {
+            if (states.Any(st => st is null || string.IsNullOrWhiteSpace(st.Name) || !double.IsFinite(st.Value)))
+            {
+                problems.Add($"'{d.Id}': every state needs a value and a name");
+            }
+            else if (states.Select(st => st.Value).Distinct().Count() != states.Count)
+            {
+                problems.Add($"'{d.Id}': two states share a value");
+            }
+            else if (states.Select(st => st.Name.Trim().ToUpperInvariant()).Distinct().Count() != states.Count)
+            {
+                problems.Add($"'{d.Id}': two states share a name");
+            }
+        }
+
         if (!string.IsNullOrWhiteSpace(d.Module) && d.ModuleAddress is null)
         {
             problems.Add($"'{d.Id}': module must be a module address in hex, 700–7F7 with the 8s digit clear (e.g. 726), not '{d.Module}'");

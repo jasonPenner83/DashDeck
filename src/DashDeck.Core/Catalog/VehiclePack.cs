@@ -94,6 +94,15 @@ public sealed record VehiclePack
     /// </summary>
     public int? Pins311BitRate { get; init; }
 
+    /// <summary>
+    /// The identifier a module scan asks each address, in hex — <c>"F113"</c> — when this maker
+    /// answers another than the ISO 14229 one the reference names (ADR-0052).
+    /// </summary>
+    public string? IdentityDid { get; init; }
+
+    /// <summary>Identifier ranges to offer for a module sweep, after the standard's.</summary>
+    public IReadOnlyList<Discovery.IdentifierRangeEntry> IdentifierRanges { get; init; } = [];
+
     /// <summary>The file it came from, for error messages.</summary>
     public string? FileName { get; init; }
 }
@@ -139,6 +148,15 @@ public static class VehiclePacks
         problems.AddRange(pack.Modules.Keys
             .Where(k => SignalDefinition.ParseModule(k) is null)
             .Select(k => $"modules: '{k}' is not a module address (700–7F7, 8s digit clear)"));
+        if (pack.IdentityDid is { } identity && Discovery.ObdReference.ParseHex(identity) is null)
+        {
+            problems.Add($"identityDid '{identity}' is not four hex digits");
+        }
+
+        problems.AddRange(pack.IdentifierRanges
+            .Where(r => Discovery.ObdReference.ToRange(r) is null)
+            .Select(r => $"identifierRanges: '{r.Name ?? r.From}' needs from ≤ to, four hex digits each"));
+
         if (pack.Pins311BitRate is { } rate && rate is not (125000 or 250000 or 500000 or 1000000))
         {
             problems.Add($"pins311BitRate {rate} is not a CAN rate (125000, 250000, 500000 or 1000000)");
@@ -186,6 +204,36 @@ public static class VehiclePacks
         return (packs, problems);
     }
 
+    /// <summary>
+    /// Every pack in several folders — the shipped <c>catalog/vehicles/</c> and the user's own
+    /// <c>%LOCALAPPDATA%\DashDeck\vehicles\</c> (ADR-0052). A user file with a shipped one's
+    /// name replaces it.
+    /// </summary>
+    public static (IReadOnlyList<VehiclePack> Packs, IReadOnlyList<string> Problems) LoadFolders(params string?[] directories)
+    {
+        var byName = new Dictionary<string, VehiclePack>(StringComparer.OrdinalIgnoreCase);
+        var order = new List<string>();
+        var problems = new List<string>();
+
+        foreach (var directory in directories)
+        {
+            var (packs, found) = LoadFolder(directory);
+            problems.AddRange(found);
+            foreach (var pack in packs)
+            {
+                var key = pack.FileName ?? pack.Name;
+                if (!byName.ContainsKey(key))
+                {
+                    order.Add(key);
+                }
+
+                byName[key] = pack;
+            }
+        }
+
+        return ([.. order.Select(k => byName[k])], problems);
+    }
+
     /// <summary>The pins 3/11 rate the matching packs give, or null when none says.</summary>
     public static int? Pins311BitRate(IEnumerable<VehiclePack> packs) =>
         packs.Select(p => p.Pins311BitRate).FirstOrDefault(r => r is not null);
@@ -208,36 +256,5 @@ public static class VehiclePacks
         }
 
         return catalog;
-    }
-}
-
-/// <summary>Names for the addresses a module sweep finds (ADR-0035).</summary>
-public static class ModuleNames
-{
-    /// <summary>
-    /// The two addresses ISO 15765-4 itself gives meaning to: the first and second emissions
-    /// ECUs, which on nearly every vehicle are the engine and the transmission.
-    /// </summary>
-    private static readonly Dictionary<ushort, string> Standard = new()
-    {
-        [0x7E0] = "Engine — emissions ECU #1",
-        [0x7E1] = "Transmission — emissions ECU #2",
-    };
-
-    /// <summary>A likely name for the module at an address, from the matching packs, or null.</summary>
-    public static string? Likely(ushort address, IEnumerable<VehiclePack> packs)
-    {
-        foreach (var pack in packs)
-        {
-            foreach (var (key, name) in pack.Modules)
-            {
-                if (SignalDefinition.ParseModule(key) == address)
-                {
-                    return name;
-                }
-            }
-        }
-
-        return Standard.GetValueOrDefault(address);
     }
 }

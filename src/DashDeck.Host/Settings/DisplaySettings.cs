@@ -87,6 +87,14 @@ public sealed partial class DisplaySettings : ObservableObject
     [ObservableProperty]
     private string _adapterIdentity = "";
 
+    /// <summary>Fast requests to the engine computer (ADR-0049); applied at the next launch.</summary>
+    [ObservableProperty]
+    private bool _fastRequests = true;
+
+    /// <summary>The master switch for clearing trouble codes (ADR-0055); off unless turned on.</summary>
+    [ObservableProperty]
+    private bool _allowClearCodes;
+
     public DisplaySettings()
     {
         var stored = SettingsStore.Load();
@@ -100,6 +108,8 @@ public sealed partial class DisplaySettings : ObservableObject
         AdapterSerialPort = stored.AdapterSerialPort;
         AdapterBaudRate = stored.AdapterBaudRate;
         AdapterIdentity = stored.AdapterIdentity;
+        FastRequests = stored.FastRequests;
+        AllowClearCodes = stored.AllowClearCodes;
         _loaded = true;
     }
 
@@ -217,6 +227,22 @@ public sealed partial class DisplaySettings : ObservableObject
         if (_loaded)
         {
             SettingsStore.Update(stored => stored with { AdapterIdentity = value });
+        }
+    }
+
+    partial void OnAllowClearCodesChanged(bool value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { AllowClearCodes = value });
+        }
+    }
+
+    partial void OnFastRequestsChanged(bool value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { FastRequests = value });
         }
     }
 

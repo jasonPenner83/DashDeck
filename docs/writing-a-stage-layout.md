@@ -87,6 +87,7 @@ messages).
 | `indicator` | A pill that lights when its signal is on | `source`, `label`, `parts` — see *The climate panel* |
 | `glass` | A frosted glass panel | `radius`, `parts` — see *The climate panel* |
 | `warning` | A warning light: an icon lit when its signal says so | `source`, `parts` — see *The console* |
+| `selector` | Every state of a multi-state signal in a row, the current one lit — 4WD, gear | `source`, `label`, `parts` — see *The console* |
 
 **An LCARS elbow** is two things: a thick panel with one big corner (`"radius": "56,0,0,0"`), and a
 black panel over its inside corner with a smaller radius (`"radius": "28,0,0,0"`). LCARS's
@@ -315,6 +316,34 @@ indicator: a `bit`, `below`, `equals`, or at least `onAt` (1).
 The `warning.oilPressure`, `warning.seatbelt`, `warning.doorAjar`, `warning.parkingBrake` and
 `warning.tirePressure` signals are **placeholders** until the truck's own are found: on the truck
 they stay dark with a grey dot.
+
+**`selector`** — a signal that is one of several named things (ADR-0056): every state the catalog
+names, in a row, the current one lit. The names come from the signal, not the layout, so when the ID
+matcher pairs the truck's own identifier — with the names as FORScan shows them — the row follows.
+No reading dims the row with a dash; a value the catalog names no state for lights none and shows
+itself after a `?`. A `label`, if given, is a small caption before the states.
+
+```jsonc
+{ "id": "gear", "type": "selector", "x": 316, "y": 296, "width": 280, "height": 38,
+  "source": { "signal": "transmission.gearSelector" }, "parts": { "align": "center", "fontSize": 24 } },
+{ "id": "fourWheelDrive", "type": "selector", "x": 316, "y": 340, "width": 280, "height": 30, "label": "4WD",
+  "source": { "signal": "drivetrain.4wdMode" } }
+```
+
+| Part | What it does |
+|---|---|
+| `litColour` | the current state — default the accent |
+| `unlitColour` | the other states — default a quiet grey |
+| `glow` | the glow behind the current state, or `none` |
+| `fontSize`, `valueWeight` | the states' size and weight |
+| `gap` | space between states |
+| `align` | `left` (default), `center` or `right` |
+| `labelColour`, `labelSize`, `labelWeight` | the caption before them |
+
+Multi-state signals so far, all **placeholders** until paired: `drivetrain.4wdMode` (2H 4A 4H 4L),
+`transmission.gearSelector` (P R N D M), `vehicle.driveMode` (Normal Eco Sport Tow/Haul Snow/Wet
+Mud/Rut Sand), `body.wipers` (Off Interval Low High) and `body.headlights` (Off Parking On Auto). A
+card on one shows the state's name.
 
 ## Parts
 

@@ -249,6 +249,21 @@ public sealed partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(KeepStageAudioLabel));
     }
 
+    /// <summary>ON/OFF for fast requests (ADR-0049).</summary>
+    public string FastRequestsLabel => Display.FastRequests ? "ON" : "OFF";
+
+    /// <summary>Flip fast requests to the engine computer. Applied at the next launch.</summary>
+    [RelayCommand]
+    private void ToggleFastRequests()
+    {
+        Display.FastRequests = !Display.FastRequests;
+        OnPropertyChanged(nameof(FastRequestsLabel));
+        Adapter.ChoiceMessage = Display.FastRequests
+            ? "Fast requests on. Restart to apply."
+            : "Fast requests off — every request goes the standard way. Restart to apply.";
+        Adapter.RestartNeeded = true;
+    }
+
     /// <summary>ON/OFF for the phone-GPS toggle (ADR-0027).</summary>
     public string GpsEnabledLabel => Display.GpsEnabled ? "ON" : "OFF";
 

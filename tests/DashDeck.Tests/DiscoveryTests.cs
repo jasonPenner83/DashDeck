@@ -130,9 +130,9 @@ public class DiscoveryTests
     {
         // Two independent transcriptions of J1979: the shipped catalog and the suggestion table.
         // Where both describe a PID, a disagreement means one of them is wrong.
-        foreach (var definition in TestCatalog.Load().Definitions.Where(d => d.Mode == 1 && d.Bus == CanBus.Hs))
+        foreach (var definition in TestCatalog.Load().Definitions.Where(d => d.HasRequest && d.Mode == 1 && d.Bus == CanBus.Hs))
         {
-            Assert.True(StandardPids.TryGet(definition.Pid, out var entry), $"{definition.Id} is not in the table");
+            Assert.True(TestCatalog.Reference().TryGet(definition.Pid, out var entry), $"{definition.Id} is not in the table");
 
             if (entry.Decode is not { } decode)
             {
@@ -147,11 +147,25 @@ public class DiscoveryTests
     }
 
     [Fact]
+    public void The_reference_files_load_and_know_the_standard_table()
+    {
+        var folder = Path.GetDirectoryName(TestCatalog.Path());
+        var (reference, problems) = ObdReference.Load(folder);
+
+        Assert.Empty(problems);
+        Assert.True(reference.Mode01.Count > 150);
+        Assert.True(reference.TryGet(0x0C, out var rpm));
+        Assert.Equal(0.25, rpm.Decode!.Scale);
+        Assert.False(reference.TryGet(0x13, out var o2) && o2.HasDecode);
+        Assert.Equal("Mode 01 PID E5", reference.NameOf(0xE5));
+    }
+
+    [Fact]
     public void Every_suggestion_is_a_valid_definition()
     {
         for (var pid = 1; pid <= 0xFF; pid++)
         {
-            var suggestion = StandardPids.Suggest(pid, CanBus.Hs);
+            var suggestion = TestCatalog.Reference().Suggest(pid, CanBus.Hs);
             Assert.Empty(SignalCatalog.Check(suggestion));
         }
     }
@@ -159,9 +173,9 @@ public class DiscoveryTests
     [Fact]
     public void An_unknown_pid_is_suggested_as_a_raw_byte_to_be_worked_out()
     {
-        var suggestion = StandardPids.Suggest(0xE5, CanBus.Hs);
+        var suggestion = TestCatalog.Reference().Suggest(0xE5, CanBus.Hs);
 
-        Assert.False(StandardPids.TryGet(0xE5, out _));
+        Assert.False(TestCatalog.Reference().TryGet(0xE5, out _));
         Assert.Equal("obd2.pidE5", suggestion.Id);
         Assert.Equal(1, suggestion.Decode.Scale);
     }

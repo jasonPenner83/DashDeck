@@ -94,7 +94,11 @@ public sealed record SignalDefinition
 
     public byte Mode { get; init; } = 0x01;
 
-    public required ushort Pid { get; init; }
+    /// <summary>
+    /// The PID or identifier. A placeholder has none (ADR-0052): it is never asked for, so it
+    /// leaves this, <see cref="Mode"/> and <see cref="Bus"/> out.
+    /// </summary>
+    public ushort Pid { get; init; }
 
     /// <summary>
     /// The module to ask, as its 11-bit request id in hex — <c>"726"</c> — or null to ask the
@@ -132,6 +136,48 @@ public sealed record SignalDefinition
 
     public required DecodeSpec Decode { get; init; }
 
+    /// <summary>
+    /// True for a signal whose identifier is still to be found (ADR-0050, ADR-0052): it is in the
+    /// catalog so the screens that show it can be built, but it has <b>no request</b> — nothing is
+    /// ever sent for it. A real vehicle reads Unavailable; the synthetic truck answers it by its id.
+    /// The ID matcher lists these as needing an ID; a vehicle file or overlay entry with the same id
+    /// and a real request replaces it, and is not one.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Placeholder { get; init; }
+
+    /// <summary>
+    /// True when the person has hidden it (ADR-0051): it leaves the card editor's picker and the ID
+    /// matcher's list, but stays in the catalog, so a card, screen or component that uses it keeps
+    /// working. Set by an overlay entry; a built-in signal is hidden, never deleted.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Hidden { get; init; }
+
+    /// <summary>
+    /// True for a definition typed by hand rather than measured (ADR-0051): not offered in the card
+    /// editor's picker until TEST on the truck has answered it and it is saved again from Settings ▸
+    /// Sensors. A typed PID that happens to answer decodes into a plausible wrong number; this is
+    /// how DashDeck keeps from showing one.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Unconfirmed { get; init; }
+
+    /// <summary>
+    /// Named states, for a signal that is one of several things rather than a number (ADR-0056) —
+    /// 4WD mode 2H, 4A, 4H, 4L; the gear selector; wipers. Each names the value the decode gives
+    /// (raw, masked, scaled). A value with no name is shown as itself, never as the nearest state.
+    /// Null for a number or an on/off switch.
+    /// </summary>
+    public IReadOnlyList<SignalState>? States { get; init; }
+
+    /// <summary>True when the signal is shown by state name.</summary>
+    [JsonIgnore]
+    public bool HasStates => States is { Count: > 0 };
+
+    /// <summary>The state a value names, or null when none does.</summary>
+    public string? StateName(double value) => SignalState.NameOf(States, value);
+
     /// <summary>Rate used when a component does not ask for a specific one.</summary>
     public double DefaultRateHz { get; init; } = 1.0;
 
@@ -149,11 +195,25 @@ public sealed record SignalDefinition
     public TimeSpan StalenessBudget => TimeSpan.FromSeconds(
         StalenessSeconds ?? Math.Max(2.0, 5.0 / Math.Max(DefaultRateHz, 0.05)));
 
+    /// <summary>True when there is something to ask: every signal except a placeholder (ADR-0052).</summary>
+    [JsonIgnore]
+    public bool HasRequest => !Placeholder;
+
     public PidRequestSpec ToRequest() => new(Mode, Pid, Bus, ModuleAddress);
 
     /// <summary>True when a decoded value falls inside the declared physical range.</summary>
     public bool InRange(double value) =>
         (Min is null || value >= Min) && (Max is null || value <= Max);
+}
+
+/// <summary>One named state of a multi-state signal: the decoded value, and what the truck calls it.</summary>
+public sealed record SignalState(double Value, string Name)
+{
+    /// <summary>The state a value names in a list, or null when none does.</summary>
+    public static string? NameOf(IReadOnlyList<SignalState>? states, double value) =>
+        states is null || double.IsNaN(value)
+            ? null
+            : states.FirstOrDefault(s => Math.Abs(s.Value - value) < 1e-6)?.Name;
 }
 
 /// <summary>A mode, PID, bus and module, kept free of the Vehicle layer so the catalog stays pure data.</summary>

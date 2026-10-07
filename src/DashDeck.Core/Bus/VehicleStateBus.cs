@@ -41,7 +41,9 @@ public sealed class VehicleStateBus : IVehicleSignals
                 return SignalValue.Missing(signalId, unit);
             }
 
-            if (!_catalog.TryGet(signalId, out var definition))
+            // Unavailable is a verdict, not a reading, so it does not age into Stale: a placeholder
+            // or a retired signal must not claim it once had a value (ADR-0053).
+            if (!_catalog.TryGet(signalId, out var definition) || value.Quality == SignalQuality.Unavailable)
             {
                 return value;
             }

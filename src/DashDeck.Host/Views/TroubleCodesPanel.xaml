@@ -1,0 +1,79 @@
+<UserControl x:Class="DashDeck.Host.Views.TroubleCodesPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:warn="clr-namespace:DashDeck.Host.Warnings">
+    <!--
+        The trouble codes and CLEAR CODES (ADR-0055), the same in the warning window and in
+        Settings ▸ Diagnostics. DataContext is the WarningsViewModel.
+    -->
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+    <StackPanel>
+        <DockPanel LastChildFill="True">
+            <Button DockPanel.Dock="Right"
+                    Style="{StaticResource StageLauncherButton}"
+                    Height="56" MinWidth="200"
+                    IsEnabled="{Binding IsIdle}"
+                    Command="{Binding ReadCodesCommand}">
+                <TextBlock Text="READ CODES" FontFamily="{DynamicResource MonoFont}" FontSize="16" />
+            </Button>
+            <StackPanel VerticalAlignment="Center" Margin="0,0,16,0">
+                <TextBlock Style="{StaticResource CaptionText}" Text="TROUBLE CODES" />
+                <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
+                           Style="{StaticResource MicroText}"
+                           Text="{Binding CodesStatus}" />
+            </StackPanel>
+        </DockPanel>
+
+        <ItemsControl Margin="0,14,0,0" ItemsSource="{Binding Codes}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{Binding Code}" VerticalAlignment="Top"
+                                   FontFamily="{DynamicResource MonoFont}" FontSize="22" FontWeight="Bold"
+                                   Foreground="{DynamicResource TextHighBrush}" />
+                        <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                            <TextBlock Text="{Binding Description}" TextWrapping="Wrap"
+                                       FontFamily="{DynamicResource UiFont}" FontSize="18"
+                                       Foreground="{DynamicResource TextHighBrush}" />
+                            <TextBlock Text="{Binding Where}" Style="{StaticResource MicroText}" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" Text="{Binding Kind}" VerticalAlignment="Top"
+                                   FontFamily="{DynamicResource MonoFont}" FontSize="13"
+                                   Foreground="{DynamicResource TextMidBrush}" />
+                    </Grid>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Clearing: offered only with the master switch on, and always with what it costs. -->
+        <StackPanel Margin="0,12,0,0" Visibility="{Binding IsClearAllowed, Converter={StaticResource BoolToVis}}">
+            <TextBlock TextWrapping="Wrap" Style="{StaticResource MicroText}" Text="{Binding ClearCaveats, Mode=OneTime}" />
+            <warn:HoldButton Margin="0,14,0,0" Height="76"
+                             CornerRadius="14" BorderThickness="2" BorderBrush="#FF453A"
+                             FillBrush="#80FF453A"
+                             Caption="HOLD TO CLEAR CODES"
+                             TextElement.FontFamily="{DynamicResource MonoFont}"
+                             TextElement.FontSize="20"
+                             TextElement.FontWeight="Bold"
+                             TextElement.Foreground="White"
+                             IsEnabled="{Binding IsIdle}"
+                             Command="{Binding ClearCodesCommand}" />
+            <TextBlock Margin="0,10,0,0" TextWrapping="Wrap"
+                       FontFamily="{DynamicResource UiFont}" FontSize="18"
+                       Foreground="{DynamicResource AccentBrush}"
+                       Text="{Binding ClearStatus}" />
+        </StackPanel>
+
+        <TextBlock Margin="0,12,0,0" TextWrapping="Wrap"
+                   Style="{StaticResource MicroText}"
+                   Visibility="{Binding IsClearOff, Converter={StaticResource BoolToVis}}"
+                   Text="Clearing codes is switched off. It can be turned on in Settings ▸ Diagnostics." />
+    </StackPanel>
+</UserControl>

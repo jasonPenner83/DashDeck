@@ -1,6 +1,7 @@
 ﻿using DashDeck.Abstractions;
 using DashDeck.Core;
 using DashDeck.Core.Catalog;
+using DashDeck.Core.Discovery;
 using DashDeck.Core.Identity;
 using DashDeck.Core.Link;
 using DashDeck.Simulator;
@@ -107,6 +108,15 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// <summary>The vehicle packs laid over the standard set at launch (ADR-0033). Empty for most vehicles.</summary>
     public IReadOnlyList<VehiclePack> ActivePacks => Loaded.ActivePacks;
 
+    /// <summary>The standards' reference tables, with what the user's vehicle files add.</summary>
+    public ObdReference Reference => Loaded.Reference;
+
+    /// <inheritdoc/>
+    public bool CanAskPins311 => IsSimulated || _measuredPins311 is not null;
+
+    /// <summary>Where the user's own vehicle files live: <c>%LOCALAPPDATA%\DashDeck\vehicles\</c> (ADR-0052).</summary>
+    public static string UserVehiclesFolder => Settings.JsonFile.InLocalAppData("vehicles");
+
     /// <summary>Every pack that ships, so Settings can say which one a newly decoded VIN would pick.</summary>
     public IReadOnlyList<VehiclePack> AvailablePacks => Loaded.AvailablePacks;
 
@@ -206,6 +216,23 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// <summary>Which scripted drive is running.</summary>
     public string DriveName { get; }
 
+    private ElmAdapter? _elm;
+
+    /// <summary>The pins 3/11 rate the user's vehicle file gives, or null when nobody has measured it.</summary>
+    private int? _measuredPins311;
+
+    /// <summary>
+    /// How requests are going out (ADR-0049): whether the fast way is in use, and how many went
+    /// each way. For Settings ▸ Vehicle, to confirm it on the truck.
+    /// </summary>
+    public string RequestPathText => _elm is not { } elm
+        ? ""
+        : elm.FastRequestsActive
+            ? $"Fast requests in use: {elm.FastCount} fast, {elm.FallbackCount} asked again the slow way."
+            : elm.FastRequests
+                ? "Fast requests are on, but this adapter cannot do them; requests go the standard way."
+                : "Fast requests are off; requests go the standard way.";
+
     /// <summary>Measured, not claimed â€” the number Q12 exists to replace with a real one.</summary>
     public double MeasuredRequestsPerSecond => _service.MeasuredRequestsPerSecond;
 
@@ -265,7 +292,8 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         AdapterLinkOptions? adapter,
         string driveName,
         CatalogSources sources,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool fastRequests = true)
     {
         var loaded = LoadCatalog(sources);
         var drive = Drives.ByName(driveName);
@@ -291,24 +319,36 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
             }
         }
 
-        // The rate of the bus on pins 3 and 11, from the vehicle pack when the truck's has been
-        // measured (Q21): sending at the wrong one makes error frames on that bus. The synthetic
-        // truck is given the same, so the desk behaves like the cab.
-        var pins311 = VehiclePacks.Pins311BitRate(loaded.ActivePacks) ?? 125000;
+        // The rate of the bus on pins 3 and 11, from the user's vehicle file when it has been
+        // measured (Q21): sending at the wrong one makes error frames on that bus, so a real
+        // vehicle with no measured rate is never sent anything there (ADR-0052). The synthetic
+        // truck is given the measured rate too, or its own MS-CAN rate when there is none.
+        var measured = VehiclePacks.Pins311BitRate(loaded.ActivePacks);
+        var synthetic = measured ?? 125000;
 
+        // The synthetic truck answers from the running catalog — whatever request each signal lives
+        // at, the user's own included — and its placeholders by name (ADR-0052).
+        var simulated = new SimulatedF150(drive);
         IVehicleTransport bottom = found is not null
             ? link!
-            : new SyntheticTransport(new SimulatedF150(drive)) { Pins311BitRate = pins311 };
+            : new SyntheticTransport(simulated, catalog: loaded.Catalog, reference: loaded.Reference) { Pins311BitRate = synthetic };
 
         var switchable = new SwitchableTransport(bottom);
-        var service = new VehicleService(new ElmAdapter(switchable) { Pins311BitRate = pins311 }, loaded.Catalog)
+
+        // Standard values from the engine computer, asked so the adapter stops waiting once it has
+        // the one answer (ADR-0049). Settings ▸ Vehicle can turn it off; it applies at launch.
+        var elm = new ElmAdapter(switchable) { Pins311BitRate = found is not null ? measured : synthetic, FastRequests = fastRequests };
+        var service = new VehicleService(elm, loaded.Catalog)
         {
             Quality = found is not null ? SignalQuality.Live : SignalQuality.Simulated,
+
+            // Placeholders ask nothing; while simulated, they read the synthetic truck by name.
+            SimulatedValues = found is not null ? null : simulated.Reading,
         };
 
         await service.StartAsync(cancellationToken);
 
-        var stack = new VehicleStack(service, switchable, drive.Name, loaded, link, reserved);
+        var stack = new VehicleStack(service, switchable, drive.Name, loaded, link, reserved) { _elm = elm, _measuredPins311 = measured };
 
         if (found is not null)
         {
@@ -327,10 +367,19 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     {
         var link = _link!;
 
-        _failover ??= new AdapterFailover(
-            _service,
-            _switchable,
-            async ct => await link.TryLocateAsync(ct).ConfigureAwait(false) is not null ? link : null);
+        if (_failover is null)
+        {
+            _failover = new AdapterFailover(
+                _service,
+                _switchable,
+                async ct => await link.TryLocateAsync(ct).ConfigureAwait(false) is not null ? link : null);
+
+            if (_elm is { } elm)
+            {
+                var measured = _measuredPins311;
+                _failover.GoingLive += () => elm.Pins311BitRate = measured;
+            }
+        }
 
         _failover.Start();
     }
@@ -386,9 +435,15 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     internal static LoadedCatalog LoadCatalog(CatalogSources sources)
     {
         var standard = SignalCatalog.FromFile(FindCatalog());
-        var (available, problems) = VehiclePacks.LoadFolder(CatalogPath.FindFolder("vehicles"));
+        var (available, problems) = VehiclePacks.LoadFolders(CatalogPath.FindFolder("vehicles"), UserVehiclesFolder);
         var active = VehiclePacks.Select(available, sources.Vehicle);
         var packProblem = problems.Count > 0 ? string.Join(" ", problems) : null;
+        var referenceFolder = CatalogPath.FindFolder("reference");
+        var (reference, referenceProblems) = ObdReference.Load(referenceFolder is null ? null : System.IO.Path.GetDirectoryName(referenceFolder));
+        if (referenceProblems.Count > 0)
+        {
+            packProblem = string.Join(" ", new[] { packProblem }.Concat(referenceProblems).Where(p => p is not null));
+        }
 
         SignalCatalog shipped;
 
@@ -404,7 +459,10 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         }
 
         var (catalog, overlayError) = ApplyOverlay(shipped, sources.UserSignals);
-        return new LoadedCatalog(shipped, catalog, overlayError, active, available, packProblem);
+        return new LoadedCatalog(shipped, catalog, overlayError, active, available, packProblem)
+        {
+            Reference = reference.With(active),
+        };
     }
 
     /// <summary>The shipped catalog with the overlay laid over it, or alone and a reason.</summary>
@@ -482,7 +540,11 @@ public sealed record LoadedCatalog(
     string? OverlayError,
     IReadOnlyList<VehiclePack> ActivePacks,
     IReadOnlyList<VehiclePack> AvailablePacks,
-    string? PackProblem);
+    string? PackProblem)
+{
+    /// <summary>The standards' reference tables with the active vehicle files laid over them (ADR-0052).</summary>
+    public ObdReference Reference { get; init; } = ObdReference.Empty;
+}
 
 /// <summary>What choosing an adapter port did.</summary>
 public enum AdapterChoice

@@ -15,6 +15,8 @@ public sealed class SimulatedCabin
 
     public bool PassengerDoorOpen { get; set; }
 
+    public bool TailgateOpen { get; set; }
+
     /// <summary>Heat 1–3 positive, cooling 1–3 negative, 0 off.</summary>
     public int DriverSeat { get; set; }
 
@@ -38,6 +40,18 @@ public sealed class SimulatedCabin
 
     public bool ParkingBrake { get; set; } = true;
 
+    /// <summary>4WD mode, as the catalog orders its states: 0 2H, 1 4A, 2 4H, 3 4L (ADR-0056).</summary>
+    public int FourWheelDrive { get; set; }
+
+    /// <summary>Drive mode: 0 Normal, 1 Eco, 2 Sport, 3 Tow/Haul, 4 Snow/Wet, 5 Mud/Rut, 6 Sand. Towing makes it Tow/Haul.</summary>
+    public int DriveMode { get; set; }
+
+    /// <summary>Wipers: 0 off, 1 interval, 2 low, 3 high.</summary>
+    public int Wipers { get; set; }
+
+    /// <summary>Headlights: 0 off, 1 parking, 2 on, 3 auto.</summary>
+    public int Headlights { get; set; } = 3;
+
     /// <summary>Extra engine speed while parked — the throttle blip a guide asks for.</summary>
     public double ExtraRpm { get; set; }
 
@@ -45,7 +59,7 @@ public sealed class SimulatedCabin
     public static IReadOnlyList<string> Names { get; } =
     [
         "driverDoor", "passengerDoor", "driverSeat", "passengerSeat", "wheelHeat", "fan", "ac",
-        "recirc", "rearDefrost", "auto", "driverSetTemp", "driverSeatbelt", "parkingBrake", "rev",
+        "recirc", "rearDefrost", "auto", "driverSetTemp", "driverSeatbelt", "parkingBrake", "rev", "tailgate",
     ];
 
     /// <summary>Set one control by name, as a guide's step names it. False for a name it does not know.</summary>
@@ -68,6 +82,7 @@ public sealed class SimulatedCabin
             case "driverSeatbelt": DriverSeatbeltBuckled = on; break;
             case "parkingBrake": ParkingBrake = on; break;
             case "rev": ExtraRpm = value; break;
+            case "tailgate": TailgateOpen = on; break;
             default: return false;
         }
 

@@ -41,7 +41,10 @@ Console.CancelKeyPress += (_, e) =>
 var clock = SystemClock.Instance;
 var io = new SystemConsole();
 
-var targetsPath = ArgValue("--targets") ?? Path.Combine(AppContext.BaseDirectory, "targets.json");
+// The user's own checklist first — module and range hints for a vehicle are theirs (ADR-0052) —
+// then the generic one shipped beside the program.
+var userTargets = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DashDeck", "idhunter", "targets.json");
+var targetsPath = ArgValue("--targets") ?? (File.Exists(userTargets) ? userTargets : Path.Combine(AppContext.BaseDirectory, "targets.json"));
 if (!File.Exists(targetsPath))
 {
     Console.WriteLine($"No checklist at {targetsPath}.");
@@ -54,7 +57,9 @@ foreach (var problem in problems)
     Console.WriteLine($"targets.json: {problem}");
 }
 
-var packs = VehiclePacks.LoadFolder(FindCatalogFolder("vehicles")).Packs;
+// The shipped folder and the user's own (ADR-0052): what is specific to a vehicle is the user's.
+var userData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DashDeck");
+var packs = VehiclePacks.LoadFolders(FindCatalogFolder("vehicles"), Path.Combine(userData, "vehicles")).Packs;
 
 var folder = ArgValue("--out") ?? Path.Combine(
     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

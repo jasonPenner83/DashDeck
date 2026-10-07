@@ -39,6 +39,15 @@ public interface ISignalInventorySource
     /// <summary>The vehicle packs laid over the catalog — where module names come from (ADR-0035).</summary>
     IReadOnlyList<VehiclePack> ActivePacks { get; }
 
+    /// <summary>The standards' reference tables, with what the user's vehicle files add (ADR-0052).</summary>
+    ObdReference Reference { get; }
+
+    /// <summary>
+    /// True when requests may go to OBD pins 3 and 11: on the synthetic truck, or at the rate the
+    /// user's vehicle file says was measured. False sends nothing there (ADR-0052).
+    /// </summary>
+    bool CanAskPins311 { get; }
+
     /// <summary>True while the synthetic truck is answering, so a sweep's results can say so.</summary>
     bool IsSimulated { get; }
 }
@@ -71,17 +80,22 @@ public sealed partial class SignalRowViewModel(SignalDefinition definition, Sign
     public bool IsPending { get; } = pending;
 
     /// <summary>The quiet second line: id, bus, the request on the wire, and the module it goes to.</summary>
-    public string Detail => string.Create(
+    public string Detail => !Definition.HasRequest ? $"{Definition.Id}  ·  placeholder: no ID yet, nothing is asked" : string.Create(
         CultureInfo.InvariantCulture,
         $"{Definition.Id}  ·  {(Definition.Bus is CanBus.Ms ? "MS" : "HS")}  ·  {Definition.Mode:X2} {(Definition.Pid <= 0xFF ? Definition.Pid.ToString("X2", CultureInfo.InvariantCulture) : Definition.Pid.ToString("X4", CultureInfo.InvariantCulture))}{(Definition.ModuleAddress is { } module ? $"  ·  module {module:X3}" : "")}");
 
     /// <summary>A tag for anything that is not plain shipped data.</summary>
-    public string OriginLabel => Origin switch
+    public string OriginLabel => string.Join("  ", new[]
     {
-        SignalOrigin.Yours => "YOURS",
-        SignalOrigin.Override => "CORRECTED",
-        _ => "",
-    };
+        Origin switch
+        {
+            SignalOrigin.Yours => "YOURS",
+            SignalOrigin.Override => "CORRECTED",
+            _ => "",
+        },
+        Definition.Unconfirmed ? "UNCONFIRMED — TEST IT" : "",
+        Definition.Hidden ? "HIDDEN" : "",
+    }.Where(t => t.Length > 0));
 
     /// <summary>What the truck has said, in a word or a number.</summary>
     [ObservableProperty]
@@ -117,8 +131,9 @@ public sealed partial class SignalRowViewModel(SignalDefinition definition, Sign
         };
     }
 
-    private static string Reading(SignalValue value) =>
-        string.Create(CultureInfo.CurrentCulture, $"{value.Value:0.##} {value.Unit}").Trim();
+    private string Reading(SignalValue value) =>
+        Definition.StateName(value.Value)
+        ?? string.Create(CultureInfo.CurrentCulture, $"{value.Value:0.##} {value.Unit}").Trim();
 }
 
 /// <summary>One function group of signals, as the picker groups them.</summary>
@@ -404,8 +419,9 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
         Missing.Clear();
         Unsupported.Clear();
 
+        // Placeholders ask nothing, so they neither cover a PID nor count as unsupported (ADR-0052).
         var defined = _rows
-            .Where(r => r.Definition.Mode == 0x01)
+            .Where(r => r.Definition.HasRequest && r.Definition.Mode == 0x01)
             .ToLookup(r => (r.Definition.Bus, (int)r.Definition.Pid));
 
         foreach (var result in results.Where(r => r.Answered))
@@ -415,13 +431,14 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
                 Missing.Add(new MissingPidViewModel(
                     pid,
                     result.Bus,
-                    StandardPids.NameOf(pid),
-                    StandardPids.TryGet(pid, out var entry) && entry.HasDecode));
+                    _vehicle.Reference.NameOf(pid),
+                    _vehicle.Reference.TryGet(pid, out var entry) && entry.HasDecode));
             }
 
             // Only standard-range PIDs on a bus that answered can be called unsupported: a bus
             // that said nothing has not said no, and Ford's own modes are not in the bitmaps.
-            foreach (var row in _rows.Where(r => r.Definition.Mode == 0x01
+            foreach (var row in _rows.Where(r => r.Definition.HasRequest
+                && r.Definition.Mode == 0x01
                 && r.Definition.Bus == result.Bus
                 && r.Definition.Pid <= 0xFF
                 && !result.Supported.Contains(r.Definition.Pid)))
@@ -488,7 +505,7 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
             return;
         }
 
-        var suggestion = StandardPids.Suggest(missing.Pid, missing.Bus);
+        var suggestion = _vehicle.Reference.Suggest(missing.Pid, missing.Bus);
         var note = missing.HasStandardDecode
             ? "Formula from SAE J1979. TEST it against the truck before you save."
             : "The standard does not give this as one number. TEST it, read the bytes, and work the formula out before trusting it.";
@@ -529,7 +546,7 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
             note,
             _vehicle.ProbeAsync,
             IdTaken,
-            address => ModuleNames.Likely(address, _vehicle.ActivePacks),
+            address => _vehicle.Reference.Modules.GetValueOrDefault(address),
             save: definition =>
             {
                 _store.Upsert(definition);

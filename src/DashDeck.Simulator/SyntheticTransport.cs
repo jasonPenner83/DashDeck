@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text;
 using DashDeck.Abstractions;
+using DashDeck.Core.Catalog;
+using DashDeck.Core.Discovery;
 using DashDeck.Vehicle;
 
 namespace DashDeck.Simulator;
@@ -19,6 +21,13 @@ namespace DashDeck.Simulator;
 /// hard request ceiling matching the pessimistic Bluetooth-era figure. Components must hit
 /// the same walls in simulation that they will hit in the truck.
 /// </para>
+/// <para>
+/// <b>It holds no identifier of its own</b> (ADR-0052). A request is answered from the signal
+/// catalog — whichever signal the catalog says lives at that request, encoded by the catalog's
+/// own decode from the truck's quantity of the same name — and from the SAE reference table for
+/// standard PIDs the catalog lacks. Its invented modules, identifiers, broadcast frames and VIN
+/// are a data file (<see cref="SyntheticTruckData"/>). Placeholders are never asked for at all.
+/// </para>
 /// </remarks>
 public sealed class SyntheticTransport : IStreamingTransport
 {
@@ -32,16 +41,39 @@ public sealed class SyntheticTransport : IStreamingTransport
     /// <summary>The module requests are addressed to, or null for the broadcast (ATSH).</summary>
     private ushort? _header;
 
+    private readonly SyntheticTruckData _data;
+    private readonly List<Answer> _answers;
+
+    /// <param name="truck">The model.</param>
+    /// <param name="clock">Time, for advancing the model.</param>
+    /// <param name="faults">How badly the adapter behaves.</param>
+    /// <param name="catalog">Where each signal lives and how it decodes; the shipped standard catalog if null.</param>
+    /// <param name="reference">The standard PIDs the catalog lacks; the shipped reference if null.</param>
+    /// <param name="data">The invented modules, frames and VIN; the shipped data file if null.</param>
     public SyntheticTransport(
         SimulatedF150 truck,
         IClock? clock = null,
-        SyntheticFaults? faults = null)
+        SyntheticFaults? faults = null,
+        SignalCatalog? catalog = null,
+        ObdReference? reference = null,
+        SyntheticTruckData? data = null)
     {
         _truck = truck;
         _clock = clock ?? SystemClock.Instance;
         _faults = faults ?? SyntheticFaults.Realistic;
         _lastAdvance = _clock.UtcNow;
+        _data = data ?? SyntheticTruckData.Shipped();
+
+        reference ??= ShippedReference();
+        IdentityDid = reference.IdentityDid;
+        _answers = BuildAnswers(catalog ?? ShippedCatalog(), reference, truck);
     }
+
+    /// <summary>
+    /// The identifier a module answers its identity at — the question the scan asks, so the desk
+    /// behaves like the cab whichever the user's vehicle file chooses.
+    /// </summary>
+    public ushort IdentityDid { get; set; }
 
     private bool _unplugged;
 
@@ -68,7 +100,7 @@ public sealed class SyntheticTransport : IStreamingTransport
 
     public TransportState State { get; private set; } = TransportState.Disconnected;
 
-    public string Description => "Synthetic 2019 F-150 (simulated data)";
+    public string Description => "Synthetic truck (simulated data)";
 
     public event Action<TransportState>? StateChanged;
 
@@ -124,12 +156,24 @@ public sealed class SyntheticTransport : IStreamingTransport
 
         AdvanceModel();
 
-        if (_faults.LatencyMs > 0)
+        var trimmed = command.Trim().ToUpperInvariant();
+
+        // A request with a response count, listened for from the engine computer alone, comes back
+        // as soon as its one answer does — the adapter stops waiting for other modules (ADR-0049).
+        // FORScan measured this on the real truck at about 20 ms against the broadcast's 52.
+        var counted = IsCountedRequest(trimmed) && _receiveFilter == 0x7E8;
+        var latency = counted ? Math.Min(_faults.LatencyMs, FastLatencyMs) : _faults.LatencyMs;
+
+        if (latency > 0)
         {
-            await Task.Delay(_faults.LatencyMs, ct).ConfigureAwait(false);
+            await Task.Delay(latency, ct).ConfigureAwait(false);
         }
 
-        var trimmed = command.Trim().ToUpperInvariant();
+        if (counted)
+        {
+            // The count digit is the adapter's business, not the vehicle's.
+            trimmed = trimmed[..^1];
+        }
 
         if (trimmed.StartsWith("AT", StringComparison.Ordinal) ||
             trimmed.StartsWith("ST", StringComparison.Ordinal))
@@ -152,6 +196,17 @@ public sealed class SyntheticTransport : IStreamingTransport
 
         return HandlePid(trimmed);
     }
+
+    /// <summary>The round trip of a counted, filtered request on the real truck (ADR-0049).</summary>
+    public const int FastLatencyMs = 20;
+
+    /// <summary>A hex request followed by a single response-count digit: <c>010C1</c>.</summary>
+    private static bool IsCountedRequest(string command) =>
+        command.Length is 5 or 7
+        && !command.StartsWith("AT", StringComparison.Ordinal)
+        && !command.StartsWith("ST", StringComparison.Ordinal)
+        && command.All(Uri.IsHexDigit)
+        && command[^1] is >= '1' and <= '9';
 
     /// <summary>Step the truck by however much wall-clock time has passed.</summary>
     private void AdvanceModel()
@@ -248,9 +303,15 @@ public sealed class SyntheticTransport : IStreamingTransport
 
     private string HandlePid(string command)
     {
+        if (command.Length == 2 &&
+            byte.TryParse(command, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var service) &&
+            ObdService.TakesNoPid(service))
+        {
+            return _faults.VehiclePresent ? HandleCodes(service) : "SEARCHING...\rUNABLE TO CONNECT\r\r>";
+        }
+
         if (command.Length < 4 ||
-            !byte.TryParse(command.AsSpan(0, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var mode) ||
-            !byte.TryParse(command.AsSpan(2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var pid))
+            !byte.TryParse(command.AsSpan(0, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var mode))
         {
             return "?\r\r>";
         }
@@ -267,16 +328,21 @@ public sealed class SyntheticTransport : IStreamingTransport
             return HandleModuleRead(command);
         }
 
-        // The broadcast reaches the engine computer, and so does addressing it as 7E0. Every
-        // other module ignores modes 01 and 09.
-        if (_header is not null && !(_header == 0x7E0 && _bus == CanBus.Hs))
+        if (!byte.TryParse(command.AsSpan(2, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var pid))
+        {
+            return "?\r\r>";
+        }
+
+        // Modes 01 and 09 are the engine computer's (ISO 15765-4): the broadcast reaches it, and
+        // so does addressing it as 7E0. Every other module ignores them.
+        if (_header is not null && !(_header == EngineRequest && _bus == CanBus.Hs))
         {
             return "NO DATA\r\r>";
         }
 
         if (mode == 0x09 && pid == 0x02 && _bus == CanBus.Hs)
         {
-            return VinResponse;
+            return _data.Vin is { } vin ? VinResponse(vin) : "NO DATA\r\r>";
         }
 
         if (mode != 0x01)
@@ -284,37 +350,90 @@ public sealed class SyntheticTransport : IStreamingTransport
             return "NO DATA\r\r>";
         }
 
-        // Mode 01 support bitmaps. A real ECU answers these, and they are how the vehicle
-        // tells us which PIDs it implements rather than us assuming.
-        if (pid is 0x00 or 0x20 or 0x40 or 0x60 or 0x80 or 0xA0)
+        // Mode 01 support bitmaps. A real ECU answers these, and they are how the vehicle tells us
+        // which PIDs it implements rather than us assuming. Built from what the truck answers, so
+        // they never claim a PID it does not.
+        if (pid % 0x20 == 0)
         {
-            if (_bus == CanBus.Ms)
-            {
-                // Ford's body-module PIDs are manufacturer-specific and are not advertised
-                // in the standard support bitmaps. A scan of MS-CAN finding nothing is the
-                // truthful answer, and is why those signals need discovering by other means.
-                return "NO DATA\r\r>";
-            }
-
-            var bitmap = BuildSupportBitmap(pid);
+            var bitmap = BuildSupportBitmap(_bus, pid);
             return bitmap is null ? "NO DATA\r\r>" : Respond(mode, pid, bitmap);
         }
 
-        // Bus decides what is reachable: the powertrain PIDs live on HS-CAN, the body-module
-        // TPMS placeholders on MS-CAN. Asking for one on the wrong bus gets NO DATA, which is
-        // exactly what a real adapter switched to the wrong bus would say.
-        var payload = _bus == CanBus.Ms ? EncodeMsPid(pid) : EncodePid(pid);
-        return payload is null
-            ? "NO DATA\r\r>"
-            : Respond(mode, pid, payload);
+        var payload = Encode(_bus, null, mode, pid);
+        return payload is null ? "NO DATA\r\r>" : Respond(mode, pid, payload);
     }
 
     /// <summary>
-    /// The synthetic truck's VIN. Shaped like a 2019 F-150's, but serial <c>000000</c> is
-    /// never issued, so it belongs to no real vehicle — the repository must never hold a real
-    /// VIN (CLAUDE.md). The check digit is correct, so it exercises the same path a real one does.
+    /// The trouble-code services (ADR-0055): the engine computer has whatever codes are set on the
+    /// truck (<see cref="SimulatedF150.Faults"/>), the transmission computer none; clearing clears them.
     /// </summary>
-    public const string SyntheticVin = "1FTEW1EP2KF000000";
+    private string HandleCodes(byte service)
+    {
+        var engine = _header is null || _header == EngineRequest;
+        if (_bus != CanBus.Hs || !(engine || _header == TransmissionRequest))
+        {
+            return "NO DATA\r\r>";
+        }
+
+        if (service == ObdService.ClearCodes)
+        {
+            if (engine)
+            {
+                _truck.Faults.ClearCodes(_truck.RunTimeSeconds);
+            }
+
+            return "44\r\r>";
+        }
+
+        var codes = !engine
+            ? []
+            : service switch
+            {
+                ObdService.StoredCodes => _truck.StoredCodeList,
+                ObdService.PendingCodes => _truck.PendingCodeList,
+                _ => [],
+            };
+
+        var bytes = new List<byte> { (byte)(service + 0x40), (byte)codes.Count };
+        foreach (var text in codes)
+        {
+            var system = "PCBU".IndexOf(text[0], StringComparison.Ordinal);
+            var rest = ushort.Parse(text.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+            var raw = (ushort)((system << 14) | ((text[1] - '0') << 12) | rest);
+            bytes.Add((byte)(raw >> 8));
+            bytes.Add((byte)raw);
+        }
+
+        return Framed(bytes);
+    }
+
+    /// <summary>
+    /// Bytes as an ELM with spaces off prints them: one line when they fit a CAN frame (seven), or a
+    /// byte count and ISO-TP frames with their index glued on — six bytes in the first, seven after.
+    /// </summary>
+    private static string Framed(List<byte> bytes)
+    {
+        var hex = Convert.ToHexString([.. bytes]);
+        if (bytes.Count <= 7)
+        {
+            return $"{hex}\r\r>";
+        }
+
+        var text = new StringBuilder(string.Create(CultureInfo.InvariantCulture, $"{bytes.Count:X3}\r0:{hex[..12]}\r"));
+        var index = 1;
+        for (var at = 12; at < hex.Length; at += 14, index++)
+        {
+            text.Append(CultureInfo.InvariantCulture, $"{index % 16:X}:{hex[at..Math.Min(hex.Length, at + 14)]}\r");
+        }
+
+        return text.Append("\r>").ToString();
+    }
+
+    /// <summary>ISO 15765-4's second emissions ECU — the transmission computer.</summary>
+    private const ushort TransmissionRequest = 0x7E1;
+
+    /// <summary>ISO 15765-4's first emissions ECU — the engine computer.</summary>
+    private const ushort EngineRequest = 0x7E0;
 
     /// <summary>
     /// Mode 09 PID 02 the way an ELM327 with spaces off prints a multi-frame reply: a byte count
@@ -322,42 +441,125 @@ public sealed class SyntheticTransport : IStreamingTransport
     /// the data. The VIN is the first reply DashDeck reads that does not fit one CAN frame, so
     /// this is what keeps the parser honest about them (ADR-0033).
     /// </summary>
-    private static string VinResponse
+    private static string VinResponse(string vin)
     {
-        get
+        var hex = Convert.ToHexString(Encoding.ASCII.GetBytes(vin));
+        return $"014\r0:490201{hex[..6]}\r1:{hex[6..20]}\r2:{hex[20..]}\r\r>";
+    }
+
+    /// <summary>The synthetic truck's VIN, from its data file, or null.</summary>
+    public string? Vin => _data.Vin;
+
+    // ── Answering from the catalog ────────────────────────────────────────────
+
+    /// <summary>One request the truck can answer: where it is asked, how it is encoded, and from what.</summary>
+    private sealed record Answer(CanBus Bus, ushort? Module, byte Mode, ushort Pid, DecodeSpec Decode, string Name);
+
+    private static SignalCatalog? _shippedCatalog;
+    private static ObdReference? _shippedReference;
+
+    private static SignalCatalog ShippedCatalog()
+    {
+        if (_shippedCatalog is not null)
         {
-            var hex = Convert.ToHexString(Encoding.ASCII.GetBytes(SyntheticVin));
-            return $"014\r0:490201{hex[..6]}\r1:{hex[6..20]}\r2:{hex[20..]}\r\r>";
+            return _shippedCatalog;
         }
+
+        var path = SyntheticCatalog.Find("signals.obd2-standard.json");
+        try
+        {
+            _shippedCatalog = path is null ? SignalCatalog.FromDefinitions([]) : SignalCatalog.FromFile(path);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException)
+        {
+            _shippedCatalog = SignalCatalog.FromDefinitions([]);
+        }
+
+        return _shippedCatalog;
+    }
+
+    private static ObdReference ShippedReference()
+    {
+        if (_shippedReference is not null)
+        {
+            return _shippedReference;
+        }
+
+        var path = SyntheticCatalog.Find("signals.obd2-standard.json");
+        _shippedReference = ObdReference.Load(path is null ? null : Path.GetDirectoryName(path)).Reference;
+        return _shippedReference;
     }
 
     /// <summary>
-    /// The HS-CAN mode 01 PIDs this synthetic ECU answers.
+    /// Every request the truck answers: the catalog's signals it has a quantity for — never a
+    /// placeholder, which has no request — then the reference's standard PIDs the catalog does
+    /// not cover, which is what a supported-PID scan finds "missing" (ADR-0032).
     /// </summary>
-    /// <remarks>
-    /// Declared explicitly rather than derived from <see cref="EncodePid"/>, because
-    /// probing that method to build a bitmap would consume random numbers and break the
-    /// determinism that makes scripted drives usable as fixtures. A test asserts this list
-    /// matches what <see cref="EncodePid"/> actually implements, so drift fails CI instead
-    /// of going unnoticed.
-    /// </remarks>
-    public static readonly byte[] SupportedHsPids =
-    [
-        0x04, 0x05, 0x06, 0x07, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
-        0x10, 0x11, 0x1F, 0x23, 0x2C, 0x2E, 0x2F, 0x30, 0x31, 0x33,
-        0x3C, 0x42, 0x43, 0x45, 0x46, 0x47, 0x49, 0x4A, 0x4C, 0x52,
-        0x5C, 0x5E, 0x61, 0x62, 0x63,
+    private static List<Answer> BuildAnswers(SignalCatalog catalog, ObdReference reference, SimulatedF150 truck)
+    {
+        var answers = catalog.Definitions
+            .Where(d => !d.Placeholder && truck.Knows(d.Id))
+            .Select(d => new Answer(d.Bus, d.ModuleAddress, d.Mode, d.Pid, d.Decode, d.Id))
+            .ToList();
 
-        // The check-engine light and code count, and the odometer (ADR-0041).
-        0x01, 0xA6,
+        var covered = answers.Where(a => a.Mode == 0x01 && a.Bus == CanBus.Hs && a.Module is null)
+            .Select(a => a.Pid)
+            .ToHashSet();
 
-        // Answered but not in the shipped catalog — what a Settings ▸ Sensors scan turns up
-        // as missing (ADR-0032).
-        0x08, 0x09, 0x21, 0x3D, 0x44,
-    ];
+        foreach (var entry in reference.Mode01)
+        {
+            if (entry.Decode is { } decode && !covered.Contains((ushort)entry.Pid) && truck.Knows(entry.Id))
+            {
+                answers.Add(new Answer(CanBus.Hs, null, 0x01, (ushort)entry.Pid, decode, entry.Id));
+            }
+        }
 
-    /// <summary>True when <see cref="EncodePid"/> has an implementation for this PID.</summary>
-    internal bool ImplementsHsPid(byte pid) => EncodePid(pid) is not null;
+        return answers;
+    }
+
+    /// <summary>The mode 01 PIDs the truck answers on a bus, to the broadcast.</summary>
+    public IReadOnlySet<int> SupportedPids(CanBus bus) =>
+        _answers.Where(a => a.Bus == bus && a.Module is null && a.Mode == 0x01).Select(a => (int)a.Pid).ToHashSet();
+
+    /// <summary>
+    /// The payload for a request, every signal there encoded and laid over the others (two signals
+    /// can share a byte under masks, as the check-engine light and the code count do); null when
+    /// the truck answers nothing there.
+    /// </summary>
+    private byte[]? Encode(CanBus bus, ushort? module, byte mode, ushort pid)
+    {
+        var here = _answers.Where(a => a.Bus == bus && a.Module == module && a.Mode == mode && a.Pid == pid).ToList();
+        if (here.Count == 0)
+        {
+            return null;
+        }
+
+        var payload = new byte[here.Max(a => a.Decode.ByteOffset + a.Decode.ByteLength)];
+        foreach (var answer in here)
+        {
+            if (_truck.Reading(answer.Name) is not { } value)
+            {
+                continue;
+            }
+
+            var d = answer.Decode;
+            var raw = SyntheticEncoding.Raw((value - d.Offset) / d.Scale, d.ByteLength, d.Signed);
+            if (d.Mask is { } mask)
+            {
+                for (var i = 0; i < raw.Length; i++)
+                {
+                    raw[i] &= (byte)(mask >> (8 * (raw.Length - 1 - i)));
+                }
+            }
+
+            for (var i = 0; i < raw.Length; i++)
+            {
+                payload[d.ByteOffset + i] |= raw[i];
+            }
+        }
+
+        return payload;
+    }
 
     /// <summary>
     /// Build the four-byte support bitmap for a range, the way an ECU does.
@@ -367,10 +569,15 @@ public sealed class SyntheticTransport : IStreamingTransport
     /// <c>basePid + 1</c>. The last bit of the range doubles as "the next range exists",
     /// which is how a scanner knows whether to keep walking.
     /// </remarks>
-    private static byte[]? BuildSupportBitmap(byte basePid)
+    private byte[]? BuildSupportBitmap(CanBus bus, byte basePid)
     {
-        var supported = new HashSet<byte>(SupportedHsPids);
-        var anyBeyond = SupportedHsPids.Any(p => p > basePid + 0x20);
+        var supported = SupportedPids(bus);
+        if (supported.Count == 0)
+        {
+            return null;
+        }
+
+        var anyBeyond = supported.Any(p => p > basePid + 0x20);
 
         if (basePid != 0x00 && !supported.Any(p => p > basePid && p <= basePid + 0x20) && !anyBeyond)
         {
@@ -385,7 +592,7 @@ public sealed class SyntheticTransport : IStreamingTransport
 
             var isSupported = pid == basePid + 0x20
                 ? anyBeyond
-                : supported.Contains((byte)pid);
+                : supported.Contains(pid);
 
             if (isSupported)
             {
@@ -396,170 +603,7 @@ public sealed class SyntheticTransport : IStreamingTransport
         return bitmap;
     }
 
-    /// <summary>Encode the model's state the way a real ECU would, with the same quantisation.</summary>
-    private byte[]? EncodePid(byte pid) => pid switch
-    {
-        0x04 => [Scale255(_truck.EngineLoadPercent)],
-        0x05 => [Temp(_truck.CoolantTempC)],
-        0x0C => TwoByte((ushort)Math.Clamp(_truck.Jitter(_truck.Rpm, 8) * 4, 0, 65535)),
-        0x0D => [(byte)Math.Clamp(Math.Round(_truck.SpeedKph), 0, 255)],
-        0x0F => [Temp(_truck.IntakeAirTempC)],
-        0x01 => [(byte)((_truck.CheckEngine ? 0x80 : 0) | Math.Min(_truck.StoredCodes, 0x7F)), 0x07, 0xE5, 0x00],  // monitor status
-        0xA6 => FourByte((uint)Math.Clamp(Math.Round(_truck.OdometerKm * 10), 0, uint.MaxValue)),            // odometer, 0.1 km
-        0x10 => TwoByte((ushort)Math.Clamp(_truck.Jitter(_truck.MafGramsPerSecond, 0.3) * 100, 0, 65535)),
-        0x11 => [Scale255(_truck.ThrottlePercent)],
-        0x1F => TwoByte((ushort)Math.Clamp(_truck.RunTimeSeconds, 0, 65535)),
-        0x2F => [Scale255(_truck.FuelLevelPercent)],
-        0x46 => [Temp(_truck.AmbientTempC)],
-        0x5E => TwoByte((ushort)Math.Clamp(_truck.FuelRateLitresPerHour * 20, 0, 65535)),
-
-        // The wider standard set, derived from the same model so the extra widget options are
-        // live on the synthetic truck rather than blank. Plausible, not claimed exact.
-        0x43 => TwoByte((ushort)Math.Clamp(_truck.EngineLoadPercent * 2.5 * 2.55, 0, 65535)),   // absolute load
-        0x0E => [(byte)Math.Clamp(Math.Round((10 + (_truck.EnginePowerKw * 0.3) + 64) * 2), 0, 255)], // timing advance
-        0x30 => [8],                                                                            // warm-ups
-        0x61 => [(byte)Math.Clamp(Math.Round(_truck.EngineLoadPercent + 125), 0, 255)],         // driver demand torque
-        0x62 => [(byte)Math.Clamp(Math.Round((_truck.EngineLoadPercent * 0.9) + 125), 0, 255)], // actual torque
-        0x63 => TwoByte(542),                                                                   // reference torque
-        0x45 => [Scale255(_truck.ThrottlePercent)],                                             // relative throttle
-        0x47 => [Scale255(_truck.ThrottlePercent)],                                             // throttle B
-        0x49 => [Scale255(_truck.ThrottlePercent)],                                             // accel pedal D
-        0x4A => [Scale255(_truck.ThrottlePercent)],                                             // accel pedal E
-        0x4C => [Scale255(_truck.ThrottlePercent)],                                             // commanded throttle
-        0x0B => [(byte)Math.Clamp(Math.Round(30 + (_truck.EnginePowerKw * 2.2)), 0, 255)],      // intake manifold pressure
-        0x33 => [101],                                                                          // barometric pressure
-        0x5C => [Temp(_truck.CoolantTempC - 3)],                                                // oil temperature
-        0x3C => TwoByte((ushort)Math.Clamp((250 + (_truck.EnginePowerKw * 3) + 40) * 10, 0, 65535)), // catalyst temp
-        0x0A => [127],                                                                          // fuel pressure ~381 kPa
-        0x23 => TwoByte(3800),                                                                  // fuel rail gauge ~38 MPa
-        0x06 => [(byte)Math.Clamp(Math.Round((_truck.Jitter(0, 3) + 100) / 0.78125), 0, 255)],  // short-term fuel trim
-        0x07 => [(byte)Math.Clamp(Math.Round((-2.5 + 100) / 0.78125), 0, 255)],                 // long-term fuel trim
-        0x52 => [Scale255(10)],                                                                 // ethanol %
-        0x31 => TwoByte((ushort)Math.Clamp(1240 + _truck.DistanceKm, 0, 65535)),                // distance since clear
-        0x2C => [Scale255(_truck.EnginePowerKw > 5 ? 8 : 0)],                                    // commanded EGR
-        0x2E => [Scale255(Math.Clamp(_truck.Jitter(6, 6), 0, 100))],                            // evap purge
-        0x42 => TwoByte((ushort)Math.Clamp((_truck.SpeedKph > 0 ? 14.2 : 12.6) * 1000, 0, 65535)), // control module voltage
-
-        // Answered, but deliberately absent from the shipped catalog: the 2.7 EcoBoost is a V6
-        // with two banks, so a real one reports bank 2 as well. These are what a supported-PID
-        // scan of the synthetic truck turns up as missing (ADR-0032).
-        0x08 => [(byte)Math.Clamp(Math.Round((_truck.Jitter(0, 3) + 100) / 0.78125), 0, 255)],  // short-term fuel trim, bank 2
-        0x09 => [(byte)Math.Clamp(Math.Round((-1.6 + 100) / 0.78125), 0, 255)],                 // long-term fuel trim, bank 2
-        0x3D => TwoByte((ushort)Math.Clamp((245 + (_truck.EnginePowerKw * 3) + 40) * 10, 0, 65535)), // catalyst temp, bank 2
-        0x44 => TwoByte((ushort)Math.Clamp(Math.Round(_truck.Jitter(1.0, 0.02) * 32768), 0, 65535)), // commanded lambda
-        0x21 => TwoByte(0),                                                                     // distance with MIL on
-
-        _ => null,
-    };
-
-    /// <summary>
-    /// MS-CAN body-module PIDs: the per-wheel TPMS placeholders, and the climate ones (ADR-0040).
-    /// </summary>
-    /// <remarks>
-    /// 0.25 psi per count, with a touch of jitter so the readout is never suspiciously still.
-    /// The rear left comes back low on purpose, so the overhead view has a corner to light.
-    /// </remarks>
-    private static byte HalfDegree(double celsius) => (byte)Math.Clamp(Math.Round(celsius * 2), 0, 255);
-
-    private byte[]? EncodeMsPid(byte pid) => pid switch
-    {
-        0xC0 => [Psi(_truck.Jitter(_truck.TirePsiFrontLeft, 0.1))],
-        0xC1 => [Psi(_truck.Jitter(_truck.TirePsiFrontRight, 0.1))],
-        0xC2 => [Psi(_truck.Jitter(_truck.TirePsiRearLeft, 0.1))],
-        0xC3 => [Psi(_truck.Jitter(_truck.TirePsiRearRight, 0.1))],
-
-        // Climate placeholders (ADR-0040; see the catalog for each encoding).
-        0xC4 => [HalfDegree(_truck.DriverSetTempC)],
-        0xC5 => [HalfDegree(_truck.PassengerSetTempC)],
-        0xC6 => [(byte)Math.Clamp(Math.Round((_truck.CabinTempC + 40) * 2), 0, 255)],
-        0xC7 => [(byte)_truck.FanSpeed],
-        0xC8 => [_truck.AirConditioning ? (byte)1 : (byte)0],
-        0xC9 => [_truck.AutoMode ? (byte)1 : (byte)0],
-        0xCA => [_truck.Recirculate ? (byte)1 : (byte)0],
-        0xCB => [_truck.FrontDefrost ? (byte)1 : (byte)0],
-        0xCC => [_truck.RearDefrost ? (byte)1 : (byte)0],
-        0xCD => [(byte)_truck.Airflow],
-        0xCE => [unchecked((byte)(sbyte)_truck.DriverSeat)],
-        0xCF => [unchecked((byte)(sbyte)_truck.PassengerSeat)],
-        0xD0 => [_truck.SteeringWheelHeat ? (byte)1 : (byte)0],
-
-        // Warning-light placeholders (ADR-0041): all off on the synthetic truck.
-        0xD1 or 0xD2 or 0xD3 or 0xD4 or 0xD5 => [0],
-
-        // Economy and range placeholders (ADR-0041), from the synthetic engine's own fuel rate.
-        0xD6 => TwoByte((ushort)Math.Clamp(Math.Round(_truck.EconomyL100 * 10), 0, 999)),
-        0xD7 => TwoByte((ushort)Math.Clamp(Math.Round(_truck.RangeKm), 0, 2000)),
-        _ => null,
-    };
-
-    /// <summary>
-    /// The synthetic truck's modules, by bus and address, and the identifiers each answers.
-    /// </summary>
-    /// <remarks>
-    /// Enough for the module sweep (ADR-0035) to find something on each bus and for the
-    /// identifier sweep to find something in a module: part numbers at <c>F113</c>, the
-    /// engine's VIN at <c>F190</c>, a couple of live values on the body module. The part
-    /// numbers say SYNTH, and the identifiers in <c>4xxx</c> are invented — none of this is a
-    /// claim about a real Ford, which is the line the vehicle packs hold (ADR-0033). The gateway
-    /// declines <c>F113</c>, so the "it is there but would not say" path runs too.
-    /// </remarks>
-    private Dictionary<ushort, Func<byte[]>>? ModuleAt(CanBus bus, ushort address) => (bus, address) switch
-    {
-        (CanBus.Hs, 0x7E0) => new()
-        {
-            [0xF113] = () => Ascii("SYNTH-PCM-14C204-AA"),
-            [0xF188] = () => Ascii("SYNTH-STRATEGY-01"),
-            [0xF190] = () => Ascii(SyntheticVin),
-
-            // Invented, for the ID hunter's follow path (ADR-0044): oil temperature (one byte, less
-            // 40), transmission temperature (two bytes, sixteenths of a degree, less 40) and fuel
-            // flow (two bytes, hundredths of a litre an hour).
-            [0x4101] = () => [Temp(_truck.Jitter(_truck.OilTempC, 0.2))],
-            [0x4102] = () => TwoByte((ushort)Math.Round((_truck.TransmissionTempC + 40) * 16)),
-            [0x4103] = () => TwoByte((ushort)Math.Round(_truck.Jitter(_truck.FuelRateLitresPerHour, 0.02) * 100)),
-            [0x4104] = () => [(byte)_truck.Random.Next(256)],
-        },
-        (CanBus.Hs, 0x7E1) => new() { [0xF113] = () => Ascii("SYNTH-TCM-7J104-AB") },
-        (CanBus.Hs, 0x760) => new() { [0xF113] = () => Ascii("SYNTH-ABS-2C219-AC") },
-        (CanBus.Hs, 0x730) => new() { [0xF113] = () => Ascii("SYNTH-PSCM-3F964-AA") },
-        (CanBus.Hs, 0x716) => new(),
-        (CanBus.Ms, 0x726) => new()
-        {
-            [0xF113] = () => Ascii("SYNTH-BCM-14B476-AD"),
-
-            // Invented: battery voltage in tenths of a volt, and an ambient temperature.
-            [0x4001] = () => TwoByte((ushort)Math.Round(_truck.Jitter(141, 1))),
-            [0x4002] = () => [Temp(_truck.AmbientTempC)],
-
-            // Invented tyre pressures, a quarter psi a count, for the ID hunter's match path.
-            [0x4301] = () => [Psi(_truck.TirePsiFrontLeft)],
-            [0x4302] = () => [Psi(_truck.TirePsiFrontRight)],
-            [0x4303] = () => [Psi(_truck.TirePsiRearLeft)],
-            [0x4304] = () => [Psi(_truck.TirePsiRearRight)],
-        },
-        (CanBus.Ms, 0x720) => new()
-        {
-            [0xF113] = () => Ascii("SYNTH-IPC-10849-AE"),
-
-            // Invented: distance to empty in km, and economy in tenths of a litre per 100 km.
-            [0x4201] = () => TwoByte((ushort)Math.Round(_truck.RangeKm)),
-            [0x4202] = () => TwoByte((ushort)Math.Round(Math.Max(_truck.EconomyL100, 13.4) * 10)),
-        },
-        (CanBus.Ms, 0x733) => new()
-        {
-            [0xF113] = () => Ascii("SYNTH-HVAC-18C612-AA"),
-
-            // Invented: the driver seat's level as the module holds it — heat in the low nibble,
-            // cooling in the high — for the ID hunter's ask-while-you-do-it path, and a counter
-            // beside it that a ranker must not take for it.
-            [0x4401] = () => [Seat(_truck.Cabin.DriverSeat)],
-            [0x4402] = () => [(byte)_truck.Random.Next(256)],
-        },
-        _ => null,
-    };
-
-    /// <summary>Identifiers a module has but will not give without security access.</summary>
-    private static bool IsLocked(ushort address, ushort did) => address == 0x726 && did == 0x4003;
+    // ── Modules, from the data file ───────────────────────────────────────────
 
     /// <summary>Mode 22 to one module: data, a negative response, or silence if nothing is there.</summary>
     private string HandleModuleRead(string command)
@@ -572,22 +616,40 @@ public sealed class SyntheticTransport : IStreamingTransport
             return "NO DATA\r\r>";
         }
 
-        if (ModuleAt(_bus, address) is not { } module)
+        // A catalog signal that names this module first: the truck answers what the catalog says.
+        if (Encode(_bus, address, 0x22, did) is { } fromCatalog)
+        {
+            return Frames([0x62, (byte)(did >> 8), (byte)did, .. fromCatalog]);
+        }
+
+        if (_data.ModuleAt(_bus, address) is not { } module)
         {
             return "NO DATA\r\r>";
         }
 
-        if (IsLocked(address, did))
+        if (module.Locked.Any(l => SyntheticTruckData.Hex(l) == did))
         {
             return "7F2233\r\r>";
         }
 
-        return module.TryGetValue(did, out var read)
-            ? Frames([0x62, (byte)(did >> 8), (byte)did, .. read()])
-            : "7F2231\r\r>";
-    }
+        if (did == IdentityDid)
+        {
+            return module.Identity is { } identity
+                ? Frames([0x62, (byte)(did >> 8), (byte)did, .. SyntheticEncoding.Ascii(identity)])
+                : "7F2231\r\r>";
+        }
 
-    private static byte[] Ascii(string text) => Encoding.ASCII.GetBytes(text);
+        var identifier = module.Identifiers.FirstOrDefault(i => SyntheticTruckData.Hex(i.Did) == did);
+        byte[]? data = identifier switch
+        {
+            null => null,
+            { Text: "$vin" } => _data.Vin is { } vin ? SyntheticEncoding.Ascii(vin) : null,
+            { Text: { } text } => SyntheticEncoding.Ascii(text),
+            _ => SyntheticEncoding.Encode(identifier, _truck),
+        };
+
+        return data is null ? "7F2231\r\r>" : Frames([0x62, (byte)(did >> 8), (byte)did, .. data]);
+    }
 
     /// <summary>
     /// Print a reply the way an ELM327 with spaces off does: one line when it fits a CAN frame,
@@ -634,10 +696,12 @@ public sealed class SyntheticTransport : IStreamingTransport
             yield break;
         }
 
-        var last = new Dictionary<uint, DateTimeOffset>();
-        byte counter = 0;
+        var frames = _data.Broadcast
+            .Select(f => (Frame: f, Id: uint.TryParse(f.Id, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var id) ? id : (uint?)null))
+            .Where(f => f.Id is not null)
+            .Select(f => new FrameState(f.Frame, f.Id!.Value))
+            .ToList();
         var sent = 0;
-        var lastPassenger = (bool?)null;
 
         while (!ct.IsCancellationRequested && !_unplugged)
         {
@@ -645,78 +709,29 @@ public sealed class SyntheticTransport : IStreamingTransport
             var now = _clock.UtcNow;
             var lines = new List<string>();
 
-            bool Due(uint id, int periodMs)
+            if (!Pins311Mismatched)
             {
-                if (last.TryGetValue(id, out var at) && (now - at).TotalMilliseconds < periodMs)
+                foreach (var state in frames.Where(f => f.Frame.Bus == _bus))
                 {
-                    return false;
-                }
+                    var due = state.Frame.OnChange || state.Last is not { } at || (now - at).TotalMilliseconds >= state.Frame.PeriodMs;
+                    if (!due)
+                    {
+                        continue;
+                    }
 
-                last[id] = now;
-                return true;
-            }
+                    var data = BuildFrame(state);
+                    if (state.Frame.OnChange && state.LastData is { } previous && previous.SequenceEqual(data))
+                    {
+                        continue;
+                    }
 
-            void Emit(uint id, params byte[] data)
-            {
-                if (_receiveFilter is null || _receiveFilter == id)
-                {
-                    lines.Add($"{id:X3} {string.Join(' ', data.Select(b => b.ToString("X2", CultureInfo.InvariantCulture)))}");
-                }
-            }
+                    state.Last = now;
+                    state.LastData = data;
 
-            var cabin = _truck.Cabin;
-
-            if (Pins311Mismatched)
-            {
-                // The wrong rate: silence.
-            }
-            else if (_bus == CanBus.Ms)
-            {
-                if (Due(0x3B3, 100))
-                {
-                    var doors = (byte)((cabin.DriverDoorOpen ? 1 : 0) | (cabin.PassengerDoorOpen ? 2 : 0));
-                    Emit(0x3B3, doors, 0x40, Seat(cabin.DriverSeat), Seat(cabin.PassengerSeat),
-                        (byte)(cabin.WheelHeat ? 1 : 0), 0x00, 0x00, 0x00);
-                }
-
-                if (Due(0x3C1, 200))
-                {
-                    var flags = (byte)((cabin.AirConditioning ? 1 : 0) | (cabin.Recirculate ? 2 : 0) |
-                                       (cabin.RearDefrost ? 4 : 0) | (cabin.Auto ? 8 : 0));
-                    Emit(0x3C1, (byte)cabin.Fan, flags, (byte)Math.Round(cabin.DriverSetTempC * 2), 0x03);
-                }
-
-                if (Due(0x42F, 500))
-                {
-                    Emit(0x42F, (byte)((cabin.DriverSeatbeltBuckled ? 0 : 1) | (cabin.ParkingBrake ? 2 : 0)), 0x00);
-                }
-
-                // Sent only when it changes: the passenger door's own frame.
-                if (lastPassenger != cabin.PassengerDoorOpen)
-                {
-                    lastPassenger = cabin.PassengerDoorOpen;
-                    Emit(0x3D5, (byte)(cabin.PassengerDoorOpen ? 0x10 : 0x00));
-                }
-
-                if (Due(0x4A0, 50))
-                {
-                    counter = (byte)((counter + 1) & 0x0F);
-                    var noise = (byte)_truck.Random.Next(256);
-                    Emit(0x4A0, counter, noise, 0x00, 0x00, 0x00, 0x00, 0x00, (byte)(counter ^ noise));
-                }
-            }
-            else
-            {
-                if (Due(0x201, 20))
-                {
-                    var rpm = (ushort)Math.Round(_truck.Rpm * 4);
-                    var speed = (ushort)Math.Round(_truck.SpeedKph * 100);
-                    Emit(0x201, (byte)(rpm >> 8), (byte)rpm, 0x00, 0x00, (byte)(speed >> 8), (byte)speed, 0x00, 0x00);
-                }
-
-                if (Due(0x420, 100))
-                {
-                    Emit(0x420, Temp(_truck.CoolantTempC), 0x00, 0x00);
+                    if (_receiveFilter is null || _receiveFilter == state.Id)
+                    {
+                        lines.Add($"{state.Id:X3} {string.Join(' ', data.Select(b => b.ToString("X2", CultureInfo.InvariantCulture)))}");
+                    }
                 }
             }
 
@@ -742,19 +757,65 @@ public sealed class SyntheticTransport : IStreamingTransport
         }
     }
 
-    /// <summary>A seat's level as one byte: heat in the low nibble, cooling in the high one.</summary>
-    private static byte Seat(int level) => level >= 0 ? (byte)level : (byte)(-level << 4);
+    /// <summary>One broadcast frame's description and what the monitor last did with it.</summary>
+    private sealed class FrameState(SyntheticFrame frame, uint id)
+    {
+        public SyntheticFrame Frame { get; } = frame;
 
-    private static byte Temp(double celsius) => (byte)Math.Clamp(Math.Round(celsius + 40), 0, 255);
+        public uint Id { get; } = id;
 
-    private static byte Scale255(double percent) => (byte)Math.Clamp(Math.Round(percent * 255.0 / 100.0), 0, 255);
+        public DateTimeOffset? Last { get; set; }
 
-    /// <summary>Encode psi at the catalog's 0.25 psi per count.</summary>
-    private static byte Psi(double psi) => (byte)Math.Clamp(Math.Round(psi * 4.0), 0, 255);
+        public byte[]? LastData { get; set; }
 
-    private static byte[] TwoByte(ushort value) => [(byte)(value >> 8), (byte)(value & 0xFF)];
+        public int Counter { get; set; }
 
-    private static byte[] FourByte(uint value) => [(byte)(value >> 24), (byte)(value >> 16), (byte)(value >> 8), (byte)(value & 0xFF)];
+        /// <summary>The frame's byte descriptions, read once.</summary>
+        public List<(byte? Constant, SyntheticByteSource? Source)> Parts { get; } = [.. frame.Bytes.Select(Part)];
+
+        private static (byte?, SyntheticByteSource?) Part(System.Text.Json.JsonElement element) =>
+            element.ValueKind == System.Text.Json.JsonValueKind.Number
+                ? ((byte)element.GetInt32(), null)
+                : (null, System.Text.Json.JsonSerializer.Deserialize<SyntheticByteSource>(element, PartOptions));
+
+        private static readonly System.Text.Json.JsonSerializerOptions PartOptions = new() { PropertyNameCaseInsensitive = true };
+    }
+
+    /// <summary>A frame's bytes now: constants, encoded values and bits, then counters, noise and XORs.</summary>
+    private byte[] BuildFrame(FrameState state)
+    {
+        var bytes = new List<byte>();
+        var xors = new List<(int At, IReadOnlyList<int> Of)>();
+
+        foreach (var (constant, source) in state.Parts)
+        {
+            if (constant is { } c)
+            {
+                bytes.Add(c);
+            }
+            else if (source is { Counter: { } wrap })
+            {
+                state.Counter = (state.Counter + 1) & wrap;
+                bytes.Add((byte)state.Counter);
+            }
+            else if (source is { Xor.Count: > 0 })
+            {
+                xors.Add((bytes.Count, source.Xor));
+                bytes.Add(0);
+            }
+            else if (source is not null)
+            {
+                bytes.AddRange(SyntheticEncoding.Encode(source, _truck) ?? new byte[source.ByteLength]);
+            }
+        }
+
+        foreach (var (at, of) in xors)
+        {
+            bytes[at] = of.Aggregate((byte)0, (acc, i) => (byte)(acc ^ (i < bytes.Count ? bytes[i] : 0)));
+        }
+
+        return [.. bytes];
+    }
 
     /// <summary>Format a positive response exactly as an ELM327 with spaces and echo off.</summary>
     private static string Respond(byte mode, byte pid, byte[] payload)

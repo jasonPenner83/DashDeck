@@ -99,10 +99,31 @@ public sealed partial class SignalEditorViewModel : ObservableObject
         // would quietly change a definition the user only meant to rename.
         _kind = start.Kind;
         _stalenessSeconds = start.StalenessSeconds;
+
+        // The mask (a switch's bit, a state's field) and the named states (ADR-0056): the ID
+        // matcher found them; TEST and save here must not quietly drop them.
+        _mask = start.Decode.Mask;
+        _states = start.States;
+        _hidden = start.Hidden;
+        _unconfirmed = start.Unconfirmed;
     }
+
+    private readonly bool _hidden;
+    private readonly bool _unconfirmed;
+
+    /// <summary>The request the last TEST asked, so a passed TEST only confirms what it actually asked.</summary>
+    private string? _testedRequest;
+
+    /// <summary>
+    /// True when a typed definition (ADR-0051) has had TEST answer exactly what will be saved, so it
+    /// is saved confirmed and the card editor offers it.
+    /// </summary>
+    public bool ConfirmedByTest => _lastPayload is not null && _testedRequest == RequestText;
 
     private readonly SignalSourceKind _kind;
     private readonly double? _stalenessSeconds;
+    private readonly long? _mask;
+    private readonly IReadOnlyList<SignalState>? _states;
 
     /// <summary>True when this adds a signal rather than editing one.</summary>
     public bool IsNew { get; }
@@ -317,11 +338,14 @@ public sealed partial class SignalEditorViewModel : ObservableObject
             Mode = (byte)mode,
             Pid = (ushort)pid,
             Module = string.IsNullOrWhiteSpace(ModuleText) ? null : ModuleText.Trim().ToUpperInvariant().Replace("0X", "", StringComparison.Ordinal),
-            Decode = new DecodeSpec(byteOffset, _byteLength, IsSigned, scale, offset, (Unit ?? "").Trim()),
+            Decode = new DecodeSpec(byteOffset, _byteLength, IsSigned, scale, offset, (Unit ?? "").Trim(), _mask),
+            States = _states,
             DefaultRateHz = rate,
             StalenessSeconds = _stalenessSeconds,
             Min = min,
             Max = max,
+            Hidden = _hidden,
+            Unconfirmed = _unconfirmed && !ConfirmedByTest,
         };
 
         problems = SignalCatalog.Check(definition);
@@ -344,7 +368,9 @@ public sealed partial class SignalEditorViewModel : ObservableObject
     /// <summary>The line under the form — the first problem, or the go-ahead.</summary>
     public string Message => Problems.FirstOrDefault() is { } first
         ? char.ToUpperInvariant(first[0]) + first[1..] + "."
-        : "Ready to save. Takes effect at the next launch.";
+        : _unconfirmed && !ConfirmedByTest
+            ? "Typed in the ID matcher and not confirmed yet: TEST it, then save, and the card editor will offer it."
+            : "Ready to save. Takes effect at the next launch.";
 
     private bool CanSave() => !HasProblems;
 
@@ -416,7 +442,7 @@ public sealed partial class SignalEditorViewModel : ObservableObject
                 return "Fix the formula above to decode these bytes.";
             }
 
-            var spec = new DecodeSpec(byteOffset, _byteLength, IsSigned, scale, offset, Unit ?? "");
+            var spec = new DecodeSpec(byteOffset, _byteLength, IsSigned, scale, offset, Unit ?? "", _mask);
 
             if (spec.Decode(_lastPayload) is not { } value)
             {
@@ -426,7 +452,9 @@ public sealed partial class SignalEditorViewModel : ObservableObject
             var min = ParseOptional(MinText, "", []);
             var max = ParseOptional(MaxText, "", []);
             var inRange = (min is null || value >= min) && (max is null || value <= max);
-            var shown = string.Create(CultureInfo.InvariantCulture, $"{value:0.###} {Unit}").Trim();
+            var shown = _states is { Count: > 0 }
+                ? SignalState.NameOf(_states, value) is { } state ? state : string.Create(CultureInfo.InvariantCulture, $"{value:0.###}, which names no state")
+                : string.Create(CultureInfo.InvariantCulture, $"{value:0.###} {Unit}").Trim();
 
             return inRange
                 ? $"Decodes to {shown}."
@@ -454,6 +482,7 @@ public sealed partial class SignalEditorViewModel : ObservableObject
             var response = await _probe(new PidRequest((byte)mode, (ushort)pid, bus, module), timeout.Token);
 
             _lastPayload = response.IsSuccess ? response.Data : null;
+            _testedRequest = RequestText;
             TestRaw = response.IsSuccess
                 ? string.Join(' ', response.Data.Select(b => b.ToString("X2", CultureInfo.InvariantCulture)))
                 : response.Failure switch
@@ -475,6 +504,8 @@ public sealed partial class SignalEditorViewModel : ObservableObject
             IsTesting = false;
             HasTested = true;
             OnPropertyChanged(nameof(TestDecoded));
+            OnPropertyChanged(nameof(Message));
+            OnPropertyChanged(nameof(ConfirmedByTest));
         }
     }
 

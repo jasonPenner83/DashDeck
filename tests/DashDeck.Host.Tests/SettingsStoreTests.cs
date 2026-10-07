@@ -29,6 +29,16 @@ public sealed class SettingsStoreTests
     }
 
     [Fact]
+    public void Fast_requests_are_on_for_a_file_written_before_they_existed_and_off_when_turned_off()
+    {
+        var older = JsonSerializer.Deserialize<UserSettings>("""{ "themeMode": "Day" }""", Options);
+        var off = JsonSerializer.Deserialize<UserSettings>("""{ "fastRequests": false }""", Options);
+
+        Assert.True(older!.FastRequests);
+        Assert.False(off!.FastRequests);
+    }
+
+    [Fact]
     public void A_file_from_a_newer_build_loads_rather_than_throwing()
     {
         var settings = JsonSerializer.Deserialize<UserSettings>(
