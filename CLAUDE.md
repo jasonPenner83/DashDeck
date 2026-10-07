@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **809 tests green** — 397 engine, 412 shell.
+(ADR-0010). **810 tests green** — 397 engine, 413 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -299,7 +299,7 @@ what the simulator taught it. One way only — once live, a lost cable is Stale,
 **Settings ▸ Vehicle lists tested ports** (identity, baud, voltage at the OBD port, or why not)
 to choose the adapter from.
 
-Eight traps already hit and worth not re-learning:
+Nine traps already hit and worth not re-learning:
 
 - **`InvariantGlobalization` breaks WPF.** `Directory.Build.props` sets it for the whole
   solution, which is right for the headless engine. WPF's font stack builds a
@@ -348,6 +348,13 @@ Eight traps already hit and worth not re-learning:
   `Local\` named mutex from launch until the vehicle stack has closed the port; a newcomer brings the
   running dash forward, or waits (up to 20 s, `InstanceGate`) for one that is starting or closing.
   RESTART NOW releases it before starting its successor.
+
+- **A `ScrollViewer` ignores a finger unless `PanningMode` is set.** Every page of Settings and the
+  card editor shipped without it: they scrolled with a mouse wheel at a desk and not at all on the
+  tablet, where the sensor list could not be reached past the first screen. Each now says
+  `PanningMode="VerticalOnly"`, the window swallows `ManipulationBoundaryFeedback` (so a list dragged
+  past its end does not drag the whole dash after it), and `TouchScrollingTests` fails any new
+  `ScrollViewer` without it.
 
 Also worth knowing: `MeasuredRequestsPerSecond` — the `req/s` on the status strip — is the
 adapter's measured **capability**, not the achieved load. It is not a way to check whether

@@ -33,6 +33,11 @@ public partial class MainWindow : Window
         // and out of a truck. Rotating changes the work area but not the window, so without
         // this the shell keeps the old landscape rectangle and stops filling the screen.
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+
+        // A list dragged past its end by a finger makes Windows shove the whole window after it, to
+        // show the edge — on a full-screen dash that reads as the dash coming loose. The list
+        // stopping is feedback enough.
+        ManipulationBoundaryFeedback += (_, e) => e.Handled = true;
     }
 
     /// <summary>

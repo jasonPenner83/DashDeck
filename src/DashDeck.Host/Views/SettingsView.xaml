@@ -200,7 +200,7 @@
         <Grid Grid.Column="1">
 
             <!-- ── APPEARANCE ─────────────────────────────────────────────── -->
-            <ScrollViewer VerticalScrollBarVisibility="Auto"
+            <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
                           Visibility="{Binding IsAppearance, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="31,26,31,24">
 
@@ -320,7 +320,7 @@
             </ScrollViewer>
 
             <!-- ── THEMES (ADR-0036) ──────────────────────────────────────── -->
-            <ScrollViewer VerticalScrollBarVisibility="Auto"
+            <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
                           Visibility="{Binding IsThemes, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="31,26,31,24" DataContext="{Binding Themes}">
                     <TextBlock Style="{StaticResource CaptionText}" Text="THEMES" />
@@ -488,7 +488,7 @@
             </ScrollViewer>
 
             <!-- ── MOUNT ──────────────────────────────────────────────────── -->
-            <ScrollViewer VerticalScrollBarVisibility="Auto"
+            <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
                           Visibility="{Binding IsMount, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="31,26,31,24">
                     <TextBlock Style="{StaticResource CaptionText}" Text="MOUNT LEVELLING" />
@@ -520,7 +520,7 @@
             </ScrollViewer>
 
             <!-- ── DISPLAY ────────────────────────────────────────────────── -->
-            <ScrollViewer VerticalScrollBarVisibility="Auto"
+            <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
                           Visibility="{Binding IsDisplay, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="31,26,31,24">
                     <TextBlock Style="{StaticResource CaptionText}" Text="WEB SCALE" />
@@ -639,7 +639,7 @@
             </ScrollViewer>
 
             <!-- ── VEHICLE (ADR-0029, ADR-0033) ────────────────────────────────────── -->
-            <ScrollViewer VerticalScrollBarVisibility="Auto"
+            <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
                           Visibility="{Binding IsVehicle, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="31,26,31,24">
                     <!-- Which vehicle this is, from its VIN (ADR-0033). Truck first, typed as the fallback. -->
@@ -942,7 +942,7 @@
                 <Grid DataContext="{Binding Inventory}">
 
                     <!-- The inventory: every signal and sensor, the scan, the way in to the editor. -->
-                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
                                   Visibility="{Binding IsListing, Converter={StaticResource BoolToVis}}">
                         <StackPanel Margin="31,26,31,24">
                             <TextBlock Style="{StaticResource CaptionText}" Text="SENSORS" />
@@ -1379,7 +1379,7 @@
                     </ScrollViewer>
 
                     <!-- The editor: one definition, tested against the truck before it is saved. -->
-                    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
                                   Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}">
                         <StackPanel Margin="31,26,31,24" DataContext="{Binding Editor}">
                             <TextBlock Style="{StaticResource CaptionText}" Text="{Binding Title}" />
@@ -1573,7 +1573,7 @@
             </Grid>
 
             <!-- ── APPS (ADR-0024) ───────────────────────────────────────── -->
-            <ScrollViewer VerticalScrollBarVisibility="Auto"
+            <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
                           Visibility="{Binding IsApps, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="31,26,31,24">
                     <TextBlock Style="{StaticResource CaptionText}" Text="STAGE APPS" />
@@ -1734,7 +1734,7 @@
             </ScrollViewer>
 
             <!-- ── DIAGNOSTICS ────────────────────────────────────────────── -->
-            <ScrollViewer VerticalScrollBarVisibility="Auto"
+            <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
                           Visibility="{Binding IsDiagnostics, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="31,26,31,24">
                     <TextBlock Style="{StaticResource CaptionText}" Text="DIAGNOSTICS" />
