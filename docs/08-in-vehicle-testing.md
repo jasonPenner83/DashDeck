@@ -1176,3 +1176,20 @@ DISMISS.
 **A failure looks like:** a state lit that the truck is not in; a row that stays on one state while
 the knob moves; `?` with a number when the truck is in a state that was typed (the field is wrong —
 match again); TEST saying a number instead of a name.
+
+## Scrolling with a finger (touch fix)
+
+**You need:** the tablet, in tablet mode, no keyboard or mouse attached. No truck needed.
+
+1. Settings ▸ **Sensors**. Put a finger on the list and drag up. **Expect** the list to follow the
+   finger and carry on a little when you let go, down to the last signal.
+2. Drag past the bottom. **Expect** the list to stop; the whole dash must **not** slide up with it.
+3. Tap a signal in the middle of the list. **Expect** its editor to open — a tap is still a tap, not
+   the start of a scroll. BACK.
+4. The same in Settings ▸ **Appearance**, **Themes**, **Vehicle**, **Apps** and **Diagnostics**, and
+   in the card editor (MODIFY WIDGETS, tap a card): each scrolls with a finger, and its buttons still
+   answer a tap.
+
+**A failure looks like:** a list that will not move under a finger; the whole window shifting when a
+list reaches its end; a button inside a list that no longer answers a tap (it would need the same
+fix the card strip has, `DashboardView.HandleTap`).

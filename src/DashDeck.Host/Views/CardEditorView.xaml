@@ -145,7 +145,7 @@
             <Border BorderBrush="{DynamicResource HairlineBrush}"
                     BorderThickness="1"
                     CornerRadius="14">
-                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
                               MaxHeight="322"
                               Padding="14,12,14,4">
                     <ItemsControl ItemsSource="{Binding SignalGroups}">
