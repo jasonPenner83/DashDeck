@@ -34,8 +34,22 @@ public sealed class SyntheticDongleTransport : IDongleTransport
     /// <inheritdoc />
     public bool IsConnected { get; private set; }
 
-    /// <summary>Every message the host has sent. What the tests assert against.</summary>
-    public List<DongleMessage> Sent { get; } = [];
+    private readonly List<DongleMessage> _sent = [];
+
+    /// <summary>Every message the host has sent, as a copy. What the tests assert against.</summary>
+    public IReadOnlyList<DongleMessage> Sent
+    {
+        get
+        {
+            lock (_sent)
+            {
+                return [.. _sent];
+            }
+        }
+    }
+
+    /// <summary>Raised for each message the host sends — the heartbeat's thread included.</summary>
+    public event Action<DongleMessage>? MessageSent;
 
     /// <inheritdoc />
     public Task<bool> OpenAsync(CancellationToken ct)
@@ -44,7 +58,11 @@ public sealed class SyntheticDongleTransport : IDongleTransport
 
         // A real dongle announces the phone shortly after the host opens it. Queued rather
         // than delayed, so a test does not have to wait for wall-clock time to pass.
-        _inbound.Writer.TryWrite(new DongleMessage(DongleMessageType.Plugged, ReadOnlyMemory<byte>.Empty));
+        // It says Android Auto, over Wi-Fi: the phone type, then 1 for wireless.
+        var plugged = new byte[8];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(plugged, (int)PhoneType.AndroidAuto);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(plugged.AsSpan(4), 1);
+        _inbound.Writer.TryWrite(new DongleMessage(DongleMessageType.Plugged, plugged));
 
         return Task.FromResult(true);
     }
@@ -75,7 +93,12 @@ public sealed class SyntheticDongleTransport : IDongleTransport
     /// <inheritdoc />
     public Task SendAsync(DongleMessage message, CancellationToken ct)
     {
-        Sent.Add(message);
+        lock (_sent)
+        {
+            _sent.Add(message);
+        }
+
+        MessageSent?.Invoke(message);
         return Task.CompletedTask;
     }
 

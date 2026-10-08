@@ -13,8 +13,9 @@ namespace DashDeck.Host.Stage;
 /// unit (ADR-0019). The alternative was implementing a proprietary protocol and reparenting
 /// somebody else's Qt window into the stage; this is a framed byte stream and a decode.
 /// <para>
-/// <b>The hardware is chosen and not bought</b>, so this runs against a synthetic dongle that
-/// answers the handshake and sends no frames. The screen says exactly that.
+/// The picture is decoded into the stage and the sound played on Windows' default output
+/// (ADR-0057). <c>--synthetic-dongle</c> runs it at a desk against a dongle that answers the
+/// handshake and sends no frames, and says exactly that.
 /// </para>
 /// </remarks>
 public sealed class PhoneLinkStageOccupant(IClock clock) : IStageOccupant

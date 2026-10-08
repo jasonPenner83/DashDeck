@@ -3,10 +3,9 @@ namespace DashDeck.Host.PhoneLink;
 /// <summary>How the dongle is reached. USB today, in principle anything.</summary>
 /// <remarks>
 /// The same seam the vehicle stack has between <c>SyntheticTransport</c> and a real adapter
-/// (ADR-0003), and it exists here for the same reason: <b>the hardware has not been bought</b>.
-/// A Carlinkit CPC200 is chosen and not ordered, so everything above this line is written,
-/// run and tested against a synthetic one — and when the real device arrives, one
-/// implementation of this interface is the whole of the work (ADR-0005, ADR-0019).
+/// (ADR-0003), and for the same reason: everything above this line is written, run and tested
+/// against a synthetic dongle on a desk, and <see cref="UsbDongleTransport"/> is the only part
+/// that needs the real one (ADR-0005, ADR-0019, ADR-0057).
 /// </remarks>
 public interface IDongleTransport : IAsyncDisposable
 {
@@ -15,6 +14,9 @@ public interface IDongleTransport : IAsyncDisposable
 
     /// <summary>True once the device is open and readable.</summary>
     bool IsConnected { get; }
+
+    /// <summary>Why the last open found nothing usable, in words for the screen; null when it opened.</summary>
+    string? Problem => null;
 
     /// <summary>Open the device. Returns false when there is nothing to open.</summary>
     Task<bool> OpenAsync(CancellationToken ct);
@@ -31,43 +33,4 @@ public interface IDongleTransport : IAsyncDisposable
 
     /// <summary>Send a framed message.</summary>
     Task SendAsync(DongleMessage message, CancellationToken ct);
-}
-
-/// <summary>
-/// The USB transport, for when the dongle exists.
-/// </summary>
-/// <remarks>
-/// <b>Deliberately not implemented.</b> It needs a Carlinkit CPC200 in hand and a WinUSB
-/// binding for its VID/PID — the second driver exception, which ADR-0019 amends ADR-0007 to
-/// admit. Writing it against a device nobody has would be guessing at bulk endpoint numbers
-/// and transfer sizes, and a guess that compiles is worse than a gap that does not: the gap
-/// is visible, and this one is one class long.
-/// <para>
-/// Everything it will plug into — the framing, the session, the stage occupant — is finished
-/// and exercised against <see cref="SyntheticDongleTransport"/>.
-/// </para>
-/// </remarks>
-public sealed class UsbDongleTransport : IDongleTransport
-{
-    /// <summary>The CPC200 family. Confirmed against the device before this is trusted.</summary>
-    public const int VendorId = 0x1314;
-
-    /// <inheritdoc />
-    public string Name => "CPC200 (USB)";
-
-    /// <inheritdoc />
-    public bool IsConnected => false;
-
-    /// <inheritdoc />
-    public Task<bool> OpenAsync(CancellationToken ct) => Task.FromResult(false);
-
-    /// <inheritdoc />
-    public Task<DongleMessage?> ReadAsync(CancellationToken ct) =>
-        Task.FromResult<DongleMessage?>(null);
-
-    /// <inheritdoc />
-    public Task SendAsync(DongleMessage message, CancellationToken ct) => Task.CompletedTask;
-
-    /// <inheritdoc />
-    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
