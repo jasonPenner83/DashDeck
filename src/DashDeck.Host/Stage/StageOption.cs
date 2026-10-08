@@ -192,8 +192,8 @@ public sealed record StageOption(
                 return Screen("Time and weather", () => new ClockWeatherStageOccupant(clock, weather));
 
             case LauncherTypes.Phone:
-                // Android Auto and CarPlay through a Carlinkit dongle (ADR-0019), against a
-                // synthetic one until it is bought, and saying so.
+                // Android Auto and CarPlay through a Carlinkit dongle over USB (ADR-0019, ADR-0057);
+                // a synthetic one with --synthetic-dongle.
                 return Screen("Android Auto · CarPlay", () => new PhoneLinkStageOccupant(clock));
 
             case LauncherTypes.Video:

@@ -1193,3 +1193,39 @@ match again); TEST saying a number instead of a name.
 **A failure looks like:** a list that will not move under a finger; the whole window shifting when a
 list reaches its end; a button inside a list that no longer answers a tap (it would need the same
 fix the card strip has, `DashboardView.HandleTap`).
+
+## Android Auto on the stage (ADR-0057)
+
+**At the desk first** (no dongle): `dotnet run --project src/DashDeck.Host -- --synthetic-dongle`.
+
+1. Choose **PHONE** on the launcher bar. **Expect** *ANDROID AUTO CONNECTED — The session is open and
+   no picture has arrived yet*, and `SYNTHETIC DONGLE` under it. Without `--synthetic-dongle`
+   **expect** *NO DONGLE — No Carlinkit dongle is plugged in… Looking again every few seconds.*
+
+**You need:** the Carlinkit CPC200-CCPA, bound to WinUSB with Zadig
+([phone-projection.md](phone-projection.md)); the phone; the truck parked, engine running (the
+dongle and the Surface draw power); **the Pi unplugged from SYNC 3** for this test.
+
+2. Plug the dongle into the Surface. Open DashDeck, choose **PHONE**. **Expect** *WAITING FOR A PHONE*
+   within five seconds (it looks again by itself if it said NO DONGLE first).
+3. Pair the phone with **DashDeck** over Bluetooth and accept Android Auto on the phone. **Expect**
+   within about 30 s the headline to read **ANDROID AUTO**, then the Android Auto screen filling the
+   stage — no black band at the sides beyond a thin one.
+4. Tap the Maps icon. **Expect** Maps to open; the tap lands where your finger was. Drag the map.
+   **Expect** it to follow your finger.
+5. Play music on the phone through Android Auto. **Expect** it from the Surface's speakers (or
+   whatever Windows' output is set to). Start navigation to somewhere; **expect** directions to speak
+   over the music.
+6. Open the three-dot menu. **Expect** it drawn over the picture, not under it. Choose DASH below the
+   stage and come back to PHONE. **Expect** the picture still live.
+7. Close DashDeck and open it again, choose PHONE. **Expect** the phone to reconnect by itself, without
+   touching it.
+8. Pull the dongle out. **Expect** *LINK LOST*, then *NO DONGLE*; plug it back in and **expect** it to
+   find the dongle again within a few seconds and the phone to return.
+
+**A failure looks like:** *NO DONGLE — not bound to WinUSB* after Zadig (bind the right device);
+stuck on *WAITING FOR A PHONE* with the phone paired (the Pi took it, or the dongle wants Android Auto
+switched on — tell me the dongle's firmware from its own web page); *CONNECTED* with no picture for
+more than 30 s; a picture that is stretched or tapped in the wrong place (send a photo); sound
+stuttering or seconds late; the picture freezing (RECONNECT from the three-dot menu, and tell me
+when it happened).

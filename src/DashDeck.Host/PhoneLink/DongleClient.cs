@@ -77,6 +77,21 @@ public sealed class DongleClient : IAsyncDisposable
     /// <summary>Raised for each H.264 payload. The decoder's input, when there is one.</summary>
     public event Action<ReadOnlyMemory<byte>>? VideoArrived;
 
+    /// <summary>Raised for each audio message — PCM, or a stream starting or stopping (ADR-0057).</summary>
+    public event Action<DongleAudio>? AudioArrived;
+
+    /// <summary>Audio messages received.</summary>
+    public long AudioPackets { get; private set; }
+
+    /// <summary>What kind of phone session is open: Android Auto, CarPlay…</summary>
+    public PhoneType PhoneType { get; private set; }
+
+    /// <summary>
+    /// How long after the setup the dongle is told to reconnect the last phone it knew. The community
+    /// driver waits a second, so the dongle has applied its settings first.
+    /// </summary>
+    public static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(1);
+
     /// <summary>
     /// Open the dongle and start pumping.
     /// </summary>
@@ -85,15 +100,28 @@ public sealed class DongleClient : IAsyncDisposable
     /// anything is expected back — a dongle that has not been told the screen size projects
     /// nothing at all rather than projecting badly.
     /// </remarks>
-    public async Task<bool> StartAsync(int width, int height, int frameRate, CancellationToken ct)
+    public Task<bool> StartAsync(int width, int height, int frameRate, CancellationToken ct) =>
+        StartAsync(new DongleSetup(width, height, frameRate), ct);
+
+    /// <summary>
+    /// Open the dongle, send the whole setup — geometry, Android Auto on, audio to the host — and
+    /// start pumping (ADR-0057).
+    /// </summary>
+    public async Task<bool> StartAsync(DongleSetup setup, CancellationToken ct)
     {
+        ArgumentNullException.ThrowIfNull(setup);
+
         if (!await _transport.OpenAsync(ct).ConfigureAwait(false))
         {
             Move(PhoneLinkState.NoDongle);
             return false;
         }
 
-        await _transport.SendAsync(DongleMessage.Open(width, height, frameRate), ct).ConfigureAwait(false);
+        foreach (var message in setup.Messages(_clock.UtcNow))
+        {
+            await _transport.SendAsync(message, ct).ConfigureAwait(false);
+        }
+
         Move(PhoneLinkState.WaitingForPhone);
 
         _pump = Task.Run(() => PumpAsync(_stopping.Token), CancellationToken.None);
@@ -168,10 +196,21 @@ public sealed class DongleClient : IAsyncDisposable
         switch (message.Type)
         {
             case DongleMessageType.Plugged:
+                PhoneType = DongleFiles.ReadPhoneType(message.Payload.Span);
                 Move(PhoneLinkState.Projecting);
                 break;
 
+            case DongleMessageType.AudioData:
+                if (DongleAudio.TryRead(message.Payload) is { } audio)
+                {
+                    AudioPackets++;
+                    AudioArrived?.Invoke(audio);
+                }
+
+                break;
+
             case DongleMessageType.Unplugged:
+                PhoneType = PhoneType.Unknown;
                 Move(PhoneLinkState.WaitingForPhone);
                 break;
 
@@ -212,6 +251,11 @@ public sealed class DongleClient : IAsyncDisposable
 
         try
         {
+            // Once the settings have taken, ask for the last phone it knew — the way the dash
+            // reconnects without anyone touching the phone.
+            await Task.Delay(ReconnectDelay, ct).ConfigureAwait(false);
+            await _transport.SendAsync(DongleFiles.Command(DongleCommand.WifiConnect), ct).ConfigureAwait(false);
+
             while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
             {
                 await _transport.SendAsync(DongleMessage.Heartbeat(), ct).ConfigureAwait(false);

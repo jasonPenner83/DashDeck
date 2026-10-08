@@ -8,15 +8,22 @@
 
     <Grid>
         <!--
-            The projected picture will land here once the USB transport exists. Until then
-            this stays empty rather than showing an invented frame: a synthetic picture would
-            be the one thing on this dash that looks like it is working when nothing is
-            connected.
+            The phone's screen, decoded into a bitmap in WPF's own tree (ADR-0057): the stage clips
+            it and the three-dot menu draws over it. Scaled uniformly and centred; touch is mapped
+            to the picture as drawn, so a phone that renders its own size still lines up.
         -->
-        <Border x:Name="Surface" Background="Black"
-                Visibility="{Binding IsProjecting, Converter={StaticResource BoolToVis}}" />
+        <Border Background="Black"
+                Visibility="{Binding IsProjecting, Converter={StaticResource BoolToVis}}">
+            <Image x:Name="Screen"
+                   Source="{Binding Picture}"
+                   Stretch="Uniform"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   RenderOptions.BitmapScalingMode="LowQuality" />
+        </Border>
 
-        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="640">
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="640"
+                    Visibility="{Binding IsProjecting, Converter={StaticResource NotBoolToVisToken}}">
             <TextBlock HorizontalAlignment="Center"
                        FontFamily="{DynamicResource UiFont}"
                        FontSize="34"

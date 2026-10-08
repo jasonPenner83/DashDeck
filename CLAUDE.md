@@ -22,7 +22,7 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **810 tests green** — 397 engine, 413 shell.
+(ADR-0010). **852 tests green** — 397 engine, 455 shell.
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -31,7 +31,7 @@ dotnet run --project src/DashDeck.DebugConsole -- cold-start-city --seconds 60
 
 The shell renders the six-band layout, the status strip and the nav. The **stage** takes
 occupants chosen from the launcher bar below it: a clock-and-weather face, a **compass** with
-a G meter and vehicle pitch and roll, **phone projection** (ADR-0019), local video (LibVLC),
+a G meter and vehicle pitch and roll, **phone projection** (ADR-0019, ADR-0057), local video (LibVLC),
 web applets in WebView2, and **native Windows apps** — left as real top-level windows, *owned*
 by the shell and placed over the stage (ADR-0021, superseding ADR-0020's re-parenting), so they
 keep their own focus, DPI and input. They report `Hosted` or `Outside` rather than pretending
@@ -451,8 +451,19 @@ hardware-side work, and the tools are on the tablet: **SCAN FOR MODULES** finds 
 a module's **identifier sweep** finds candidates, and **TEST** in the editor confirms one while
 the thing it measures changes (ADR-0032, ADR-0035). Confirmed values go in the vehicle pack.
 
-The **Carlinkit CPC200** for Android Auto and CarPlay (ADR-0019) is chosen and not bought; it
-is built against a synthetic transport behind a seam, so it is not blocking.
+**Android Auto is on the stage through a Carlinkit CPC200-CCPA** (ADR-0019, ADR-0057) — being bought,
+**not yet seen working** (Q25). `UsbDongleTransport` reaches it by WinUSB P/Invoke (SetupAPI finds
+`1314:1520`/`1521`, the device key is *read* for its interface GUID, bulk pipes from its own
+descriptor), bound once by hand with Zadig — the second driver exception. `DongleSetup` sends the
+community driver's whole setup in its order, ending with `/etc/android_work_mode` = 1 (without it a
+CarPlay-first dongle never offers Android Auto), then asks for the last phone a second later.
+`DongleFrameReader` reassembles reads and resyncs. H.264 goes through an `H264Pipe` into LibVLC with
+**memory callbacks into a `WriteableBitmap`** — the picture is in the visual tree, never a child
+window — and touch is mapped to the picture *as drawn*. PCM goes to **Windows' default output**
+(`ProjectionAudio`, `waveOut`, one player per format; F21 resolved) — DashDeck never picks the
+truck's audio. No dongle: the screen says why and looks again every 5 s; `--synthetic-dongle` at a
+desk. **Android Auto always needs the phone**; Android Automotive is a separate experiment (Q26), and
+the Pi Zero 2 W stays giving SYNC 3 wireless Android Auto. Setup: [`docs/phone-projection.md`](docs/phone-projection.md).
 
 ## Things that are easy to get wrong here
 
@@ -528,7 +539,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Fifty-six exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Fifty-seven exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -563,7 +574,9 @@ and placeholders with no identifier at all, the synthetic truck answering from t
 listening there — noise learned, a MARK, states A and B ranked — and warning lights that pop up
 (a strip while moving, a window when stopped, dismissed until they relight), with clearing the codes
 as the first write through the five gates, and signals with named states — 4WD, gear, drive mode —
-shown as a row with the current one lit and matched by typing each state.
+shown as a row with the current one lit and matched by typing each state, and Android Auto through
+the dongle — WinUSB by P/Invoke, the picture decoded into the visual tree, the sound on Windows'
+default output.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

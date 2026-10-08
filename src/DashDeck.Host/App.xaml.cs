@@ -135,6 +135,10 @@ public partial class App : Application
             return;
         }
 
+        // --synthetic-dongle: the PHONE stage talks to a synthetic dongle, for a desk with no
+        // Carlinkit plugged in (ADR-0057). Without it, the real one is looked for over USB.
+        ViewModels.PhoneLinkViewModel.UseSyntheticDongle = e.Args.Contains("--synthetic-dongle");
+
         // --video <path> starts with video already on the stage. Everything else is chosen
         // from the picker at runtime, so this is a convenience rather than the only way in.
         string? stagedVideo = null;
@@ -440,7 +444,7 @@ public partial class App : Application
     }
 
     /// <summary>The flags that take no value. Everything else consumes the argument after it.</summary>
-    private static readonly HashSet<string> Switches = ["--picker", "--edit", "--level", "--menu"];
+    private static readonly HashSet<string> Switches = ["--picker", "--edit", "--level", "--menu", "--synthetic-dongle"];
 
     /// <summary>
     /// Record a fatal error where it can be read later.
