@@ -1,3 +1,4 @@
+using System.Windows.Media;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -7,24 +8,36 @@ using DashDeck.Host.PhoneLink;
 namespace DashDeck.Host.ViewModels;
 
 /// <summary>
-/// Android Auto and CarPlay on the stage, by way of a dongle.
+/// Android Auto and CarPlay on the stage, by way of a Carlinkit dongle (ADR-0019, ADR-0057).
 /// </summary>
 /// <remarks>
-/// <b>There is no hardware yet</b>, and this screen says so rather than looking broken. A
-/// Carlinkit CPC200 is chosen and not ordered (ADR-0019); until one exists the synthetic
-/// transport answers the handshake and sends no picture, which is the honest state and the
-/// one worth rendering.
+/// The dongle is reached over USB (<see cref="UsbDongleTransport"/>); its H.264 is decoded into the
+/// stage (<see cref="ProjectionVideo"/>) and its PCM played on Windows' default output
+/// (<see cref="ProjectionAudio"/>). With no dongle plugged in the screen says why — not plugged in, or
+/// not bound to WinUSB — and looks again every few seconds, so plugging it in is enough.
 /// <para>
-/// Everything above the transport is finished: framing, the session, the heartbeat and the
-/// touch mapping all run here exactly as they will against the real device.
+/// <c>--synthetic-dongle</c> runs the screen against the synthetic dongle at a desk: it answers the
+/// handshake, announces an Android Auto phone, and sends no picture, and says so.
 /// </para>
 /// </remarks>
 public sealed partial class PhoneLinkViewModel : ObservableObject, IDisposable
 {
-    private readonly DongleClient _client;
+    /// <summary>How often a missing dongle is looked for again.</summary>
+    public static readonly TimeSpan RetryInterval = TimeSpan.FromSeconds(5);
+
+    private readonly IClock _clock;
+    private readonly Func<IDongleTransport> _makeTransport;
     private readonly DispatcherTimer _timer;
+    private readonly Dispatcher _dispatcher;
+    private readonly ProjectionAudio _audio = new();
     private readonly CancellationTokenSource _stopping = new();
 
+    private DongleClient _client;
+    private IDongleTransport _transport;
+    private readonly ProjectionVideo _video;
+    private bool _videoStarted;
+    private DateTimeOffset _lastAttempt;
+    private bool _starting;
     private bool _disposed;
 
     [ObservableProperty]
@@ -42,48 +55,64 @@ public sealed partial class PhoneLinkViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isProjecting;
 
+    [ObservableProperty]
+    private ImageSource? _picture;
+
     public PhoneLinkViewModel(IClock clock, IDongleTransport? transport = null)
     {
-        // Synthetic by default, and named as synthetic on screen. Swapping this for
-        // UsbDongleTransport is the whole of the work when the dongle arrives.
-        _client = new DongleClient(transport ?? new SyntheticDongleTransport(clock), clock);
-        _client.StateChanged += _ => Refresh();
+        _clock = clock;
+        _dispatcher = Dispatcher.CurrentDispatcher;
+        _video = new ProjectionVideo(_dispatcher);
+        _video.PictureChanged += bitmap => Picture = bitmap;
+        _makeTransport = transport is not null
+            ? () => transport
+            : UseSyntheticDongle
+                ? () => new SyntheticDongleTransport(clock)
+                : () => new UsbDongleTransport();
+
+        (_transport, _client) = MakeClient();
 
         _timer = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = TimeSpan.FromMilliseconds(500),
         };
 
-        _timer.Tick += (_, _) => Refresh();
+        _timer.Tick += (_, _) => Tick();
         _timer.Start();
 
         _ = Start();
     }
 
-    /// <summary>How the surface is sized when it asks the phone to project.</summary>
+    /// <summary>Set from <c>--synthetic-dongle</c>: the phone screen talks to a synthetic dongle.</summary>
+    public static bool UseSyntheticDongle { get; set; }
+
+    /// <summary>
+    /// The size the phone is asked to render to: the stage's own (912 × 636, ADR-0018).
+    /// </summary>
     /// <remarks>
-    /// The stage's own content area, not the whole screen: the phone renders to exactly this,
-    /// so anything else produces a correctly decoded picture of the wrong shape.
+    /// Whatever size actually arrives is drawn uniformly scaled and centred, and touch is mapped to
+    /// the picture as drawn — so a phone that renders its own size still lines up under a finger.
     /// </remarks>
     public const int ProjectionWidth = 912;
 
-    public const int ProjectionHeight = 513;
+    public const int ProjectionHeight = 636;
 
     /// <summary>Frames per second asked of the phone.</summary>
     public const int ProjectionFrameRate = 30;
 
     /// <summary>One line describing the state, for <c>--shot</c>.</summary>
     public string Describe() =>
-        $"state={_client.State} transport={_client.TransportName} " +
-        $"frames={_client.VideoFrames} unknown={_client.UnknownMessages}";
+        $"state={_client.State} transport={_client.TransportName} phone={_client.PhoneType} " +
+        $"frames={_client.VideoFrames} shown={_video.FramesShown} audio={_client.AudioPackets} " +
+        $"unknown={_client.UnknownMessages}";
 
-    /// <summary>Send a touch through to the phone, in fractions of the projected surface.</summary>
+    /// <summary>Send a touch through to the phone, in fractions of the projected picture.</summary>
     public Task TouchAsync(TouchAction action, double fractionX, double fractionY) =>
         _client.TouchAsync(action, fractionX, fractionY);
 
-    /// <summary>Ask the dongle to hand the session back to the phone.</summary>
+    /// <summary>Close the dongle and open it again.</summary>
     [RelayCommand]
-    private void Reconnect() => _ = Start();
+    private void Reconnect() => _ = Restart();
 
     /// <inheritdoc />
     public void Dispose()
@@ -97,21 +126,97 @@ public sealed partial class PhoneLinkViewModel : ObservableObject, IDisposable
         _timer.Stop();
         _stopping.Cancel();
 
-        // Blocking here is acceptable: it is a stage change, and an orphaned pump holding the
-        // device is how the next attempt finds it busy.
-        _client.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        // Off the dispatcher, with a limit: the client's awaits must not come back to a thread that
+        // is blocked waiting on them (the trap that kept the serial port, CLAUDE.md).
+        var client = _client;
+        Task.Run(() => client.DisposeAsync().AsTask()).Wait(TimeSpan.FromSeconds(5));
+
+        _video.Dispose();
+        _audio.Dispose();
         _stopping.Dispose();
+    }
+
+    private (IDongleTransport Transport, DongleClient Client) MakeClient()
+    {
+        var transport = _makeTransport();
+        var client = new DongleClient(transport, _clock);
+        client.StateChanged += _ => _dispatcher.BeginInvoke(Refresh);
+        client.VideoArrived += OnVideo;
+        client.AudioArrived += _audio.Play;
+        return (transport, client);
     }
 
     private async Task Start()
     {
-        await _client.StartAsync(
-            ProjectionWidth,
-            ProjectionHeight,
-            ProjectionFrameRate,
-            _stopping.Token).ConfigureAwait(true);
+        if (_starting || _disposed)
+        {
+            return;
+        }
+
+        _starting = true;
+        _lastAttempt = _clock.UtcNow;
+
+        try
+        {
+            await _client.StartAsync(
+                new DongleSetup(ProjectionWidth, ProjectionHeight, ProjectionFrameRate),
+                _stopping.Token).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            // Closing.
+        }
+        finally
+        {
+            _starting = false;
+        }
 
         Refresh();
+    }
+
+    private async Task Restart()
+    {
+        if (_disposed || _starting)
+        {
+            return;
+        }
+
+        var old = _client;
+        (_transport, _client) = MakeClient();
+        await Task.Run(() => old.DisposeAsync().AsTask()).ConfigureAwait(true);
+        await Start().ConfigureAwait(true);
+    }
+
+    private void Tick()
+    {
+        // A dongle not there, or one that dropped, is looked for again — plugging it in is enough.
+        if (_client.State is PhoneLinkState.NoDongle or PhoneLinkState.Lost
+            && _clock.UtcNow - _lastAttempt >= RetryInterval)
+        {
+            _ = Restart();
+        }
+
+        Refresh();
+    }
+
+    private void OnVideo(ReadOnlyMemory<byte> h264)
+    {
+        // Queued before the decoder exists, so the first frame — the one carrying the stream's
+        // parameters — is not lost. The decoder starts on it, so LibVLC is not loaded for a dongle
+        // with no phone.
+        _video.Push(h264);
+
+        if (!_videoStarted)
+        {
+            _videoStarted = true;
+            _dispatcher.BeginInvoke(() =>
+            {
+                if (!_disposed)
+                {
+                    _video.Start();
+                }
+            });
+        }
     }
 
     private void Refresh()
@@ -121,30 +226,48 @@ public sealed partial class PhoneLinkViewModel : ObservableObject, IDisposable
             return;
         }
 
+        var shown = _video.FramesShown;
         TransportText = _client.TransportName;
-        FramesText = $"{_client.VideoFrames} frames";
-        IsProjecting = _client.State is PhoneLinkState.Projecting && _client.VideoFrames > 0;
+        FramesText = $"{_client.VideoFrames} frames · {_client.AudioPackets} audio";
+        IsProjecting = _client.State is PhoneLinkState.Projecting && shown > 0;
+
+        var phone = _client.PhoneType switch
+        {
+            PhoneType.AndroidAuto => "ANDROID AUTO",
+            PhoneType.CarPlay => "CARPLAY",
+            PhoneType.AndroidMirror or PhoneType.IPhoneMirror => "SCREEN MIRROR",
+            PhoneType.HiCar => "HICAR",
+            _ => "PHONE",
+        };
 
         (Headline, Detail) = _client.State switch
         {
             PhoneLinkState.NoDongle => (
                 "NO DONGLE",
-                "Plug in a Carlinkit CPC200. Android Auto needs one — Google licenses no receiver for a PC."),
+                (_transport.Problem ?? "Plug in the Carlinkit dongle.") + " Looking again every few seconds."),
 
             PhoneLinkState.WaitingForPhone => (
                 "WAITING FOR A PHONE",
-                "The dongle is listening. Connect a phone by USB or let it pair over Wi-Fi."),
+                "The dongle is listening. Pair the phone with it over Bluetooth once (it is called DashDeck); after that it connects by itself."),
 
-            // Connected, and still no picture — which is the true state until the USB
-            // transport exists. Saying "projecting" over a black rectangle would be the one
-            // dishonest screen on this dash.
-            PhoneLinkState.Projecting when _client.VideoFrames == 0 => (
-                "LINKED, NO PICTURE",
-                "The session is open and no video has arrived. Expected against the synthetic dongle: it answers the handshake and sends no frames."),
+            PhoneLinkState.Projecting when _video.Problem is { } problem => ($"{phone}, NO PICTURE", problem),
 
-            PhoneLinkState.Projecting => ("PROJECTING", string.Empty),
+            // Connected and nothing decoded yet. Saying "projecting" over a black rectangle would be
+            // the one dishonest screen on this dash.
+            PhoneLinkState.Projecting when shown == 0 => (
+                $"{phone} CONNECTED",
+                _client.VideoFrames == 0
+                    ? "The session is open and no picture has arrived yet."
+                    : "Video is arriving and being decoded."),
 
-            _ => ("LINK LOST", "The dongle stopped answering. Reconnect to try again."),
+            PhoneLinkState.Projecting => (phone, string.Empty),
+
+            _ => ("LINK LOST", "The dongle stopped answering. Looking again every few seconds."),
         };
+
+        if (_audio.Problem is { } audio && IsProjecting)
+        {
+            Detail = audio;
+        }
     }
 }

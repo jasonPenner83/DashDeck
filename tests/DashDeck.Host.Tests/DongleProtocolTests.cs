@@ -211,7 +211,7 @@ public sealed class DongleProtocolTests
         Assert.DoesNotContain(transport.Sent, m => m.Type is DongleMessageType.Touch);
     }
 
-    /// <summary>The USB transport is a deliberate gap, and says so by refusing to open.</summary>
+    /// <summary>With no dongle plugged in, the USB transport refuses to open and says why.</summary>
     [Fact]
     public async Task The_usb_transport_reports_no_device_until_one_exists()
     {
@@ -219,5 +219,6 @@ public sealed class DongleProtocolTests
 
         Assert.False(await transport.OpenAsync(CancellationToken.None));
         Assert.False(transport.IsConnected);
+        Assert.NotNull(transport.Problem);
     }
 }

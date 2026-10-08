@@ -18,8 +18,11 @@ public enum DongleMessageType
     /// <summary>Host to dongle: the screen geometry and frame rate to project at.</summary>
     Open = 1,
 
-    /// <summary>Dongle to host: a phone has connected.</summary>
+    /// <summary>Dongle to host: a phone has connected. The payload says which kind (<see cref="PhoneType"/>).</summary>
     Plugged = 2,
+
+    /// <summary>Dongle to host: where the connection has got to.</summary>
+    Phase = 3,
 
     /// <summary>Dongle to host: the phone went away.</summary>
     Unplugged = 4,
@@ -36,10 +39,27 @@ public enum DongleMessageType
     /// <summary>Either direction: a control verb.</summary>
     Command = 8,
 
+    LogoType = 9,
     BluetoothAddress = 10,
     BluetoothPin = 12,
+    BluetoothDeviceName = 13,
+    WifiDeviceName = 14,
+
+    /// <summary>Host to dongle: let the phone go.</summary>
+    DisconnectPhone = 15,
+    BluetoothPairedList = 18,
     ManufacturerInfo = 20,
+
+    /// <summary>Host to dongle: shut down.</summary>
+    CloseDongle = 21,
     MultiTouch = 23,
+    HiCarLink = 24,
+
+    /// <summary>Host to dongle: JSON settings — the Android Auto picture size among them.</summary>
+    BoxSettings = 25,
+
+    /// <summary>Dongle to host: what is playing, as JSON or album art.</summary>
+    MediaData = 42,
 
     /// <summary>Host to dongle, on a timer. The link drops without it.</summary>
     Heartbeat = 170,
