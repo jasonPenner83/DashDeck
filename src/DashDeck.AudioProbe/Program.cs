@@ -167,6 +167,19 @@ int Run()
     Thread.Sleep(gap);
     var captured = recorder.Stop();
     Console.WriteLine($"\r  captured {captured.Length / (double)rate:F1} s   ");
+
+    // Gaps are the difference between a measurement and a fiction. A buffer that came back short
+    // is a hole in time; it is padded rather than closed so the timeline still lines up with the
+    // clock the handovers were stamped against, but a probe that fell in one is simply not there.
+    if (recorder.Gaps > 0)
+    {
+        Console.WriteLine();
+        Console.WriteLine($"  WARNING: {recorder.Gaps} capture buffer(s) came back short — "
+            + $"{recorder.GapSamples / (double)rate * 1000:F0} ms of this recording is padding.");
+        Console.WriteLine("  The timeline is preserved, but any probe that fell in a gap is missing and");
+        Console.WriteLine("  any reading here is suspect. Close other audio software and run it again.");
+    }
+
     Console.WriteLine();
 
     var result = ProbeSession.Analyse(
@@ -183,6 +196,33 @@ int Run()
 
     var localSummary = result.Local;
     var remoteSummary = result.Remote;
+
+    if (result.Problem == SessionProblem.ReferenceUnsteady)
+    {
+        Console.WriteLine($"Heard from the tablet   {localSummary.Lag.TotalMilliseconds,7:F1} ms   "
+            + $"spread {localSummary.Spread.TotalMilliseconds:F1} ms over {localSummary.Accepted} runs");
+        Console.WriteLine($"Heard from the stereo   {remoteSummary.Lag.TotalMilliseconds,7:F1} ms   "
+            + $"spread {remoteSummary.Spread.TotalMilliseconds:F1} ms over {remoteSummary.Accepted} runs");
+        Console.WriteLine();
+        Console.WriteLine($"REFUSED. The reference speaker disagreed with itself by "
+            + $"{localSummary.Spread.TotalMilliseconds:F0} ms, past the "
+            + $"{LatencyCalibration.MaxReferenceSpread.TotalMilliseconds:F0} ms allowed.");
+        Console.WriteLine();
+        Console.WriteLine("That speaker is wired into this machine a fixed distance from its own");
+        Console.WriteLine("microphone. Its readings should sit within a few milliseconds of each other —");
+        Console.WriteLine("a Surface produced five inside 8 ms. Scattered readings mean the correlator is");
+        Console.WriteLine("finding something other than the probe, and the whole measurement subtracts");
+        Console.WriteLine("the reference from the stereo, so a delay computed from this would be fiction");
+        Console.WriteLine("however tidy the stereo's own numbers look.");
+        Console.WriteLine();
+        Console.WriteLine("Try, in order:");
+        Console.WriteLine("  * Look at the capture warning above. Gaps in the recording move arrivals.");
+        Console.WriteLine("  * Close anything else using audio, and run it again.");
+        Console.WriteLine($"  * Narrow the search: --max-delay-ms {Math.Max(600, maxLagTime.TotalMilliseconds / 2):F0}. A window far wider than");
+        Console.WriteLine("    the delay gives the correlator more places to go wrong for no benefit.");
+        Console.WriteLine("  * Fewer rounds, so the recording is shorter: --rounds 3.");
+        return 3;
+    }
 
     if (!localSummary.Ok || !remoteSummary.Ok)
     {

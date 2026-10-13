@@ -24,6 +24,25 @@ public static class LatencyCalibration
     /// <summary>Accepted runs needed before a measurement is reported at all.</summary>
     public const int MinimumRuns = 3;
 
+    /// <summary>
+    /// How much the reference speaker's readings may disagree before the whole measurement is
+    /// refused.
+    /// </summary>
+    /// <remarks>
+    /// <b>The reference is the one path that must be boring.</b> It is a speaker wired into the
+    /// machine, a fixed distance from its own microphone, so its readings should sit within a few
+    /// milliseconds of each other — a real Surface produced five inside 8 ms. When they scatter
+    /// instead, the correlator is picking noise rather than the probe, and the subtraction the whole
+    /// method rests on is then being done with a meaningless number.
+    /// <para>
+    /// This exists because a run on real hardware reported a confident delay built on a reference
+    /// whose readings spanned <b>1605 ms</b>. Nothing checked it: the spread was computed, printed,
+    /// and only ever gated on for the measured output. A reference this unsteady is not a wide error
+    /// bar, it is a broken measurement, and the answer must be withheld rather than widened.
+    /// </para>
+    /// </remarks>
+    public static readonly TimeSpan MaxReferenceSpread = TimeSpan.FromMilliseconds(50);
+
     /// <summary>Metres per second used to subtract the sound's flight across the cab.</summary>
     /// <remarks>
     /// Dry air at room temperature. The whole correction is about 3 ms — small enough not to matter

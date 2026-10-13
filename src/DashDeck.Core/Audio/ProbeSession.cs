@@ -99,12 +99,32 @@ public static class ProbeSession
         var localSummary = LatencyCalibration.Summarise(local);
         var remoteSummary = LatencyCalibration.Summarise(remote);
 
-        var resolved = localSummary.Ok && remoteSummary.Ok
-            ? LatencyCalibration.RemoteOutputLatency(
-                remoteSummary.Lag, localSummary.Lag, localOutputLatency, remoteMetres, localMetres)
-            : null;
+        var problem = SessionProblem.None;
+        TimeSpan? resolved = null;
 
-        return new SessionResult(localSummary, remoteSummary, resolved, found);
+        if (!localSummary.Ok || !remoteSummary.Ok)
+        {
+            problem = SessionProblem.TooFewProbes;
+        }
+        else if (localSummary.Spread > LatencyCalibration.MaxReferenceSpread)
+        {
+            // Checked before the subtraction, not after. A reference that disagrees with itself
+            // makes the subtraction meaningless, however tidy the measured output's own numbers
+            // look — and they can look very tidy while this is broken.
+            problem = SessionProblem.ReferenceUnsteady;
+        }
+        else
+        {
+            resolved = LatencyCalibration.RemoteOutputLatency(
+                remoteSummary.Lag, localSummary.Lag, localOutputLatency, remoteMetres, localMetres);
+
+            if (resolved is null)
+            {
+                problem = SessionProblem.Impossible;
+            }
+        }
+
+        return new SessionResult(localSummary, remoteSummary, resolved, found, problem);
     }
 }
 
@@ -113,12 +133,33 @@ public static class ProbeSession
 /// <param name="Remote">The measured output's runs.</param>
 /// <param name="Delay">The delay to compensate for, or null when it could not be established.</param>
 /// <param name="Probes">Every probe, in the order played, for showing the person.</param>
+/// <param name="Problem">Why no delay was established, or <see cref="SessionProblem.None"/>.</param>
 public readonly record struct SessionResult(
     RunSummary Local,
     RunSummary Remote,
     TimeSpan? Delay,
-    IReadOnlyList<(bool Remote, ProbeMatch Match)> Probes)
+    IReadOnlyList<(bool Remote, ProbeMatch Match)> Probes,
+    SessionProblem Problem)
 {
     /// <summary>Whether a delay was established.</summary>
     public bool Ok => Delay is not null;
+}
+
+/// <summary>Why a session established nothing. Each one needs a different fix.</summary>
+public enum SessionProblem
+{
+    /// <summary>A delay was established.</summary>
+    None,
+
+    /// <summary>Too few probes were found on one path or the other.</summary>
+    TooFewProbes,
+
+    /// <summary>
+    /// The reference speaker's own readings disagreed by more than
+    /// <see cref="LatencyCalibration.MaxReferenceSpread"/>, so the subtraction cannot be trusted.
+    /// </summary>
+    ReferenceUnsteady,
+
+    /// <summary>The arithmetic came out negative: something matched the wrong thing.</summary>
+    Impossible,
 }

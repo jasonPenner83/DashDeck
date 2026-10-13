@@ -97,16 +97,30 @@ public sealed class WaveRecorder : IDisposable
         foreach (var (header, data) in _buffers)
         {
             var recorded = Marshal.PtrToStructure<WaveIo.WaveHeader>(header).BytesRecorded;
-            if (recorded <= 0)
+
+            // A buffer that came back short or empty is a GAP IN TIME, not something to skip.
+            // Dropping it would pull every later sample earlier and move every arrival measured
+            // after it — silently, and by a different amount each run. Pad it with silence so the
+            // recording's timeline still matches the clock the handovers were stamped against.
+            if (recorded < _bufferBytes)
             {
-                continue;
+                Gaps++;
+                GapSamples += (_bufferBytes - Math.Max(0, recorded)) / 2;
             }
 
-            var pcm = new byte[recorded];
-            Marshal.Copy(data, pcm, 0, recorded);
-            var span = block.AsSpan(0, recorded / 2);
-            WaveIo.FromPcm(pcm, span);
-            samples.AddRange(span);
+            if (recorded > 0)
+            {
+                var pcm = new byte[recorded];
+                Marshal.Copy(data, pcm, 0, recorded);
+                var span = block.AsSpan(0, recorded / 2);
+                WaveIo.FromPcm(pcm, span);
+                samples.AddRange(span);
+            }
+
+            for (var i = Math.Max(0, recorded) / 2; i < _bufferBytes / 2; i++)
+            {
+                samples.Add(0f);
+            }
         }
 
         return [.. samples];
@@ -114,6 +128,17 @@ public sealed class WaveRecorder : IDisposable
 
     /// <summary>Samples per second, so a time can be turned into an index.</summary>
     public int SampleRate => _sampleRate;
+
+    /// <summary>Buffers that came back short, each one a gap padded with silence.</summary>
+    /// <remarks>
+    /// Any of these means the recording is not continuous. The timeline is preserved — the gaps are
+    /// padded rather than closed — but a probe that fell inside one is simply not in the recording,
+    /// so a run with gaps is worth re-running rather than trusting.
+    /// </remarks>
+    public int Gaps { get; private set; }
+
+    /// <summary>How many samples of the recording are padding rather than sound.</summary>
+    public int GapSamples { get; private set; }
 
     /// <inheritdoc />
     public void Dispose()

@@ -358,4 +358,113 @@ public class ProbeSessionTests
 
         return recorded;
     }
+
+    [Fact]
+    public void A_reference_that_disagrees_with_itself_refuses_rather_than_reporting_a_delay()
+    {
+        // The failure a real Surface produced. The reference readings spanned 1605 ms — impossible
+        // for a wired speaker — while the stereo's own five readings sat inside 134 ms and looked
+        // perfectly respectable. A delay was reported from that, and it was fiction. Nothing
+        // checked the reference's spread: it was computed, printed, and only gated on for the
+        // measured output.
+        var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var remote = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100), descending: true);
+
+        var scattered = new[]
+        {
+            new ProbeMatch(Samples(TimeSpan.FromMilliseconds(810)), 8.4, true),
+            new ProbeMatch(Samples(TimeSpan.FromMilliseconds(657)), 8.1, true),
+            new ProbeMatch(Samples(TimeSpan.FromMilliseconds(45)), 34.4, true),
+            new ProbeMatch(Samples(TimeSpan.FromMilliseconds(1650)), 11.8, true),
+        };
+
+        var summary = LatencyCalibration.Summarise(scattered);
+
+        Assert.True(summary.Ok, "four runs is enough to summarise, which is why this got through");
+        Assert.True(
+            summary.Spread > LatencyCalibration.MaxReferenceSpread,
+            "this spread must be over the limit or the test proves nothing");
+
+        // And through the session, the same data must now come back refused.
+        var maxLag = TimeSpan.FromMilliseconds(2000);
+        var gap = ProbeSession.Spacing(maxLag);
+        var handoffs = Alternating(4, gap);
+
+        // A recording where the reference arrives at a different delay every time.
+        var captured = new float[Samples(gap * 12)];
+        var random = new Random(4);
+        var wobble = new[] { 810.0, 657.0, 45.0, 1650.0 };
+        var localSeen = 0;
+
+        foreach (var handoff in handoffs)
+        {
+            var played = handoff.Remote ? remote : probe;
+            var delay = handoff.Remote
+                ? TimeSpan.FromMilliseconds(1165)
+                : TimeSpan.FromMilliseconds(wobble[localSeen++ % wobble.Length]);
+
+            var at = Samples(handoff.At + delay);
+            for (var i = 0; i < played.Length && at + i < captured.Length; i++)
+            {
+                captured[at + i] += played[i] * 0.4f;
+            }
+        }
+
+        for (var i = 0; i < captured.Length; i++)
+        {
+            captured[i] += (float)((random.NextDouble() + random.NextDouble() - 1) * 0.1);
+        }
+
+        var result = ProbeSession.Analyse(
+            handoffs, captured, probe, remote, Samples(maxLag), LocalOutput);
+
+        Assert.Equal(SessionProblem.ReferenceUnsteady, result.Problem);
+        Assert.False(result.Ok);
+        Assert.Null(result.Delay);
+    }
+
+    [Fact]
+    public void A_steady_reference_still_passes_the_spread_gate()
+    {
+        // The gate must not reject the good case. A real Surface produced five readings inside
+        // 8 ms, comfortably under the limit.
+        var runs = new[]
+        {
+            new ProbeMatch(Samples(TimeSpan.FromMilliseconds(91.9)), 147.7, true),
+            new ProbeMatch(Samples(TimeSpan.FromMilliseconds(99.2)), 136.2, true),
+            new ProbeMatch(Samples(TimeSpan.FromMilliseconds(91.4)), 43.2, true),
+            new ProbeMatch(Samples(TimeSpan.FromMilliseconds(92.2)), 43.4, true),
+            new ProbeMatch(Samples(TimeSpan.FromMilliseconds(94.0)), 137.7, true),
+        };
+
+        var summary = LatencyCalibration.Summarise(runs);
+
+        Assert.True(summary.Ok);
+        Assert.True(
+            summary.Spread <= LatencyCalibration.MaxReferenceSpread,
+            $"a real Surface's own readings spread {summary.Spread.TotalMilliseconds:F1} ms, which the "
+            + "gate must not reject");
+    }
+
+    [Fact]
+    public void The_problem_says_which_failure_it_was()
+    {
+        var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var remote = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100), descending: true);
+        var maxLag = TimeSpan.FromMilliseconds(600);
+        var gap = ProbeSession.Spacing(maxLag);
+        var handoffs = Alternating(5, gap);
+
+        var silence = new float[Samples(gap * 14)];
+        var nothing = ProbeSession.Analyse(
+            handoffs, silence, probe, remote, Samples(maxLag), LocalOutput);
+
+        Assert.Equal(SessionProblem.TooFewProbes, nothing.Problem);
+
+        var good = Record(handoffs, probe, TimeSpan.FromMilliseconds(205), gap * 14, remoteProbe: remote);
+        var fine = ProbeSession.Analyse(
+            handoffs, good, probe, remote, Samples(maxLag), LocalOutput);
+
+        Assert.Equal(SessionProblem.None, fine.Problem);
+    }
 }
