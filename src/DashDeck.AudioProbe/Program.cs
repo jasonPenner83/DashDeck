@@ -86,18 +86,28 @@ int Run()
         return 1;
     }
 
+    // Two probes, one per output: an upward sweep for the reference and a downward one for the
+    // output under test. They carry the same energy in the same band, so the codec and the cab
+    // treat them alike, but neither is found in the other's window. Without that, an output slower
+    // than the search window has its late arrivals found in the OTHER path's window and reported
+    // as impossible delays — which is what a 2019 F-150 did at 0.6 ms.
     var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+    var remoteProbe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100), descending: true);
     var rate = LatencyProbe.SampleRate;
-    var maxLagTime = TimeSpan.FromMilliseconds(600);   // nothing beyond this is worth believing
+
+    // 2 s, not the 600 ms this started with. A real truck came in near or past 700 ms, and a delay
+    // beyond the window misses its own slot entirely and reads as not found. Generous is cheap
+    // here; too small is a measurement that cannot succeed.
+    var maxLagTime = TimeSpan.FromMilliseconds(IntArg("--max-delay-ms") ?? 2000);
     var maxLag = (int)(maxLagTime.TotalSeconds * rate);
 
-    // Not a round number picked by feel: probes closer together than this and one probe's search
-    // window reaches the next, which matches perfectly and answers confidently with the wrong
-    // number. ProbeSession states the rule and its tests hold it to the boundary.
     var gap = ProbeSession.Spacing(maxLagTime);
     var session = gap * ((rounds * 2) + 4);   // + the two warm-up probes and a tail
 
     Console.WriteLine($"Probe       100 ms sweep, {LatencyProbe.StartHz:F0}-{LatencyProbe.EndHz:F0} Hz, {rate} Hz mono");
+    Console.WriteLine($"            up for the reference, down for the measured output, so neither");
+    Console.WriteLine($"            can be found in the other's window");
+    Console.WriteLine($"Window      searching {maxLagTime.TotalMilliseconds:F0} ms past each handover (--max-delay-ms)");
     Console.WriteLine($"Rounds      {rounds} to each output, alternating");
     Console.WriteLine($"Reference   device {localId} (the tablet's own speaker), assumed {localLatency.TotalMilliseconds:F0} ms of output delay");
     Console.WriteLine($"Measuring   device {remoteId.Value}");
@@ -138,7 +148,7 @@ int Run()
     // and counted it as a failure. These two are deliberately not recorded as handoffs.
     local.Play(probe);
     Thread.Sleep(gap);
-    remote.Play(probe);
+    remote.Play(remoteProbe);
     Thread.Sleep(gap);
 
     for (var round = 0; round < rounds; round++)
@@ -149,7 +159,7 @@ int Run()
 
         Thread.Sleep(gap);
         handoffs.Add(new ProbeHandoff(true, clock.Elapsed));
-        remote.Play(probe);
+        remote.Play(remoteProbe);
 
         Console.Write($"\r  round {round + 1} of {rounds}");
     }
@@ -159,7 +169,8 @@ int Run()
     Console.WriteLine($"\r  captured {captured.Length / (double)rate:F1} s   ");
     Console.WriteLine();
 
-    var result = ProbeSession.Analyse(handoffs, captured, probe, maxLag, localLatency, remoteMetres, localMetres);
+    var result = ProbeSession.Analyse(
+        handoffs, captured, probe, remoteProbe, maxLag, localLatency, remoteMetres, localMetres);
 
     foreach (var (isRemote, match) in result.Probes)
     {
@@ -179,12 +190,33 @@ int Run()
             + $"{remoteSummary.Accepted} on the stereo, of {rounds} each.");
         Console.WriteLine();
         Console.WriteLine("This is a refusal, not a wrong answer — a confident wrong delay would be worse.");
-        Console.WriteLine("Most likely causes, in order:");
-        Console.WriteLine("  * The microphone's echo cancellation removed the probe. It exists to delete");
-        Console.WriteLine("    sound the machine just played, which is precisely what this plays (Q35).");
-        Console.WriteLine("    Turn off microphone enhancements for this device and try again.");
-        Console.WriteLine("  * The output is muted, or is not the device you think it is (--list).");
-        Console.WriteLine("  * The cab is far louder than the probe. Turn the stereo up.");
+        Console.WriteLine();
+
+        // Which half failed says which cause it is, and they need completely different fixes.
+        if (localSummary.Ok)
+        {
+            Console.WriteLine("The reference was found every time and only the measured output is missing,");
+            Console.WriteLine("so the microphone and the timing are fine. That points at one thing:");
+            Console.WriteLine();
+            Console.WriteLine($"  * The delay is longer than the {maxLagTime.TotalMilliseconds:F0} ms being searched, so each probe");
+            Console.WriteLine("    arrives after its own window has closed. Raise it:");
+            Console.WriteLine($"      --max-delay-ms {maxLagTime.TotalMilliseconds * 2:F0}");
+            Console.WriteLine();
+            Console.WriteLine("  * Failing that, the output is muted or is not the device you think it is,");
+            Console.WriteLine("    or the cab is far louder than the probe — turn the stereo up.");
+        }
+        else
+        {
+            Console.WriteLine("The reference speaker was not heard either, which means the microphone is not");
+            Console.WriteLine("picking up this machine's own output at all. Most likely causes, in order:");
+            Console.WriteLine();
+            Console.WriteLine("  * The microphone's echo cancellation removed the probe. It exists to delete");
+            Console.WriteLine("    sound the machine just played, which is precisely what this plays (Q35).");
+            Console.WriteLine("    Turn off microphone enhancements for this device and try again.");
+            Console.WriteLine("  * The wrong --mic, or the wrong --local (it must be a speaker you can hear).");
+            Console.WriteLine("  * Everything is muted, or the room is far louder than the probe.");
+        }
+
         return 3;
     }
 
@@ -265,6 +297,9 @@ void Usage()
     Console.WriteLine("                          The one term that cannot be cancelled, so it is stated.");
     Console.WriteLine("  --remote-metres <m>     Stereo speakers to tablet. Default 1.0.");
     Console.WriteLine("  --local-metres <m>      Tablet speaker to its own microphone. Default 0.2.");
+    Console.WriteLine("  --max-delay-ms <n>      How far past each handover to search. Default 2000.");
+    Console.WriteLine("                          A delay beyond it misses its own window and reads as");
+    Console.WriteLine("                          not found, so raise it rather than lower it.");
 }
 
 bool Flag(string name) => args.Contains(name, StringComparer.OrdinalIgnoreCase);

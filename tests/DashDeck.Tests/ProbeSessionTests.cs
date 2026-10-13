@@ -32,10 +32,12 @@ public class ProbeSessionTests
         TimeSpan remoteDelay,
         TimeSpan sessionLength,
         double noise = 0.15,
-        int seed = 5)
+        int seed = 5,
+        float[]? remoteProbe = null)
     {
         var captured = new float[Samples(sessionLength)];
         var random = new Random(seed);
+        remoteProbe ??= LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100), descending: true);
 
         foreach (var handoff in handoffs)
         {
@@ -43,10 +45,11 @@ public class ProbeSessionTests
                 ? handoff.At + remoteDelay + FlightRemote + CaptureDelay
                 : handoff.At + LocalOutput + FlightLocal + CaptureDelay;
 
+            var played = handoff.Remote ? remoteProbe : probe;
             var at = Samples(arrival);
-            for (var i = 0; i < probe.Length && at + i < captured.Length; i++)
+            for (var i = 0; i < played.Length && at + i < captured.Length; i++)
             {
-                captured[at + i] += probe[i] * 0.3f;
+                captured[at + i] += played[i] * 0.3f;
             }
         }
 
@@ -78,6 +81,7 @@ public class ProbeSessionTests
     public void A_whole_session_recovers_the_delay_it_was_given()
     {
         var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var remoteProbe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100), descending: true);
         var maxLag = TimeSpan.FromMilliseconds(600);
         var gap = ProbeSession.Spacing(maxLag);
         var handoffs = Alternating(5, gap);
@@ -86,7 +90,7 @@ public class ProbeSessionTests
         var captured = Record(handoffs, probe, remoteDelay, gap * ((5 * 2) + 2));
 
         var result = ProbeSession.Analyse(
-            handoffs, captured, probe, Samples(maxLag), LocalOutput);
+            handoffs, captured, probe, remoteProbe, Samples(maxLag), LocalOutput);
 
         Assert.True(result.Ok);
         Assert.Equal(10, result.Probes.Count);
@@ -104,6 +108,7 @@ public class ProbeSessionTests
     public void It_recovers_delays_across_the_range_a_stereo_might_have(int delayMs)
     {
         var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var remoteProbe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100), descending: true);
         var maxLag = TimeSpan.FromMilliseconds(600);
         var gap = ProbeSession.Spacing(maxLag);
         var handoffs = Alternating(3, gap);
@@ -111,7 +116,7 @@ public class ProbeSessionTests
         var captured = Record(handoffs, probe, TimeSpan.FromMilliseconds(delayMs), gap * ((3 * 2) + 2));
 
         var result = ProbeSession.Analyse(
-            handoffs, captured, probe, Samples(maxLag), LocalOutput);
+            handoffs, captured, probe, remoteProbe, Samples(maxLag), LocalOutput);
 
         Assert.True(result.Ok, $"{delayMs} ms was not established");
         Assert.Equal(delayMs, result.Delay!.Value.TotalMilliseconds, 1);
@@ -125,6 +130,7 @@ public class ProbeSessionTests
         // that window it wins and the answer comes back confident and wrong. Spacing() is the rule
         // that prevents it, and this holds it to the boundary.
         var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var remoteProbe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100), descending: true);
         var maxLag = TimeSpan.FromMilliseconds(400);
         var gap = ProbeSession.Spacing(maxLag);
         var handoffs = Alternating(4, gap);
@@ -133,7 +139,7 @@ public class ProbeSessionTests
         var captured = Record(handoffs, probe, remoteDelay, gap * ((4 * 2) + 2));
 
         var result = ProbeSession.Analyse(
-            handoffs, captured, probe, Samples(maxLag), LocalOutput);
+            handoffs, captured, probe, remoteProbe, Samples(maxLag), LocalOutput);
 
         Assert.True(result.Ok);
         Assert.Equal(remoteDelay.TotalMilliseconds, result.Delay!.Value.TotalMilliseconds, 1);
@@ -157,14 +163,17 @@ public class ProbeSessionTests
         // decorative. With the gap well inside the search window, the reference probe's window
         // swallows the one after it.
         var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var remoteProbe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100), descending: true);
         var maxLag = TimeSpan.FromMilliseconds(600);
         var tooClose = TimeSpan.FromMilliseconds(200);   // far less than Spacing(600 ms)
         var handoffs = Alternating(4, tooClose);
 
-        var captured = Record(handoffs, probe, TimeSpan.FromMilliseconds(450), tooClose * ((4 * 2) + 2));
+        // One probe shape on both paths, which is what makes the forward collision possible.
+        var captured = Record(handoffs, probe, TimeSpan.FromMilliseconds(450),
+            tooClose * ((4 * 2) + 2), remoteProbe: probe);
 
         var result = ProbeSession.Analyse(
-            handoffs, captured, probe, Samples(maxLag), LocalOutput);
+            handoffs, captured, probe, probe, Samples(maxLag), LocalOutput);
 
         // It finds probes — they are real probes — but at least one is a neighbour's, so the
         // reading is not the delay that was put in.
@@ -182,6 +191,7 @@ public class ProbeSessionTests
         // The stereo muted, the link dropped, or the microphone's echo cancellation ate the probe
         // (Q35). Must refuse, not guess.
         var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var remoteProbe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100), descending: true);
         var maxLag = TimeSpan.FromMilliseconds(600);
         var gap = ProbeSession.Spacing(maxLag);
         var handoffs = Alternating(5, gap);
@@ -194,7 +204,7 @@ public class ProbeSessionTests
         }
 
         var result = ProbeSession.Analyse(
-            handoffs, captured, probe, Samples(maxLag), LocalOutput);
+            handoffs, captured, probe, remoteProbe, Samples(maxLag), LocalOutput);
 
         Assert.False(result.Ok);
         Assert.Null(result.Delay);
@@ -208,6 +218,7 @@ public class ProbeSessionTests
         // Half a session is worse than none, because it looks like it worked. The reference probes
         // are found, the stereo's are not, and no delay may be reported from that.
         var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var remoteProbe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100), descending: true);
         var maxLag = TimeSpan.FromMilliseconds(600);
         var gap = ProbeSession.Spacing(maxLag);
         var handoffs = Alternating(5, gap);
@@ -216,7 +227,7 @@ public class ProbeSessionTests
         var captured = Record(local, probe, TimeSpan.Zero, gap * 12);
 
         var result = ProbeSession.Analyse(
-            handoffs, captured, probe, Samples(maxLag), LocalOutput);
+            handoffs, captured, probe, remoteProbe, Samples(maxLag), LocalOutput);
 
         Assert.False(result.Ok);
         Assert.Null(result.Delay);
@@ -229,6 +240,7 @@ public class ProbeSessionTests
     {
         // The recording stopped early. Those probes are missing, not zero.
         var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var remoteProbe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100), descending: true);
         var maxLag = TimeSpan.FromMilliseconds(600);
         var gap = ProbeSession.Spacing(maxLag);
         var handoffs = Alternating(5, gap);
@@ -238,7 +250,7 @@ public class ProbeSessionTests
             .ToArray();
 
         var result = ProbeSession.Analyse(
-            handoffs, truncated, probe, Samples(maxLag), LocalOutput);
+            handoffs, truncated, probe, remoteProbe, Samples(maxLag), LocalOutput);
 
         Assert.Equal(10, result.Probes.Count);
         Assert.True(result.Local.Accepted < 5);
@@ -253,5 +265,97 @@ public class ProbeSessionTests
             var maxLag = TimeSpan.FromMilliseconds(ms);
             Assert.True(ProbeSession.Spacing(maxLag) > maxLag);
         }
+    }
+
+    [Fact]
+    public void An_up_sweep_and_a_down_sweep_do_not_match_each_other()
+    {
+        // The property the two-output measurement rests on. Both carry the same energy in the same
+        // band, so neither is favoured by the codec or the cab, but neither is found in the other's
+        // window however it lines up.
+        var up = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var down = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100), descending: true);
+
+        var recording = Recording(down, lagSamples: 3200, totalSamples: 16000);
+
+        var itself = LatencyProbe.Find(down, recording, maxLag: 8000);
+        var theOther = LatencyProbe.Find(up, recording, maxLag: 8000);
+
+        Assert.True(itself.Found);
+        Assert.Equal(3200, itself.LagSamples);
+
+        Assert.False(
+            theOther.Found,
+            $"the opposite sweep matched at {theOther.Confidence:F1}, so the two probes are not "
+            + "distinguishable and one output's late arrival can pose as the other's");
+    }
+
+    [Fact]
+    public void A_delay_past_the_search_window_reads_as_not_found_not_as_a_tiny_delay()
+    {
+        // The failure a 2019 F-150 produced. Its Bluetooth link ran about one slot behind, so every
+        // stereo probe arrived after its own window closed, and older ones drifted into later
+        // windows and were reported as impossible delays of 0.6 ms. With a probe per output, a late
+        // arrival can no longer pose as the other path's — it is simply absent, which is the truth.
+        var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var remote = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100), descending: true);
+
+        var maxLag = TimeSpan.FromMilliseconds(600);
+        var gap = ProbeSession.Spacing(maxLag);
+        var handoffs = Alternating(5, gap);
+
+        // Past the window on purpose, and close to one slot behind, as the truck was.
+        var tooSlow = TimeSpan.FromMilliseconds(900);
+        var captured = Record(handoffs, probe, tooSlow, gap * 14, remoteProbe: remote);
+
+        var result = ProbeSession.Analyse(
+            handoffs, captured, probe, remote, Samples(maxLag), LocalOutput);
+
+        // The reference is fine, which is what tells you the rig works and the window is too small.
+        Assert.Equal(5, result.Local.Accepted);
+
+        // No delay is reported, and critically no small one.
+        Assert.False(result.Ok);
+        foreach (var (isRemote, match) in result.Probes.Where(p => p.Remote))
+        {
+            Assert.True(
+                !match.Found || match.Lag > TimeSpan.FromMilliseconds(50),
+                $"a stereo probe was reported at {match.Lag.TotalMilliseconds:F1} ms, which is the "
+                + "impossible reading the truck produced");
+            _ = isRemote;
+        }
+    }
+
+    [Fact]
+    public void Widening_the_window_recovers_the_delay_that_was_out_of_range()
+    {
+        // The other half: the same slow output measured with a window that actually covers it.
+        var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var remote = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100), descending: true);
+
+        var slow = TimeSpan.FromMilliseconds(900);
+        var maxLag = TimeSpan.FromMilliseconds(2000);
+        var gap = ProbeSession.Spacing(maxLag);
+        var handoffs = Alternating(4, gap);
+
+        var captured = Record(handoffs, probe, slow, gap * 12, remoteProbe: remote);
+
+        var result = ProbeSession.Analyse(
+            handoffs, captured, probe, remote, Samples(maxLag), LocalOutput);
+
+        Assert.True(result.Ok);
+        Assert.Equal(slow.TotalMilliseconds, result.Delay!.Value.TotalMilliseconds, 1);
+    }
+
+    /// <summary>Place a probe at a known offset, for the probe-distinguishability test.</summary>
+    private static float[] Recording(float[] probe, int lagSamples, int totalSamples)
+    {
+        var recorded = new float[totalSamples];
+        for (var i = 0; i < probe.Length && lagSamples + i < totalSamples; i++)
+        {
+            recorded[lagSamples + i] = probe[i];
+        }
+
+        return recorded;
     }
 }

@@ -1273,7 +1273,14 @@ dotnet run --project src\DashDeck.AudioProbe -- --local 3 --remote 5
 ```
 
 It plays a 100 ms sweep ten times, alternating between the Surface's speaker and the truck's, and
-listens on the microphone. Takes about 25 seconds. **Don't talk over it.**
+listens on the microphone. **Takes about 30 seconds** — the gap between probes has to exceed the
+delay being searched for, so the run is long by necessity. **Don't talk over it.**
+
+The two outputs get **opposite sweeps** — up for the Surface, down for the truck. They carry the
+same energy in the same band, so the codec and the cab treat them alike, but neither can be found
+in the other's window. That matters because a truck slower than the search window delivers its
+probes out of order, and with one shared sweep its late arrivals get found in the *reference's*
+window and reported as impossible delays.
 
 1. **Expect** a line per probe, `tablet` and `stereo` alternating, each with a delay and a
    confidence. Confidences should be comfortably into double figures.
@@ -1295,6 +1302,12 @@ matters more than what any one of them is.
   microphone route is dead; the delay then gets typed in by hand instead.
 - **"The stereo came out EARLIER than the tablet's own speaker."** `--local` is not really the
   built-in speaker, or `--remote` is pointing at it too.
+- **"Not enough probes were found" with the tablet line fine and only the stereo missing.** The
+  microphone is working; the delay is simply longer than the window being searched, so every probe
+  arrives after its own slot has closed. Raise it: `--max-delay-ms 4000`. The tool now says this
+  itself, and distinguishes it from the microphone case below, because they need opposite fixes.
+  A 2019 F-150 needed this: at the original 600 ms window it produced nothing but misses and the
+  occasional impossible 0.6 ms reading.
 - **A delay under about 30 ms** on what should be a Bluetooth link, or **both outputs reading
   nearly the same number**. The two ids are probably the same physical device, or `--local` is not
   really the built-in speaker. A built-in speaker should come back around 20-50 ms and steady; if
