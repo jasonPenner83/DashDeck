@@ -55,7 +55,17 @@ int Run()
         return 1;
     }
 
-    var remoteId = IntArg("--remote") ?? WaveDevices.Mapper;
+    var remoteId = IntArg("--remote");
+    if (remoteId is null)
+    {
+        Console.Error.WriteLine("--remote is required: the id of the output being measured.");
+        Console.Error.WriteLine();
+        Console.Error.WriteLine("It used to default to whatever Windows was defaulting to, which was a trap —");
+        Console.Error.WriteLine("the wave API will not say which device that resolves to, so if the default was");
+        Console.Error.WriteLine("also --local the tool measured one device against itself and the check below");
+        Console.Error.WriteLine("could not tell. Name both outright. Run --list to see the ids.");
+        return 1;
+    }
     var micId = IntArg("--mic") ?? WaveDevices.Mapper;
     var rounds = IntArg("--rounds") ?? 5;
     var localLatency = TimeSpan.FromMilliseconds(IntArg("--local-latency-ms") ?? 15);
@@ -85,12 +95,12 @@ int Run()
     // window reaches the next, which matches perfectly and answers confidently with the wrong
     // number. ProbeSession states the rule and its tests hold it to the boundary.
     var gap = ProbeSession.Spacing(maxLagTime);
-    var session = gap * ((rounds * 2) + 2);
+    var session = gap * ((rounds * 2) + 4);   // + the two warm-up probes and a tail
 
     Console.WriteLine($"Probe       100 ms sweep, {LatencyProbe.StartHz:F0}-{LatencyProbe.EndHz:F0} Hz, {rate} Hz mono");
     Console.WriteLine($"Rounds      {rounds} to each output, alternating");
     Console.WriteLine($"Reference   device {localId} (the tablet's own speaker), assumed {localLatency.TotalMilliseconds:F0} ms of output delay");
-    Console.WriteLine($"Measuring   device {(remoteId == WaveDevices.Mapper ? "default" : remoteId.ToString(CultureInfo.InvariantCulture))}");
+    Console.WriteLine($"Measuring   device {remoteId.Value}");
     Console.WriteLine($"Microphone  device {(micId == WaveDevices.Mapper ? "default" : micId.ToString(CultureInfo.InvariantCulture))}");
     Console.WriteLine();
     Console.WriteLine("Keep the cab as it will be in use — engine running if that is the case being");
@@ -111,7 +121,7 @@ int Run()
         return 2;
     }
 
-    using var remote = WavePlayer.Open(remoteId, rate, out var remoteProblem);
+    using var remote = WavePlayer.Open(remoteId.Value, rate, out var remoteProblem);
     if (remote is null)
     {
         Console.Error.WriteLine(remoteProblem);
@@ -122,6 +132,14 @@ int Run()
     // same constant for every probe, and both drop out of the difference.
     var clock = recorder.Start();
     var handoffs = new List<ProbeHandoff>();
+
+    // Warm both outputs before anything is measured. A freshly opened device takes longer to
+    // start than a running one, which put the first probe outside the search window every time
+    // and counted it as a failure. These two are deliberately not recorded as handoffs.
+    local.Play(probe);
+    Thread.Sleep(gap);
+    remote.Play(probe);
+    Thread.Sleep(gap);
 
     for (var round = 0; round < rounds; round++)
     {
@@ -191,8 +209,13 @@ int Run()
     Console.WriteLine($"Type that into the dash as the delay for this output. Spread was "
         + $"{remoteSummary.Spread.TotalMilliseconds:F1} ms:");
     Console.WriteLine(remoteSummary.Spread > TimeSpan.FromMilliseconds(20)
-        ? "  WIDE — this link is not steady enough for a fixed number to hold. Measure again;\n"
-            + "  if it stays wide, leave compensation off rather than trust an average (Q36)."
+        ? "  WIDE. Two possible causes, and they need telling apart before you trust this:\n"
+            + "  (a) the link really is unsteady, which is the Q36 answer and means compensation\n"
+            + "      should be left off rather than averaged; or\n"
+            + "  (b) this tool's own doing — it plays isolated bursts with silence between them,\n"
+            + "      and a Bluetooth sink re-buffers after every gap. Real playback is continuous,\n"
+            + "      so a wide spread here may be worse than what the dash will actually see.\n"
+            + "  Measure again during continuous playback to tell them apart."
         : "  tight enough that a fixed number should hold for this connection.");
     Console.WriteLine();
     Console.WriteLine("It will move after a reconnect and after the stream has been idle, because the");
@@ -229,12 +252,13 @@ void Usage()
     Console.WriteLine("AudioProbe — how late is this audio output? (ADR-0059)");
     Console.WriteLine();
     Console.WriteLine("  AudioProbe --list");
-    Console.WriteLine("  AudioProbe --local <id> [--remote <id>] [--mic <id>] [options]");
+    Console.WriteLine("  AudioProbe --local <id> --remote <id> [--mic <id>] [options]");
     Console.WriteLine();
     Console.WriteLine("  --local <id>            The tablet's own speaker. Required: it is the reference");
     Console.WriteLine("                          that cancels the microphone's own delay.");
-    Console.WriteLine("  --remote <id>           The output being measured. Default: Windows' default,");
-    Console.WriteLine("                          which is the Bluetooth link to the stereo if you set it.");
+    Console.WriteLine("  --remote <id>           The output being measured, e.g. the Bluetooth link.");
+    Console.WriteLine("                          Required, and must be an id: \"the default\" cannot be");
+    Console.WriteLine("                          resolved to one, so it could silently be --local.");
     Console.WriteLine("  --mic <id>              Input to listen on. Default: Windows' default.");
     Console.WriteLine($"  --rounds <n>            Probes per output. Default 5, minimum {LatencyCalibration.MinimumRuns}.");
     Console.WriteLine("  --local-latency-ms <n>  The tablet speaker's own output delay. Default 15.");

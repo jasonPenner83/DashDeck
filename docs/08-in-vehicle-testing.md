@@ -1263,10 +1263,13 @@ approach needs rethinking rather than you guessing an id.
 
 ### Then measure
 
-With `3` standing in for the built-in speaker's id:
+**Both outputs must be named by id.** `--remote` used to default to "whatever Windows is
+defaulting to", which was a trap: the wave API will not say which index that resolves to, so if the
+default happened to be the same device as `--local`, the tool measured one device against itself
+and could not tell. With `3` for the built-in speaker and `5` for the Bluetooth link:
 
 ```
-dotnet run --project src\DashDeck.AudioProbe -- --local 3
+dotnet run --project src\DashDeck.AudioProbe -- --local 3 --remote 5
 ```
 
 It plays a 100 ms sweep ten times, alternating between the Surface's speaker and the truck's, and
@@ -1292,7 +1295,13 @@ matters more than what any one of them is.
   microphone route is dead; the delay then gets typed in by hand instead.
 - **"The stereo came out EARLIER than the tablet's own speaker."** `--local` is not really the
   built-in speaker, or `--remote` is pointing at it too.
-- **A delay under about 30 ms** on what should be a Bluetooth link. Windows is probably still
-  playing out of the Surface rather than the truck — check the default output.
+- **A delay under about 30 ms** on what should be a Bluetooth link, or **both outputs reading
+  nearly the same number**. The two ids are probably the same physical device, or `--local` is not
+  really the built-in speaker. A built-in speaker should come back around 20-50 ms and steady; if
+  it reads in the hundreds with a wide spread, it is not a local device.
+- **A wide spread on the stereo.** Worth distinguishing before believing it: this tool plays
+  isolated bursts with silence between them, and a Bluetooth sink re-buffers after every gap, so
+  some of the spread may be the tool's rather than the link's. Measure again with music already
+  playing to compare.
 - **Confidences in the single figures** with probes still being found. The cab is louder than the
   probe; turn the stereo up and measure again.
