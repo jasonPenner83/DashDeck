@@ -1,0 +1,257 @@
+using DashDeck.Core.Audio;
+
+namespace DashDeck.Tests;
+
+/// <summary>
+/// A whole measurement session, read out of a synthetic recording. These build the recording the
+/// microphone would have produced — probes alternating between two outputs, each arriving late by
+/// a chosen amount — and check the session comes back with the delay that was put in.
+/// </summary>
+public class ProbeSessionTests
+{
+    private const int Rate = LatencyProbe.SampleRate;
+
+    private static readonly TimeSpan LocalOutput = TimeSpan.FromMilliseconds(12);
+    private static readonly TimeSpan CaptureDelay = TimeSpan.FromMilliseconds(23);
+
+    private static readonly TimeSpan FlightLocal =
+        TimeSpan.FromSeconds(0.2 / LatencyCalibration.SpeedOfSound);
+
+    private static readonly TimeSpan FlightRemote =
+        TimeSpan.FromSeconds(1.0 / LatencyCalibration.SpeedOfSound);
+
+    private static int Samples(TimeSpan t) => (int)Math.Round(t.TotalSeconds * Rate);
+
+    /// <summary>
+    /// Build what the microphone would have heard: each probe laid into the recording at its
+    /// handover plus the delay of whichever output it went to.
+    /// </summary>
+    private static float[] Record(
+        IReadOnlyList<ProbeHandoff> handoffs,
+        float[] probe,
+        TimeSpan remoteDelay,
+        TimeSpan sessionLength,
+        double noise = 0.15,
+        int seed = 5)
+    {
+        var captured = new float[Samples(sessionLength)];
+        var random = new Random(seed);
+
+        foreach (var handoff in handoffs)
+        {
+            var arrival = handoff.Remote
+                ? handoff.At + remoteDelay + FlightRemote + CaptureDelay
+                : handoff.At + LocalOutput + FlightLocal + CaptureDelay;
+
+            var at = Samples(arrival);
+            for (var i = 0; i < probe.Length && at + i < captured.Length; i++)
+            {
+                captured[at + i] += probe[i] * 0.3f;
+            }
+        }
+
+        for (var i = 0; i < captured.Length; i++)
+        {
+            captured[i] += (float)((random.NextDouble() + random.NextDouble() - 1) * noise);
+        }
+
+        return captured;
+    }
+
+    private static List<ProbeHandoff> Alternating(int rounds, TimeSpan gap)
+    {
+        var handoffs = new List<ProbeHandoff>();
+        var at = gap;
+
+        for (var round = 0; round < rounds; round++)
+        {
+            handoffs.Add(new ProbeHandoff(false, at));
+            at += gap;
+            handoffs.Add(new ProbeHandoff(true, at));
+            at += gap;
+        }
+
+        return handoffs;
+    }
+
+    [Fact]
+    public void A_whole_session_recovers_the_delay_it_was_given()
+    {
+        var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var maxLag = TimeSpan.FromMilliseconds(600);
+        var gap = ProbeSession.Spacing(maxLag);
+        var handoffs = Alternating(5, gap);
+        var remoteDelay = TimeSpan.FromMilliseconds(205);
+
+        var captured = Record(handoffs, probe, remoteDelay, gap * ((5 * 2) + 2));
+
+        var result = ProbeSession.Analyse(
+            handoffs, captured, probe, Samples(maxLag), LocalOutput);
+
+        Assert.True(result.Ok);
+        Assert.Equal(10, result.Probes.Count);
+        Assert.Equal(5, result.Local.Accepted);
+        Assert.Equal(5, result.Remote.Accepted);
+        Assert.Equal(remoteDelay.TotalMilliseconds, result.Delay!.Value.TotalMilliseconds, 1);
+    }
+
+    [Theory]
+    [InlineData(80)]
+    [InlineData(150)]
+    [InlineData(205)]
+    [InlineData(330)]
+    [InlineData(500)]
+    public void It_recovers_delays_across_the_range_a_stereo_might_have(int delayMs)
+    {
+        var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var maxLag = TimeSpan.FromMilliseconds(600);
+        var gap = ProbeSession.Spacing(maxLag);
+        var handoffs = Alternating(3, gap);
+
+        var captured = Record(handoffs, probe, TimeSpan.FromMilliseconds(delayMs), gap * ((3 * 2) + 2));
+
+        var result = ProbeSession.Analyse(
+            handoffs, captured, probe, Samples(maxLag), LocalOutput);
+
+        Assert.True(result.Ok, $"{delayMs} ms was not established");
+        Assert.Equal(delayMs, result.Delay!.Value.TotalMilliseconds, 1);
+    }
+
+    [Fact]
+    public void Probes_spaced_by_the_stated_rule_do_not_catch_the_next_probe()
+    {
+        // The trap this guards. Each probe is searched for in a window running maxLag forward from
+        // its handover; the next probe is a perfect match for the reference, so if it falls inside
+        // that window it wins and the answer comes back confident and wrong. Spacing() is the rule
+        // that prevents it, and this holds it to the boundary.
+        var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var maxLag = TimeSpan.FromMilliseconds(400);
+        var gap = ProbeSession.Spacing(maxLag);
+        var handoffs = Alternating(4, gap);
+        var remoteDelay = TimeSpan.FromMilliseconds(120);
+
+        var captured = Record(handoffs, probe, remoteDelay, gap * ((4 * 2) + 2));
+
+        var result = ProbeSession.Analyse(
+            handoffs, captured, probe, Samples(maxLag), LocalOutput);
+
+        Assert.True(result.Ok);
+        Assert.Equal(remoteDelay.TotalMilliseconds, result.Delay!.Value.TotalMilliseconds, 1);
+
+        // Every probe landed in its own window, not a neighbour's: no reading is anywhere near a
+        // whole gap out.
+        foreach (var (_, match) in result.Probes)
+        {
+            Assert.True(match.Found);
+            Assert.True(
+                match.Lag < gap,
+                $"a probe was found {match.Lag.TotalMilliseconds:F0} ms out, past the {gap.TotalMilliseconds:F0} ms gap — "
+                + "that is a neighbour's probe, not its own");
+        }
+    }
+
+    [Fact]
+    public void Probes_spaced_too_closely_are_caught_by_the_next_probe()
+    {
+        // The same arrangement with the rule broken, to show the rule is load-bearing rather than
+        // decorative. With the gap well inside the search window, the reference probe's window
+        // swallows the one after it.
+        var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var maxLag = TimeSpan.FromMilliseconds(600);
+        var tooClose = TimeSpan.FromMilliseconds(200);   // far less than Spacing(600 ms)
+        var handoffs = Alternating(4, tooClose);
+
+        var captured = Record(handoffs, probe, TimeSpan.FromMilliseconds(450), tooClose * ((4 * 2) + 2));
+
+        var result = ProbeSession.Analyse(
+            handoffs, captured, probe, Samples(maxLag), LocalOutput);
+
+        // It finds probes — they are real probes — but at least one is a neighbour's, so the
+        // reading is not the delay that was put in.
+        var wrong = result.Delay is null
+            || Math.Abs(result.Delay.Value.TotalMilliseconds - 450) > 10;
+
+        Assert.True(wrong,
+            "spacing probes inside the search window produced the right answer by luck; "
+            + "the rule in ProbeSession.Spacing would then be untested rather than load-bearing");
+    }
+
+    [Fact]
+    public void A_session_where_nothing_arrived_establishes_nothing()
+    {
+        // The stereo muted, the link dropped, or the microphone's echo cancellation ate the probe
+        // (Q35). Must refuse, not guess.
+        var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var maxLag = TimeSpan.FromMilliseconds(600);
+        var gap = ProbeSession.Spacing(maxLag);
+        var handoffs = Alternating(5, gap);
+
+        var captured = new float[Samples(gap * 12)];
+        var random = new Random(9);
+        for (var i = 0; i < captured.Length; i++)
+        {
+            captured[i] = (float)((random.NextDouble() + random.NextDouble() - 1) * 0.3);
+        }
+
+        var result = ProbeSession.Analyse(
+            handoffs, captured, probe, Samples(maxLag), LocalOutput);
+
+        Assert.False(result.Ok);
+        Assert.Null(result.Delay);
+        Assert.Equal(0, result.Local.Accepted);
+        Assert.Equal(0, result.Remote.Accepted);
+    }
+
+    [Fact]
+    public void A_session_where_only_the_stereo_is_silent_establishes_nothing()
+    {
+        // Half a session is worse than none, because it looks like it worked. The reference probes
+        // are found, the stereo's are not, and no delay may be reported from that.
+        var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var maxLag = TimeSpan.FromMilliseconds(600);
+        var gap = ProbeSession.Spacing(maxLag);
+        var handoffs = Alternating(5, gap);
+
+        var local = handoffs.Where(h => !h.Remote).ToList();
+        var captured = Record(local, probe, TimeSpan.Zero, gap * 12);
+
+        var result = ProbeSession.Analyse(
+            handoffs, captured, probe, Samples(maxLag), LocalOutput);
+
+        Assert.False(result.Ok);
+        Assert.Null(result.Delay);
+        Assert.Equal(5, result.Local.Accepted);
+        Assert.Equal(0, result.Remote.Accepted);
+    }
+
+    [Fact]
+    public void A_handoff_past_the_end_of_the_recording_is_not_counted()
+    {
+        // The recording stopped early. Those probes are missing, not zero.
+        var probe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100));
+        var maxLag = TimeSpan.FromMilliseconds(600);
+        var gap = ProbeSession.Spacing(maxLag);
+        var handoffs = Alternating(5, gap);
+
+        var truncated = Record(handoffs, probe, TimeSpan.FromMilliseconds(200), gap * 12)
+            .Take(Samples(gap * 4))
+            .ToArray();
+
+        var result = ProbeSession.Analyse(
+            handoffs, truncated, probe, Samples(maxLag), LocalOutput);
+
+        Assert.Equal(10, result.Probes.Count);
+        Assert.True(result.Local.Accepted < 5);
+        Assert.True(result.Remote.Accepted < 5);
+    }
+
+    [Fact]
+    public void Spacing_is_longer_than_the_window_it_protects()
+    {
+        foreach (var ms in new[] { 100, 400, 600, 1000 })
+        {
+            var maxLag = TimeSpan.FromMilliseconds(ms);
+            Assert.True(ProbeSession.Spacing(maxLag) > maxLag);
+        }
+    }
+}

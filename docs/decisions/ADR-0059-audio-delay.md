@@ -130,6 +130,23 @@ every time. 26 tests.
 What a truck is needed for is the number itself, and three things that cannot be checked here
 (Q33, Q34, Q35).
 
+**The tool that exercises it: `AudioProbe`** (`src/DashDeck.AudioProbe`), a console bring-up tool in
+the same vein as `BringUp`, `IdHunter` and `SerialTap` — the dash itself has no audio-delay UI yet,
+and a measurement this uncertain is worth proving on hardware before it gets a button. It lists the
+wave devices, plays the sweep alternately to the reference speaker and the output under test inside
+**one** recording, and prints the delay with its spread. Playback and capture are `winmm`
+P/Invoke, matching `WaveOutPlayer`: no package, no driver, no registry (C1). The walkthrough is in
+`docs/08-in-vehicle-testing.md`.
+
+Its one piece of real logic — reading several probes out of one recording — lives in
+`ProbeSession` in `DashDeck.Core.Audio` rather than in the tool, so it is tested. That logic has a
+trap worth naming: each probe is searched for in a window running forward from its handover, and if
+probes are spaced closer together than that window is long, **one probe's window reaches the next
+one, matches it perfectly, and answers confidently with the wrong number**. `ProbeSession.Spacing`
+states the minimum gap, and two tests hold it to both sides of the boundary — one proving correct
+spacing works, one proving that breaking the rule does produce a wrong answer, so the rule is
+load-bearing rather than decorative.
+
 ## Rejected
 
 - **A single global "audio delay" slider.** The obvious reading of the request, and wrong: two of

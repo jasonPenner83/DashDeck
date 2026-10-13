@@ -1229,3 +1229,70 @@ switched on — tell me the dongle's firmware from its own web page); *CONNECTED
 more than 30 s; a picture that is stretched or tapped in the wrong place (send a photo); sound
 stuttering or seconds late; the picture freezing (RECONNECT from the three-dot menu, and tell me
 when it happened).
+
+## The audio delay — measuring the Bluetooth link to SYNC 3 (ADR-0059, Q33–Q36)
+
+Bluetooth puts something like 150–250 ms between DashDeck handing audio over and the truck's
+speakers making a sound, and **it cannot be removed**. This finds out how much, so the dash can
+hold video back, speak turn instructions early, and keep tap clicks off that output. Nothing here
+touches the vehicle.
+
+**Before anything else — check for an AUX jack (Q33).** Look in the centre console and the media
+hub. If this truck has a working 3.5 mm input, a cable has no delay to measure and the rest of this
+section is optional. 2019 F-150 trims differ; tell me which you have.
+
+**You need:**
+- the truck, engine **running**, parked (a quiet cab is not the case being measured);
+- the Surface, paired to SYNC 3 over Bluetooth, with the truck set as the Windows **default**
+  output and the stereo turned up to a normal listening volume;
+- DashDeck built from develop with this change — the tool is `AudioProbe`, not the dash itself.
+
+### First, find the device ids
+
+```
+dotnet run --project src\DashDeck.AudioProbe -- --list
+```
+
+**Expect:** two lists, outputs and inputs, each with a number. **Write down the id of the Surface's
+own built-in speaker** — the measurement is made against it, and that is what makes it work.
+
+The names come out **truncated to 31 characters** with no stable identifier, so they may not line
+up with what Windows' own sound settings show (Q34). If you cannot tell the built-in speaker apart
+from the Bluetooth link here, **say so and stop** — that is the answer to Q34, and it means this
+approach needs rethinking rather than you guessing an id.
+
+### Then measure
+
+With `3` standing in for the built-in speaker's id:
+
+```
+dotnet run --project src\DashDeck.AudioProbe -- --local 3
+```
+
+It plays a 100 ms sweep ten times, alternating between the Surface's speaker and the truck's, and
+listens on the microphone. Takes about 25 seconds. **Don't talk over it.**
+
+1. **Expect** a line per probe, `tablet` and `stereo` alternating, each with a delay and a
+   confidence. Confidences should be comfortably into double figures.
+2. **Expect** two summary lines, then `==> Output delay: NNN ms`.
+3. **Expect** a note on the spread. Under 20 ms means a fixed number will hold for this
+   connection; wider means it will not, and compensation should be left off rather than averaged
+   (Q36).
+
+**Then do it twice more, because the number moves:** once after disconnecting and re-pairing
+Bluetooth, and once after leaving the audio silent for a few minutes so the stereo re-buffers. A2DP
+delay follows the receiving end's buffer. **Tell me all three numbers** — whether they agree
+matters more than what any one of them is.
+
+**A failure looks like:**
+- **"Not enough probes were found."** The most likely cause is the Surface's microphone echo
+  cancellation deleting the probe — it exists to remove sound the machine just played, which is
+  exactly what this plays (Q35). Turn off microphone enhancements for that device and try again. If
+  it still finds nothing with the stereo audibly playing the sweep, that is the Q35 answer and the
+  microphone route is dead; the delay then gets typed in by hand instead.
+- **"The stereo came out EARLIER than the tablet's own speaker."** `--local` is not really the
+  built-in speaker, or `--remote` is pointing at it too.
+- **A delay under about 30 ms** on what should be a Bluetooth link. Windows is probably still
+  playing out of the Surface rather than the truck — check the default output.
+- **Confidences in the single figures** with probes still being found. The cab is louder than the
+  probe; turn the stereo up and measure again.
