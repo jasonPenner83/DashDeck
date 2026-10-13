@@ -7,7 +7,7 @@ serialised), rule 3 (never guess a PID).
 
 ## Context
 
-Finding Ford's own values has been the next hardware job since bring-up (Q13). Settings ▸ Sensors has
+Finding Ford's own values has been the next hardware job since bring-up (Q27). Settings ▸ Sensors has
 the parts — SCAN FOR MODULES, an identifier sweep, WATCH, TEST — but using them means knowing what to
 do in what order, reading hundreds of rows, and then comparing a CSV against a FORScan log at a desk.
 Some of what the dash wants (doors, seatbelt, seat heat, the HVAC buttons) is probably not an
