@@ -114,4 +114,4 @@ edits the catalog, which is data, the way a text editor on the JSON would.
   `VehicleService` gains `StatusOf` and `ProbeAsync`. Validation gained two rules: a name is
   required, and scale must be a non-zero number.
 - **Bring-up with the EX gets a tool on the tablet**: SCAN answers what the truck supports, and
-  TEST is how Ford mode 22 PIDs are tried (R2, Q13) — from the driver's seat, without a laptop.
+  TEST is how Ford mode 22 PIDs are tried (R2, Q27) — from the driver's seat, without a laptop.

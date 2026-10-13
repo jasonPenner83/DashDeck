@@ -9,7 +9,7 @@
 
 The project assumed one truck in its comments and its defaults — and assumed it wrongly: the
 code and two ADRs said "3.5 EcoBoost" about a truck that has the **2.7**. Nothing broke, because
-nothing read the engine yet, but ADR-0030's speed-density fuel flow will (Q15 asks for the
+nothing read the engine yet, but ADR-0030's speed-density fuel flow will (Q29 asks for the
 displacement), and Ford's own mode 22 PIDs differ by engine and year. And the repository is
 public: anybody fitting DashDeck to their own vehicle would have to edit code to say what it is.
 
@@ -43,7 +43,7 @@ optionally model, year range and displacement) and carry its manufacturer signal
 packs that match the cached vehicle are laid over the standard catalog, and the user's overlay
 (ADR-0032) over that: **standard → vehicle pack → yours.** The first pack is the 2018–2020 F-150
 2.7 EcoBoost, and it is **empty** — it is where Ford PIDs go once TEST has confirmed them on a
-real truck (Q13), not before.
+real truck (Q27), not before.
 
 **Applied at the next launch**, like the rest of the Vehicle section, with RESTART NOW beside it.
 
@@ -89,7 +89,7 @@ the project refuses.
 - `apiVersion` is **1.2**; the host serves 1.0–1.2 and every existing component still loads.
 - `vehicle.json` joins `%LOCALAPPDATA%\DashDeck\`. It holds the VIN; FORGET deletes it.
 - `catalog/vehicles/` ships with the binary like the rest of the catalog.
-- **Q15's displacement is answered by the VIN** (2.7 L for this truck); the VE correction is still
+- **Q29's displacement is answered by the VIN** (2.7 L for this truck); the VE correction is still
   open. A speed-density component can read `EngineDisplacementLitres` instead of a constant.
 - The synthetic truck answers mode 09 PID 02 with a multi-frame reply, which keeps the parser fix
   tested end to end.
