@@ -103,6 +103,59 @@ chosen extract, and the time from launch to first route. The dash is launched by
 (C5), and a routing engine that needs thirty seconds to warm must warm in the background and say
 so in the UI rather than appear broken.
 
+## Spike results — routing, 2026-10-13
+
+GraphHopper **11.1** was run against a synthetic three-street grid in Winnipeg coordinates,
+because Geofabrik is unreachable from the session that wrote this. It is not Manitoba, so it
+settles the engine and the API and settles nothing about scale.
+
+**The load-bearing claim holds.** Asked for a route that has to turn twice, it answered:
+
+```
+1. continue onto Main Street           445 m
+2. turn right onto Portage Avenue      573 m
+3. turn left onto Osborne Street       445 m
+4. arrive at destination                 0 m
+
+distance 1463 m · import 1476 ms · first route 31.5 ms
+```
+
+Named, localised, distance-stamped instructions straight out of the library. That is the half
+Valhalla and OSRM make hard, and it is why this ADR picked GraphHopper — now observed rather
+than assumed.
+
+**Licence confirmed: Apache-2.0**, read from `graphhopper-core-11.1.pom` rather than taken on
+reputation. Two artifacts are needed, not one: `graphhopper-core` *and* `graphhopper-web-api`,
+because `CustomModel` and `Statement` live in the latter. Both go in
+`THIRD-PARTY-NOTICES.md` when the dependency actually lands.
+
+**An API correction worth having before anyone implements this.** Every tutorial and most of
+the web shows `new Profile("car").setVehicle("car").setWeighting("fastest")`. **That does not
+compile against 11.1** — `setVehicle` is gone. The current form is encoded values plus a custom
+model:
+
+```java
+hopper.setEncodedValuesString("car_access, car_average_speed, road_access");
+hopper.setProfiles(new Profile("car")
+        .setWeighting("custom")
+        .setCustomModel(new CustomModel()
+                .addToPriority(Statement.If("!car_access", Statement.Op.MULTIPLY, "0"))
+                .addToSpeed(Statement.If("true", Statement.Op.LIMIT, "car_average_speed"))));
+```
+
+Those two statements are the jar's own bundled `car.json` expressed in code. The jar also ships
+`custom_models/car.json`, `truck.json` and others on the classpath — **`truck.json` is worth a
+look later**, given what this vehicle is.
+
+**What the spike did not settle.** The graph came to 5.0 MiB for three ways, which is fixed
+overhead rather than a per-road figure, so it tells us the floor and nothing about Manitoba.
+Import of a trivial file took 1.5 s. Q31 therefore stays open on the numbers that matter —
+`jlink`ed runtime size, a real graph, and cold start on the tablet — and Q30 is untouched,
+since WebView2 is Windows-only and both Protomaps and Geofabrik are blocked here.
+
+For Q32's cost side: Geofabrik lists **Manitoba at roughly 192–214 MB** and **all of Canada at
+6.1 GB**. The Prairies plus border states sits between those, closer to the former.
+
 ## Consequences
 
 - **The deploy stops being small.** A JVM, a tile archive and a routing graph are multi-GB
