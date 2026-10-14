@@ -134,7 +134,17 @@ public sealed record UserSettings
     /// file (ADR-0055). Keyed by warning id; absent means the file's default.
     /// </summary>
     [JsonPropertyName("warningPopups")]
-    /// <summary>Where the Stereo card reads music from (Q14).</summary>
+    public Dictionary<string, bool> WarningPopups { get; init; } = [];
+
+    /// <summary>
+    /// Warnings dismissed while lit, and the trouble-code count each was dismissed at, so a light
+    /// that stays on does not pop again at every start. Forgotten when the light is seen off.
+    /// </summary>
+    [JsonPropertyName("dismissedWarnings")]
+    public Dictionary<string, double?> DismissedWarnings { get; init; } = [];
+
+    /// <summary>Where the Stereo card reads music from (Q14, ADR-0060).</summary>
+    [JsonPropertyName("musicFolder")]
     public string MusicFolder { get; init; } = "";
 
     /// <summary>
@@ -145,28 +155,24 @@ public sealed record UserSettings
     /// headphones have nothing to do with each other and must not share a number. Zero means
     /// nothing is known and nothing is compensated.
     /// </remarks>
+    [JsonPropertyName("audioDelayMs")]
     public double AudioDelayMilliseconds { get; init; }
 
     /// <summary>Which output <see cref="AudioDelayMilliseconds"/> was measured on.</summary>
+    [JsonPropertyName("audioDelayEndpoint")]
     public string AudioDelayEndpoint { get; init; } = "";
 
     /// <summary>How the delay came to be known: Manual, Measured, or empty for neither.</summary>
+    [JsonPropertyName("audioDelaySource")]
     public string AudioDelaySource { get; init; } = "";
 
     /// <summary>When it was measured, so the screen can say how stale it is.</summary>
+    [JsonPropertyName("audioDelayMeasuredAt")]
     public string AudioDelayMeasuredAt { get; init; } = "";
 
     /// <summary>Whether DashDeck's playback gets out of the way of spoken instructions (Q14).</summary>
+    [JsonPropertyName("duckUnderInstructions")]
     public bool DuckUnderInstructions { get; init; } = true;
-
-    public Dictionary<string, bool> WarningPopups { get; init; } = [];
-
-    /// <summary>
-    /// Warnings dismissed while lit, and the trouble-code count each was dismissed at, so a light
-    /// that stays on does not pop again at every start. Forgotten when the light is seen off.
-    /// </summary>
-    [JsonPropertyName("dismissedWarnings")]
-    public Dictionary<string, double?> DismissedWarnings { get; init; } = [];
 }
 
 /// <summary>
