@@ -165,6 +165,52 @@ load-bearing rather than decorative.
 - **Sending a click and timing the first peak above a threshold.** Simpler, and defeated by the
   codec, by cabin noise and by the stereo's own noise floor. The sweep costs 15 lines more.
 
+## What the truck taught this ADR, 2026-10-14
+
+Four attempts to measure a 2019 F-150 found three things the design above had wrong. Recorded here
+because each was invisible in 400-odd synthetic tests and obvious within one run on hardware.
+
+**The probe design was fighting A2DP, and that was the root cause of every bad number.** Probes
+played as isolated bursts with silence between them let Windows **suspend** the Bluetooth stream,
+and a car head unit reads each suspend and restart as media pause and play. The owner saw SYNC 3's
+screen toggling through the whole measurement. So every reading was **a cold stream start, not a
+delay** — how long the head unit takes to wake its audio pipeline, measured repeatedly and reported
+as latency. It accounts for readings near 1165 ms, spreads of 134 ms, and earlier ones near 440 ms,
+none of which bore any relation to what the dash will experience during continuous playback.
+
+The fix is **one continuous track per output** with the probes embedded at exact sample offsets
+(`ProbeTrack`), preceded by a lead-in of inaudible carrier so the stream's single cold start is paid
+for by nothing. The stream starts once and stays up, the sink buffers once and settles, the head
+unit sees one play, and because every probe on an output shares one playback start, per-probe
+handover jitter disappears — so a scattered reading now means something is genuinely wrong rather
+than merely jittery.
+
+**Two outputs need two distinguishable probes.** An upward sweep for the reference, a downward one
+for the output under test. They hold the same energy in the same band, so neither is favoured by
+the codec or the cab, but neither is found in the other's window. Without that, an output slower
+than the search window delivers its probes out of order and its late arrivals are found in the
+*other* path's window — which produced a reported delay of 0.6 ms, physically impossible, from a
+real truck.
+
+**The reference's own spread has to be a gate, not a readout.** A run reported a confident 445 ms
+built on reference readings spanning **1605 ms**. The spread was computed and printed, and gated on
+only for the measured output — yet the method subtracts the reference from it, so a bad reference
+poisons the answer while the measured output's numbers still look respectable. Now checked before
+the subtraction, with a 50 ms limit.
+
+One more bug found along the way, unrelated to Bluetooth: the recorder was silently **skipping**
+capture buffers that came back short. That drops a moment of time, not of sound — every later
+sample moves earlier, so every arrival after the gap is wrong by a different amount each run. Gaps
+are now padded so the timeline survives, and counted so a run that had them can be distrusted.
+
+And one hypothesis raised and then discarded by measuring rather than believing: the confidence
+floor is **not** too low for a wider search. Noise peaks reached 4.61 over 4000 lags, 4.88 over
+32000, and 5.27 with the opposite sweep present, against a floor of 8. No width-scaling was added
+for a cause that turned out not to exist.
+
+**Q33 is answered and it raises the stakes: this truck has no AUX jack.** The cheap escape does not
+exist, so Bluetooth is the only path and this ADR is load-bearing rather than a convenience.
+
 ## Consequences
 
 - **A number typed by hand is enough to ship.** Measurement can arrive later without changing

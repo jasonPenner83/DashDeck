@@ -1237,9 +1237,8 @@ speakers making a sound, and **it cannot be removed**. This finds out how much, 
 hold video back, speak turn instructions early, and keep tap clicks off that output. Nothing here
 touches the vehicle.
 
-**Before anything else — check for an AUX jack (Q33).** Look in the centre console and the media
-hub. If this truck has a working 3.5 mm input, a cable has no delay to measure and the rest of this
-section is optional. 2019 F-150 trims differ; tell me which you have.
+**There is no AUX jack in this truck (Q33, checked 2026-10-14).** So there is no cheap escape:
+Bluetooth is the only path to the speakers, and this measurement matters rather than being optional.
 
 **You need:**
 - the truck, engine **running**, parked (a quiet cab is not the case being measured);
@@ -1266,15 +1265,23 @@ approach needs rethinking rather than you guessing an id.
 **Both outputs must be named by id.** `--remote` used to default to "whatever Windows is
 defaulting to", which was a trap: the wave API will not say which index that resolves to, so if the
 default happened to be the same device as `--local`, the tool measured one device against itself
-and could not tell. With `3` for the built-in speaker and `5` for the Bluetooth link:
+and could not tell. With `3` for the built-in speaker and `5` for the Bluetooth link (on the owner's truck these are
+`1` for `Speakers (Realtek High Definiti` and `0` for `Headphones (Ford F-150)`):
 
 ```
 dotnet run --project src\DashDeck.AudioProbe -- --local 3 --remote 5
 ```
 
-It plays a 100 ms sweep ten times, alternating between the Surface's speaker and the truck's, and
-listens on the microphone. **Takes about 30 seconds** — the gap between probes has to exceed the
-delay being searched for, so the run is long by necessity. **Don't talk over it.**
+It plays **one continuous track to each output** with the sweeps embedded in it, and listens on the
+microphone. **Takes about 20 seconds.** **Don't talk over it.**
+
+**The stereo will show a track playing for the whole run, and that is the point.** An earlier
+version played each sweep as an isolated burst with silence between, which let Windows suspend the
+Bluetooth stream — and SYNC 3 read every suspend and restart as media pause and play, visibly, on
+its own screen. Every reading that produced was a *cold stream start* rather than a delay. A
+continuous track keeps the link up, so the sink buffers once and settles, and the head unit sees one
+play instead of one per probe. A `--lead-in-s` of carrier runs before the first sweep so the
+stream's single cold start is paid for by nothing.
 
 The two outputs get **opposite sweeps** — up for the Surface, down for the truck. They carry the
 same energy in the same band, so the codec and the cab treat them alike, but neither can be found
@@ -1312,9 +1319,16 @@ matters more than what any one of them is.
   nearly the same number**. The two ids are probably the same physical device, or `--local` is not
   really the built-in speaker. A built-in speaker should come back around 20-50 ms and steady; if
   it reads in the hundreds with a wide spread, it is not a local device.
-- **A wide spread on the stereo.** Worth distinguishing before believing it: this tool plays
-  isolated bursts with silence between them, and a Bluetooth sink re-buffers after every gap, so
-  some of the spread may be the tool's rather than the link's. Measure again with music already
-  playing to compare.
+- **A wide spread on either output.** With a continuous track every probe on an output shares one
+  playback start, so the readings should be near-identical — a spread of more than a few
+  milliseconds now means something is genuinely wrong, not merely jittery. On the reference the tool
+  refuses outright past 50 ms.
+- **"REFUSED. The reference speaker disagreed with itself."** The whole method subtracts the
+  reference from the stereo, so a scattered reference makes the answer fiction however tidy the
+  stereo's own numbers look. One run reported a confident 445 ms built on a reference spanning
+  1605 ms before this gate existed. Check the capture-gap warning, close other audio software, and
+  try `--rounds 3` for a shorter recording.
+- **The stereo's screen still toggling play/pause during a run.** Should not happen any more; if it
+  does, the continuous track is being interrupted and the readings cannot be trusted — tell me.
 - **Confidences in the single figures** with probes still being found. The cab is louder than the
   probe; turn the stereo up and measure again.

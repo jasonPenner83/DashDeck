@@ -95,26 +95,35 @@ int Run()
     var remoteProbe = LatencyProbe.Chirp(TimeSpan.FromMilliseconds(100), descending: true);
     var rate = LatencyProbe.SampleRate;
 
-    // 2 s, not the 600 ms this started with. A real truck came in near or past 700 ms, and a delay
-    // beyond the window misses its own slot entirely and reads as not found. Generous is cheap
-    // here; too small is a measurement that cannot succeed.
-    var maxLagTime = TimeSpan.FromMilliseconds(IntArg("--max-delay-ms") ?? 2000);
+    var maxLagTime = TimeSpan.FromMilliseconds(IntArg("--max-delay-ms") ?? 1000);
     var maxLag = (int)(maxLagTime.TotalSeconds * rate);
 
-    var gap = ProbeSession.Spacing(maxLagTime);
-    var session = gap * ((rounds * 2) + 4);   // + the two warm-up probes and a tail
+    // ONE CONTINUOUS TRACK PER OUTPUT, with the probes embedded in it. Not a refinement: playing
+    // isolated bursts let Windows suspend the Bluetooth stream between them, and the head unit read
+    // every suspend and restart as media pause and play — visibly, on a real F-150's screen. Every
+    // reading that produced was a cold stream start rather than a delay. See ProbeTrack.
+    var leadIn = TimeSpan.FromSeconds(IntArg("--lead-in-s") ?? 3);
+    var plan = new ProbePlan(leadIn, ProbeSession.Spacing(maxLagTime), rounds);
+    var session = plan.Duration + maxLagTime + TimeSpan.FromSeconds(1);
 
     Console.WriteLine($"Probe       100 ms sweep, {LatencyProbe.StartHz:F0}-{LatencyProbe.EndHz:F0} Hz, {rate} Hz mono");
     Console.WriteLine($"            up for the reference, down for the measured output, so neither");
     Console.WriteLine($"            can be found in the other's window");
-    Console.WriteLine($"Window      searching {maxLagTime.TotalMilliseconds:F0} ms past each handover (--max-delay-ms)");
-    Console.WriteLine($"Rounds      {rounds} to each output, alternating");
+    Console.WriteLine($"Track       one continuous stream per output — the probes are embedded in it,");
+    Console.WriteLine($"            so the Bluetooth link is never suspended and the stereo sees one");
+    Console.WriteLine($"            play rather than one per probe");
+    Console.WriteLine($"Lead-in     {leadIn.TotalSeconds:F0} s of carrier before the first probe (--lead-in-s)");
+    Console.WriteLine($"Window      searching {maxLagTime.TotalMilliseconds:F0} ms past each probe (--max-delay-ms)");
+    Console.WriteLine($"Rounds      {rounds} to each output, alternating every {plan.Gap.TotalMilliseconds:F0} ms");
     Console.WriteLine($"Reference   device {localId} (the tablet's own speaker), assumed {localLatency.TotalMilliseconds:F0} ms of output delay");
     Console.WriteLine($"Measuring   device {remoteId.Value}");
     Console.WriteLine($"Microphone  device {(micId == WaveDevices.Mapper ? "default" : micId.ToString(CultureInfo.InvariantCulture))}");
     Console.WriteLine();
     Console.WriteLine("Keep the cab as it will be in use — engine running if that is the case being");
     Console.WriteLine("measured. Do not talk over it. This takes about " + $"{session.TotalSeconds:F0} seconds.");
+    Console.WriteLine();
+    Console.WriteLine("The stereo will show one track playing for the duration. That is expected: it is");
+    Console.WriteLine("what stops it suspending the link between probes.");
     Console.WriteLine();
 
     using var recorder = WaveRecorder.Open(micId, rate, session, out var micProblem);
@@ -138,33 +147,38 @@ int Run()
         return 2;
     }
 
+    var localTrack = ProbeTrack.Build(probe, plan.LocalOffsets, plan.Duration, seed: 2);
+    var remoteTrack = ProbeTrack.Build(remoteProbe, plan.RemoteOffsets, plan.Duration, seed: 3);
+
     // One capture for the whole run: the moment it started and the capture delay are then the
     // same constant for every probe, and both drop out of the difference.
     var clock = recorder.Start();
-    var handoffs = new List<ProbeHandoff>();
 
-    // Warm both outputs before anything is measured. A freshly opened device takes longer to
-    // start than a running one, which put the first probe outside the search window every time
-    // and counted it as a failure. These two are deliberately not recorded as handoffs.
-    local.Play(probe);
-    Thread.Sleep(gap);
-    remote.Play(remoteProbe);
-    Thread.Sleep(gap);
-
-    for (var round = 0; round < rounds; round++)
+    // One write per output, and that is the whole of the playing. Each track's handover is stamped
+    // once; a probe's own handover is that plus its sample offset inside the track, which is exact
+    // rather than whenever a thread woke up.
+    var localAt = clock.Elapsed;
+    if (!local.Play(localTrack))
     {
-        Thread.Sleep(gap);
-        handoffs.Add(new ProbeHandoff(false, clock.Elapsed));
-        local.Play(probe);
-
-        Thread.Sleep(gap);
-        handoffs.Add(new ProbeHandoff(true, clock.Elapsed));
-        remote.Play(remoteProbe);
-
-        Console.Write($"\r  round {round + 1} of {rounds}");
+        Console.Error.WriteLine("Windows refused the reference track.");
+        return 2;
     }
 
-    Thread.Sleep(gap);
+    var remoteAt = clock.Elapsed;
+    if (!remote.Play(remoteTrack))
+    {
+        Console.Error.WriteLine("Windows refused the track for the output under test.");
+        return 2;
+    }
+
+    var handoffs = plan.Handoffs(localAt, remoteAt);
+
+    for (var left = (int)Math.Ceiling(session.TotalSeconds); left > 0; left--)
+    {
+        Console.Write($"\r  {left,3} s left ");
+        Thread.Sleep(1000);
+    }
+
     var captured = recorder.Stop();
     Console.WriteLine($"\r  captured {captured.Length / (double)rate:F1} s   ");
 
@@ -337,9 +351,11 @@ void Usage()
     Console.WriteLine("                          The one term that cannot be cancelled, so it is stated.");
     Console.WriteLine("  --remote-metres <m>     Stereo speakers to tablet. Default 1.0.");
     Console.WriteLine("  --local-metres <m>      Tablet speaker to its own microphone. Default 0.2.");
-    Console.WriteLine("  --max-delay-ms <n>      How far past each handover to search. Default 2000.");
+    Console.WriteLine("  --max-delay-ms <n>      How far past each probe to search. Default 1000.");
     Console.WriteLine("                          A delay beyond it misses its own window and reads as");
     Console.WriteLine("                          not found, so raise it rather than lower it.");
+    Console.WriteLine("  --lead-in-s <n>         Carrier before the first probe, so the stream's one");
+    Console.WriteLine("                          cold start is paid for by nothing. Default 3.");
 }
 
 bool Flag(string name) => args.Contains(name, StringComparer.OrdinalIgnoreCase);
