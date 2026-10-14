@@ -60,14 +60,25 @@ public static class LatencyProbe
     /// <summary>Lags within this many samples of the peak are not counted as sidelobe.</summary>
     private const int GuardSamples = 64;
 
-    /// <summary>Build the probe: a sine swept from <see cref="StartHz"/> to <see cref="EndHz"/>.</summary>
+    /// <summary>Build the probe: a sine swept between <see cref="StartHz"/> and <see cref="EndHz"/>.</summary>
     /// <param name="duration">How long the sweep lasts. 100 ms is the tested default.</param>
+    /// <param name="descending">Sweep down instead of up.</param>
     /// <remarks>
     /// Both ends are tapered by a raised cosine over a tenth of the length. Without it the sweep
     /// starts and stops on a step, which is an audible click and — worse — a transient the codec
     /// mangles into correlator noise.
+    /// <para>
+    /// <b>Why the direction is a parameter.</b> An upward sweep and a downward one hold the same
+    /// energy in the same band — so both survive a lossy codec and a noisy cab equally — but they
+    /// barely correlate with each other, because their instantaneous frequencies agree at only one
+    /// instant. That makes them usable as two <i>distinguishable</i> probes. When two outputs are
+    /// measured in one recording, giving each its own direction means a probe from one output can
+    /// never be mistaken for the other's, however late it arrives. Timing alone cannot promise that:
+    /// an output slower than the search window delivers its probes out of order, and without
+    /// distinguishable probes one output's late arrival is a perfect match for the other's window.
+    /// </para>
     /// </remarks>
-    public static float[] Chirp(TimeSpan duration)
+    public static float[] Chirp(TimeSpan duration, bool descending = false)
     {
         var count = (int)Math.Round(duration.TotalSeconds * SampleRate);
         if (count <= 0)
@@ -77,13 +88,15 @@ public static class LatencyProbe
 
         var samples = new float[count];
         var seconds = count / (double)SampleRate;
-        var rate = (EndHz - StartHz) / (2 * seconds);
+        var from = descending ? EndHz : StartHz;
+        var to = descending ? StartHz : EndHz;
+        var rate = (to - from) / (2 * seconds);
         var taper = Math.Max(1, count / 10);
 
         for (var i = 0; i < count; i++)
         {
             var t = i / (double)SampleRate;
-            var phase = 2 * Math.PI * ((StartHz * t) + (rate * t * t));
+            var phase = 2 * Math.PI * ((from * t) + (rate * t * t));
             var window = 1.0;
 
             if (i < taper)
