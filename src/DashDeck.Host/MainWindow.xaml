@@ -505,6 +505,13 @@
                                Text="not built yet" />
                 </StackPanel>
 
+                <!-- The Stereo panel (Q14): DashDeck's own playback on the bottom third. The
+                     panel comes and goes with the destination; the player behind it does not,
+                     so leaving STEREO does not stop the music. -->
+                <ContentControl Grid.Row="1"
+                                Content="{Binding StereoContent}"
+                                Visibility="{Binding IsStereoVisible, Converter={StaticResource BoolToVis}}" />
+
                 <!-- The console (ADR-0041): a layout file drawn where the cards used to be, made only
                      while DASH is chosen. The cards are on the stage now, behind CARDS. -->
                 <ContentControl Grid.Row="1"

@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\DashDeck.Core\DashDeck.Core.csproj" />
+    <ProjectReference Include="..\DashDeck.WinAudio\DashDeck.WinAudio.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

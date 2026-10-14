@@ -1332,3 +1332,63 @@ matters more than what any one of them is.
   does, the continuous track is being interrupted and the readings cannot be trusted — tell me.
 - **Confidences in the single figures** with probes still being found. The cab is louder than the
   probe; turn the stereo up and measure again.
+
+## The Stereo panel, and getting out of the way of directions (ADR-0060, Q14)
+
+DashDeck's own playback, on the bottom third where the climate panel and the console live. It is
+**additive**: the truck's own radio is untouched and unreachable, and with no AUX jack in this truck
+(Q33) the sound goes out over Bluetooth to SYNC 3 like everything else DashDeck plays.
+
+**You need:**
+- the Surface, paired to SYNC 3, with the truck as the Windows **default** output;
+- a folder of music on the tablet;
+- DashDeck built from develop with this change.
+
+### First, at the desk
+
+1. **Settings ▸ AUDIO ▸ MUSIC FOLDER.** Type the path to your music. **Expect:** nothing visible
+   here; the Stereo panel reads it when you open it.
+2. Tap **STEREO** in the navigation. **Expect:** the panel, with the queue filled on the right. It
+   used to say "not built yet" — that entry is gone, and it was the last one.
+3. **PLAY. Expect:** sound from the truck, the title and album filling in, the position line
+   advancing once a second, and the playing track marked with a dot in the queue.
+4. **Tap partway along the position line. Expect:** it jumps there. It is a tap rather than a
+   dragged thumb on purpose — a thumb is a small target in a moving truck.
+5. **PREV twice.** **Expect:** the first tap restarts the current track, the second goes back one.
+   That is deliberate: past the first three seconds, "previous" means "start this again", which is
+   what every player does and none of them explain.
+6. **Tap a track in the queue. Expect:** it plays.
+7. **Leave STEREO for DASH, then come back. Expect: the music never stopped.** This is the one
+   behaviour worth checking carefully — the panel is thrown away when you leave and the player is
+   not, so if the music stops when you navigate away, that is the bug.
+
+### Then the delay, and the probe
+
+8. **Settings ▸ AUDIO ▸ OUTPUT DELAY.** Type a number in milliseconds if you know one. **Expect:**
+   the line underneath to say it is manual and which output it is for.
+9. **Pick the three devices and press MEASURE.** The reference must be the Surface's **own**
+   speaker — that is what makes the measurement work at all. **Expect:** a countdown, then a line
+   per probe and either a delay or a refusal explaining itself. Same measurement as the
+   `AudioProbe` console tool, driven from the same code.
+10. **Expect the stereo to show one track playing throughout the measurement**, not toggling
+    play/pause. Toggling means the continuous track is being interrupted and the reading cannot be
+    trusted.
+
+### What is NOT testable yet
+
+**The ducking contract has nothing to trigger it.** The policy is built and tested and the switch
+is in Settings ▸ AUDIO, but nothing yet reports that projection is speaking — that needs the
+Carlinkit dongle (Q25). So the switch is real and currently inert, and you will not see music duck
+under a turn instruction until that is wired. Said plainly because a switch that does nothing is
+worse than no switch if nobody wrote down which.
+
+### A failure looks like
+
+- **"No music folder chosen"** with a folder typed in — check the path, and that it is reachable
+  from the tablet.
+- **"Nothing playable under …"** — the folder has no audio files the player recognises. The
+  extensions it looks for are listed in the message.
+- **"No audio playback: LibVLC would not load"** — the native player is missing from the build.
+  Everything else in the dash should still work; if the dash did not start at all, that is a
+  different and worse bug, because this is meant to cost only the music.
+- **The music stopping when you leave STEREO.** The player is supposed to outlive the panel.

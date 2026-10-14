@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace DashDeck.AudioProbe;
+namespace DashDeck.WinAudio;
 
 /// <summary>
 /// The outputs and inputs Windows will admit to through <c>waveOut</c> and <c>waveIn</c>.

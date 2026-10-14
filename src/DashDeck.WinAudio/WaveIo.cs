@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace DashDeck.AudioProbe;
+namespace DashDeck.WinAudio;
 
 /// <summary>Shared bits of the legacy wave API: the format struct and the buffer header.</summary>
 internal static class WaveIo
