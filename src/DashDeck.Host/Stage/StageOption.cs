@@ -200,7 +200,7 @@ public sealed record StageOption(
                 var file = videoPath ?? entry.Path;
                 return Screen(
                     file is null ? "Pick a file" : System.IO.Path.GetFileName(file),
-                    () => CreateVideo(file is null ? null : Environment.ExpandEnvironmentVariables(file)));
+                    () => CreateVideo(file is null ? null : Environment.ExpandEnvironmentVariables(file), display));
 
             case LauncherTypes.Web:
                 // WebView2 pages. A player that gates on Widevine probes for it and says so rather
@@ -230,7 +230,7 @@ public sealed record StageOption(
         }
     }
 
-    private static IStageOccupant? CreateVideo(string? videoPath)
+    private static IStageOccupant? CreateVideo(string? videoPath, DisplaySettings display)
     {
         var path = videoPath;
 
@@ -250,7 +250,10 @@ public sealed record StageOption(
             path = dialog.FileName;
         }
 
-        return new VideoStageOccupant(path);
+        // The sync offset starts from the measured output delay (ADR-0059) and is nudged from
+        // the action bar while watching; what the person settles on is remembered, so the next
+        // file starts where they left it rather than back at the measurement.
+        return new VideoStageOccupant(path, display.VideoSyncOffset(), display.RememberVideoSyncOffset);
     }
 }
 

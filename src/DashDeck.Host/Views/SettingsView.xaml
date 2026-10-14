@@ -1773,6 +1773,26 @@
                                Style="{StaticResource MicroText}"
                                Text="{Binding DelayNote}" />
 
+                    <TextBlock Margin="0,26,0,0" Style="{StaticResource CaptionText}" Text="VIDEO SYNC" />
+                    <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="The offset that matters. Music has nothing to be in step with, so the link's delay is inaudible for it — but lips running ahead of the words are obvious within a sentence. Negative holds the picture back, which is the direction a Bluetooth link needs. The measurement above seeds this; nudge it from the video's own action bar while something is playing, which is the only way to get it right for a particular file." />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <TextBox Width="120" Style="{StaticResource InputField}"
+                                 Text="{Binding VideoSyncText, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Margin="10,0,0,0" VerticalAlignment="Center"
+                                   Style="{StaticResource MicroText}" Text="ms" />
+                        <Button Margin="14,0,0,0"
+                                Style="{StaticResource OptionChipButton}"
+                                Content="BACK TO MEASURED"
+                                Command="{Binding ReseedVideoSyncCommand}" />
+                    </StackPanel>
+
+                    <TextBlock Margin="2,8,0,0" MaxWidth="700" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="{Binding VideoSyncNote}" />
+
                     <TextBlock Margin="0,26,0,0" Style="{StaticResource CaptionText}" Text="MEASURE IT" />
                     <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
                                Style="{StaticResource MicroText}"

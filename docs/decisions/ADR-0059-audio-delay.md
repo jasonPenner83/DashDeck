@@ -211,15 +211,57 @@ for a cause that turned out not to exist.
 **Q33 is answered and it raises the stakes: this truck has no AUX jack.** The cheap escape does not
 exist, so Bluetooth is the only path and this ADR is load-bearing rather than a convenience.
 
+## Correction of emphasis, 2026-10-14 — video is the case that matters
+
+This ADR built the measurement, the policy and the probe, and wired **none of it to video** — the
+one case where the delay is actually visible. The owner said so plainly: *"I'm more interested in
+the offset for video... I'm not as interested in an offset for music as that isn't as obvious."*
+He is right, and the table above already said so without my acting on it: music has nothing to be
+in sync with, so the link's 150 ms or more is inaudible, while lips running ahead of the words are
+obvious within one sentence.
+
+Worse, the consequence section below claimed the video occupant "gets the delay for free" via
+`MediaPlayer.SetAudioDelay`. It got nothing: the occupant applied no delay at all, and the stored
+number reached only the Stereo card, which displays it and ignores it by design.
+
+**What changed.** `VideoSync` (in `DashDeck.Core.Audio`) owns the offset, and
+`VideoStageOccupant` applies it and exposes it as three actions in the stage's action bar:
+**SOUND EARLIER**, a readout, and **SOUND LATER**, at 50 ms a step.
+
+**Measured is the starting point, not the answer.** The link delay is only part of the total — the
+file's own container offset and the decoder's buffering are the rest, and they vary per file. So
+the measurement *seeds* the offset and the person tunes it by eye while watching, which is what
+every media player does and why the control earns its place. What they settle on is remembered,
+and seeding happens **once**: someone who deliberately nudges it back to zero should not find the
+measurement has overruled them at the next launch.
+
+**Direction is the correctness question.** The link makes sound arrive late, so the correction
+moves sound *earlier* relative to the picture — a negative offset, which a player achieves by
+holding the picture back, since sound cannot be produced before it exists. **A positive offset
+would make the error exactly twice as bad.** A test pins the sign for that reason.
+
+**The buttons are labelled by effect, not by sign**, because "−150 ms" on a button tells nobody
+which way it will go, and the readout says "picture held back 150 ms" for the same reason. That is
+what someone can check against a screen.
+
+**Reapplied after every `Play`, not once at startup.** LibVLCSharp's own documentation says the
+audio delay resets to zero each time the media changes — so setting it once is a bug that works
+perfectly on the first file and silently stops working on the second.
+
+**Still unverified:** that negative is the direction LibVLC takes, on hardware. The reasoning and
+the test agree, and the API's own docs do not state the sign. If the first nudge moves it the
+wrong way, the fix is one character and the control is the thing that reveals it.
+
 ## Consequences
 
 - **A number typed by hand is enough to ship.** Measurement can arrive later without changing
   anything above it; both write the same field.
-- **The video occupant gets the delay for free.** LibVLCSharp 3.10.1 exposes
-  `MediaPlayer.SetAudioDelay(long microseconds)`, wrapping `libvlc_audio_set_delay` — a negative
-  value shifts audio earlier against the picture, which is what holding the picture means in VLC's
-  terms. **Its own documentation warns the delay resets to zero on every media change**, so it has
-  to be reapplied per item rather than set once at startup.
+- **The video occupant does not get the delay for free, and this originally claimed it did.**
+  LibVLCSharp 3.10.1 exposes `MediaPlayer.SetAudioDelay(long microseconds)`, wrapping
+  `libvlc_audio_set_delay`, and **its own documentation warns the delay resets to zero on every
+  media change** — so it has to be reapplied per item rather than set once. Having the API
+  available is not the same as calling it: for a day this ADR described a video fix that nothing
+  performed. Wired 2026-10-14; see the correction above.
 - **UI click sounds need a second output.** Today there is one player on Windows' default device
   (`WaveOutPlayer`, ADR-0057). Routing taps to the tablet's own speaker means naming a specific
   device rather than taking the default, which `waveOut` can do by index but identifies only by a

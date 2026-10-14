@@ -173,6 +173,26 @@ public sealed record UserSettings
     /// <summary>Whether DashDeck's playback gets out of the way of spoken instructions (Q14).</summary>
     [JsonPropertyName("duckUnderInstructions")]
     public bool DuckUnderInstructions { get; init; } = true;
+
+    /// <summary>
+    /// The audio/video sync offset for a picture on the stage, in milliseconds (ADR-0059).
+    /// </summary>
+    /// <remarks>
+    /// Negative holds the picture back, which is the direction a Bluetooth link needs. Seeded from
+    /// the measured output delay the first time and then nudged by eye while watching, because the
+    /// total also carries the file's own container offset and the decoder's buffering. Zero means
+    /// nothing has been set and nothing is shifted.
+    /// </remarks>
+    [JsonPropertyName("videoSyncOffsetMs")]
+    public double VideoSyncOffsetMilliseconds { get; init; }
+
+    /// <summary>Whether the sync offset has ever been set, so seeding happens once.</summary>
+    /// <remarks>
+    /// Without this, a person who deliberately nudges the offset back to zero would have it
+    /// re-seeded from the measurement on the next launch, which is the dash arguing with them.
+    /// </remarks>
+    [JsonPropertyName("videoSyncChosen")]
+    public bool VideoSyncChosen { get; init; }
 }
 
 /// <summary>

@@ -1392,3 +1392,41 @@ worse than no switch if nobody wrote down which.
   Everything else in the dash should still work; if the dash did not start at all, that is a
   different and worse bug, because this is meant to cost only the music.
 - **The music stopping when you leave STEREO.** The player is supposed to outlive the panel.
+
+## Video sync — the offset that is actually visible (ADR-0059)
+
+The Bluetooth link's delay is inaudible for music and obvious for video: lips running ahead of the
+words show up within a sentence. This is the control for it.
+
+**You need:**
+- the Surface paired to SYNC 3, truck as the Windows default output;
+- a video file with people talking in it — a talking head is far easier to judge than action;
+- DashDeck built from develop with this change.
+
+1. Put a video on the stage (the launcher's video entry, or `--video <path>`). **Expect:** it plays
+   with sound out of the truck.
+2. Look at the action bar. **Expect** three new items beside the transport: **SOUND EARLIER**, a
+   readout like `SYNC: picture held back 220 ms`, and **SOUND LATER**.
+3. **If the measurement has been run or a delay typed in, the offset starts already applied** —
+   negative, holding the picture back by the measured amount. The readout says so, and says it was
+   seeded rather than tuned.
+4. **Watch a face and nudge.** 50 ms a step. **Expect** the readout to follow each tap, and the
+   sync to visibly improve in one direction and worsen in the other.
+5. **Tap the readout itself. Expect:** back to in step, which is the way out of an over-nudged
+   offset without counting taps backwards.
+6. **Play a second file. Expect the offset to still be applied.** This is the one worth checking
+   deliberately: LibVLC resets the audio delay on every media change, so a build that set it once
+   at startup would look perfect on the first file and silently wrong on the second.
+7. **Close DashDeck and reopen it. Expect** what you settled on to be remembered — and *not* to be
+   overruled by the measurement again.
+
+**The thing I need you to tell me:** does **SOUND EARLIER** improve the sync when the sound is
+late, or make it worse? The reasoning says a negative offset holds the picture back, which is the
+direction a Bluetooth link needs, and the API's own documentation does not state the sign. If the
+buttons work backwards it is a one-character fix — but only you can see which way it goes.
+
+**A failure looks like:**
+- **No sync items in the action bar** — you are running a build without this change.
+- **The readout moves but nothing changes on screen** — the offset is not reaching the player.
+- **Right on the first file, wrong on the second** — the reapply-after-every-play is not working.
+- **Your setting replaced by the measured one after a restart** — seeding is meant to happen once.
