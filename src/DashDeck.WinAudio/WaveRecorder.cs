@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace DashDeck.AudioProbe;
+namespace DashDeck.WinAudio;
 
 /// <summary>
 /// Records one continuous stretch of microphone audio, and says when it started.

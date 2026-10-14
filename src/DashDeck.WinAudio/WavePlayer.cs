@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace DashDeck.AudioProbe;
+namespace DashDeck.WinAudio;
 
 /// <summary>
 /// Plays one buffer to one named output and reports the instant it was handed over.

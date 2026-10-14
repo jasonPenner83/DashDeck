@@ -134,6 +134,31 @@ public sealed record UserSettings
     /// file (ADR-0055). Keyed by warning id; absent means the file's default.
     /// </summary>
     [JsonPropertyName("warningPopups")]
+    /// <summary>Where the Stereo card reads music from (Q14).</summary>
+    public string MusicFolder { get; init; } = "";
+
+    /// <summary>
+    /// The audio output's delay in milliseconds, as typed or as measured (ADR-0059).
+    /// </summary>
+    /// <remarks>
+    /// Kept against <see cref="AudioDelayEndpoint"/>, because a Bluetooth stereo and a pair of
+    /// headphones have nothing to do with each other and must not share a number. Zero means
+    /// nothing is known and nothing is compensated.
+    /// </remarks>
+    public double AudioDelayMilliseconds { get; init; }
+
+    /// <summary>Which output <see cref="AudioDelayMilliseconds"/> was measured on.</summary>
+    public string AudioDelayEndpoint { get; init; } = "";
+
+    /// <summary>How the delay came to be known: Manual, Measured, or empty for neither.</summary>
+    public string AudioDelaySource { get; init; } = "";
+
+    /// <summary>When it was measured, so the screen can say how stale it is.</summary>
+    public string AudioDelayMeasuredAt { get; init; } = "";
+
+    /// <summary>Whether DashDeck's playback gets out of the way of spoken instructions (Q14).</summary>
+    public bool DuckUnderInstructions { get; init; } = true;
+
     public Dictionary<string, bool> WarningPopups { get; init; } = [];
 
     /// <summary>

@@ -76,8 +76,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         new SettingsSection("DISPLAY"),
         new SettingsSection("VEHICLE"),
         new SettingsSection("SENSORS"),
+        new SettingsSection("AUDIO"),
         new SettingsSection("APPS"),
         new SettingsSection("DIAGNOSTICS"),
+        new SettingsSection("ABOUT"),
     ];
 
     /// <summary>Which section is showing.</summary>
@@ -88,8 +90,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsDisplay))]
     [NotifyPropertyChangedFor(nameof(IsVehicle))]
     [NotifyPropertyChangedFor(nameof(IsSensors))]
+    [NotifyPropertyChangedFor(nameof(IsAudio))]
     [NotifyPropertyChangedFor(nameof(IsApps))]
     [NotifyPropertyChangedFor(nameof(IsDiagnostics))]
+    [NotifyPropertyChangedFor(nameof(IsAbout))]
     private string _section = "APPEARANCE";
 
     public bool IsAppearance => Section == "APPEARANCE";
@@ -98,8 +102,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     public bool IsDisplay => Section == "DISPLAY";
     public bool IsVehicle => Section == "VEHICLE";
     public bool IsSensors => Section == "SENSORS";
+    public bool IsAudio => Section == "AUDIO";
     public bool IsApps => Section == "APPS";
     public bool IsDiagnostics => Section == "DIAGNOSTICS";
+    public bool IsAbout => Section == "ABOUT";
 
     /// <summary>Switch sections. Bound to the rail.</summary>
     [RelayCommand]
@@ -116,6 +122,18 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (IsVehicle)
         {
             _ = Adapter.TestIfStaleAsync();
+        }
+
+        // The same courtesy for the sections that read the machine: a Bluetooth link that was
+        // paired since the dash started should appear without a restart.
+        if (IsAudio)
+        {
+            Audio.RefreshCommand.Execute(null);
+        }
+
+        if (IsAbout)
+        {
+            About.RefreshCommand.Execute(null);
         }
 
         foreach (var candidate in Sections)
@@ -144,6 +162,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         Inventory = inventory;
         Vehicle = vehicle;
         Display = display;
+        Audio = new AudioSettingsViewModel(display);
+        About = new AboutViewModel(display);
         _sensors = sensors;
         _userApps = userApps;
         _launcher = launcher;
@@ -193,6 +213,12 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Which vehicle this is: its VIN, the decode, the signal pack (ADR-0033).</summary>
     public VehicleIdentityViewModel Vehicle { get; }
+
+    /// <summary>Settings ▸ AUDIO: music folder, output delay, and the probe (ADR-0059).</summary>
+    public AudioSettingsViewModel Audio { get; }
+
+    /// <summary>Settings ▸ ABOUT: what this build is and where it keeps things.</summary>
+    public AboutViewModel About { get; }
 
     /// <summary>True once the tablet''s mount has been levelled.</summary>
     public bool IsLevelled => _sensors.IsLevelled;
