@@ -177,6 +177,23 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isMenuOpen;
 
+    /// <summary>
+    /// The menu is drawn by the shell, and an occupant that is a window of its own sits above the
+    /// shell — so a hosted application has to stand down while the menu is up or the menu opens
+    /// behind it. Found in the truck: the sync and restart actions were there and unreachable
+    /// with Nuvio playing.
+    /// </summary>
+    /// <remarks>
+    /// Only the hosted occupants act on this (<see cref="Stage.IStageOccupant.SetObscured"/> is a
+    /// no-op everywhere else), which matters: collapsing the stage wholesale would hide the video
+    /// you are tuning the sync offset against, and that offset is nudged from this very menu.
+    /// </remarks>
+    partial void OnIsMenuOpenChanged(bool value)
+    {
+        _screen?.SetObscured(value);
+        _source?.SetObscured(value);
+    }
+
     public ShellViewModel(
         VehicleStack vehicle,
         IClock clock,

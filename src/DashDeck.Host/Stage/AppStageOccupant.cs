@@ -102,6 +102,14 @@ public sealed class AppStageOccupant : IStageOccupant
     public IReadOnlyList<StageAction> Actions => [new StageAction("RESTART APP", Restart)];
 
     /// <inheritdoc />
+    /// <remarks>
+    /// This is the occupant the hook exists for: the application is a window of its own, owned by
+    /// the shell and therefore above it, so the overflow menu would otherwise open behind it —
+    /// including the RESTART APP action above, which is unreachable exactly when it is wanted.
+    /// </remarks>
+    public void SetObscured(bool obscured) => _host?.SetObscured(obscured);
+
+    /// <inheritdoc />
     public string Describe() =>
         $"app={_spec.Name} state={State} path={_spec.Resolve() ?? "(not found)"} " +
         $"pid={_process?.Id.ToString() ?? "-"} job={_job.IsUsable} " +

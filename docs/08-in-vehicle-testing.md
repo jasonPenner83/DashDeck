@@ -1425,8 +1425,18 @@ late, or make it worse? The reasoning says a negative offset holds the picture b
 direction a Bluetooth link needs, and the API's own documentation does not state the sign. If the
 buttons work backwards it is a one-character fix — but only you can see which way it goes.
 
+**Where the controls are, and the one place they are not:** the action bar is the **overflow
+menu** — the button in the status strip — and the sync items appear there only while **VIDEO** is
+the occupant. They are DashDeck's own player (LibVLC), so **they do nothing for Nuvio or any other
+hosted application**: that is a separate program drawing its own picture and playing its own sound,
+and DashDeck can delay neither. Use Nuvio's own audio-delay control for Nuvio.
+
 **A failure looks like:**
-- **No sync items in the action bar** — you are running a build without this change.
+- **No sync items in the action bar** — you are running a build without this change, or the
+  occupant is not VIDEO.
+- **The menu opens behind the picture** — fixed 2026-10-15 for hosted applications, which now
+  stand down while the menu is up. If it still happens with **VIDEO**, say so: that is a different
+  airspace problem and a different fix.
 - **The readout moves but nothing changes on screen** — the offset is not reaching the player.
 - **Right on the first file, wrong on the second** — the reapply-after-every-play is not working.
 - **Your setting replaced by the measured one after a restart** — seeding is meant to happen once.
