@@ -1454,3 +1454,44 @@ be ahead of it.
   DashDeck, or not enough free space for three copies.
 - **`%LOCALAPPDATA%\DashDeck\updates` is about 700 MB** after an update — the archive plus the
   staged copy. Deleting its contents is safe; nothing automatic cleans it up yet.
+
+## When the dash will not open
+
+Added 2026-10-15, after a launch hung with no window and no log, and then — because it was still
+running and holding the single-instance lock — made every launch after it fail silently too.
+
+**First, the one command:**
+
+```
+powershell -ExecutionPolicy Bypass -File diagnose.ps1
+```
+
+It reads and changes nothing, and prints the four things that answer this: any DashDeck still
+running, the startup trail, the end of the crash log, and the ports and settings that decide what
+startup touches.
+
+**What to look for:**
+
+1. **A DashDeck process with `MainWindowHandle` of 0.** That is a stuck launch, and it is why
+   nothing else will start. `Stop-Process -Name DashDeck.Host -Force`, then launch again.
+2. **The last line of the startup trail** (`%LOCALAPPDATA%\DashDeck\startup.log`, rewritten every
+   launch). It names the phase that never finished — claiming the lock, reading settings, preparing
+   the adapter on a port, loading components, building the window. **That line is the diagnosis;
+   everything before it finished.**
+3. **`startup gave up after 45 s, still in: …`** in the trail or the crash log means the watchdog
+   ended it rather than letting it sit there. The phase it names is where to look.
+4. **A message saying another DashDeck is running and did not let go.** The gate used to exit
+   silently after twenty seconds; it now says this, and the fix is step 1.
+
+**To narrow it by hand**, these three launches separate the usual suspects:
+
+```
+dotnet run --project src\DashDeck.Host -- --port ""        the synthetic truck, no adapter search
+dotnet run --project src\DashDeck.Host -- --port "" --gps ""   neither adapter nor phone GPS
+dotnet run --project src\DashDeck.Host                     as it normally starts
+```
+
+If the first two start and the third does not, it is the serial side — the adapter search, or the
+phone's Bluetooth port. **Components are a separate case:** they are built by `publish.ps1`, not by
+`dotnet run`, so a repository checkout can hold component DLLs built against an older DashDeck.
+Those fail to load and are logged; they do not stop the dash.

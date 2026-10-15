@@ -16,5 +16,16 @@
       from v.0.10.0 says 0.10.0; this value is what a local publish gets.
     -->
     <Version>0.9.0</Version>
+
+    <!--
+      Assembly identity is pinned and does NOT follow the version above. Components in plugins\ are
+      built separately and keep a reference to "DashDeck.Abstractions, Version=1.0.0.0"; .NET
+      refuses to load an assembly whose reference asks for a higher version than the one it finds,
+      so stamping 0.9.0 onto the assembly silently broke every already-built component — a
+      downgrade of the binding identity, which is the one direction that cannot be survived.
+      Version and InformationalVersion carry the human version the updater compares; this stays
+      where it has always been.
+    -->
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
   </PropertyGroup>
 </Project>

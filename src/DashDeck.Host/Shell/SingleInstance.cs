@@ -27,10 +27,24 @@ internal sealed class SingleInstance : IDisposable
     }
 
     /// <summary>
-    /// Take the dash, or bring the other one forward. Null means: do not start — another DashDeck
-    /// is (or stayed) running. Called on the UI thread, which must also <see cref="Release"/> it.
+    /// The outcome of a claim: the instance if this process may run, and whether it gave up
+    /// waiting rather than handing over to a window it could see.
     /// </summary>
-    public static SingleInstance? Claim()
+    /// <remarks>
+    /// The two null cases used to be one, and that was the bug: bringing the other dash forward is
+    /// a success and should be silent, while waiting twenty seconds for a lock held by something
+    /// with no window is a failure that has to say so. A launch that exits without a word is the
+    /// hardest thing to diagnose in a truck.
+    /// </remarks>
+    /// <param name="Instance">Null when this process must not run.</param>
+    /// <param name="GaveUp">True when the wait ran out with no other window to activate.</param>
+    internal readonly record struct Claimed(SingleInstance? Instance, bool GaveUp);
+
+    /// <summary>
+    /// Take the dash, or bring the other one forward. Called on the UI thread, which must also
+    /// <see cref="Release"/> it.
+    /// </summary>
+    public static Claimed Claim()
     {
         var mutex = new Mutex(false, MutexName);
         var watch = Stopwatch.StartNew();
@@ -43,17 +57,17 @@ internal sealed class SingleInstance : IDisposable
             switch (InstanceGate.Next(acquired, other != IntPtr.Zero, watch.Elapsed))
             {
                 case InstanceStep.Run:
-                    return new SingleInstance(mutex, owned: true);
+                    return new Claimed(new SingleInstance(mutex, owned: true), GaveUp: false);
 
                 case InstanceStep.ActivateOtherAndExit:
                     NativeMethods.ShowWindow(other, SwRestore);
                     NativeMethods.SetForegroundWindow(other);
                     mutex.Dispose();
-                    return null;
+                    return new Claimed(null, GaveUp: false);
 
                 case InstanceStep.GiveUp:
                     mutex.Dispose();
-                    return null;
+                    return new Claimed(null, GaveUp: true);
 
                 default:
                     Thread.Sleep(InstanceGate.Interval);
