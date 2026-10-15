@@ -560,6 +560,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         if (IsStereoActive && StereoContent is null)
         {
             StereoContent = new Views.StereoPanel { DataContext = Stereo };
+
+            // The folder is read the first time the panel is shown, never at launch: it is a
+            // recursive walk of somebody's music folder, and on the startup path it held the
+            // window shut for as long as the walk took (Q41).
+            Stereo.ScanOnce();
         }
         else if (!IsStereoActive)
         {

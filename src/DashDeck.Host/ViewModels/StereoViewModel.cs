@@ -46,6 +46,7 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
     private StereoPlayer? _player;
     private string? _unavailable;
     private bool _made;
+    private bool _scanned;
     private bool _seeking;
 
     /// <param name="makePlayer">
@@ -77,7 +78,26 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
 
         _tick.Tick += (_, _) => Refresh();
         _tick.Start();
+    }
 
+    /// <summary>
+    /// Read the music folder, once, the first time the panel is shown.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not from the constructor.</b> The scan is a recursive walk of a folder someone chose,
+    /// and the shell builds this view model on the startup path — so a large music folder, or one
+    /// a cloud client syncs on demand, held the window shut for as long as the walk took. That was
+    /// the last of the four things found between the process starting and the window appearing
+    /// (Q41). A panel nobody opens never reads the disk at all.
+    /// </remarks>
+    public void ScanOnce()
+    {
+        if (_scanned)
+        {
+            return;
+        }
+
+        _scanned = true;
         Rescan();
     }
 
@@ -198,19 +218,41 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (!Directory.Exists(folder))
+        // Everything that touches the folder happens off the UI thread, including whether it is
+        // there at all: this one is a **network share**, and both Directory.Exists and the walk
+        // can sit for a minute on an SMB path that is slow, asleep or gone. The panel says what
+        // it is doing and the dash stays live throughout.
+        Problem = "";
+        Title = "Reading the music folder…";
+
+        _ = ScanAsync(folder);
+    }
+
+    private async Task ScanAsync(string folder)
+    {
+        IReadOnlyList<Track> tracks;
+
+        try
         {
-            Problem = $"{folder} is not there any more. Choose another in Settings ▸ AUDIO.";
+            tracks = await Task.Run(() =>
+            {
+                if (!Directory.Exists(folder))
+                {
+                    throw new DirectoryNotFoundException(
+                        $"{folder} cannot be reached. If it is a network share, check it is "
+                            + "connected; otherwise choose another folder in Settings ▸ AUDIO.");
+                }
+
+                return MusicLibrary.From(
+                    Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories));
+            }).ConfigureAwait(true);
+        }
+        catch (DirectoryNotFoundException ex)
+        {
+            Problem = ex.Message;
             _player?.SetQueue([]);
             Refresh();
             return;
-        }
-
-        IReadOnlyList<Track> tracks;
-        try
-        {
-            tracks = MusicLibrary.From(
-                Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories));
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
