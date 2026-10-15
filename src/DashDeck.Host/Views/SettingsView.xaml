@@ -1757,15 +1757,7 @@
                           Visibility="{Binding IsAudio, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="31,26,31,24" DataContext="{Binding Audio}">
 
-                    <TextBlock Style="{StaticResource CaptionText}" Text="MUSIC FOLDER" />
-                    <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
-                               Style="{StaticResource MicroText}"
-                               Text="Where the Stereo card reads from. Searched including subfolders. Files on the tablet rather than a service, because the dash is launched by hand in a truck that may have no signal." />
-                    <TextBox Margin="0,10,0,0" Width="700" HorizontalAlignment="Left"
-                             Style="{StaticResource InputField}"
-                             Text="{Binding MusicFolder, UpdateSourceTrigger=PropertyChanged}" />
-
-                    <TextBlock Margin="0,26,0,0" Style="{StaticResource CaptionText}" Text="OUT OF THE WAY OF DIRECTIONS" />
+                    <TextBlock Style="{StaticResource CaptionText}" Text="OUT OF THE WAY OF DIRECTIONS" />
                     <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
                                Style="{StaticResource MicroText}"
                                Text="Projection's audio and DashDeck's own land on the same Windows output, and Windows mixes rather than choosing — so without this a turn instruction arrives underneath a chorus. Music is lowered under speech rather than paused, because a pause leaves a longer hole than the words; the phone playing its own music stops ours outright." />

@@ -38,7 +38,6 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly IClock _clock;
     private readonly ThemeService _theme;
     private readonly DispatcherTimer _timer;
-    private Audio.StereoPlayer? _stereoPlayer;
     private readonly string? _videoPath;
     private readonly Stage.UserAppStore _userApps;
     private readonly Stage.Launcher.StageLauncherStore _launcher;
@@ -214,17 +213,6 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         // The player outlives the panel, so it is made here and disposed with the shell. It is
         // allowed to fail: a missing native LibVLC must cost the music, never the whole dash.
-        // Built on demand, not here: new LibVLC() walks VLC's plugin folder — some seventeen
-        // hundred files — and doing that in this constructor put it on the startup path, before
-        // the window existed, where it cost seconds on a cold tablet (Q41).
-        Shell.StartupTrace.Phase("shell: the stereo panel");
-        Stereo = new StereoViewModel(
-            () =>
-            {
-                _stereoPlayer = Audio.StereoPlayer.TryCreate(out var problem);
-                return (_stereoPlayer, problem);
-            },
-            Display);
 
         // Which signals are shown by state name (ADR-0056), for the layouts' selector element.
         Stage.Gauges.SignalStates.Of = id => vehicle.Catalog.TryGet(id, out var definition) ? definition.States : null;
@@ -450,13 +438,6 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <summary>Display preferences the web occupants follow. Shared, so a change re-zooms live.</summary>
     public DisplaySettings Display { get; }
 
-    /// <summary>DashDeck's own playback, for the Stereo panel (Q14).</summary>
-    /// <remarks>
-    /// Owned here rather than by the panel, so leaving STEREO does not stop the music — the same
-    /// reasoning as a stage occupant that keeps playing when navigated away from (ADR-0025).
-    /// </remarks>
-    public StereoViewModel Stereo { get; }
-
     /// <summary>One weather fetch for the whole app. The status strip and the clock face share it.</summary>
     public WeatherService Weather { get; }
 
@@ -503,11 +484,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// </summary>
     /// <remarks>
     /// Stereo was parked here because the nav is the destination list (B3) and an empty strip
-    /// would say less; climate was too, until ADR-0040 gave it a read-only panel. Both are built
-    /// now, so nothing is unbuilt — this stays rather than being deleted, because the next
-    /// destination added to the nav will reach the strip before it reaches a panel.
+    /// would say less; climate was too, until ADR-0040 gave it a read-only panel. Climate is
+    /// built; Stereo is parked again on <c>parked/stereo-music</c>, so it says so once more —
+    /// which is exactly what this strip is for.
     /// </remarks>
-    public bool IsDestinationUnbuilt => false;
+    public bool IsDestinationUnbuilt => IsStereoActive;
 
     /// <summary>
     /// The climate panel (ADR-0040), drawn from the climate layout in the region the cards use —
@@ -530,18 +511,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private FrameworkElement? _consoleContent;
 
     /// <summary>
-    /// The Stereo panel (Q14), on the bottom third — or null whenever STEREO is not the
-    /// destination.
+    /// Where the Stereo panel went (Q14, ADR-0060's addendum).
     /// </summary>
     /// <remarks>
-    /// <b>Unlike the climate and console panels, the player behind this one outlives it.</b> Those
-    /// two are made and disposed with the destination so their signals are declared only while
-    /// visible; doing that here would stop the music the moment you looked at the map, which is
-    /// the opposite of what a stereo is for. So the panel is built and dropped on the destination
-    /// while <see cref="StereoPlayer"/> is owned by the shell for its lifetime.
+    /// Parked on <c>parked/stereo-music</c>. It is kept as a property so the nav strip and the
+    /// window binding stay honest — STEREO is still a destination and still shows nothing —
+    /// rather than threading a removal through the layout for something that is coming back.
     /// </remarks>
-    [ObservableProperty]
-    private FrameworkElement? _stereoContent;
+    public FrameworkElement? StereoContent => null;
 
     partial void OnActiveDestinationChanged(string value) => SyncPanels();
 
@@ -556,16 +533,6 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         {
             ClimateContent = null;
             climate.Dispose();
-        }
-
-        if (IsStereoActive && StereoContent is null)
-        {
-            StereoContent = new Views.StereoPanel { DataContext = Stereo };
-        }
-        else if (!IsStereoActive)
-        {
-            // The view goes; the player does not. Nothing to dispose here.
-            StereoContent = null;
         }
 
         if (IsDashActive && ConsoleContent is null)
@@ -790,7 +757,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public bool IsClimateVisible => IsClimateActive && !IsCardEditorOpen && !IsComponentDetailOpen;
 
     /// <summary>Whether the Stereo panel is showing, on the same terms as the climate panel.</summary>
-    public bool IsStereoVisible => IsStereoActive && !IsCardEditorOpen && !IsComponentDetailOpen;
+    public bool IsStereoVisible => false;
 
     /// <summary>
     /// Whether the destination strip is showing.
@@ -1238,8 +1205,6 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         (ConsoleContent as IDisposable)?.Dispose();
 
         // The panel is just a view; the player and its ticker are the things holding resources.
-        Stereo.Dispose();
-        _stereoPlayer?.Dispose();
     }
 
     private void Refresh()
