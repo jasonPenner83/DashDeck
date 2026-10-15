@@ -121,3 +121,29 @@ wall around an in-process call.
   same paged, activated flow the signal and sensor cards already live in.
 - **A first component exists and is built through the SDK**, so the contract is exercised — and
   its rough edges are findable — before anyone else depends on it.
+
+## Addendum — 2026-10-15: the components are parked, the host is not
+
+Every one of the five components timed out while loading, one after another, and because each
+guarded call gets five seconds the sum held the launch open for forty-five seconds with nothing on
+screen (Q41). The dash was unusable and the cause is not yet known (Q42).
+
+So `components/` and the built components in `plugins/` are parked on **`parked/components`**, and
+`plugins/` ships empty. **The host described above stays exactly as it is:** it reads an empty
+folder in no time, every check it makes is still tested, and nothing about the decision is in
+doubt. What is parked is five components, not the idea of components.
+
+Two things this exposed in the host, both now fixed, and both of which belong in this ADR because
+it is the ADR that promises fault containment:
+
+- **A component's constructor was not guarded.** `GuardedComponent`'s timeouts only cover calls
+  made *after* an instance exists, so `Activator.CreateInstance` ran unbounded on the startup path
+  — a component that blocked in its own constructor could hold a launch open indefinitely. It now
+  runs on its own thread with a five-second budget.
+- **Loading as a whole was unbounded.** Per-call timeouts do not add up to a bounded launch when
+  the calls are made in series. Component loading now gets ten seconds in total and the window
+  comes up without whatever has not finished, each component named in the startup trail as it is
+  reached.
+
+The second is the more important lesson: *containment per component is not containment overall.*
+

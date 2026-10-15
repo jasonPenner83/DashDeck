@@ -23,7 +23,7 @@ the three-dot menu (two taps) closes it. Uninstalling is
 deleting the folder (constraint C1).
 
 The publish summary should read: catalog `included`, libvlc `included`, id hunter `IdHunter\IdHunter.exe`, components `5 included`.
-If components says `none`, a component did not build — check `components/` before carrying it out.
+`components` says `none` since 2026-10-15, and that is correct: the five components are parked on `parked/components` (Q42). A deploy with no components is a working deploy.
 To confirm the loader in the deployed folder without opening the shell:
 `DashDeck.Host.exe --components <outfile>` should list all five.
 
