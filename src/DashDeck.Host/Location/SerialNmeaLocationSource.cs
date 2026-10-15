@@ -1,5 +1,6 @@
 using System.IO.Ports;
 using DashDeck.Abstractions;
+using DashDeck.Core.Location;
 
 namespace DashDeck.Host.Location;
 

@@ -283,7 +283,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             Remember(atLaunch);
         }
 
-        Settings = new SettingsViewModel(theme, Display, Sensors, _userApps, _launcher, Inventory, VehicleIdentity, Adapter);
+        Settings = new SettingsViewModel(
+            theme, Display, Sensors, _userApps, _launcher, Inventory, VehicleIdentity, Adapter, location, clock);
 
         // The warning lights (ADR-0055): built before the stage, because whether the occupant is
         // drawn depends on whether the warning window is up.
@@ -1114,7 +1115,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// <c>synthetic</c> for the desk), otherwise the persisted GPS setting. Null when GPS is off —
     /// and then the sensors are the tablet's alone, exactly as before (ADR-0027).
     /// </summary>
-    private static Location.ILocationSource? ResolveLocationSource(
+    private static Core.Location.ILocationSource? ResolveLocationSource(
         string? gpsOverride, DisplaySettings display, IClock clock)
     {
         // --gps wins: "synthetic", a COM port for Bluetooth, or a host:port for the network.
@@ -1243,6 +1244,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         if (IsSettingsActive && Settings.IsSensors && Inventory.IsListing)
         {
             Inventory.Refresh();
+        }
+
+        // The phone's GPS readout, on the same terms: only while Display is the section being
+        // looked at. It is what tells someone in the driver's seat whether the pairing works.
+        if (IsSettingsActive && Settings.IsDisplay)
+        {
+            Settings.RefreshGps();
         }
 
         // The banner the mockups have and the shell never showed. Sampled here, on the UI

@@ -572,6 +572,23 @@
 
                     <TextBlock Style="{StaticResource CaptionText}" Margin="0,30,0,0" Text="LOCATION (PHONE GPS)" />
 
+                    <!-- What the GPS is doing now. Before this, the only feedback was the compass. -->
+                    <Border Margin="0,14,0,0" Padding="16,12" CornerRadius="6"
+                            Background="{DynamicResource SurfaceBrush}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding GpsStatus, Mode=OneWay}"
+                                       FontFamily="{DynamicResource MonoFont}" FontSize="16"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource TextHighBrush}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Margin="0,6,0,0"
+                                       Text="{Binding GpsStatusDetail, Mode=OneWay}"
+                                       Style="{StaticResource MicroText}"
+                                       MaxWidth="620" HorizontalAlignment="Left"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
                     <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                         <Button Style="{StaticResource StageLauncherButton}"
                                 Height="52" MinWidth="180"
@@ -634,7 +651,7 @@
                                HorizontalAlignment="Left"
                                TextWrapping="Wrap"
                                Style="{StaticResource MicroText}"
-                               Text="Run a GPS-share app on your Android phone (e.g. gpsdRelay or Share GPS) that outputs NMEA. Bluetooth: pair the phone in Windows Bluetooth settings, then pick the COM port it appears as — no Wi-Fi needed. Network: the app serves NMEA over TCP; put its host:port here. Takes effect at the next launch. Heading and position read PHONE; speed falls back to the truck's own when the adapter is plugged in." />
+                               Text="Run a GPS-share app on your Android phone (GPS NMEA Tether, Share GPS, gpsdRelay) that outputs NMEA. Bluetooth: pair the phone in Windows Bluetooth settings, then pick the COM port it appears as — no Wi-Fi needed. One pairing makes several ports and only one of them answers, so if the readout above says NO DATA, try the next one — or find it first with GpsProbe --list. Network: the app serves NMEA over TCP; put its host:port here. Takes effect at the next launch. Heading and position read PHONE; speed falls back to the truck's own when the adapter is plugged in." />
                 </StackPanel>
             </ScrollViewer>
 

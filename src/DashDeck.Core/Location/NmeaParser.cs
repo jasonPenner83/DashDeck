@@ -1,7 +1,7 @@
 using System.Globalization;
 using DashDeck.Abstractions;
 
-namespace DashDeck.Host.Location;
+namespace DashDeck.Core.Location;
 
 /// <summary>
 /// Turns an NMEA 0183 sentence into a <see cref="LocationFix"/>.

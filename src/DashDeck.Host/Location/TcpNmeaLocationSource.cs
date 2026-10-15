@@ -2,6 +2,7 @@ using System.IO;
 using System.Net.Sockets;
 using System.Text;
 using DashDeck.Abstractions;
+using DashDeck.Core.Location;
 
 namespace DashDeck.Host.Location;
 
