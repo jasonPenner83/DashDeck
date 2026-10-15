@@ -96,3 +96,34 @@ it while stopped is the honest exception, and the provenance says which answered
   the truck PIDs remain F19. Altitude and G from GPS are not done.
 - **`apps.json`/`settings.json` gain two keys** (`gpsEnabled`, `gpsEndpoint`) in
   `%LOCALAPPDATA%`. Still C1-clean: a socket, no driver, no registry.
+
+## Addendum — 2026-10-15: a fix is built from the sentences, not the last one
+
+A real phone (GPS NMEA Tether over Bluetooth, COM4) reached the dash for the first time, and the
+readings were intermittent. Both causes were in this ADR's own read loop, which kept **whichever
+sentence parsed last** — a reasonable-looking line that is wrong twice over:
+
+- **Not every sentence carries every field.** RMC has speed and course; GGA has neither. An app
+  sending both — most do, and this one does — therefore alternated between a fix with a heading
+  and a fix without one, once a second, so the compass handed back to the magnetometer on every
+  other sentence. The *moving-heading* rule above was working perfectly; it was being fed NaN.
+- **A receiver says "no fix" out loud.** A void RMC or a quality-zero GGA parses fine and carries
+  no coordinates. Keeping the newest sentence therefore threw away a good position because of one
+  blip, and the gauges blanked.
+
+**Decision: a `LocationTracker` holds what is known, and sentences update it rather than replace
+it.** Fields merge across sentences inside a 3-second window, so a GGA does not take away the
+course the RMC beside it supplied. A position is held: a sentence without one means *nothing new*,
+not *nowhere*. A dropped link marks the fix down to Stale rather than blanking it, because a
+two-second Bluetooth hiccup and a phone left at home arrive at the same code path.
+
+**Held is not frozen, and that line is the whole point.** The held fix keeps the timestamp it was
+taken at, so its age is always on screen; it demotes to Stale after 5 seconds and stops being
+offered as a position at all after 10. Quality only ever moves down — being young never promotes
+a fix the link already marked down. A phone that has genuinely lost its fix still reports it
+within ten seconds; it just no longer does so because of a single sentence. A dot that stopped
+being true is the worst thing a map can draw, which is why the hold has an end rather than being
+a smoothing filter.
+
+The carry-forward fills what is *absent*, never what is inconvenient: a zero speed is a
+measurement, so stopping reads as stopped rather than holding the last moving value.

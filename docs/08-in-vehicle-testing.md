@@ -1508,6 +1508,22 @@ whatever host and port the app itself reports, because the number differs betwee
 9. **Pair it again. Expect it to come back on its own** within a few seconds, without restarting
    the dash.
 
+### What steadiness should look like (changed 2026-10-15)
+
+The first real phone came in **intermittently**, and it was the read loop rather than the link:
+it kept whichever sentence parsed last, so a GGA took away the course the RMC beside it supplied,
+and a single void sentence threw away a good position. A fix is now **built** from the sentences
+(ADR-0027's addendum), so:
+
+- **The readout should sit still** at `FIX — …` with the age under it ticking between `just now`
+  and however often the phone sends. **That age is the feed rate** — if it reads `3 s ago` over
+  and over, the app is sending every three seconds, which is worth knowing.
+- **A Bluetooth hiccup should read `STALE`, with the position still there**, not blank.
+- **A phone switched off or left behind should reach `NO FIX` within about ten seconds.** This is
+  the one to check deliberately: holding a position forever is worse than losing it.
+- **The compass should not flick between `PHONE · GPS` and `TABLET · MAGNETIC`** second by second
+  while driving. One hand-back when you slow below about 5 km/h is the rule working.
+
 **The things I need you to tell me:**
 - which port it turned out to be, and how many were in the list (if a pairing really does make
   several, the picker should probably sort or mark them);
