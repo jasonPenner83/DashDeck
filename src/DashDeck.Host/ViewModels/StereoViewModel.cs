@@ -81,25 +81,9 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Read the music folder, once, the first time the panel is shown.
+    /// Whether the folder has been read yet, so the panel can say what it is waiting for.
     /// </summary>
-    /// <remarks>
-    /// <b>Not from the constructor.</b> The scan is a recursive walk of a folder someone chose,
-    /// and the shell builds this view model on the startup path — so a large music folder, or one
-    /// a cloud client syncs on demand, held the window shut for as long as the walk took. That was
-    /// the last of the four things found between the process starting and the window appearing
-    /// (Q41). A panel nobody opens never reads the disk at all.
-    /// </remarks>
-    public void ScanOnce()
-    {
-        if (_scanned)
-        {
-            return;
-        }
-
-        _scanned = true;
-        Rescan();
-    }
+    public bool Scanned => _scanned;
 
     /// <summary>
     /// The player, built the first time it is wanted. Null when LibVLC would not load.
@@ -143,7 +127,7 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
 
     /// <summary>What is playing, or an invitation to choose a folder.</summary>
     [ObservableProperty]
-    private string _title = "Nothing queued";
+    private string _title = "Press RESCAN to read the music folder";
 
     /// <summary>The album, which is the folder's name until tags are read.</summary>
     [ObservableProperty]
@@ -201,10 +185,21 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasTracks));
     }
 
-    /// <summary>Re-read the music folder.</summary>
+    /// <summary>
+    /// Read the music folder. <b>Nothing calls this on its own</b> — only the RESCAN button does.
+    /// </summary>
+    /// <remarks>
+    /// It used to run from this view model's constructor, which the shell builds while starting
+    /// up, and the owner's music folder is a large **network share**: both the existence check and
+    /// the recursive walk sit for as long as SMB takes, so the window did not appear until the
+    /// walk finished (Q41). Deferring it to the first time the panel opened was not enough —
+    /// opening the panel in a truck, where the share is unreachable, would have the same shape. So
+    /// the dash now reads that folder only when somebody asks it to, and says so until they do.
+    /// </remarks>
     [RelayCommand]
     public void Rescan()
     {
+        _scanned = true;
         Tracks.Clear();
 
         var folder = _settings.MusicFolder;
@@ -351,7 +346,10 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
         // timer would put back exactly the cost that was moved off the startup path.
         if (_player is null)
         {
-            Title = _made ? "No audio playback" : "Nothing queued";
+            Title = _made
+                ? "No audio playback"
+                : _scanned ? "Nothing queued" : "Press RESCAN to read the music folder";
+
             PlayLabel = "PLAY";
             return;
         }

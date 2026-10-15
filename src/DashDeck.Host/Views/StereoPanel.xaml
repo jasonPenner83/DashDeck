@@ -95,6 +95,15 @@
                     <Button Style="{StaticResource OptionChipButton}"
                             Content="NEXT"
                             Command="{Binding NextCommand}" />
+                    <!--
+                        The only thing that reads the music folder. Nothing does it automatically:
+                        that folder is a network share, and walking it on the startup path is what
+                        kept the window from appearing (Q41). A tap is cheap; a launch is not.
+                    -->
+                    <Button Style="{StaticResource OptionChipButton}"
+                            Margin="24,0,0,0"
+                            Content="RESCAN"
+                            Command="{Binding RescanCommand}" />
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">

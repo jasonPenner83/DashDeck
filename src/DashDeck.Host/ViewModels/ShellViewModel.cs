@@ -217,6 +217,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // Built on demand, not here: new LibVLC() walks VLC's plugin folder — some seventeen
         // hundred files — and doing that in this constructor put it on the startup path, before
         // the window existed, where it cost seconds on a cold tablet (Q41).
+        Shell.StartupTrace.Phase("shell: the stereo panel");
         Stereo = new StereoViewModel(
             () =>
             {
@@ -560,11 +561,6 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         if (IsStereoActive && StereoContent is null)
         {
             StereoContent = new Views.StereoPanel { DataContext = Stereo };
-
-            // The folder is read the first time the panel is shown, never at launch: it is a
-            // recursive walk of somebody's music folder, and on the startup path it held the
-            // window shut for as long as the walk took (Q41).
-            Stereo.ScanOnce();
         }
         else if (!IsStereoActive)
         {
