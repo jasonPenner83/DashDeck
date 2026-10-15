@@ -200,7 +200,16 @@ public sealed class ComponentHost(IVehicleSignals signals, IClock clock, string 
     /// Scan <c>plugins/</c>, load every component that will load, and initialise each behind
     /// its guard. Safe to call once at startup; never throws for bad component content.
     /// </summary>
-    public async Task LoadAllAsync(CancellationToken ct)
+    /// <summary>
+    /// Load every component in the plugins folder, in order.
+    /// </summary>
+    /// <param name="ct">Cancels the rest of the loading.</param>
+    /// <param name="loading">
+    /// Called with each folder's name before it is loaded. The shell writes these into the startup
+    /// trail: five components each taking a guarded call's five seconds is forty-five seconds of
+    /// launch, and without a name per component that reads as "the dash is broken" (Q41).
+    /// </param>
+    public async Task LoadAllAsync(CancellationToken ct, Action<string>? loading = null)
     {
         if (!Directory.Exists(pluginsRoot))
         {
@@ -210,6 +219,7 @@ public sealed class ComponentHost(IVehicleSignals signals, IClock clock, string 
         foreach (var folder in Directory.EnumerateDirectories(pluginsRoot))
         {
             ct.ThrowIfCancellationRequested();
+            loading?.Invoke(Path.GetFileName(folder));
             _components.Add(await LoadOneAsync(folder, ct).ConfigureAwait(false));
         }
     }
@@ -272,7 +282,12 @@ public sealed class ComponentHost(IVehicleSignals signals, IClock clock, string 
                 return Reject(manifest.Id, manifest, $"'{manifest.Id}' entry type '{manifest.Entry.Type}' was not found.");
             }
 
-            if (Activator.CreateInstance(type) is not IDashComponent instance)
+            // A component's constructor runs here, and nothing guards it: the timeouts in
+            // GuardedComponent only cover calls made *after* an instance exists. One that blocks
+            // in its own constructor — or in a static initializer the first touch triggers —
+            // would hang the launch outright, which is the one failure mode a component must not
+            // be able to cause (ADR-0010's fault containment).
+            if (await Instantiate(type, ct).ConfigureAwait(false) is not IDashComponent instance)
             {
                 context.Unload();
                 return Reject(manifest.Id, manifest, $"'{manifest.Id}' type '{manifest.Entry.Type}' is not an IDashComponent.");
@@ -313,6 +328,47 @@ public sealed class ComponentHost(IVehicleSignals signals, IClock clock, string 
             return Reject(manifest.Id, manifest, $"'{manifest.Id}' failed to load: {ex.GetType().Name}: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Construct a component, bounded, off the UI thread.
+    /// </summary>
+    /// <remarks>
+    /// On its own thread rather than the pool, for the same reason the serial opens are: if it
+    /// blocks it blocks forever, and an abandoned pool thread is one the whole process loses.
+    /// Returning null on a timeout lets the caller reject it like any other bad component.
+    /// </remarks>
+    private static async Task<object?> Instantiate(Type type, CancellationToken ct)
+    {
+        var built = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        new Thread(() =>
+        {
+            try
+            {
+                built.TrySetResult(Activator.CreateInstance(type));
+            }
+            catch (Exception ex)
+            {
+                built.TrySetException(ex);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = $"component ctor {type.Name}",
+        }.Start();
+
+        try
+        {
+            return await built.Task.WaitAsync(ConstructorBudget, ct).ConfigureAwait(false);
+        }
+        catch (TimeoutException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>How long a component's constructor gets before it is treated as broken.</summary>
+    private static readonly TimeSpan ConstructorBudget = TimeSpan.FromSeconds(5);
 
     private IComponentContext BuildContext(string id, IComponentLogger logger)
     {

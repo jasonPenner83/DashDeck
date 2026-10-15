@@ -282,7 +282,24 @@ public partial class App : Application
         Shell.StartupTrace.Phase("loading components");
         var componentHost = new Components.ComponentHost(
             _vehicle.Signals, SystemClock.Instance, Components.PluginPath.FindRoot() ?? "plugins", vehicle);
-        await componentHost.LoadAllAsync(CancellationToken.None);
+        // Bounded, and the window comes up without the stragglers. Five components each
+        // spending a guarded call's five seconds is forty-five seconds of launch with nothing on
+        // screen — which is what Q41 actually turned out to be. Whatever has loaded by then is
+        // what this launch gets; the rest is logged and the trail names which one was in progress.
+        var loading = componentHost.LoadAllAsync(
+            CancellationToken.None,
+            id => Shell.StartupTrace.Phase($"loading component {id}"));
+
+        if (await Task.WhenAny(loading, Task.Delay(ComponentBudget)).ConfigureAwait(true) != loading)
+        {
+            Fail(
+                "Startup",
+                new TimeoutException(
+                    $"components did not finish loading within {ComponentBudget.TotalSeconds:0} s; "
+                        + "the dash came up without the ones still loading"));
+
+            Shell.StartupTrace.Phase("components still loading — carrying on without them");
+        }
 
         // --stage <NAME> opens on a named occupant: CLOCK, VIDEO, NUVIO, MAPS or STREMIO.
         // --gps <host:port|synthetic> forces a phone-GPS source (ADR-0027) for a screenshot or a
@@ -554,6 +571,17 @@ public partial class App : Application
     /// How long the vehicle pipeline gets to close the adapter cleanly before shutdown moves on.
     /// </summary>
     private static readonly TimeSpan VehicleCloseBudget = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// How long component loading gets before the window comes up without the rest of them.
+    /// </summary>
+    /// <remarks>
+    /// Each guarded call inside a component has its own five-second timeout, and they are made
+    /// one component at a time — so five components that all misbehave add up to a launch longer
+    /// than anybody will wait, with nothing drawn. A widget that arrives late is a disappointment;
+    /// a dash that never appears is a broken dash (Q41).
+    /// </remarks>
+    private static readonly TimeSpan ComponentBudget = TimeSpan.FromSeconds(10);
 
     /// <summary>
     /// How long after shutdown starts the process is ended regardless. A dash that has closed its

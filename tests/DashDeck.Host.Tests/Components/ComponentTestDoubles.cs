@@ -71,3 +71,29 @@ internal sealed class ScriptedComponent : IDashComponent
 
     public Task ResumeAsync(CancellationToken ct) => Task.CompletedTask;
 }
+
+/// <summary>A component whose constructor never returns — the one failure nothing guarded (Q41).</summary>
+internal sealed class NeverConstructs : IDashComponent
+{
+    public NeverConstructs() => new ManualResetEventSlim(false).Wait();
+
+    public string Id => "com.test.neverconstructs";
+
+    public string Name => "Never constructs";
+
+    public string ApiVersion => ComponentApi.Version;
+
+    public Task InitializeAsync(IComponentContext context, CancellationToken ct) => Task.CompletedTask;
+
+    public Task StartAsync(CancellationToken ct) => Task.CompletedTask;
+
+    public Task StopAsync(CancellationToken ct) => Task.CompletedTask;
+
+    public Task SuspendAsync(CancellationToken ct) => Task.CompletedTask;
+
+    public Task ResumeAsync(CancellationToken ct) => Task.CompletedTask;
+
+    public void Dispose()
+    {
+    }
+}
