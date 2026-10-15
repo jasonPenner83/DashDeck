@@ -209,6 +209,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _theme = theme;
         Weather = weather;
 
+        Shell.StartupTrace.Phase("shell: reading display settings");
         Display = new DisplaySettings();
 
         // The player outlives the panel, so it is made here and disposed with the shell. It is
@@ -230,6 +231,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // The phone's GPS (ADR-0027), if it is turned on or a --gps override forces one. When
         // there is one, the tablet sensors and the phone GPS share a device behind the composite;
         // otherwise it is the tablet's sensors alone, exactly as before.
+        Shell.StartupTrace.Phase("shell: starting the phone GPS");
         var location = ResolveLocationSource(gpsOverride, Display, clock);
         IDeviceSensors? device = null;
 
@@ -241,6 +243,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         // One service for the whole session: it holds the mount reference and any vehicle
         // declarations, so it must outlive whichever occupant happens to be on the stage.
+        Shell.StartupTrace.Phase("shell: the sensor service");
         Sensors = new SensorService(
             SensorCatalog.FromFileOrEmpty(CatalogPath.Find("sensors.device.json")),
             vehicle.Signals,
@@ -251,6 +254,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         // The user's own stage apps (ADR-0024), loaded once. Adding one raises Changed and the
         // shell rebuilds its options from the store, so a new launcher lights up without a restart.
+        Shell.StartupTrace.Phase("shell: the app store");
         _userApps = new Stage.UserAppStore();
 
         // What the launcher offers, in what order, and which get a button below the stage
@@ -258,6 +262,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // built-in one is written out beside it to copy from. A user app being added or removed
         // re-reads it, because the quick bar may name one; either way the buttons rebuild without
         // touching what is on the stage.
+        Shell.StartupTrace.Phase("shell: the launcher");
         _launcher = new Stage.Launcher.StageLauncherStore(
             JsonFile.InLocalAppData("launcher.json"),
             () => _userApps.Apps.Select(a => a.Name));
@@ -269,10 +274,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // user app store, and refuses names that collide with a built-in.
         // The Sensors section (ADR-0032) reads the running pipeline and edits the user's own
         // signal file, which the next launch lays over the shipped catalog.
+        Shell.StartupTrace.Phase("shell: the sensor inventory");
         Inventory = new SensorInventoryViewModel(vehicle, new UserSignalStore(), Sensors, App.RequestRestart, new DiscoveryStore(), clock, folder => new ThemeDialogs().OpenFolder(folder));
 
         // Which vehicle this is (ADR-0033): read from the truck or typed, decoded once by NHTSA,
         // cached, and applied at the next launch like the rest of the Vehicle section.
+        Shell.StartupTrace.Phase("shell: the vehicle identity");
         VehicleIdentity = new VehicleIdentityViewModel(
             new VehicleIdentityStore(),
             new Identity.VpicVinDecoder(),
@@ -286,6 +293,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         // The adapter and the tested-ports list (ADR-0034). Choosing a port while simulated is
         // watched for at once; the dash goes live when it answers, with no restart.
+        Shell.StartupTrace.Phase("shell: the adapter ports");
         Adapter = new AdapterPortsViewModel(
             vehicle,
             new SerialPortProbe(),
@@ -308,11 +316,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             Remember(atLaunch);
         }
 
+        Shell.StartupTrace.Phase("shell: settings");
         Settings = new SettingsViewModel(
             theme, Display, Sensors, _userApps, _launcher, Inventory, VehicleIdentity, Adapter, location, clock);
 
         // The warning lights (ADR-0055): built before the stage, because whether the occupant is
         // drawn depends on whether the warning window is up.
+        Shell.StartupTrace.Phase("shell: the warning lights");
         Warnings = BuildWarnings(vehicle, clock, Display);
         Warnings.PropertyChanged += (_, e) =>
         {
@@ -334,6 +344,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // a null reference on startup: choosing the opening stage re-syncs the widget bands
         // and so needs this to exist, and StageBands reads IsCardEditorOpen, which reads this.
         // It starts on its own default and SyncWidgetBands settles it below.
+        Shell.StartupTrace.Phase("shell: the dash and its cards");
         Dashboard = new DashboardViewModel(
             new CardValueFactory(vehicle.Signals, Sensors),
             ValueChoice.All(vehicle.Catalog, Sensors.Catalog),
@@ -396,6 +407,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             }
         };
 
+        Shell.StartupTrace.Phase("shell: the one-second beat");
         _timer = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = TimeSpan.FromSeconds(1),
