@@ -34,6 +34,12 @@ if (Test-Path $oldCatalog) { Remove-Item $oldCatalog -Recurse -Force }
 
 # The version travels into the binary, because the in-app updater compares what this build says
 # it is against the newest release tag (ADR-0061). Left alone, it is Directory.Build.props's.
+#
+# Passed as a plain array variable rather than splatted with @: a native command expands an array
+# into separate arguments in both PowerShell editions, and an empty one expands to nothing — where
+# @versionArgs can hand Windows PowerShell 5.1 an empty string, which dotnet rejects as an
+# unrecognized argument. That failure would land on the one invocation that omits -Version, which
+# is the common one.
 $versionArgs = @()
 if ($Version) { $versionArgs = @("-p:Version=$($Version -replace '^v\.?', '')") }
 
@@ -42,7 +48,7 @@ dotnet publish src\DashDeck.Host\DashDeck.Host.csproj `
     --runtime $Runtime `
     --self-contained true `
     --output $Output `
-    --nologo @versionArgs
+    --nologo $versionArgs
 
 if ($LASTEXITCODE -ne 0) { throw "publish failed" }
 
