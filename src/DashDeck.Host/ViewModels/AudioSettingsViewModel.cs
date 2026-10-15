@@ -84,6 +84,8 @@ public sealed partial class AudioSettingsViewModel : ObservableObject
 
             OnPropertyChanged();
             OnPropertyChanged(nameof(DelayNote));
+            OnPropertyChanged(nameof(VideoSyncText));
+            OnPropertyChanged(nameof(VideoSyncNote));
         }
     }
 
@@ -110,6 +112,70 @@ public sealed partial class AudioSettingsViewModel : ObservableObject
                 + "It moves after a reconnect and after the stream has been idle, so re-measure "
                 + "rather than assuming.";
         }
+    }
+
+    /// <summary>
+    /// The audio/video sync offset in milliseconds, as the field shows it.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is the one the delay is actually for.</b> Music over Bluetooth has nothing to be in
+    /// step with, so its 150 ms or more is inaudible — but lips moving ahead of the words are
+    /// obvious within a sentence. The measurement seeds this; what settles it is nudging it while
+    /// watching something, from the video's own action bar.
+    /// </remarks>
+    public string VideoSyncText
+    {
+        get
+        {
+            var offset = _settings.VideoSyncOffset();
+            return offset == TimeSpan.Zero
+                ? ""
+                : offset.TotalMilliseconds.ToString("0", CultureInfo.InvariantCulture);
+        }
+
+        set
+        {
+            var parsed = double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var ms)
+                ? ms
+                : 0;
+
+            _settings.RememberVideoSyncOffset(TimeSpan.FromMilliseconds(parsed));
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(VideoSyncNote));
+        }
+    }
+
+    /// <summary>What the offset is doing, by effect rather than sign.</summary>
+    public string VideoSyncNote
+    {
+        get
+        {
+            var offset = _settings.VideoSyncOffset();
+            var state = VideoSync.Describe(offset);
+
+            if (!_settings.VideoSyncChosen && offset != TimeSpan.Zero)
+            {
+                return $"{state} — seeded from the measured output delay, and not tuned yet. "
+                    + $"Nudge it from the video's action bar in {VideoSync.StepMilliseconds} ms steps "
+                    + "while something is playing; what you settle on is remembered.";
+            }
+
+            return offset == TimeSpan.Zero
+                ? "Nothing shifted. If a video's lips run ahead of its sound, this is the setting — "
+                    + "negative holds the picture back, which is the direction a Bluetooth link needs."
+                : $"{state}. Nudge it from the video's action bar while watching; "
+                    + $"{VideoSync.StepMilliseconds} ms a step.";
+        }
+    }
+
+    /// <summary>Put the offset back to what the measurement suggests.</summary>
+    [RelayCommand]
+    private void ReseedVideoSync()
+    {
+        _settings.VideoSyncChosen = false;
+        _settings.VideoSyncOffsetMilliseconds = 0;
+        OnPropertyChanged(nameof(VideoSyncText));
+        OnPropertyChanged(nameof(VideoSyncNote));
     }
 
     /// <summary>Where the Stereo card reads music from.</summary>
@@ -293,6 +359,8 @@ public sealed partial class AudioSettingsViewModel : ObservableObject
 
         OnPropertyChanged(nameof(DelayText));
         OnPropertyChanged(nameof(DelayNote));
+        OnPropertyChanged(nameof(VideoSyncText));
+        OnPropertyChanged(nameof(VideoSyncNote));
 
         var spread = outcome.Session.Remote.Spread.TotalMilliseconds;
         Status = spread > 5

@@ -119,6 +119,14 @@ public sealed partial class DisplaySettings : ObservableObject
     [ObservableProperty]
     private bool _duckUnderInstructions = true;
 
+    /// <summary>The audio/video sync offset for a picture on the stage, in milliseconds.</summary>
+    [ObservableProperty]
+    private double _videoSyncOffsetMilliseconds;
+
+    /// <summary>Whether the sync offset has been set, so the measurement seeds it only once.</summary>
+    [ObservableProperty]
+    private bool _videoSyncChosen;
+
     public DisplaySettings()
     {
         var stored = SettingsStore.Load();
@@ -140,6 +148,8 @@ public sealed partial class DisplaySettings : ObservableObject
         AudioDelaySource = stored.AudioDelaySource;
         AudioDelayMeasuredAt = stored.AudioDelayMeasuredAt;
         DuckUnderInstructions = stored.DuckUnderInstructions;
+        VideoSyncOffsetMilliseconds = stored.VideoSyncOffsetMilliseconds;
+        VideoSyncChosen = stored.VideoSyncChosen;
         _loaded = true;
     }
 
@@ -347,5 +357,46 @@ public sealed partial class DisplaySettings : ObservableObject
         {
             SettingsStore.Update(stored => stored with { DuckUnderInstructions = value });
         }
+    }
+
+    partial void OnVideoSyncOffsetMillisecondsChanged(double value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { VideoSyncOffsetMilliseconds = value });
+        }
+    }
+
+    partial void OnVideoSyncChosenChanged(bool value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { VideoSyncChosen = value });
+        }
+    }
+
+    /// <summary>
+    /// The sync offset to start a video with, seeding it from the measured delay the first time.
+    /// </summary>
+    /// <remarks>
+    /// Seeded once, not every launch: a person who nudges it back to zero on purpose should not
+    /// find the measurement has overruled them next time.
+    /// </remarks>
+    public TimeSpan VideoSyncOffset()
+    {
+        if (VideoSyncChosen)
+        {
+            return DashDeck.Core.Audio.VideoSync.FromStored(VideoSyncOffsetMilliseconds);
+        }
+
+        return DashDeck.Core.Audio.VideoSync.DefaultFor(
+            TimeSpan.FromMilliseconds(Math.Max(0, AudioDelayMilliseconds)));
+    }
+
+    /// <summary>Remember an offset the person nudged to.</summary>
+    public void RememberVideoSyncOffset(TimeSpan offset)
+    {
+        VideoSyncOffsetMilliseconds = DashDeck.Core.Audio.VideoSync.Clamp(offset).TotalMilliseconds;
+        VideoSyncChosen = true;
     }
 }
