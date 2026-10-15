@@ -250,10 +250,7 @@ public sealed record StageOption(
             path = dialog.FileName;
         }
 
-        // The sync offset starts from the measured output delay (ADR-0059) and is nudged from
-        // the action bar while watching; what the person settles on is remembered, so the next
-        // file starts where they left it rather than back at the measurement.
-        return new VideoStageOccupant(path, display.VideoSyncOffset(), display.RememberVideoSyncOffset);
+        return new VideoStageOccupant(path);
     }
 }
 

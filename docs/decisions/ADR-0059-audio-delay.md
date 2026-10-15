@@ -1,6 +1,9 @@
 # ADR-0059 — The Bluetooth delay: set it by hand, measure it with the microphone
 
-**Status:** Accepted · 2026-10-13
+**Status:** Parked · 2026-10-13, parked 2026-10-15 — the code is on the `parked/audio-delay`
+branch, which is `develop` as of `ce5dfbe`. The reasoning below stands and is worth keeping; what
+it built is out of the tree because the case it was built for cannot be reached (see the two
+corrections at the end, and Q39). Reviving it is a merge of that branch, not a rewrite.
 **Follows:** Q14 — the Stereo card and the decision to send audio to SYNC 3 over Bluetooth.
 **Relates to:** [ADR-0057](ADR-0057-android-auto-through-the-dongle.md) (projected audio shares the
 same output), [ADR-0058](ADR-0058-offline-map-and-routing.md) (spoken turn instructions),

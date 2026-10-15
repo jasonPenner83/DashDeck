@@ -29,26 +29,15 @@ public sealed class VideoStageOccupant : IStageOccupant
     private readonly LibVLC _libVlc;
     private readonly VlcPlayer _player;
     private readonly string _mediaPath;
-    private readonly Action<TimeSpan>? _remember;
-
-    private TimeSpan _syncOffset;
 
     private VideoView? _view;
     private bool _disposed;
 
 
     /// <param name="mediaPath">The file to play.</param>
-    /// <param name="syncOffset">
-    /// Where to start the audio/video offset — normally the negative of the measured output delay
-    /// (ADR-0059), since the link makes sound arrive late.
-    /// </param>
-    /// <param name="remember">Called when the offset is nudged, so it survives the next file.</param>
-    public VideoStageOccupant(string mediaPath, TimeSpan syncOffset = default, Action<TimeSpan>? remember = null)
+    public VideoStageOccupant(string mediaPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(mediaPath);
-
-        _syncOffset = VideoSync.Clamp(syncOffset);
-        _remember = remember;
 
         // Locates and loads the native libvlc, once per process. Fully qualified because
         // DashDeck.Core is a namespace of ours and wins the short name.
@@ -122,15 +111,6 @@ public sealed class VideoStageOccupant : IStageOccupant
         new StageAction("BACK 30s", () => Skip(-30_000)),
         new StageAction("FORWARD 30s", () => Skip(30_000)),
         new StageAction("RESTART", () => _player.Time = 0),
-
-        // Audio/video sync, nudged while watching. The measured link delay (ADR-0059) seeds it and
-        // is the wrong final answer on its own: the total also carries the file's container offset
-        // and the decoder's buffering. So it is tuned by eye, which is what every media player
-        // does. The captions say which way each one moves things, because a signed number on a
-        // button tells nobody anything.
-        new StageAction("SOUND EARLIER", () => Nudge(-1)),
-        new StageAction($"SYNC: {VideoSync.Describe(_syncOffset)}", ResetSync),
-        new StageAction("SOUND LATER", () => Nudge(1)),
     ];
 
     /// <summary>Jump by a number of milliseconds, clamped to the media.</summary>
@@ -172,41 +152,6 @@ public sealed class VideoStageOccupant : IStageOccupant
     {
         using var media = new Media(_libVlc, new Uri(_mediaPath));
         _player.Play(media);
-        ApplySync();
-    }
-
-    /// <summary>Move the sync offset by one step and remember it.</summary>
-    private void Nudge(int steps)
-    {
-        _syncOffset = VideoSync.Nudge(_syncOffset, steps);
-        ApplySync();
-        _remember?.Invoke(_syncOffset);
-    }
-
-    /// <summary>Back to what the measured delay suggested — a way out of an over-nudged offset.</summary>
-    private void ResetSync()
-    {
-        _syncOffset = TimeSpan.Zero;
-        ApplySync();
-        _remember?.Invoke(_syncOffset);
-    }
-
-    /// <summary>
-    /// Push the offset into the player.
-    /// </summary>
-    /// <remarks>
-    /// <b>Called after every <c>Play</c>, not once at startup.</b> LibVLCSharp's own documentation
-    /// says the audio delay <i>resets to zero each time the media changes</i> — so setting it once
-    /// is a bug that works perfectly on the first file and silently stops working on the second.
-    /// </remarks>
-    private void ApplySync()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _player.SetAudioDelay(VideoSync.ToMicroseconds(_syncOffset));
     }
 
     private void TogglePlay()
