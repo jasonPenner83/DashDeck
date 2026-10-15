@@ -180,13 +180,6 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
-
-                <!-- What the output is doing, which is where ADR-0059's number shows up. It is
-                     shown rather than acted on: music has nothing to be in sync with. -->
-                <TextBlock Grid.Row="2" Margin="0,10,6,0"
-                           Text="{Binding DelayNote}"
-                           Style="{StaticResource MicroText}"
-                           TextWrapping="Wrap" />
             </Grid>
         </Border>
     </Grid>

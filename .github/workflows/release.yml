@@ -1,0 +1,79 @@
+# Builds the tablet deploy and attaches it to a release, so "build the release" is a tag push
+# rather than an afternoon on the Surface.
+#
+# The deploy can only be built on Windows: the shell is WPF, publish.ps1 is PowerShell, and the
+# whole point of the artifact is a self-contained win-x64 folder that runs on a tablet with
+# nothing installed (C1). So this runs on the same OS CI already uses.
+#
+# Deliberately NOT passing -Shortcut: the .lnk would bake this runner's path into it, which is
+# worse than no shortcut at all. Make the shortcut on the tablet, where the path is real.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: An existing tag to build and attach to
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: windows-latest
+
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      # The tests gate the artifact. A release build that was never tested is the one thing worse
+      # than no release build, because it looks finished.
+      - name: Test
+        run: dotnet test DashDeck.slnx --configuration Release
+
+      - name: Build the tablet deploy
+        shell: pwsh
+        run: ./publish.ps1
+
+      # The tag is v.0.9.0 and the asset has been DashDeck-v0.9.0-win-x64.zip since v0.1.0, so the
+      # stray dot comes out rather than the naming changing under four years of releases.
+      - name: Name and zip it
+        shell: pwsh
+        run: |
+          $tag = '${{ inputs.tag }}'
+          if (-not $tag) { $tag = '${{ github.ref_name }}' }
+          $version = $tag -replace '^v\.', 'v'
+          $zip = "DashDeck-$version-win-x64.zip"
+
+          Compress-Archive -Path dist/DashDeck/* -DestinationPath $zip -CompressionLevel Optimal
+
+          "tag=$tag"       | Out-File $env:GITHUB_ENV -Append
+          "zip=$zip"       | Out-File $env:GITHUB_ENV -Append
+          "{0:N0} MB" -f ((Get-Item $zip).Length / 1MB) | Write-Output
+
+      - name: Attach it to the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view $env:tag 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $env:tag --title $env:tag --generate-notes
+            if ($LASTEXITCODE -ne 0) { throw "could not create the release for $env:tag" }
+          }
+
+          gh release upload $env:tag $env:zip --clobber
+          if ($LASTEXITCODE -ne 0) { throw "could not upload $env:zip" }

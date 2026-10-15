@@ -1,6 +1,9 @@
 # ADR-0059 — The Bluetooth delay: set it by hand, measure it with the microphone
 
-**Status:** Accepted · 2026-10-13
+**Status:** Parked · 2026-10-13, parked 2026-10-15 — the code is on the `parked/audio-delay`
+branch, which is `develop` as of `ce5dfbe`. The reasoning below stands and is worth keeping; what
+it built is out of the tree because the case it was built for cannot be reached (see the two
+corrections at the end, and Q39). Reviving it is a merge of that branch, not a rewrite.
 **Follows:** Q14 — the Stereo card and the decision to send audio to SYNC 3 over Bluetooth.
 **Relates to:** [ADR-0057](ADR-0057-android-auto-through-the-dongle.md) (projected audio shares the
 same output), [ADR-0058](ADR-0058-offline-map-and-routing.md) (spoken turn instructions),
@@ -277,3 +280,38 @@ wrong way, the fix is one character and the control is the thing that reveals it
   3.5 mm cable removes the delay instead of compensating for it, at the cost of a cable to plug in
   (Q33). The Bluetooth path is worth having either way — it is what Android Auto's audio uses, and
   the tablet comes in and out of the truck by hand every time (C5).
+
+## Second correction, 2026-10-15 — "video" meant one of two players, and the wrong one
+
+The correction above fixed the emphasis and left a hole underneath it. *"The offset for video, like
+in Nuvio"* was answered by wiring `MediaPlayer.SetAudioDelay` to the **VIDEO** occupant — DashDeck's
+own LibVLC player — and Nuvio is not that. It is an `app` occupant: a separate process, drawing its
+own picture into a window of its own and sending its own audio to the Windows mixer (ADR-0021).
+DashDeck can delay neither half of it. So the answer shipped for the example given and does nothing
+for it, which is the same mistake as before in a narrower place.
+
+**Nuvio has no audio-delay control of its own** (checked 2026-10-15), so the obvious escape is
+closed too.
+
+What is actually available, worst consequence first:
+
+- **Route that one application's audio to the tablet's own speakers** (Windows' per-application
+  output, Settings ▸ System ▸ Sound ▸ Volume mixer). The delay is then a few milliseconds instead
+  of a few hundred, so the picture and sound agree. The cost is that a film comes out of the tablet
+  rather than the truck, and the Stereo panel can stay on the Bluetooth link at the same time
+  because the routing is per application. **No code, nothing installed, C1-clean** — and worth
+  saying out loud that a settings change beats a feature here.
+- **Play the stream through DashDeck's own player instead.** If Nuvio runs a local streaming server
+  the way its upstream does, the selected stream has a `127.0.0.1` URL, and a URL is something the
+  VIDEO occupant can open — at which point the existing nudge works, because it is our player
+  again. Unverified: whether Nuvio exposes it, and whether playback outside its own UI is within
+  what its licence and addons expect.
+- **Capture Nuvio's window and redraw it late.** The only way to hold a foreign application's
+  picture: capture frames, keep them in a ring buffer for the delay, draw them on the stage and hide
+  the real window. It would also have to forward touch back to the hidden window, and it spends a
+  Surface Pro 7's graphics budget to fix a timing problem. Not attempted, and not worth attempting
+  before the two cheaper routes are ruled out.
+
+**The honest status of the control, therefore:** VIDEO SYNC and the action-bar nudges apply to
+DashDeck's own video and to nothing else. The Settings copy now says so rather than implying the
+offset follows the content around.

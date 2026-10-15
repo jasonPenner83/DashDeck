@@ -8,6 +8,9 @@
     Usage:
         pwsh -File publish.ps1              # build it
         pwsh -File publish.ps1 -Shortcut    # and drop a shortcut in the folder
+
+    Windows PowerShell works as well, and is what a stock Windows install has:
+        powershell -ExecutionPolicy Bypass -File publish.ps1 -Shortcut
 #>
 
 [CmdletBinding()]

@@ -32,10 +32,9 @@ public sealed partial class TrackRow(Track track, int index) : ObservableObject
 /// output the person chose in Windows — which, on a truck with no AUX jack (Q33), is the Bluetooth
 /// link to SYNC 3. The truck's own radio is untouched and unreachable; DashDeck sends nothing to it.
 /// <para>
-/// <b>No delay compensation here, by design.</b> ADR-0059's policy gives music nothing to be in
-/// sync with, so the 150-250 ms the link adds is inaudible for playback. The delay matters for
-/// spoken instructions and video, not for this — which is why the panel shows the figure rather
-/// than acting on it.
+/// <b>No delay compensation here, by design.</b> Music has nothing to be in sync with, so the
+/// 150-250 ms the link adds is inaudible for playback — which is the reason this panel survived
+/// when the delay machinery around it was parked (Q39, <c>parked/audio-delay</c>).
 /// </para>
 /// </remarks>
 public sealed partial class StereoViewModel : ObservableObject, IDisposable
@@ -126,11 +125,6 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
 
     /// <summary>Whether there is a queue to show. The list and the problem swap places.</summary>
     public bool HasTracks => !HasProblem && Tracks.Count > 0;
-
-    /// <summary>The delay measured or typed for the current output, for the corner of the panel.</summary>
-    public string DelayNote => _settings.AudioDelayMilliseconds > 0
-        ? $"output delay {_settings.AudioDelayMilliseconds:0} ms — inaudible for music (ADR-0059)"
-        : "output delay not set";
 
     partial void OnVolumeChanged(int value)
     {
@@ -299,7 +293,6 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
             row.IsPlaying = current is { } track && row.Track.Path == track.Path;
         }
 
-        OnPropertyChanged(nameof(DelayNote));
     }
 
     private static string Clock(TimeSpan time) =>

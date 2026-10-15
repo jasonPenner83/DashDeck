@@ -37,12 +37,35 @@ public interface IStageOccupant : IDisposable
     /// lost picture you look at constantly.
     /// <para>
     /// Handing back verbs rather than a <c>FrameworkElement</c> also means the shell decides
-    /// where they live, so moving them again costs nothing here. The airspace argument that
-    /// forced a real row still holds for anything drawn <em>over</em> an occupant — the menu
-    /// is a separate full-screen layer, so it is unaffected.
+    /// where they live, so moving them again costs nothing here.
+    /// </para>
+    /// <para>
+    /// <b>This used to claim the menu was unaffected by airspace, and that was wrong.</b> It
+    /// holds for an occupant the shell draws, and not at all for one that is a window of its
+    /// own: an owned window sits above its owner by definition (ADR-0021), so the menu opens
+    /// <em>underneath</em> a hosted application and its own actions cannot be reached. Found in
+    /// the truck, with Nuvio on the stage. <see cref="SetObscured"/> is the answer.
     /// </para>
     /// </remarks>
     IReadOnlyList<StageAction> Actions => [];
+
+    /// <summary>
+    /// Told that the shell is drawing something over this occupant, or has stopped.
+    /// </summary>
+    /// <remarks>
+    /// Only occupants that are a window of their own need to act on it, which is why the default
+    /// does nothing: the shell draws over everything else correctly. A hosted application cannot
+    /// be drawn over at all, so while the menu is up it stands down and comes back when the menu
+    /// closes — the alternative is a menu whose contents are invisible, which is what shipped.
+    /// <para>
+    /// Deliberately not the same thing as the picker, a full-screen view or the warning window:
+    /// those already collapse the anchor, which the host reads as "not on screen". This is for
+    /// something drawn <em>over</em> the stage while the stage is still laid out.
+    /// </para>
+    /// </remarks>
+    void SetObscured(bool obscured)
+    {
+    }
 
     /// <summary>
     /// What this occupant is actually doing, in one line.

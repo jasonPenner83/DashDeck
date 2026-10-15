@@ -91,12 +91,6 @@ public sealed partial class AboutViewModel : ObservableObject
                 ? "none chosen"
                 : $"{_settings.AdapterSerialPort} at {_settings.AdapterBaudRate} baud"));
 
-        Facts.Add(new AboutFact(
-            "Audio delay",
-            _settings.AudioDelayMilliseconds > 0
-                ? $"{_settings.AudioDelayMilliseconds:0} ms, {_settings.AudioDelaySource.ToLowerInvariant()}"
-                : "not set"));
-
         Facts.Add(new AboutFact("Fuel tank", $"{_settings.FuelTankLitres:0.#} L"));
 
         Facts.Add(new AboutFact(
