@@ -24,12 +24,34 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // The breadcrumb trail and the watchdog, before anything that can hang. A launch that
+        // never produces a window writes which phase it died in and ends itself — because a stuck
+        // launch holds the single-instance lock, and one of those makes the dash unopenable until
+        // somebody finds it in Task Manager.
+        Shell.StartupTrace.Begin(e.Args, Fail);
+
         // One DashDeck at a time, before anything opens the adapter: the serial port can only be
         // held once, and a second tap on the icon during a slow start used to make a second dash
         // on no truck. Another one running is brought forward instead.
-        _instance = Shell.SingleInstance.Claim();
+        Shell.StartupTrace.Phase("claiming the single-instance lock");
+        var claim = Shell.SingleInstance.Claim();
+        _instance = claim.Instance;
+
         if (_instance is null)
         {
+            // Brought the other one forward: nothing to say, that is what was wanted. Gave up
+            // waiting: say so, because twenty seconds of nothing followed by no window is the
+            // failure that cost an afternoon.
+            if (claim.GaveUp)
+            {
+                var stuck = new TimeoutException(
+                    "another DashDeck is running and did not let go. If no DashDeck window is on "
+                        + "screen, end DashDeck.Host in Task Manager and launch again.");
+
+                Fail("Startup", stuck);
+                MessageBox.Show(stuck.Message, "DashDeck", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+
             Shutdown(0);
             return;
         }
@@ -51,6 +73,7 @@ public partial class App : Application
         // so a real adapter can be tried without changing stored settings. Empty means the
         // synthetic truck, which is the right default for a tablet that spends most of its
         // life away from the truck (ADR-0005).
+        Shell.StartupTrace.Phase("reading settings");
         var stored = Settings.SettingsStore.Load();
         var adapterPort = ArgValue(e.Args, "--port") ?? stored.AdapterSerialPort;
 
@@ -72,6 +95,11 @@ public partial class App : Application
 
         // How to find it (ADR-0034): the rate and identity it answered with last time go first,
         // so a launch in the truck connects on the first try, and a renumbered port is recognised.
+        Shell.StartupTrace.Phase(
+            string.IsNullOrWhiteSpace(adapterPort)
+                ? "no adapter configured — the synthetic truck"
+                : $"preparing the adapter on {adapterPort}");
+
         DashDeck.Vehicle.AdapterLinkOptions? adapter = DashDeck.Vehicle.Diagnostics.AdapterSelection.TryResolvePort(adapterPort, out var port)
             ? new DashDeck.Vehicle.AdapterLinkOptions
             {
@@ -84,6 +112,7 @@ public partial class App : Application
 
         // Which vehicle this is, decoded from its VIN and cached (ADR-0033). It picks the vehicle
         // signal pack and fills the component profile; unknown is fine — the standard set runs.
+        Shell.StartupTrace.Phase("reading the vehicle identity");
         var identity = new Settings.VehicleIdentityStore().Identity;
 
         try
@@ -171,6 +200,7 @@ public partial class App : Application
         // window comes up already wearing the right one rather than repainting into it.
         // One weather fetch for the whole application. Built before the theme, because Auto
         // day/night reads sunrise and sunset from it rather than fetching its own.
+        Shell.StartupTrace.Phase("starting the weather service");
         _weather = new Stage.WeatherService(SystemClock.Instance);
         // The extras (LCARS, ADR-0043) go into the user's own folders the first time this version
         // runs — before the themes are read, so a dash that wore LCARS still does.
@@ -181,6 +211,7 @@ public partial class App : Application
             Settings.SettingsStore.Update(s => s with { InstalledExtras = [.. s.InstalledExtras, .. extras.Installed] });
         }
 
+        Shell.StartupTrace.Phase("loading themes");
         _theme = new Theme.ThemeService(SystemClock.Instance, _weather);
 
         // --theme <DAY|NIGHT|AUTO> forces a palette, for looking at one without waiting for
@@ -238,6 +269,7 @@ public partial class App : Application
         // VIN except the VIN itself, which no component needs.
         var vehicle = identity.ToProfile(Settings.SettingsStore.Load().FuelTankLitres);
 
+        Shell.StartupTrace.Phase("loading components");
         var componentHost = new Components.ComponentHost(
             _vehicle.Signals, SystemClock.Instance, Components.PluginPath.FindRoot() ?? "plugins", vehicle);
         await componentHost.LoadAllAsync(CancellationToken.None);
@@ -317,9 +349,11 @@ public partial class App : Application
             _shell.Dashboard.OpenComponentDetailAt(detailIndex);
         }
 
+        Shell.StartupTrace.Phase("building the window");
         var window = new MainWindow { DataContext = _shell };
         MainWindow = window;
         window.Show();
+        Shell.StartupTrace.Ready();
 
         // --tap-detail exercises the real touch-tap routing (hit-test -> button command), which a
         // screenshot cannot otherwise reach because it drives the app with a mouse. Runs once the

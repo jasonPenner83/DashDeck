@@ -7,14 +7,5 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <InvariantGlobalization>true</InvariantGlobalization>
-
-    <!--
-      What a build calls itself. The updater compares this against the newest release tag
-      (ADR-0061), so a build that does not carry it cannot tell whether it is out of date — and
-      without this the assembly would say 1.0.0 forever and consider itself newer than every
-      release. The release workflow overrides it from the tag (-p:Version=), so a deploy built
-      from v.0.10.0 says 0.10.0; this value is what a local publish gets.
-    -->
-    <Version>0.9.0</Version>
   </PropertyGroup>
 </Project>

@@ -44,15 +44,9 @@ jobs:
       - name: Test
         run: dotnet test DashDeck.slnx --configuration Release
 
-      # The tag's version goes into the binary: the in-app updater (ADR-0061) compares what a
-      # build says it is against the newest release tag, so an unstamped deploy cannot tell
-      # whether it is out of date.
       - name: Build the tablet deploy
         shell: pwsh
-        run: |
-          $tag = '${{ inputs.tag }}'
-          if (-not $tag) { $tag = '${{ github.ref_name }}' }
-          ./publish.ps1 -Version $tag
+        run: ./publish.ps1
 
       # The tag is v.0.9.0 and the asset has been DashDeck-v0.9.0-win-x64.zip since v0.1.0, so the
       # stray dot comes out rather than the naming changing under four years of releases.

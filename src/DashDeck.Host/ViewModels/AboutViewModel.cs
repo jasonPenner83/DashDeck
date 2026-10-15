@@ -50,12 +50,6 @@ public sealed partial class AboutViewModel : ObservableObject
         Refresh();
     }
 
-    /// <summary>
-    /// The manual update (ADR-0061). It sits here because this is the section that already answers
-    /// "which build is this", and that is the question an update is the answer to.
-    /// </summary>
-    public UpdateViewModel Update { get; } = new();
-
     /// <summary>What this build is.</summary>
     public ObservableCollection<AboutFact> Facts { get; } = [];
 
