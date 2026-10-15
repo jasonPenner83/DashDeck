@@ -1793,7 +1793,7 @@
                     <TextBlock Margin="0,26,0,0" Style="{StaticResource CaptionText}" Text="VIDEO SYNC" />
                     <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
                                Style="{StaticResource MicroText}"
-                               Text="The offset that matters. Music has nothing to be in step with, so the link's delay is inaudible for it — but lips running ahead of the words are obvious within a sentence. Negative holds the picture back, which is the direction a Bluetooth link needs. The measurement above seeds this; nudge it from the video's own action bar while something is playing, which is the only way to get it right for a particular file." />
+                               Text="The offset that matters. Music has nothing to be in step with, so the link's delay is inaudible for it — but lips running ahead of the words are obvious within a sentence. Negative holds the picture back, which is the direction a Bluetooth link needs. The measurement above seeds this; nudge it from the video's own action bar while something is playing, which is the only way to get it right for a particular file. This applies to DashDeck's own video only — Nuvio, Stremio and anything else launched as an app play their own picture and sound, and nothing here can reach them. Send that one app's audio to the tablet's speakers in Windows' volume mixer instead; the delay goes away because the Bluetooth link does." />
 
                     <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                         <TextBox Width="120" Style="{StaticResource InputField}"
