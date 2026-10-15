@@ -18,6 +18,7 @@ param(
     [string] $Output = "dist\DashDeck",
     [ValidateSet('win-x64', 'win-arm64')]
     [string] $Runtime = 'win-x64',
+    [string] $Version,
     [switch] $Shortcut
 )
 
@@ -31,12 +32,17 @@ Write-Output "Publishing $Runtime self-contained to $Output ..."
 $oldCatalog = Join-Path $Output "catalog"
 if (Test-Path $oldCatalog) { Remove-Item $oldCatalog -Recurse -Force }
 
+# The version travels into the binary, because the in-app updater compares what this build says
+# it is against the newest release tag (ADR-0061). Left alone, it is Directory.Build.props's.
+$versionArgs = @()
+if ($Version) { $versionArgs = @("-p:Version=$($Version -replace '^v\.?', '')") }
+
 dotnet publish src\DashDeck.Host\DashDeck.Host.csproj `
     --configuration Release `
     --runtime $Runtime `
     --self-contained true `
     --output $Output `
-    --nologo
+    --nologo @versionArgs
 
 if ($LASTEXITCODE -ne 0) { throw "publish failed" }
 
