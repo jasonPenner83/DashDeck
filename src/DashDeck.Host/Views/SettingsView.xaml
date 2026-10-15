@@ -572,6 +572,23 @@
 
                     <TextBlock Style="{StaticResource CaptionText}" Margin="0,30,0,0" Text="LOCATION (PHONE GPS)" />
 
+                    <!-- What the GPS is doing now. Before this, the only feedback was the compass. -->
+                    <Border Margin="0,14,0,0" Padding="16,12" CornerRadius="6"
+                            Background="{DynamicResource SurfaceBrush}">
+                        <StackPanel>
+                            <TextBlock Text="{Binding GpsStatus, Mode=OneWay}"
+                                       FontFamily="{DynamicResource MonoFont}" FontSize="16"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource TextHighBrush}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Margin="0,6,0,0"
+                                       Text="{Binding GpsStatusDetail, Mode=OneWay}"
+                                       Style="{StaticResource MicroText}"
+                                       MaxWidth="620" HorizontalAlignment="Left"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
                     <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                         <Button Style="{StaticResource StageLauncherButton}"
                                 Height="52" MinWidth="180"
@@ -634,7 +651,7 @@
                                HorizontalAlignment="Left"
                                TextWrapping="Wrap"
                                Style="{StaticResource MicroText}"
-                               Text="Run a GPS-share app on your Android phone (e.g. gpsdRelay or Share GPS) that outputs NMEA. Bluetooth: pair the phone in Windows Bluetooth settings, then pick the COM port it appears as — no Wi-Fi needed. Network: the app serves NMEA over TCP; put its host:port here. Takes effect at the next launch. Heading and position read PHONE; speed falls back to the truck's own when the adapter is plugged in." />
+                               Text="Run a GPS-share app on your Android phone (GPS NMEA Tether, Share GPS, gpsdRelay) that outputs NMEA. Bluetooth: pair the phone in Windows Bluetooth settings, then pick the COM port it appears as — no Wi-Fi needed. One pairing makes several ports and only one of them answers, so if the readout above says NO DATA, try the next one — or find it first with GpsProbe --list. Network: the app serves NMEA over TCP; put its host:port here. Takes effect at the next launch. Heading and position read PHONE; speed falls back to the truck's own when the adapter is plugged in." />
                 </StackPanel>
             </ScrollViewer>
 
@@ -1734,6 +1751,159 @@
             </ScrollViewer>
 
             <!-- ── DIAGNOSTICS ────────────────────────────────────────────── -->
+
+            <!-- AUDIO -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
+                          Visibility="{Binding IsAudio, Converter={StaticResource BoolToVis}}">
+                <StackPanel Margin="31,26,31,24" DataContext="{Binding Audio}">
+
+                    <TextBlock Style="{StaticResource CaptionText}" Text="MUSIC FOLDER" />
+                    <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="Where the Stereo card reads from. Searched including subfolders. Files on the tablet rather than a service, because the dash is launched by hand in a truck that may have no signal." />
+                    <TextBox Margin="0,10,0,0" Width="700" HorizontalAlignment="Left"
+                             Style="{StaticResource InputField}"
+                             Text="{Binding MusicFolder, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <TextBlock Margin="0,26,0,0" Style="{StaticResource CaptionText}" Text="OUT OF THE WAY OF DIRECTIONS" />
+                    <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="Projection's audio and DashDeck's own land on the same Windows output, and Windows mixes rather than choosing — so without this a turn instruction arrives underneath a chorus. Music is lowered under speech rather than paused, because a pause leaves a longer hole than the words; the phone playing its own music stops ours outright." />
+                    <Button Margin="0,10,0,0" HorizontalAlignment="Left"
+                            Style="{StaticResource OptionChipButton}"
+                            Content="{Binding DuckLabel}"
+                            Command="{Binding ToggleDuckCommand}" />
+
+                    <TextBlock Margin="0,26,0,0" Style="{StaticResource CaptionText}" Text="OUTPUT DELAY" />
+                    <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="Bluetooth puts 150–250 ms or more between handing audio over and a speaker making a sound, and it cannot be removed. Music does not care — there is nothing for it to be in sync with. It matters for a video's picture and for turn instructions, which are spoken early so the words land on time." />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <TextBox Width="120" Style="{StaticResource InputField}"
+                                 Text="{Binding DelayText, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Margin="10,0,0,0" VerticalAlignment="Center"
+                                   Style="{StaticResource MicroText}" Text="ms" />
+                    </StackPanel>
+
+                    <TextBlock Margin="2,8,0,0" MaxWidth="700" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="{Binding DelayNote}" />
+
+                    <TextBlock Margin="0,26,0,0" Style="{StaticResource CaptionText}" Text="VIDEO SYNC" />
+                    <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="The offset that matters. Music has nothing to be in step with, so the link's delay is inaudible for it — but lips running ahead of the words are obvious within a sentence. Negative holds the picture back, which is the direction a Bluetooth link needs. The measurement above seeds this; nudge it from the video's own action bar while something is playing, which is the only way to get it right for a particular file." />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <TextBox Width="120" Style="{StaticResource InputField}"
+                                 Text="{Binding VideoSyncText, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Margin="10,0,0,0" VerticalAlignment="Center"
+                                   Style="{StaticResource MicroText}" Text="ms" />
+                        <Button Margin="14,0,0,0"
+                                Style="{StaticResource OptionChipButton}"
+                                Content="BACK TO MEASURED"
+                                Command="{Binding ReseedVideoSyncCommand}" />
+                    </StackPanel>
+
+                    <TextBlock Margin="2,8,0,0" MaxWidth="700" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="{Binding VideoSyncNote}" />
+
+                    <TextBlock Margin="0,26,0,0" Style="{StaticResource CaptionText}" Text="MEASURE IT" />
+                    <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="Plays a swept tone to both outputs at once and listens on the microphone. What a microphone hears is not the speaker's delay — it also carries the capture delay — so the tablet's own speaker is measured alongside as a reference and subtracted out. Typing the number above always works; this is a convenience on top." />
+
+                    <TextBlock Margin="0,18,0,0" Style="{StaticResource MicroText}" Text="THE TABLET'S OWN SPEAKER — the reference" />
+                    <ItemsControl Margin="0,8,0,0" ItemsSource="{Binding Outputs}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource OptionChipButton}"
+                                        MinWidth="260"
+                                        Content="{Binding Caption}"
+                                        Command="{Binding DataContext.SelectReferenceCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Margin="2,0,0,0" Style="{StaticResource MicroText}">
+                        <Run Text="chosen:" /><Run Text=" " /><Run Text="{Binding Reference.Caption, Mode=OneWay, FallbackValue=none}" />
+                    </TextBlock>
+
+                    <TextBlock Margin="0,18,0,0" Style="{StaticResource MicroText}" Text="THE OUTPUT TO MEASURE — the Bluetooth link" />
+                    <ItemsControl Margin="0,8,0,0" ItemsSource="{Binding Outputs}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource OptionChipButton}"
+                                        MinWidth="260"
+                                        Content="{Binding Caption}"
+                                        Command="{Binding DataContext.SelectMeasuredCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Margin="2,0,0,0" Style="{StaticResource MicroText}">
+                        <Run Text="chosen:" /><Run Text=" " /><Run Text="{Binding Measured.Caption, Mode=OneWay, FallbackValue=none}" />
+                    </TextBlock>
+
+                    <TextBlock Margin="0,18,0,0" Style="{StaticResource MicroText}" Text="MICROPHONE" />
+                    <ItemsControl Margin="0,8,0,0" ItemsSource="{Binding Inputs}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource OptionChipButton}"
+                                        MinWidth="260"
+                                        Content="{Binding Caption}"
+                                        Command="{Binding DataContext.SelectMicrophoneCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Margin="2,10,0,0" MaxWidth="700" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="These names come from the legacy wave API, truncated to 31 characters with no stable identifier, so they may not match what Windows' own sound settings show. If you cannot tell the built-in speaker from the Bluetooth link here, stop — the measurement needs them named correctly and guessing would produce a confident wrong number." />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <Button Style="{StaticResource OptionChipButton}"
+                                MinWidth="160"
+                                Content="{Binding MeasureLabel}"
+                                Command="{Binding MeasureCommand}" />
+                        <Button Style="{StaticResource OptionChipButton}"
+                                Content="RE-READ DEVICES"
+                                Command="{Binding RefreshCommand}" />
+                    </StackPanel>
+
+                    <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Foreground="{DynamicResource TextHighBrush}"
+                               Text="{Binding Status}" />
+
+                    <ItemsControl Margin="0,12,0,0" ItemsSource="{Binding Probes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Line}"
+                                           FontFamily="{DynamicResource MonoFont}"
+                                           FontSize="13"
+                                           Foreground="{DynamicResource TextMidBrush}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+
             <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
                           Visibility="{Binding IsDiagnostics, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="31,26,31,24">
@@ -1828,6 +1998,81 @@
                                    Foreground="{DynamicResource TextMidBrush}"
                                    Text="{Binding ActionLogPath}" />
                     </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- ABOUT -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
+                          Visibility="{Binding IsAbout, Converter={StaticResource BoolToVis}}">
+                <StackPanel Margin="31,26,31,24" DataContext="{Binding About}">
+
+                    <TextBlock Style="{StaticResource CaptionText}" Text="THIS BUILD" />
+                    <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="Everything here was something that had to be dug out of a terminal at some point. In the truck there is no keyboard, so it lives on a screen. Read-only — nothing on this page changes anything." />
+
+                    <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding Facts}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="210" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding Label}" Style="{StaticResource MicroText}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Value}"
+                                               TextWrapping="Wrap"
+                                               FontFamily="{DynamicResource MonoFont}"
+                                               FontSize="13"
+                                               Foreground="{DynamicResource TextHighBrush}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Margin="0,26,0,0" Style="{StaticResource CaptionText}" Text="FOLDERS" />
+                    <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="Everything DashDeck keeps lives under one folder, so uninstalling is deleting it and nothing touches the registry (C1). A folder that is not there yet is created when opened — which is usually why you are opening it." />
+
+                    <ItemsControl Margin="0,14,0,0" ItemsSource="{Binding Folders}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="210" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="{Binding Label}" Style="{StaticResource MicroText}" />
+                                        <TextBlock Text="{Binding State}" Style="{StaticResource MicroText}"
+                                                   Foreground="{DynamicResource TextFaintBrush}" />
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Column="1" VerticalAlignment="Center"
+                                               Text="{Binding Path}"
+                                               TextWrapping="Wrap"
+                                               FontFamily="{DynamicResource MonoFont}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource TextMidBrush}" />
+
+                                    <Button Grid.Column="2" Margin="10,0,0,0"
+                                            Style="{StaticResource OptionChipButton}"
+                                            Content="OPEN"
+                                            Command="{Binding DataContext.OpenFolderCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Foreground="{DynamicResource AccentBrush}"
+                               Text="{Binding Problem}" />
                 </StackPanel>
             </ScrollViewer>
         </Grid>

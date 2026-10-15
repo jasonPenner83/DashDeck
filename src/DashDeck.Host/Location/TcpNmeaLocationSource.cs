@@ -2,6 +2,7 @@ using System.IO;
 using System.Net.Sockets;
 using System.Text;
 using DashDeck.Abstractions;
+using DashDeck.Core.Location;
 
 namespace DashDeck.Host.Location;
 
@@ -24,7 +25,7 @@ public sealed class TcpNmeaLocationSource : ILocationSource
     private readonly CancellationTokenSource _cts = new();
     private readonly object _gate = new();
 
-    private LocationFix? _latest;
+    private readonly LocationTracker _tracker = new();
     private Task? _loop;
     private bool _started;
 
@@ -45,7 +46,9 @@ public sealed class TcpNmeaLocationSource : ILocationSource
         {
             lock (_gate)
             {
-                return _latest;
+                // Asked for on the UI poll, so the ageing is evaluated here rather than on the
+                // read loop: a feed that goes quiet has to demote without a sentence to do it.
+                return _tracker.Current(_clock.UtcNow);
             }
         }
     }
@@ -81,7 +84,7 @@ public sealed class TcpNmeaLocationSource : ILocationSource
                     {
                         lock (_gate)
                         {
-                            _latest = fix;
+                            _tracker.Accept(fix);
                         }
                     }
                 }
@@ -95,10 +98,7 @@ public sealed class TcpNmeaLocationSource : ILocationSource
                 // The link dropped or never came up. The last fix, if any, is no longer current.
                 lock (_gate)
                 {
-                    if (_latest is { } last)
-                    {
-                        _latest = last with { Quality = SignalQuality.Unavailable };
-                    }
+                    _tracker.LinkLost();
                 }
             }
 

@@ -1229,3 +1229,312 @@ switched on — tell me the dongle's firmware from its own web page); *CONNECTED
 more than 30 s; a picture that is stretched or tapped in the wrong place (send a photo); sound
 stuttering or seconds late; the picture freezing (RECONNECT from the three-dot menu, and tell me
 when it happened).
+
+## The audio delay — measuring the Bluetooth link to SYNC 3 (ADR-0059, Q33–Q36)
+
+Bluetooth puts something like 150–250 ms between DashDeck handing audio over and the truck's
+speakers making a sound, and **it cannot be removed**. This finds out how much, so the dash can
+hold video back, speak turn instructions early, and keep tap clicks off that output. Nothing here
+touches the vehicle.
+
+**There is no AUX jack in this truck (Q33, checked 2026-10-14).** So there is no cheap escape:
+Bluetooth is the only path to the speakers, and this measurement matters rather than being optional.
+
+**You need:**
+- the truck, engine **running**, parked (a quiet cab is not the case being measured);
+- the Surface, paired to SYNC 3 over Bluetooth, with the truck set as the Windows **default**
+  output and the stereo turned up to a normal listening volume;
+- DashDeck built from develop with this change — the tool is `AudioProbe`, not the dash itself.
+
+### First, find the device ids
+
+```
+dotnet run --project src\DashDeck.AudioProbe -- --list
+```
+
+**Expect:** two lists, outputs and inputs, each with a number. **Write down the id of the Surface's
+own built-in speaker** — the measurement is made against it, and that is what makes it work.
+
+The names come out **truncated to 31 characters** with no stable identifier, so they may not line
+up with what Windows' own sound settings show (Q34). If you cannot tell the built-in speaker apart
+from the Bluetooth link here, **say so and stop** — that is the answer to Q34, and it means this
+approach needs rethinking rather than you guessing an id.
+
+### Then measure
+
+**Both outputs must be named by id.** `--remote` used to default to "whatever Windows is
+defaulting to", which was a trap: the wave API will not say which index that resolves to, so if the
+default happened to be the same device as `--local`, the tool measured one device against itself
+and could not tell. With `3` for the built-in speaker and `5` for the Bluetooth link (on the owner's truck these are
+`1` for `Speakers (Realtek High Definiti` and `0` for `Headphones (Ford F-150)`):
+
+```
+dotnet run --project src\DashDeck.AudioProbe -- --local 3 --remote 5
+```
+
+It plays **one continuous track to each output** with the sweeps embedded in it, and listens on the
+microphone. **Takes about 20 seconds.** **Don't talk over it.**
+
+**The stereo will show a track playing for the whole run, and that is the point.** An earlier
+version played each sweep as an isolated burst with silence between, which let Windows suspend the
+Bluetooth stream — and SYNC 3 read every suspend and restart as media pause and play, visibly, on
+its own screen. Every reading that produced was a *cold stream start* rather than a delay. A
+continuous track keeps the link up, so the sink buffers once and settles, and the head unit sees one
+play instead of one per probe. A `--lead-in-s` of carrier runs before the first sweep so the
+stream's single cold start is paid for by nothing.
+
+The two outputs get **opposite sweeps** — up for the Surface, down for the truck. They carry the
+same energy in the same band, so the codec and the cab treat them alike, but neither can be found
+in the other's window. That matters because a truck slower than the search window delivers its
+probes out of order, and with one shared sweep its late arrivals get found in the *reference's*
+window and reported as impossible delays.
+
+1. **Expect** a line per probe, `tablet` and `stereo` alternating, each with a delay and a
+   confidence. Confidences should be comfortably into double figures.
+2. **Expect** two summary lines, then `==> Output delay: NNN ms`.
+3. **Expect** a note on the spread. Under 20 ms means a fixed number will hold for this
+   connection; wider means it will not, and compensation should be left off rather than averaged
+   (Q36).
+
+**Then do it twice more, because the number moves:** once after disconnecting and re-pairing
+Bluetooth, and once after leaving the audio silent for a few minutes so the stereo re-buffers. A2DP
+delay follows the receiving end's buffer. **Tell me all three numbers** — whether they agree
+matters more than what any one of them is.
+
+**A failure looks like:**
+- **"Not enough probes were found."** The most likely cause is the Surface's microphone echo
+  cancellation deleting the probe — it exists to remove sound the machine just played, which is
+  exactly what this plays (Q35). Turn off microphone enhancements for that device and try again. If
+  it still finds nothing with the stereo audibly playing the sweep, that is the Q35 answer and the
+  microphone route is dead; the delay then gets typed in by hand instead.
+- **"The stereo came out EARLIER than the tablet's own speaker."** `--local` is not really the
+  built-in speaker, or `--remote` is pointing at it too.
+- **"Not enough probes were found" with the tablet line fine and only the stereo missing.** The
+  microphone is working; the delay is simply longer than the window being searched, so every probe
+  arrives after its own slot has closed. Raise it: `--max-delay-ms 4000`. The tool now says this
+  itself, and distinguishes it from the microphone case below, because they need opposite fixes.
+  A 2019 F-150 needed this: at the original 600 ms window it produced nothing but misses and the
+  occasional impossible 0.6 ms reading.
+- **A delay under about 30 ms** on what should be a Bluetooth link, or **both outputs reading
+  nearly the same number**. The two ids are probably the same physical device, or `--local` is not
+  really the built-in speaker. A built-in speaker should come back around 20-50 ms and steady; if
+  it reads in the hundreds with a wide spread, it is not a local device.
+- **A wide spread on either output.** With a continuous track every probe on an output shares one
+  playback start, so the readings should be near-identical — a spread of more than a few
+  milliseconds now means something is genuinely wrong, not merely jittery. On the reference the tool
+  refuses outright past 50 ms.
+- **"REFUSED. The reference speaker disagreed with itself."** The whole method subtracts the
+  reference from the stereo, so a scattered reference makes the answer fiction however tidy the
+  stereo's own numbers look. One run reported a confident 445 ms built on a reference spanning
+  1605 ms before this gate existed. Check the capture-gap warning, close other audio software, and
+  try `--rounds 3` for a shorter recording.
+- **The stereo's screen still toggling play/pause during a run.** Should not happen any more; if it
+  does, the continuous track is being interrupted and the readings cannot be trusted — tell me.
+- **Confidences in the single figures** with probes still being found. The cab is louder than the
+  probe; turn the stereo up and measure again.
+
+## The Stereo panel, and getting out of the way of directions (ADR-0060, Q14)
+
+DashDeck's own playback, on the bottom third where the climate panel and the console live. It is
+**additive**: the truck's own radio is untouched and unreachable, and with no AUX jack in this truck
+(Q33) the sound goes out over Bluetooth to SYNC 3 like everything else DashDeck plays.
+
+**You need:**
+- the Surface, paired to SYNC 3, with the truck as the Windows **default** output;
+- a folder of music on the tablet;
+- DashDeck built from develop with this change.
+
+### First, at the desk
+
+1. **Settings ▸ AUDIO ▸ MUSIC FOLDER.** Type the path to your music. **Expect:** nothing visible
+   here; the Stereo panel reads it when you open it.
+2. Tap **STEREO** in the navigation. **Expect:** the panel, with the queue filled on the right. It
+   used to say "not built yet" — that entry is gone, and it was the last one.
+3. **PLAY. Expect:** sound from the truck, the title and album filling in, the position line
+   advancing once a second, and the playing track marked with a dot in the queue.
+4. **Tap partway along the position line. Expect:** it jumps there. It is a tap rather than a
+   dragged thumb on purpose — a thumb is a small target in a moving truck.
+5. **PREV twice.** **Expect:** the first tap restarts the current track, the second goes back one.
+   That is deliberate: past the first three seconds, "previous" means "start this again", which is
+   what every player does and none of them explain.
+6. **Tap a track in the queue. Expect:** it plays.
+7. **Leave STEREO for DASH, then come back. Expect: the music never stopped.** This is the one
+   behaviour worth checking carefully — the panel is thrown away when you leave and the player is
+   not, so if the music stops when you navigate away, that is the bug.
+
+### Then the delay, and the probe
+
+8. **Settings ▸ AUDIO ▸ OUTPUT DELAY.** Type a number in milliseconds if you know one. **Expect:**
+   the line underneath to say it is manual and which output it is for.
+9. **Pick the three devices and press MEASURE.** The reference must be the Surface's **own**
+   speaker — that is what makes the measurement work at all. **Expect:** a countdown, then a line
+   per probe and either a delay or a refusal explaining itself. Same measurement as the
+   `AudioProbe` console tool, driven from the same code.
+10. **Expect the stereo to show one track playing throughout the measurement**, not toggling
+    play/pause. Toggling means the continuous track is being interrupted and the reading cannot be
+    trusted.
+
+### What is NOT testable yet
+
+**The ducking contract has nothing to trigger it.** The policy is built and tested and the switch
+is in Settings ▸ AUDIO, but nothing yet reports that projection is speaking — that needs the
+Carlinkit dongle (Q25). So the switch is real and currently inert, and you will not see music duck
+under a turn instruction until that is wired. Said plainly because a switch that does nothing is
+worse than no switch if nobody wrote down which.
+
+### A failure looks like
+
+- **"No music folder chosen"** with a folder typed in — check the path, and that it is reachable
+  from the tablet.
+- **"Nothing playable under …"** — the folder has no audio files the player recognises. The
+  extensions it looks for are listed in the message.
+- **"No audio playback: LibVLC would not load"** — the native player is missing from the build.
+  Everything else in the dash should still work; if the dash did not start at all, that is a
+  different and worse bug, because this is meant to cost only the music.
+- **The music stopping when you leave STEREO.** The player is supposed to outlive the panel.
+
+## Video sync — the offset that is actually visible (ADR-0059)
+
+The Bluetooth link's delay is inaudible for music and obvious for video: lips running ahead of the
+words show up within a sentence. This is the control for it.
+
+**You need:**
+- the Surface paired to SYNC 3, truck as the Windows default output;
+- a video file with people talking in it — a talking head is far easier to judge than action;
+- DashDeck built from develop with this change.
+
+1. Put a video on the stage (the launcher's video entry, or `--video <path>`). **Expect:** it plays
+   with sound out of the truck.
+2. Look at the action bar. **Expect** three new items beside the transport: **SOUND EARLIER**, a
+   readout like `SYNC: picture held back 220 ms`, and **SOUND LATER**.
+3. **If the measurement has been run or a delay typed in, the offset starts already applied** —
+   negative, holding the picture back by the measured amount. The readout says so, and says it was
+   seeded rather than tuned.
+4. **Watch a face and nudge.** 50 ms a step. **Expect** the readout to follow each tap, and the
+   sync to visibly improve in one direction and worsen in the other.
+5. **Tap the readout itself. Expect:** back to in step, which is the way out of an over-nudged
+   offset without counting taps backwards.
+6. **Play a second file. Expect the offset to still be applied.** This is the one worth checking
+   deliberately: LibVLC resets the audio delay on every media change, so a build that set it once
+   at startup would look perfect on the first file and silently wrong on the second.
+7. **Close DashDeck and reopen it. Expect** what you settled on to be remembered — and *not* to be
+   overruled by the measurement again.
+
+**The thing I need you to tell me:** does **SOUND EARLIER** improve the sync when the sound is
+late, or make it worse? The reasoning says a negative offset holds the picture back, which is the
+direction a Bluetooth link needs, and the API's own documentation does not state the sign. If the
+buttons work backwards it is a one-character fix — but only you can see which way it goes.
+
+**A failure looks like:**
+- **No sync items in the action bar** — you are running a build without this change.
+- **The readout moves but nothing changes on screen** — the offset is not reaching the player.
+- **Right on the first file, wrong on the second** — the reapply-after-every-play is not working.
+- **Your setting replaced by the measured one after a restart** — seeding is meant to happen once.
+
+## The phone's GPS over Bluetooth (ADR-0027, ADR-0028, Q38)
+
+The Surface has no GPS, OBD-II carries no position, and the dongle's projection does not expose
+the phone's location — so the phone itself is the only GPS on hand, and everything with a map in
+front of it waits on this. The code has been in since September and **has never seen a real
+phone**: the parser and the moving-heading rule are tested, the serial read loop is I/O and could
+only ever be checked on glass. This is that check.
+
+**You need:**
+- the phone, running a GPS-share app that emits NMEA — **GPS NMEA Tether** is what the owner uses;
+- the phone paired to the Surface in Windows Bluetooth settings, and the app set to share over
+  **Bluetooth** (the same app can usually serve over USB tether or Wi-Fi instead, which is the
+  `--tcp` path below);
+- DashDeck built from develop with this change — the first step is `GpsProbe`, not the dash.
+
+Nothing here touches the vehicle, and the position never leaves the tablet.
+
+### First, find the port the phone answers on
+
+This is the step that exists because of one awkward fact: **Windows turns a single pairing into
+several COM ports, and only one of them carries the phone's data.** Windows names them by number
+only, so the picker in Settings cannot tell you which. Worse, the GPS setting is applied at the
+next launch, so guessing wrong used to mean a relaunch to find out.
+
+```
+dotnet run --project src\DashDeck.GpsProbe -- --list
+```
+
+**Expect** a short list — `COM3`, `COM5`, `COM7` and so on. The OBD adapter is in this list too.
+Then try them one at a time, with the phone's GPS app open and sharing:
+
+```
+dotnet run --project src\DashDeck.GpsProbe -- --port COM5 --seconds 15
+```
+
+**Expect one of five answers, each pointing somewhere different:**
+
+| What it says | What it means | What to do |
+| --- | --- | --- |
+| `FIX — 49.89510, -97.13840 · 63.2 km/h · course 182°` | A position arrived. | **This is the port.** Put it in Settings. |
+| `NO FIX — n sentences, the receiver has no position yet` | The link is right, the phone has no sky. | Go outside; the port is still the answer. |
+| `CONNECTED — n lines, no RMC or GGA (GSV, GSA)` | The link is right, the app is sending the wrong sentences. | Turn **RMC** on in the app. |
+| `CONNECTED — n lines, none of it NMEA` | Something else is on this port — usually the OBD adapter. | Try the next port. |
+| `NO DATA — nothing has arrived` | Wrong port, or the app is not actually sharing. | Try the next port; check the app says connected. |
+
+`--raw` prints every sentence as it arrives, if you want to see the feed rather than a verdict.
+If the app serves over the network instead, `--tcp 192.168.1.7:11123` takes the same path — use
+whatever host and port the app itself reports, because the number differs between apps.
+
+### Then turn it on in the dash
+
+1. **Settings ▸ DISPLAY ▸ LOCATION (PHONE GPS).** Set **USE PHONE GPS — ON** and **VIA —
+   BLUETOOTH**, press **REFRESH**, and pick the port the probe found.
+2. **Close DashDeck and open it again.** The GPS setting is read at launch, like the adapter's.
+3. **Go back to Settings ▸ DISPLAY.** **Expect the readout at the top of that section to be
+   live** — `FIX — 49.89510, -97.13840 · …` with `bluetooth COM5 · just now` under it. This is
+   new, and it is the point of this round: the section used to give no feedback at all.
+4. **Expect `NOT RUNNING` if you have not relaunched yet** — that is the readout telling you the
+   setting is saved and the source is not up, rather than pretending it is.
+
+### Then drive it
+
+5. **Open the COMPASS stage.** **Expect LATITUDE and LONGITUDE** to carry real numbers — those
+   gauges have been reading `location.latitude`/`location.longitude` all along with nothing behind
+   them.
+6. **Drive.** **Expect the compass to switch to `PHONE · GPS`** once you are over about 5 km/h,
+   and to hand back to `TABLET · MAGNETIC` when you stop. A stationary GPS reports a random
+   course, which is why it declines rather than spinning the rose.
+7. **With the adapter plugged in, expect speed to stay the truck's own.** Ground speed prefers
+   `vehicle.speed`; the phone is the fallback, not the winner. Settings ▸ SENSORS shows which
+   answered.
+8. **Unpair the phone, or walk away from the truck with it.** **Expect the readings to age to
+   `STALE` and then `NO FIX`** — not to freeze on the last position. A frozen dot that looks live
+   is the worst failure a map can have, so this one is worth doing deliberately.
+9. **Pair it again. Expect it to come back on its own** within a few seconds, without restarting
+   the dash.
+
+### What steadiness should look like (changed 2026-10-15)
+
+The first real phone came in **intermittently**, and it was the read loop rather than the link:
+it kept whichever sentence parsed last, so a GGA took away the course the RMC beside it supplied,
+and a single void sentence threw away a good position. A fix is now **built** from the sentences
+(ADR-0027's addendum), so:
+
+- **The readout should sit still** at `FIX — …` with the age under it ticking between `just now`
+  and however often the phone sends. **That age is the feed rate** — if it reads `3 s ago` over
+  and over, the app is sending every three seconds, which is worth knowing.
+- **A Bluetooth hiccup should read `STALE`, with the position still there**, not blank.
+- **A phone switched off or left behind should reach `NO FIX` within about ten seconds.** This is
+  the one to check deliberately: holding a position forever is worse than losing it.
+- **The compass should not flick between `PHONE · GPS` and `TABLET · MAGNETIC`** second by second
+  while driving. One hand-back when you slow below about 5 km/h is the rule working.
+
+**The things I need you to tell me:**
+- which port it turned out to be, and how many were in the list (if a pairing really does make
+  several, the picker should probably sort or mark them);
+- whether the phone's NMEA parses at all — the parser has only ever been fed sentences I wrote;
+- whether `PHONE · GPS` actually appears on the compass while moving, and at what sort of speed;
+- whether a dropped link ages or freezes.
+
+**A failure looks like:**
+- **`OFF` in the readout after relaunching** — the toggle did not save; check Settings again.
+- **`NO DATA` with a port the probe liked** — something else grabbed the port, often the adapter
+  search. The GPS port is meant to be reserved from it; if this happens, say so, because that
+  reservation is exactly what ADR-0028 claims works.
+- **Numbers on the gauges and nothing on the compass** — the heading threshold or the moving rule.
+- **A position that never changes while driving** — the fix is being held rather than refreshed.

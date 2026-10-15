@@ -18,7 +18,7 @@ doors — and reads values from each. The difference is addressing, not hardware
   answers only when asked **by its own address**: an 11-bit request id from `700` to `7F7`,
   answered on that id plus eight.
 - **A signal could not say which module.** `SignalDefinition` and `PidRequest` had a mode, a PID
-  and a bus. So the TEST loop that ADR-0032 built for Ford PIDs (R2, Q13) could never have reached
+  and a bus. So the TEST loop that ADR-0032 built for Ford PIDs (R2, Q27) could never have reached
   most of them, whatever number was typed.
 - **Two answers read as garbage.** With headers off, when the engine and transmission computers
   both answer the broadcast, the adapter prints two lines and the parser glued them into one long
@@ -87,7 +87,7 @@ run, and none of it is a claim about a real Ford.
 
 - The path from FORScan's module list to a dash card is now all on the tablet: find the module,
   sweep its identifiers, DEFINE one, TEST it while the thing it measures changes, save. Open
-  question Q13 (fuel flow, oil temperature, transmission temperature) becomes a session in the
+  question Q27 (fuel flow, oil temperature, transmission temperature) becomes a session in the
   driver's seat rather than a code change.
 - Switching between a module and the broadcast costs adapter commands — five one way, three back
   — each a few milliseconds on the real adapter. A dash with module-addressed signals interleaved

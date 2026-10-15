@@ -95,6 +95,38 @@ public sealed partial class DisplaySettings : ObservableObject
     [ObservableProperty]
     private bool _allowClearCodes;
 
+    /// <summary>Where the Stereo card reads music from (Q14).</summary>
+    [ObservableProperty]
+    private string _musicFolder = "";
+
+    /// <summary>The audio output's delay in milliseconds, typed or measured (ADR-0059).</summary>
+    [ObservableProperty]
+    private double _audioDelayMilliseconds;
+
+    /// <summary>Which output that delay belongs to. A number without this is meaningless.</summary>
+    [ObservableProperty]
+    private string _audioDelayEndpoint = "";
+
+    /// <summary>Manual, Measured, or empty.</summary>
+    [ObservableProperty]
+    private string _audioDelaySource = "";
+
+    /// <summary>When it was measured, as a round-trip string, or empty when typed.</summary>
+    [ObservableProperty]
+    private string _audioDelayMeasuredAt = "";
+
+    /// <summary>Whether playback gets out of the way of spoken instructions (Q14).</summary>
+    [ObservableProperty]
+    private bool _duckUnderInstructions = true;
+
+    /// <summary>The audio/video sync offset for a picture on the stage, in milliseconds.</summary>
+    [ObservableProperty]
+    private double _videoSyncOffsetMilliseconds;
+
+    /// <summary>Whether the sync offset has been set, so the measurement seeds it only once.</summary>
+    [ObservableProperty]
+    private bool _videoSyncChosen;
+
     public DisplaySettings()
     {
         var stored = SettingsStore.Load();
@@ -110,6 +142,14 @@ public sealed partial class DisplaySettings : ObservableObject
         AdapterIdentity = stored.AdapterIdentity;
         FastRequests = stored.FastRequests;
         AllowClearCodes = stored.AllowClearCodes;
+        MusicFolder = stored.MusicFolder;
+        AudioDelayMilliseconds = stored.AudioDelayMilliseconds;
+        AudioDelayEndpoint = stored.AudioDelayEndpoint;
+        AudioDelaySource = stored.AudioDelaySource;
+        AudioDelayMeasuredAt = stored.AudioDelayMeasuredAt;
+        DuckUnderInstructions = stored.DuckUnderInstructions;
+        VideoSyncOffsetMilliseconds = stored.VideoSyncOffsetMilliseconds;
+        VideoSyncChosen = stored.VideoSyncChosen;
         _loaded = true;
     }
 
@@ -269,5 +309,94 @@ public sealed partial class DisplaySettings : ObservableObject
             // Enumerating ports is not worth failing a settings screen over.
             return [];
         }
+    }
+
+    partial void OnMusicFolderChanged(string value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { MusicFolder = value });
+        }
+    }
+
+    partial void OnAudioDelayMillisecondsChanged(double value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { AudioDelayMilliseconds = value });
+        }
+    }
+
+    partial void OnAudioDelayEndpointChanged(string value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { AudioDelayEndpoint = value });
+        }
+    }
+
+    partial void OnAudioDelaySourceChanged(string value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { AudioDelaySource = value });
+        }
+    }
+
+    partial void OnAudioDelayMeasuredAtChanged(string value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { AudioDelayMeasuredAt = value });
+        }
+    }
+
+    partial void OnDuckUnderInstructionsChanged(bool value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { DuckUnderInstructions = value });
+        }
+    }
+
+    partial void OnVideoSyncOffsetMillisecondsChanged(double value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { VideoSyncOffsetMilliseconds = value });
+        }
+    }
+
+    partial void OnVideoSyncChosenChanged(bool value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { VideoSyncChosen = value });
+        }
+    }
+
+    /// <summary>
+    /// The sync offset to start a video with, seeding it from the measured delay the first time.
+    /// </summary>
+    /// <remarks>
+    /// Seeded once, not every launch: a person who nudges it back to zero on purpose should not
+    /// find the measurement has overruled them next time.
+    /// </remarks>
+    public TimeSpan VideoSyncOffset()
+    {
+        if (VideoSyncChosen)
+        {
+            return DashDeck.Core.Audio.VideoSync.FromStored(VideoSyncOffsetMilliseconds);
+        }
+
+        return DashDeck.Core.Audio.VideoSync.DefaultFor(
+            TimeSpan.FromMilliseconds(Math.Max(0, AudioDelayMilliseconds)));
+    }
+
+    /// <summary>Remember an offset the person nudged to.</summary>
+    public void RememberVideoSyncOffset(TimeSpan offset)
+    {
+        VideoSyncOffsetMilliseconds = DashDeck.Core.Audio.VideoSync.Clamp(offset).TotalMilliseconds;
+        VideoSyncChosen = true;
     }
 }

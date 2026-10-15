@@ -1,5 +1,5 @@
 using DashDeck.Abstractions;
-using DashDeck.Host.Location;
+using DashDeck.Core.Location;
 
 namespace DashDeck.Host.Sensors;
 

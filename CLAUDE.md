@@ -446,7 +446,7 @@ measured:
   (`5C`) is absent too.
 - **TPMS reads a dash at every corner** — its PIDs are still placeholders.
 
-Ford's own values (transmission and oil temperature, fuel flow, TPMS — R2, Q13) are the next
+Ford's own values (transmission and oil temperature, fuel flow, TPMS — R2, Q27) are the next
 hardware-side work, and the tools are on the tablet: **SCAN FOR MODULES** finds the modules,
 a module's **identifier sweep** finds candidates, and **TEST** in the editor confirms one while
 the thing it measures changes (ADR-0032, ADR-0035). Confirmed values go in the vehicle pack.

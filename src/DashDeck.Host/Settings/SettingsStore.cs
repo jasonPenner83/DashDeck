@@ -142,6 +142,57 @@ public sealed record UserSettings
     /// </summary>
     [JsonPropertyName("dismissedWarnings")]
     public Dictionary<string, double?> DismissedWarnings { get; init; } = [];
+
+    /// <summary>Where the Stereo card reads music from (Q14, ADR-0060).</summary>
+    [JsonPropertyName("musicFolder")]
+    public string MusicFolder { get; init; } = "";
+
+    /// <summary>
+    /// The audio output's delay in milliseconds, as typed or as measured (ADR-0059).
+    /// </summary>
+    /// <remarks>
+    /// Kept against <see cref="AudioDelayEndpoint"/>, because a Bluetooth stereo and a pair of
+    /// headphones have nothing to do with each other and must not share a number. Zero means
+    /// nothing is known and nothing is compensated.
+    /// </remarks>
+    [JsonPropertyName("audioDelayMs")]
+    public double AudioDelayMilliseconds { get; init; }
+
+    /// <summary>Which output <see cref="AudioDelayMilliseconds"/> was measured on.</summary>
+    [JsonPropertyName("audioDelayEndpoint")]
+    public string AudioDelayEndpoint { get; init; } = "";
+
+    /// <summary>How the delay came to be known: Manual, Measured, or empty for neither.</summary>
+    [JsonPropertyName("audioDelaySource")]
+    public string AudioDelaySource { get; init; } = "";
+
+    /// <summary>When it was measured, so the screen can say how stale it is.</summary>
+    [JsonPropertyName("audioDelayMeasuredAt")]
+    public string AudioDelayMeasuredAt { get; init; } = "";
+
+    /// <summary>Whether DashDeck's playback gets out of the way of spoken instructions (Q14).</summary>
+    [JsonPropertyName("duckUnderInstructions")]
+    public bool DuckUnderInstructions { get; init; } = true;
+
+    /// <summary>
+    /// The audio/video sync offset for a picture on the stage, in milliseconds (ADR-0059).
+    /// </summary>
+    /// <remarks>
+    /// Negative holds the picture back, which is the direction a Bluetooth link needs. Seeded from
+    /// the measured output delay the first time and then nudged by eye while watching, because the
+    /// total also carries the file's own container offset and the decoder's buffering. Zero means
+    /// nothing has been set and nothing is shifted.
+    /// </remarks>
+    [JsonPropertyName("videoSyncOffsetMs")]
+    public double VideoSyncOffsetMilliseconds { get; init; }
+
+    /// <summary>Whether the sync offset has ever been set, so seeding happens once.</summary>
+    /// <remarks>
+    /// Without this, a person who deliberately nudges the offset back to zero would have it
+    /// re-seeded from the measurement on the next launch, which is the dash arguing with them.
+    /// </remarks>
+    [JsonPropertyName("videoSyncChosen")]
+    public bool VideoSyncChosen { get; init; }
 }
 
 /// <summary>

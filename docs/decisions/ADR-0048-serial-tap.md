@@ -1,7 +1,7 @@
 # ADR-0048 — A serial tap that stands between FORScan and the adapter
 
 **Status:** Accepted · 2026-10-04
-**Serves:** R2, Q13 — finding Ford's own identifiers. **Keeps:** read-only (the tap only passes on what
+**Serves:** R2, Q27 — finding Ford's own identifiers. **Keeps:** read-only (the tap only passes on what
 another program sends); no new driver (CLAUDE.md, rule 2).
 
 ## Context
