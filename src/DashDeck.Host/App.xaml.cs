@@ -119,12 +119,22 @@ public partial class App : Application
         {
             // The vehicle's pack and the user's own signals (ADR-0032), read once at launch like
             // every other choice that shapes the pipeline. A bad file is reported, never fatal.
+            // The window never waits on the truck (Q41). Finding the adapter used to happen
+            // here, before anything was drawn, with a twelve-second budget — and a Bluetooth
+            // COM port whose phone is asleep can spend all of it, so a launch with a paired
+            // phone came up a minute late with nothing on screen.
+            //
+            // The stack comes up simulated instead and the watcher attaches the adapter the
+            // moment it answers, which is the same path a launch away from the truck has always
+            // taken. The cost is that the strip reads SIMULATED for a second or two in the cab
+            // before it goes LIVE — visible, honest, and better than a blank screen.
             _vehicle = await VehicleStack.StartAsync(
                 adapter,
                 drive,
                 new CatalogSources(identity, new Settings.UserSignalStore().Definitions),
                 CancellationToken.None,
-                fastRequests: stored.FastRequests);
+                fastRequests: stored.FastRequests,
+                locateBudget: TimeSpan.Zero);
         }
         catch (Exception ex)
         {
