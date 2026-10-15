@@ -65,3 +65,26 @@ strictest constraint here, it is worth saying so on the record rather than leavi
   is a truck-seat check.
 - **Range is a cab, which is fine.** Bluetooth SPP reaches well past the length of a truck; out of
   range degrades to Unavailable and reconnects, the same as a dropped TCP link.
+
+## Addendum — 2026-10-15: the picker was not enough
+
+Sitting down to actually connect a phone (GPS NMEA Tether over Bluetooth) found two gaps between
+"a COM-port picker exists" and "the dash is reading the phone", both of them this ADR's own
+consequence rather than new decisions:
+
+- **One pairing becomes several COM ports**, and Windows names them by number alone. "Auto-detect
+  the phone's COM port" was deferred above on the grounds that a one-tap pick beats a wrong guess
+  — true, but the picker gives nothing to pick *by*, so the first choice is still a guess.
+- **The setting is applied at the next launch**, and nothing on screen said whether it worked. So
+  a wrong port looked exactly like a phone that was not sharing, from the driver's seat, and cost
+  a relaunch to distinguish.
+
+Both are answered without changing the decision. `GpsProbe` (a console tool, beside `AudioProbe`)
+opens a port or a `host:port` and names which of five things is true — nothing arrived, bytes that
+are not NMEA, NMEA without RMC or GGA, a working link with no fix yet, or a position — because
+each sends the person somewhere different and "no GPS" sends them nowhere. Settings ▸ Display now
+carries a **live readout** of the running source on the shell's beat, so the section says what the
+GPS is doing rather than only what it has been told to do. The pure half of the location feed
+(`LocationFix`, `ILocationSource`, `NmeaParser`) moved from the Host into `DashDeck.Core` so the
+tool and the dash read the same parser rather than two that drift apart — the probe is only worth
+trusting if it fails where the dash fails.

@@ -1430,3 +1430,111 @@ buttons work backwards it is a one-character fix — but only you can see which 
 - **The readout moves but nothing changes on screen** — the offset is not reaching the player.
 - **Right on the first file, wrong on the second** — the reapply-after-every-play is not working.
 - **Your setting replaced by the measured one after a restart** — seeding is meant to happen once.
+
+## The phone's GPS over Bluetooth (ADR-0027, ADR-0028, Q38)
+
+The Surface has no GPS, OBD-II carries no position, and the dongle's projection does not expose
+the phone's location — so the phone itself is the only GPS on hand, and everything with a map in
+front of it waits on this. The code has been in since September and **has never seen a real
+phone**: the parser and the moving-heading rule are tested, the serial read loop is I/O and could
+only ever be checked on glass. This is that check.
+
+**You need:**
+- the phone, running a GPS-share app that emits NMEA — **GPS NMEA Tether** is what the owner uses;
+- the phone paired to the Surface in Windows Bluetooth settings, and the app set to share over
+  **Bluetooth** (the same app can usually serve over USB tether or Wi-Fi instead, which is the
+  `--tcp` path below);
+- DashDeck built from develop with this change — the first step is `GpsProbe`, not the dash.
+
+Nothing here touches the vehicle, and the position never leaves the tablet.
+
+### First, find the port the phone answers on
+
+This is the step that exists because of one awkward fact: **Windows turns a single pairing into
+several COM ports, and only one of them carries the phone's data.** Windows names them by number
+only, so the picker in Settings cannot tell you which. Worse, the GPS setting is applied at the
+next launch, so guessing wrong used to mean a relaunch to find out.
+
+```
+dotnet run --project src\DashDeck.GpsProbe -- --list
+```
+
+**Expect** a short list — `COM3`, `COM5`, `COM7` and so on. The OBD adapter is in this list too.
+Then try them one at a time, with the phone's GPS app open and sharing:
+
+```
+dotnet run --project src\DashDeck.GpsProbe -- --port COM5 --seconds 15
+```
+
+**Expect one of five answers, each pointing somewhere different:**
+
+| What it says | What it means | What to do |
+| --- | --- | --- |
+| `FIX — 49.89510, -97.13840 · 63.2 km/h · course 182°` | A position arrived. | **This is the port.** Put it in Settings. |
+| `NO FIX — n sentences, the receiver has no position yet` | The link is right, the phone has no sky. | Go outside; the port is still the answer. |
+| `CONNECTED — n lines, no RMC or GGA (GSV, GSA)` | The link is right, the app is sending the wrong sentences. | Turn **RMC** on in the app. |
+| `CONNECTED — n lines, none of it NMEA` | Something else is on this port — usually the OBD adapter. | Try the next port. |
+| `NO DATA — nothing has arrived` | Wrong port, or the app is not actually sharing. | Try the next port; check the app says connected. |
+
+`--raw` prints every sentence as it arrives, if you want to see the feed rather than a verdict.
+If the app serves over the network instead, `--tcp 192.168.1.7:11123` takes the same path — use
+whatever host and port the app itself reports, because the number differs between apps.
+
+### Then turn it on in the dash
+
+1. **Settings ▸ DISPLAY ▸ LOCATION (PHONE GPS).** Set **USE PHONE GPS — ON** and **VIA —
+   BLUETOOTH**, press **REFRESH**, and pick the port the probe found.
+2. **Close DashDeck and open it again.** The GPS setting is read at launch, like the adapter's.
+3. **Go back to Settings ▸ DISPLAY.** **Expect the readout at the top of that section to be
+   live** — `FIX — 49.89510, -97.13840 · …` with `bluetooth COM5 · just now` under it. This is
+   new, and it is the point of this round: the section used to give no feedback at all.
+4. **Expect `NOT RUNNING` if you have not relaunched yet** — that is the readout telling you the
+   setting is saved and the source is not up, rather than pretending it is.
+
+### Then drive it
+
+5. **Open the COMPASS stage.** **Expect LATITUDE and LONGITUDE** to carry real numbers — those
+   gauges have been reading `location.latitude`/`location.longitude` all along with nothing behind
+   them.
+6. **Drive.** **Expect the compass to switch to `PHONE · GPS`** once you are over about 5 km/h,
+   and to hand back to `TABLET · MAGNETIC` when you stop. A stationary GPS reports a random
+   course, which is why it declines rather than spinning the rose.
+7. **With the adapter plugged in, expect speed to stay the truck's own.** Ground speed prefers
+   `vehicle.speed`; the phone is the fallback, not the winner. Settings ▸ SENSORS shows which
+   answered.
+8. **Unpair the phone, or walk away from the truck with it.** **Expect the readings to age to
+   `STALE` and then `NO FIX`** — not to freeze on the last position. A frozen dot that looks live
+   is the worst failure a map can have, so this one is worth doing deliberately.
+9. **Pair it again. Expect it to come back on its own** within a few seconds, without restarting
+   the dash.
+
+### What steadiness should look like (changed 2026-10-15)
+
+The first real phone came in **intermittently**, and it was the read loop rather than the link:
+it kept whichever sentence parsed last, so a GGA took away the course the RMC beside it supplied,
+and a single void sentence threw away a good position. A fix is now **built** from the sentences
+(ADR-0027's addendum), so:
+
+- **The readout should sit still** at `FIX — …` with the age under it ticking between `just now`
+  and however often the phone sends. **That age is the feed rate** — if it reads `3 s ago` over
+  and over, the app is sending every three seconds, which is worth knowing.
+- **A Bluetooth hiccup should read `STALE`, with the position still there**, not blank.
+- **A phone switched off or left behind should reach `NO FIX` within about ten seconds.** This is
+  the one to check deliberately: holding a position forever is worse than losing it.
+- **The compass should not flick between `PHONE · GPS` and `TABLET · MAGNETIC`** second by second
+  while driving. One hand-back when you slow below about 5 km/h is the rule working.
+
+**The things I need you to tell me:**
+- which port it turned out to be, and how many were in the list (if a pairing really does make
+  several, the picker should probably sort or mark them);
+- whether the phone's NMEA parses at all — the parser has only ever been fed sentences I wrote;
+- whether `PHONE · GPS` actually appears on the compass while moving, and at what sort of speed;
+- whether a dropped link ages or freezes.
+
+**A failure looks like:**
+- **`OFF` in the readout after relaunching** — the toggle did not save; check Settings again.
+- **`NO DATA` with a port the probe liked** — something else grabbed the port, often the adapter
+  search. The GPS port is meant to be reserved from it; if this happens, say so, because that
+  reservation is exactly what ADR-0028 claims works.
+- **Numbers on the gauges and nothing on the compass** — the heading threshold or the moving rule.
+- **A position that never changes while driving** — the fix is being held rather than refreshed.

@@ -1,5 +1,6 @@
 using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
+using DashDeck.Abstractions;
 using CommunityToolkit.Mvvm.Input;
 using DashDeck.Host.Converters;
 using DashDeck.Host.Settings;
@@ -59,6 +60,8 @@ public sealed partial class SettingsSection(string name) : ObservableObject
 public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly ThemeService _theme;
+    private readonly DashDeck.Core.Location.ILocationSource? _location;
+    private readonly IClock _clock;
     private readonly DashDeck.Host.Sensors.SensorService _sensors;
     private readonly DashDeck.Host.Stage.UserAppStore _userApps;
     private readonly DashDeck.Host.Stage.Launcher.StageLauncherStore _launcher;
@@ -136,6 +139,14 @@ public sealed partial class SettingsViewModel : ObservableObject
             About.RefreshCommand.Execute(null);
         }
 
+        // Display carries the GPS readout, which the shell's beat keeps current. Read it once on
+        // the way in so the section never opens on a dash — a second of "——" looks like a fault.
+        if (IsDisplay)
+        {
+            RefreshSerialPorts();
+            RefreshGps();
+        }
+
         foreach (var candidate in Sections)
         {
             candidate.IsSelected = ReferenceEquals(candidate, section);
@@ -150,9 +161,13 @@ public sealed partial class SettingsViewModel : ObservableObject
         DashDeck.Host.Stage.Launcher.StageLauncherStore launcher,
         SensorInventoryViewModel inventory,
         VehicleIdentityViewModel vehicle,
-        AdapterPortsViewModel adapter)
+        AdapterPortsViewModel adapter,
+        DashDeck.Core.Location.ILocationSource? location = null,
+        IClock? clock = null)
     {
         Adapter = adapter;
+        _location = location;
+        _clock = clock ?? new SystemClock();
         _theme = theme;
         var dialogs = new ThemeDialogs();
         Themes = new ThemesViewModel(theme, dialogs);
@@ -355,6 +370,49 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             port.IsSelected = ReferenceEquals(port, option);
         }
+    }
+
+    /// <summary>
+    /// What the phone's GPS is doing, right now — the thing this section had no way to show.
+    /// </summary>
+    /// <remarks>
+    /// The GPS settings are applied at the next launch, so until this existed the only feedback
+    /// was whether the compass eventually said <c>PHONE · GPS</c> while driving. That makes the
+    /// common failure — the wrong one of the several COM ports a pairing creates — indistinguishable
+    /// from a phone that is not sharing, from the passenger seat. Refreshed on the shell's beat
+    /// while this section is on screen, so it costs nothing behind the dash.
+    /// </remarks>
+    [ObservableProperty]
+    private string _gpsStatus = "——";
+
+    /// <summary>What to do about whatever <see cref="GpsStatus"/> says.</summary>
+    [ObservableProperty]
+    private string _gpsStatusDetail = "";
+
+    /// <summary>Re-read the running location source. Cheap: one field and a format.</summary>
+    public void RefreshGps()
+    {
+        if (_location is null)
+        {
+            (GpsStatus, GpsStatusDetail) = Display.GpsEnabled
+                ? ("NOT RUNNING", "Turned on since this launch. Close DashDeck and open it again.")
+                : ("OFF", "The dash is not reading the phone's GPS.");
+
+            return;
+        }
+
+        if (_location.Latest is not { } fix)
+        {
+            (GpsStatus, GpsStatusDetail) = (
+                "NO DATA",
+                $"{_location.Name} is open and nothing has arrived. Check the phone's GPS app is sharing, "
+                    + "and that this is the right port — GpsProbe --list tries them one at a time.");
+
+            return;
+        }
+
+        GpsStatus = DashDeck.Core.Location.LocationStatus.Describe(fix);
+        GpsStatusDetail = $"{_location.Name} · {DashDeck.Core.Location.LocationStatus.Age(fix, _clock.UtcNow)}";
     }
 
     private void SyncScales()

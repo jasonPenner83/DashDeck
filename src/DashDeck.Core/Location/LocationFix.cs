@@ -1,6 +1,6 @@
 using DashDeck.Abstractions;
 
-namespace DashDeck.Host.Location;
+namespace DashDeck.Core.Location;
 
 /// <summary>
 /// One position report from the phone.
@@ -39,7 +39,7 @@ public readonly record struct LocationFix(
 /// the truck, a Bluetooth one later.
 /// </summary>
 /// <remarks>
-/// The transport seam (ADR-0003/0005), the same shape <see cref="PhoneLink.IDongleTransport"/>
+/// The transport seam (ADR-0003/0005), the same shape the dongle transport
 /// takes: a name that says "synthetic" when it is, and a latest reading polled by whoever wants
 /// it. Read-only — DashDeck consumes the phone's GPS and sends nothing back (ADR-0027, and the
 /// privacy line: location never leaves the tablet).
