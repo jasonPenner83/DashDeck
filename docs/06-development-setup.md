@@ -30,6 +30,13 @@ If the tests pass and the console prints live signals, the whole engine works.
 pwsh -File publish.ps1 -Shortcut
 ```
 
+**Windows PowerShell works too**, and is what a stock Windows install actually has — `pwsh` is
+PowerShell 7 and is a separate download. Nothing in the script is 7-only, so:
+
+```
+powershell -ExecutionPolicy Bypass -File publish.ps1 -Shortcut
+```
+
 Produces `dist\DashDeck\` — a **self-contained folder deploy**. No .NET runtime to install,
 no VLC to install, no registry, no services, no kiosk mode. That is constraint C1 taken
 literally: uninstalling DashDeck is deleting the folder, and the tablet goes back to being

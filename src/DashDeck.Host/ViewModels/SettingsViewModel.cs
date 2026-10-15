@@ -229,7 +229,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Which vehicle this is: its VIN, the decode, the signal pack (ADR-0033).</summary>
     public VehicleIdentityViewModel Vehicle { get; }
 
-    /// <summary>Settings ▸ AUDIO: music folder, output delay, and the probe (ADR-0059).</summary>
+    /// <summary>Settings ▸ AUDIO: where the music comes from, and ducking (Q14, ADR-0060).</summary>
     public AudioSettingsViewModel Audio { get; }
 
     /// <summary>Settings ▸ ABOUT: what this build is and where it keeps things.</summary>

@@ -47,6 +47,7 @@ public sealed class OverlayHost : IDisposable
     private IntPtr _previousOwner;
     private long _originalStyle;
     private Rect _lastPlaced = Rect.Empty;
+    private bool _obscured;
 
     /// <summary>The rectangle last asked for, in physical pixels. What the app was offered.</summary>
     public Rect Placed => _lastPlaced;
@@ -134,6 +135,45 @@ public sealed class OverlayHost : IDisposable
     /// editor unless it is told not to. Anything the shell puts full-screen over the stage
     /// collapses the anchor to nothing, which is the signal used here.
     /// </remarks>
+    /// <summary>
+    /// Whether the hosted window should be on screen at all.
+    /// </summary>
+    /// <remarks>
+    /// Pulled out as a function of its three inputs because the interesting case is not the
+    /// placement arithmetic, it is this decision: a window of its own cannot be drawn over, so
+    /// "something is over the stage" has to mean "hide it" rather than "draw on top".
+    /// </remarks>
+    internal static bool ShouldShow(bool anchorVisible, bool shellMinimised, bool obscured) =>
+        anchorVisible && !shellMinimised && !obscured;
+
+    /// <summary>
+    /// The shell is drawing something over the stage — the overflow menu — or has stopped.
+    /// </summary>
+    /// <remarks>
+    /// Hides the window rather than trying to put the menu above it, because an owned window is
+    /// above its owner and no z-order call changes that without taking the ownership away, which
+    /// is what ADR-0021 chose ownership to avoid. Re-places on the way back, so a shell that
+    /// moved while the menu was up does not leave the application behind.
+    /// </remarks>
+    public void SetObscured(bool obscured)
+    {
+        if (_obscured == obscured)
+        {
+            return;
+        }
+
+        _obscured = obscured;
+
+        // Coming back needs a placement, not just a show: _lastPlaced is still the old rectangle
+        // and Track() short-circuits on an unchanged one.
+        if (!obscured)
+        {
+            _lastPlaced = Rect.Empty;
+        }
+
+        Track();
+    }
+
     public void Track()
     {
         if (_disposed || !NativeMethods.IsWindow(_window) || _anchor.ActualWidth <= 0)
@@ -141,7 +181,10 @@ public sealed class OverlayHost : IDisposable
             return;
         }
 
-        var visible = _anchor.IsVisible && _shell is { WindowState: not WindowState.Minimized };
+        var visible = ShouldShow(
+            _anchor.IsVisible,
+            _shell is { WindowState: WindowState.Minimized },
+            _obscured);
 
         if (!visible)
         {

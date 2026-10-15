@@ -1230,108 +1230,21 @@ more than 30 s; a picture that is stretched or tapped in the wrong place (send a
 stuttering or seconds late; the picture freezing (RECONNECT from the three-dot menu, and tell me
 when it happened).
 
-## The audio delay — measuring the Bluetooth link to SYNC 3 (ADR-0059, Q33–Q36)
+## The audio delay and the video sync offset — parked 2026-10-15
 
-Bluetooth puts something like 150–250 ms between DashDeck handing audio over and the truck's
-speakers making a sound, and **it cannot be removed**. This finds out how much, so the dash can
-hold video back, speak turn instructions early, and keep tap clicks off that output. Nothing here
-touches the vehicle.
+Both walkthroughs that were here are gone with the feature. The delay measurement, the
+`AudioProbe` tool and the video sync offset are on the **`parked/audio-delay`** branch, and
+nothing in a current build measures or compensates for the Bluetooth link.
 
-**There is no AUX jack in this truck (Q33, checked 2026-10-14).** So there is no cheap escape:
-Bluetooth is the only path to the speakers, and this measurement matters rather than being optional.
-
-**You need:**
-- the truck, engine **running**, parked (a quiet cab is not the case being measured);
-- the Surface, paired to SYNC 3 over Bluetooth, with the truck set as the Windows **default**
-  output and the stereo turned up to a normal listening volume;
-- DashDeck built from develop with this change — the tool is `AudioProbe`, not the dash itself.
-
-### First, find the device ids
-
-```
-dotnet run --project src\DashDeck.AudioProbe -- --list
-```
-
-**Expect:** two lists, outputs and inputs, each with a number. **Write down the id of the Surface's
-own built-in speaker** — the measurement is made against it, and that is what makes it work.
-
-The names come out **truncated to 31 characters** with no stable identifier, so they may not line
-up with what Windows' own sound settings show (Q34). If you cannot tell the built-in speaker apart
-from the Bluetooth link here, **say so and stop** — that is the answer to Q34, and it means this
-approach needs rethinking rather than you guessing an id.
-
-### Then measure
-
-**Both outputs must be named by id.** `--remote` used to default to "whatever Windows is
-defaulting to", which was a trap: the wave API will not say which index that resolves to, so if the
-default happened to be the same device as `--local`, the tool measured one device against itself
-and could not tell. With `3` for the built-in speaker and `5` for the Bluetooth link (on the owner's truck these are
-`1` for `Speakers (Realtek High Definiti` and `0` for `Headphones (Ford F-150)`):
-
-```
-dotnet run --project src\DashDeck.AudioProbe -- --local 3 --remote 5
-```
-
-It plays **one continuous track to each output** with the sweeps embedded in it, and listens on the
-microphone. **Takes about 20 seconds.** **Don't talk over it.**
-
-**The stereo will show a track playing for the whole run, and that is the point.** An earlier
-version played each sweep as an isolated burst with silence between, which let Windows suspend the
-Bluetooth stream — and SYNC 3 read every suspend and restart as media pause and play, visibly, on
-its own screen. Every reading that produced was a *cold stream start* rather than a delay. A
-continuous track keeps the link up, so the sink buffers once and settles, and the head unit sees one
-play instead of one per probe. A `--lead-in-s` of carrier runs before the first sweep so the
-stream's single cold start is paid for by nothing.
-
-The two outputs get **opposite sweeps** — up for the Surface, down for the truck. They carry the
-same energy in the same band, so the codec and the cab treat them alike, but neither can be found
-in the other's window. That matters because a truck slower than the search window delivers its
-probes out of order, and with one shared sweep its late arrivals get found in the *reference's*
-window and reported as impossible delays.
-
-1. **Expect** a line per probe, `tablet` and `stereo` alternating, each with a delay and a
-   confidence. Confidences should be comfortably into double figures.
-2. **Expect** two summary lines, then `==> Output delay: NNN ms`.
-3. **Expect** a note on the spread. Under 20 ms means a fixed number will hold for this
-   connection; wider means it will not, and compensation should be left off rather than averaged
-   (Q36).
-
-**Then do it twice more, because the number moves:** once after disconnecting and re-pairing
-Bluetooth, and once after leaving the audio silent for a few minutes so the stereo re-buffers. A2DP
-delay follows the receiving end's buffer. **Tell me all three numbers** — whether they agree
-matters more than what any one of them is.
-
-**A failure looks like:**
-- **"Not enough probes were found."** The most likely cause is the Surface's microphone echo
-  cancellation deleting the probe — it exists to remove sound the machine just played, which is
-  exactly what this plays (Q35). Turn off microphone enhancements for that device and try again. If
-  it still finds nothing with the stereo audibly playing the sweep, that is the Q35 answer and the
-  microphone route is dead; the delay then gets typed in by hand instead.
-- **"The stereo came out EARLIER than the tablet's own speaker."** `--local` is not really the
-  built-in speaker, or `--remote` is pointing at it too.
-- **"Not enough probes were found" with the tablet line fine and only the stereo missing.** The
-  microphone is working; the delay is simply longer than the window being searched, so every probe
-  arrives after its own slot has closed. Raise it: `--max-delay-ms 4000`. The tool now says this
-  itself, and distinguishes it from the microphone case below, because they need opposite fixes.
-  A 2019 F-150 needed this: at the original 600 ms window it produced nothing but misses and the
-  occasional impossible 0.6 ms reading.
-- **A delay under about 30 ms** on what should be a Bluetooth link, or **both outputs reading
-  nearly the same number**. The two ids are probably the same physical device, or `--local` is not
-  really the built-in speaker. A built-in speaker should come back around 20-50 ms and steady; if
-  it reads in the hundreds with a wide spread, it is not a local device.
-- **A wide spread on either output.** With a continuous track every probe on an output shares one
-  playback start, so the readings should be near-identical — a spread of more than a few
-  milliseconds now means something is genuinely wrong, not merely jittery. On the reference the tool
-  refuses outright past 50 ms.
-- **"REFUSED. The reference speaker disagreed with itself."** The whole method subtracts the
-  reference from the stereo, so a scattered reference makes the answer fiction however tidy the
-  stereo's own numbers look. One run reported a confident 445 ms built on a reference spanning
-  1605 ms before this gate existed. Check the capture-gap warning, close other audio software, and
-  try `--rounds 3` for a shorter recording.
-- **The stereo's screen still toggling play/pause during a run.** Should not happen any more; if it
-  does, the continuous track is being interrupted and the readings cannot be trusted — tell me.
-- **Confidences in the single figures** with probes still being found. The cab is louder than the
-  probe; turn the stereo up and measure again.
+**Why, in one paragraph, so the next person does not rebuild it by accident.** The offset was
+built for *"the offset for video, like in Nuvio"* and wired to `SetAudioDelay` on DashDeck's own
+LibVLC player. Nuvio is a separate process drawing its own picture and sending its own audio to
+the mixer, so the offset never reached the only video that gets watched, and Nuvio exposes no
+delay control of its own. The link's delay is also inaudible for music, which is what the Stereo
+panel plays. That left a measurement with nothing to feed and three sections of Settings to
+maintain. **The cheap answer, if a film is ever out of sync again:** send that one application's
+audio to the tablet's speakers in Windows' volume mixer, which removes the Bluetooth link instead
+of compensating for it. Q36, Q37 and Q39 hold the detail.
 
 ## The Stereo panel, and getting out of the way of directions (ADR-0060, Q14)
 
@@ -1362,17 +1275,11 @@ DashDeck's own playback, on the bottom third where the climate panel and the con
    behaviour worth checking carefully — the panel is thrown away when you leave and the player is
    not, so if the music stops when you navigate away, that is the bug.
 
-### Then the delay, and the probe
+### Settings ▸ AUDIO, as it now stands
 
-8. **Settings ▸ AUDIO ▸ OUTPUT DELAY.** Type a number in milliseconds if you know one. **Expect:**
-   the line underneath to say it is manual and which output it is for.
-9. **Pick the three devices and press MEASURE.** The reference must be the Surface's **own**
-   speaker — that is what makes the measurement work at all. **Expect:** a countdown, then a line
-   per probe and either a delay or a refusal explaining itself. Same measurement as the
-   `AudioProbe` console tool, driven from the same code.
-10. **Expect the stereo to show one track playing throughout the measurement**, not toggling
-    play/pause. Toggling means the continuous track is being interrupted and the reading cannot be
-    trusted.
+8. **Expect two things in that section and no more:** the **MUSIC FOLDER** and the ducking switch.
+   The output delay, the video sync offset and the MEASURE IT probe were parked on 2026-10-15 —
+   see the note further up. A build that still shows them is older than that.
 
 ### What is NOT testable yet
 
@@ -1392,44 +1299,6 @@ worse than no switch if nobody wrote down which.
   Everything else in the dash should still work; if the dash did not start at all, that is a
   different and worse bug, because this is meant to cost only the music.
 - **The music stopping when you leave STEREO.** The player is supposed to outlive the panel.
-
-## Video sync — the offset that is actually visible (ADR-0059)
-
-The Bluetooth link's delay is inaudible for music and obvious for video: lips running ahead of the
-words show up within a sentence. This is the control for it.
-
-**You need:**
-- the Surface paired to SYNC 3, truck as the Windows default output;
-- a video file with people talking in it — a talking head is far easier to judge than action;
-- DashDeck built from develop with this change.
-
-1. Put a video on the stage (the launcher's video entry, or `--video <path>`). **Expect:** it plays
-   with sound out of the truck.
-2. Look at the action bar. **Expect** three new items beside the transport: **SOUND EARLIER**, a
-   readout like `SYNC: picture held back 220 ms`, and **SOUND LATER**.
-3. **If the measurement has been run or a delay typed in, the offset starts already applied** —
-   negative, holding the picture back by the measured amount. The readout says so, and says it was
-   seeded rather than tuned.
-4. **Watch a face and nudge.** 50 ms a step. **Expect** the readout to follow each tap, and the
-   sync to visibly improve in one direction and worsen in the other.
-5. **Tap the readout itself. Expect:** back to in step, which is the way out of an over-nudged
-   offset without counting taps backwards.
-6. **Play a second file. Expect the offset to still be applied.** This is the one worth checking
-   deliberately: LibVLC resets the audio delay on every media change, so a build that set it once
-   at startup would look perfect on the first file and silently wrong on the second.
-7. **Close DashDeck and reopen it. Expect** what you settled on to be remembered — and *not* to be
-   overruled by the measurement again.
-
-**The thing I need you to tell me:** does **SOUND EARLIER** improve the sync when the sound is
-late, or make it worse? The reasoning says a negative offset holds the picture back, which is the
-direction a Bluetooth link needs, and the API's own documentation does not state the sign. If the
-buttons work backwards it is a one-character fix — but only you can see which way it goes.
-
-**A failure looks like:**
-- **No sync items in the action bar** — you are running a build without this change.
-- **The readout moves but nothing changes on screen** — the offset is not reaching the player.
-- **Right on the first file, wrong on the second** — the reapply-after-every-play is not working.
-- **Your setting replaced by the measured one after a restart** — seeding is meant to happen once.
 
 ## The phone's GPS over Bluetooth (ADR-0027, ADR-0028, Q38)
 
