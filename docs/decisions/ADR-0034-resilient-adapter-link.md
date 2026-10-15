@@ -104,3 +104,29 @@ never could.
 - **Not verified on the truck.** The engine tests drive every path against fake ports — wrong
   rate, renumbered port, a different adapter, a busy port, a pulled cable, configuring after a
   reconnect, simulator to truck. Serial ports, and the shell, still need the tablet in the cab.
+
+## Addendum — 2026-10-15: the window no longer waits for the adapter
+
+This ADR gave launch a **twelve-second budget** to find the chosen port before coming up simulated
+and watching for it instead. That was the right shape and the wrong place: the budget was spent
+*before anything was drawn*.
+
+A phone paired for GPS turns one pairing into several Bluetooth virtual COM ports, and
+`SerialPort.Open` on one whose phone is asleep blocks far longer than its own four-second timeout.
+With the abandoned opens sitting on thread-pool threads, a few of them starved a four-core
+tablet's pool, every other `await` queued behind them, and a launch came up a minute late with no
+window — looking, from the driver's seat, exactly like a dash that was broken (Q41).
+
+**Both halves are fixed.** The blocking open now runs on a dedicated background thread, so an
+abandoned one costs a stack rather than a share of the pool. And the shell passes
+`locateBudget: TimeSpan.Zero`, so **the stack comes up simulated and the watcher attaches the
+adapter the moment it answers** — the same path a launch away from the truck has always taken, and
+the one that was already tested. The budget still exists for callers that want it; only the shell
+opts out.
+
+**The cost, stated plainly:** in the cab the status strip reads `SIMULATED` for a second or two
+before it goes `LIVE`, where it used to be live on the first frame. That is a visible, honest
+transition in exchange for a window that always appears. A dash that is late is indistinguishable
+from a dash that is broken, and this project would rather be wrong about the truck for two seconds
+than blank for sixty.
+
