@@ -304,6 +304,7 @@ public partial class App : Application
         // --stage <NAME> opens on a named occupant: CLOCK, VIDEO, NUVIO, MAPS or STREMIO.
         // --gps <host:port|synthetic> forces a phone-GPS source (ADR-0027) for a screenshot or a
         // quick test, over whatever the persisted setting says.
+        Shell.StartupTrace.Phase("building the shell");
         _shell = new ShellViewModel(
             _vehicle,
             SystemClock.Instance,
@@ -379,6 +380,7 @@ public partial class App : Application
         Shell.StartupTrace.Phase("building the window");
         var window = new MainWindow { DataContext = _shell };
         MainWindow = window;
+        Shell.StartupTrace.Phase("showing the window");
         window.Show();
         Shell.StartupTrace.Ready();
 

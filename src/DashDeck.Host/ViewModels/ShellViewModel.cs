@@ -38,7 +38,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly IClock _clock;
     private readonly ThemeService _theme;
     private readonly DispatcherTimer _timer;
-    private readonly Audio.StereoPlayer? _stereoPlayer;
+    private Audio.StereoPlayer? _stereoPlayer;
     private readonly string? _videoPath;
     private readonly Stage.UserAppStore _userApps;
     private readonly Stage.Launcher.StageLauncherStore _launcher;
@@ -213,8 +213,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         // The player outlives the panel, so it is made here and disposed with the shell. It is
         // allowed to fail: a missing native LibVLC must cost the music, never the whole dash.
-        _stereoPlayer = Audio.StereoPlayer.TryCreate(out var stereoProblem);
-        Stereo = new StereoViewModel(_stereoPlayer, Display, stereoProblem);
+        // Built on demand, not here: new LibVLC() walks VLC's plugin folder — some seventeen
+        // hundred files — and doing that in this constructor put it on the startup path, before
+        // the window existed, where it cost seconds on a cold tablet (Q41).
+        Stereo = new StereoViewModel(
+            () =>
+            {
+                _stereoPlayer = Audio.StereoPlayer.TryCreate(out var problem);
+                return (_stereoPlayer, problem);
+            },
+            Display);
 
         // Which signals are shown by state name (ADR-0056), for the layouts' selector element.
         Stage.Gauges.SignalStates.Of = id => vehicle.Catalog.TryGet(id, out var definition) ? definition.States : null;

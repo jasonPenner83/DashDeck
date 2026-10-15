@@ -39,27 +39,34 @@ public sealed partial class TrackRow(Track track, int index) : ObservableObject
 /// </remarks>
 public sealed partial class StereoViewModel : ObservableObject, IDisposable
 {
-    private readonly StereoPlayer? _player;
+    private readonly Func<(StereoPlayer? Player, string? Problem)> _makePlayer;
     private readonly DisplaySettings _settings;
     private readonly DispatcherTimer _tick;
-    private readonly string? _unavailable;
+
+    private StereoPlayer? _player;
+    private string? _unavailable;
+    private bool _made;
     private bool _seeking;
 
-    /// <param name="player">The player, or null when LibVLC would not load.</param>
-    /// <param name="settings">Where the music folder and the delay are kept.</param>
-    /// <param name="unavailable">Why there is no player, when there is none.</param>
-    public StereoViewModel(StereoPlayer? player, DisplaySettings settings, string? unavailable = null)
+    /// <param name="makePlayer">
+    /// Builds the player, called at most once and not until something actually needs it.
+    /// </param>
+    /// <param name="settings">Where the music folder is kept.</param>
+    /// <remarks>
+    /// <b>Built on demand, because building it is expensive.</b> The player is LibVLC, and
+    /// <c>new LibVLC()</c> walks VLC's plugin folder — some seventeen hundred files — to build its
+    /// cache. Doing that in this constructor put it on the startup path, before the window was
+    /// drawn, where it cost seconds on a cold tablet and looked exactly like a dash that would not
+    /// start (Q41). Nothing about the stereo needs to exist until someone asks for music.
+    /// </remarks>
+    public StereoViewModel(
+        Func<(StereoPlayer? Player, string? Problem)> makePlayer,
+        DisplaySettings settings)
     {
-        _player = player;
+        _makePlayer = makePlayer;
         _settings = settings;
-        _unavailable = unavailable;
 
-        Volume = player?.Volume ?? 70;
-
-        if (_player is not null)
-        {
-            _player.Changed += OnPlayerChanged;
-        }
+        Volume = 70;
 
         // A second is enough for a position bar and cheap enough not to think about; the clock
         // elsewhere in the shell runs the same way.
@@ -72,6 +79,40 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
         _tick.Start();
 
         Rescan();
+    }
+
+    /// <summary>
+    /// The player, built the first time it is wanted. Null when LibVLC would not load.
+    /// </summary>
+    /// <remarks>
+    /// Every path that reaches this is a person asking for something — pressing PLAY, opening the
+    /// panel, scanning the folder. The one-second tick deliberately does <em>not</em>: it reads
+    /// <see cref="_player"/> directly, so a dash that nobody asks for music on never pays for
+    /// LibVLC at all.
+    /// </remarks>
+    private StereoPlayer? Player
+    {
+        get
+        {
+            if (_made)
+            {
+                return _player;
+            }
+
+            _made = true;
+            (_player, _unavailable) = _makePlayer();
+
+            if (_player is not null)
+            {
+                _player.Changed += OnPlayerChanged;
+                _player.Volume = Volume;
+            }
+
+            OnPropertyChanged(nameof(HasProblem));
+            OnPropertyChanged(nameof(HasTracks));
+
+            return _player;
+        }
     }
 
     /// <summary>The queue.</summary>
@@ -128,9 +169,9 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
 
     partial void OnVolumeChanged(int value)
     {
-        if (_player is not null)
+        if (Player is not null)
         {
-            _player.Volume = value;
+            Player.Volume = value;
         }
     }
 
@@ -146,18 +187,13 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
     {
         Tracks.Clear();
 
-        if (_player is null)
-        {
-            Problem = _unavailable ?? "Audio playback is not available on this machine.";
-            Refresh();
-            return;
-        }
-
         var folder = _settings.MusicFolder;
         if (string.IsNullOrWhiteSpace(folder))
         {
+            // No player is built for this: there is nothing to play, and the message is the same
+            // whether or not LibVLC would have loaded.
             Problem = "No music folder chosen. Settings ▸ AUDIO ▸ MUSIC FOLDER.";
-            _player.SetQueue([]);
+            _player?.SetQueue([]);
             Refresh();
             return;
         }
@@ -165,7 +201,7 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
         if (!Directory.Exists(folder))
         {
             Problem = $"{folder} is not there any more. Choose another in Settings ▸ AUDIO.";
-            _player.SetQueue([]);
+            _player?.SetQueue([]);
             Refresh();
             return;
         }
@@ -179,7 +215,7 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Problem = $"Could not read {folder}: {ex.Message}";
-            _player.SetQueue([]);
+            _player?.SetQueue([]);
             Refresh();
             return;
         }
@@ -193,7 +229,16 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
             Tracks.Add(new TrackRow(tracks[i], i));
         }
 
-        _player.SetQueue(tracks);
+        // Here, and only here, is a player actually needed — there are tracks to hand over. This
+        // is the line that pays for LibVLC, the first time a folder with music in it is scanned.
+        if (Player is null)
+        {
+            Problem = _unavailable ?? "Audio playback is not available on this machine.";
+            Refresh();
+            return;
+        }
+
+        Player.SetQueue(tracks);
         OnPropertyChanged(nameof(Folder));
         OnPropertyChanged(nameof(HasTracks));
         Refresh();
@@ -201,15 +246,15 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
 
     /// <summary>Play or pause.</summary>
     [RelayCommand]
-    private void TogglePlay() => _player?.TogglePlay();
+    private void TogglePlay() => Player?.TogglePlay();
 
     /// <summary>Next track.</summary>
     [RelayCommand]
-    private void Next() => _player?.Next();
+    private void Next() => Player?.Next();
 
     /// <summary>Previous track, or restart this one — <see cref="MusicLibrary.PreviousFrom"/> decides.</summary>
     [RelayCommand]
-    private void Previous() => _player?.Previous();
+    private void Previous() => Player?.Previous();
 
     /// <summary>Play a track picked from the list.</summary>
     [RelayCommand]
@@ -217,20 +262,20 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
     {
         if (row is not null)
         {
-            _player?.GoTo(row.Index);
+            Player?.GoTo(row.Index);
         }
     }
 
     /// <summary>Seek to a fraction of the current track. Bound to the bar being dragged.</summary>
     public void SeekToFraction(double fraction)
     {
-        if (_player is null || _player.Length <= TimeSpan.Zero)
+        if (Player is null || Player.Length <= TimeSpan.Zero)
         {
             return;
         }
 
         _seeking = true;
-        _player.SeekTo(_player.Length * Math.Clamp(fraction, 0, 1));
+        Player.SeekTo(Player.Length * Math.Clamp(fraction, 0, 1));
         _seeking = false;
     }
 
@@ -260,9 +305,11 @@ public sealed partial class StereoViewModel : ObservableObject, IDisposable
 
     private void Refresh()
     {
+        // The field, never the property: this runs every second, and building LibVLC from a
+        // timer would put back exactly the cost that was moved off the startup path.
         if (_player is null)
         {
-            Title = "No audio playback";
+            Title = _made ? "No audio playback" : "Nothing queued";
             PlayLabel = "PLAY";
             return;
         }
