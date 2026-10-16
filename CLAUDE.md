@@ -22,7 +22,9 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **852 tests green** — 397 engine, 455 shell.
+(ADR-0010). **533 engine tests green** — `DashDeck.Tests` builds and runs anywhere, which is why
+pure logic belongs in Core; `DashDeck.Host.Tests` needs the WindowsDesktop runtime and is CI's
+(`windows-latest`).
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -182,6 +184,24 @@ door, brake and tyres are `warning.*` **placeholders**, and so are the economy a
 while it is off the stage, so no card declares; MODIFY WIDGETS puts CARDS on the stage first; a
 launcher file that never mentions `cards` gets it at the end of the grid. The card editor and
 component details can open over CLIMATE now, so both panels hide beneath them.
+
+**MAPS is a destination with three sizes** (ADR-0062) — and, for now, a placeholder in them. It is
+the first destination that does not own exactly one region: `Panel` is the bottom third beside the
+stage, `Full` is everything between the status strip and the nav (it reports as a full-screen view,
+so Q17's existing rule collapses the stage and the one region fills all six bands), and `Stage`
+hands the map to the stage as an occupant through the same `SetStage` path the launcher uses.
+The placement is a value — `DashDeck.Core.Maps.MapView`, with `Resized()`, `SentToTheStage()` and
+`BroughtBack()` — so the rule that matters (a map sent up from full screen comes back to full
+screen) is tested off Windows, and the shell only turns a placement into bands. Coming off the
+stage is **reconciled after every stage change** rather than reported from the occupant's
+`Dispose`, which would re-enter `SetStage`. The map is deliberately **not** in the stage picker
+until it can be a `map` launcher entry (ADR-0038), and the built-in launcher's `MAPS` web page is
+now **`OSM`**, since the online OpenStreetMap page is a different thing from the offline map.
+The picture is a placeholder; the **position readout is real** (the same words as Settings ▸ Display
+and `GpsProbe`), because whether there is a fix to centre on is the question worth answering before
+a map is worth drawing. What the map will be is [ADR-0058](docs/decisions/ADR-0058-offline-map-and-routing.md);
+**Q43** is what the placeholder hides — a WebView2 cannot be moved between these three places
+without reloading.
 
 **Two looks, Modern and Glass; LCARS is yours** (ADR-0043). **Modern** is the built-in theme
 (`builtin/modern`: cool greys, accent `#5AC8FA`, Segoe UI Variable) and names the Modern stage
@@ -539,7 +559,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Fifty-seven exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Sixty-two exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -576,7 +596,9 @@ listening there — noise learned, a MARK, states A and B ranked — and warning
 as the first write through the five gates, and signals with named states — 4WD, gear, drive mode —
 shown as a row with the current one lit and matched by typing each state, and Android Auto through
 the dongle — WinUSB by P/Invoke, the picture decoded into the visual tree, the sound on Windows'
-default output.
+default output, and updating from the dash with nothing automatic between the three buttons, and
+MAPS as a destination with three placements — the bottom third, all six bands, or handed to the
+stage — with the geometry built and a placeholder in it.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.

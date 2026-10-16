@@ -24,7 +24,7 @@ order you write is the order shown. Delete `launcher.json` to go back to the bui
 {
   "description": "Mine.",              // for you; shown nowhere
   "startOn": "GAUGES",                 // the stage at launch
-  "quickBar": [ "GAUGES", "TOWING", "MAPS", "PHONE", "SPOTIFY" ],
+  "quickBar": [ "GAUGES", "TOWING", "OSM", "PHONE", "SPOTIFY" ],
   "entries": [ … ]
 }
 ```
@@ -95,7 +95,7 @@ LAYOUT ▸ SAVE AS), then:
 **Renaming.** `{ "name": "TIME", "type": "clock" }` — the button, the grid and the status strip all
 say TIME.
 
-**A short bar.** `"quickBar": [ "GAUGES", "MAPS" ]` gives two buttons; the rest stay in the grid.
+**A short bar.** `"quickBar": [ "GAUGES", "OSM" ]` gives two buttons; the rest stay in the grid.
 
 ## When something is wrong
 

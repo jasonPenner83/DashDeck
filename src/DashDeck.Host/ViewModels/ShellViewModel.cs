@@ -114,6 +114,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsDashActive))]
     [NotifyPropertyChangedFor(nameof(IsStereoActive))]
     [NotifyPropertyChangedFor(nameof(IsClimateActive))]
+    [NotifyPropertyChangedFor(nameof(IsMapsActive))]
+    [NotifyPropertyChangedFor(nameof(IsMapFull))]
+    [NotifyPropertyChangedFor(nameof(IsMapVisible))]
+    [NotifyPropertyChangedFor(nameof(IsMapOnStageNoticeVisible))]
     [NotifyPropertyChangedFor(nameof(IsSettingsActive))]
     [NotifyPropertyChangedFor(nameof(IsDestinationUnbuilt))]
     [NotifyPropertyChangedFor(nameof(StageBands))]
@@ -309,6 +313,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Settings = new SettingsViewModel(
             theme, Display, Sensors, _userApps, _launcher, Inventory, VehicleIdentity, Adapter, location, clock);
 
+        // The MAPS destination (ADR-0062). Built before anything touches the stage, for two
+        // ordering reasons that are both real: handing the map to the stage goes through the same
+        // SetStage path the launcher uses, and AfterStageChange reconciles the map's placement on
+        // every stage change — including the opening one, below.
+        Shell.StartupTrace.Phase("shell: the map");
+        Map = new MapViewModel(location, clock);
+        Map.PlacementChanged += _ => OnMapMoved();
+
         // The warning lights (ADR-0055): built before the stage, because whether the occupant is
         // drawn depends on whether the warning window is up.
         Shell.StartupTrace.Phase("shell: the warning lights");
@@ -363,6 +375,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         {
             SetStage(opening);
         }
+        else if (string.Equals(startOn, "MAPS", StringComparison.OrdinalIgnoreCase))
+        {
+            // --stage MAPS means the map, on the stage. It is not a launcher entry (ADR-0062), so
+            // Named() cannot find it and the stage would otherwise open empty — and of the map's
+            // three placements this is the one that cannot be reached without tapping through.
+            Map.SendToStageCommand.Execute(null);
+        }
 
         // Also for the case where nothing opened, so the dash is never packed against the
         // wrong number of bands.
@@ -386,6 +405,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(IsComponentDetailOpen));
                 OnPropertyChanged(nameof(IsDashVisible));
                 OnPropertyChanged(nameof(IsClimateVisible));
+                OnPropertyChanged(nameof(IsMapVisible));
+                OnPropertyChanged(nameof(IsMapOnStageNoticeVisible));
                 OnPropertyChanged(nameof(IsFullScreenOpen));
                 OnPropertyChanged(nameof(IsDashEditing));
                 OnPropertyChanged(nameof(IsNavVisible));
@@ -477,6 +498,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     public bool IsClimateActive => ActiveDestination == "CLIMATE";
 
+    public bool IsMapsActive => ActiveDestination == "MAPS";
+
     public bool IsSettingsActive => ActiveDestination == "SETTINGS";
 
     /// <summary>
@@ -509,6 +532,108 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// </summary>
     [ObservableProperty]
     private FrameworkElement? _consoleContent;
+
+    /// <summary>
+    /// The map's placement and its placeholder picture (ADR-0062).
+    /// </summary>
+    /// <remarks>
+    /// The one destination with a size of its own: the bottom third, all six bands, or handed to
+    /// the stage. The view-model holds which; this shell turns that into bands and regions.
+    /// </remarks>
+    public MapViewModel Map { get; }
+
+    /// <summary>
+    /// The map drawn in the region below the stage — or null whenever it is not there.
+    /// </summary>
+    /// <remarks>
+    /// Made and dropped like the climate panel, though for a different reason: the map declares
+    /// no vehicle signals, so there is nothing to stop asking for. It is about what ADR-0058's
+    /// map will be — a WebView2 — which is not something to keep alive behind a dash nobody has
+    /// navigated to.
+    /// </remarks>
+    [ObservableProperty]
+    private FrameworkElement? _mapContent;
+
+    /// <summary>True when the map has taken all six bands.</summary>
+    public bool IsMapFull => IsMapsActive && Map.IsFull;
+
+    /// <summary>
+    /// Whether the map is drawing in the region below the stage — at either of its two sizes.
+    /// </summary>
+    /// <remarks>
+    /// One region for both sizes, because the size is <see cref="StageBands"/>'s business: at
+    /// full screen the stage collapses to nothing and this fills what is left, which is the
+    /// whole six bands. So there is one binding, not two.
+    /// </remarks>
+    public bool IsMapVisible =>
+        IsMapsActive && !Map.IsOnStage && !IsCardEditorOpen && !IsComponentDetailOpen;
+
+    /// <summary>
+    /// Whether to say, in the nav's region, that the map is on the stage.
+    /// </summary>
+    /// <remarks>
+    /// Tapping MAPS while the map is on the stage has to answer for itself. Drawing the
+    /// placeholder a second time would be a lie about where the map is, and drawing nothing
+    /// reads as a destination that broke.
+    /// </remarks>
+    public bool IsMapOnStageNoticeVisible =>
+        IsMapsActive && Map.IsOnStage && !IsCardEditorOpen && !IsComponentDetailOpen;
+
+    private StageOptionViewModel? _mapStageOption;
+
+    /// <summary>
+    /// The map as a stage option, so handing it off goes through the one path that puts anything
+    /// on the stage.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately <em>not</em> in <see cref="StageOptions"/>, and so not in the picker or the
+    /// quick bar: the map is reached from the nav, and offering a placeholder in three places
+    /// would be three things to undo. When ADR-0058's map lands it belongs in the launcher file
+    /// as a <c>map</c> entry like everything else on the stage (ADR-0038).
+    /// </remarks>
+    private StageOptionViewModel MapStageOption => _mapStageOption ??= new StageOptionViewModel(
+        new StageOption(
+            "MAPS",
+            "The map, on the stage",
+            () => new MapStageOccupant(Map, () => Map.BringBackCommand.Execute(null))));
+
+    /// <summary>
+    /// Follow the map to wherever it has just moved.
+    /// </summary>
+    /// <remarks>
+    /// The placement is the map's own state and the consequences are the shell's: a size change
+    /// re-draws the bands, and the stage handoff makes or removes an occupant. Taking the
+    /// occupant off happens here rather than in its <c>Dispose</c>, which would run inside
+    /// <see cref="SetStage"/> and re-enter it.
+    /// </remarks>
+    private void OnMapMoved()
+    {
+        if (Map.IsOnStage)
+        {
+            SetStage(MapStageOption);
+        }
+        else if (ReferenceEquals(_screenOption, MapStageOption))
+        {
+            // Brought back by its own action while it is still the occupant. The stage is left
+            // empty rather than guessing at a replacement — the launcher bar is right there.
+            DisposeScreen();
+            AfterStageChange();
+        }
+
+        SyncPanels();
+
+        OnPropertyChanged(nameof(IsMapFull));
+        OnPropertyChanged(nameof(IsMapVisible));
+        OnPropertyChanged(nameof(IsMapOnStageNoticeVisible));
+        OnPropertyChanged(nameof(IsFullScreenOpen));
+        OnPropertyChanged(nameof(StageBands));
+        OnPropertyChanged(nameof(WidgetBands));
+        OnPropertyChanged(nameof(IsOccupantVisible));
+        OnPropertyChanged(nameof(IsSourceVisible));
+        OnPropertyChanged(nameof(StageRunningButHidden));
+        OnPropertyChanged(nameof(HiddenOccupantName));
+        SyncWidgetBands();
+    }
 
     /// <summary>
     /// Where the Stereo panel went (Q14, ADR-0060's addendum).
@@ -544,6 +669,22 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             ConsoleContent = null;
             console.Dispose();
         }
+
+        // The map, whenever it is the destination and not on the stage. Dropped on the way out
+        // and when it is handed off, so the one placeholder is never drawn in two places at once.
+        if (IsMapsActive && !Map.IsOnStage && MapContent is null)
+        {
+            // Read the position before it is drawn, not a second later on the beat: the readout
+            // is only refreshed while the map is on screen, so without this the panel opens
+            // showing whatever was true the last time anybody looked at it.
+            Map.Refresh();
+            MapContent = new Views.MapPanel { DataContext = Map };
+        }
+        else if ((!IsMapsActive || Map.IsOnStage) && MapContent is { } map)
+        {
+            MapContent = null;
+            (map as IDisposable)?.Dispose();
+        }
     }
 
     /// <summary>What the console is showing, for <c>--shot</c>, or null when it is not open.</summary>
@@ -551,6 +692,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     /// <summary>What the climate panel is showing, for <c>--shot</c>, or null when it is not open.</summary>
     public string? DescribeClimate() => (ClimateContent as StageLayoutView)?.Describe();
+
+    /// <summary>
+    /// Where the map is and what it would centre on, for <c>--shot</c> — or null when it is
+    /// nowhere. Worth having precisely because a placement is not visible in one picture.
+    /// </summary>
+    public string? DescribeMap() => IsMapsActive || Map.IsOnStage ? Map.Describe() : null;
 
     /// <summary>
     /// Switch what sits below the stage.
@@ -737,7 +884,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// bands, the stage keeps running underneath, and the nav stays on top so there is always
     /// a way back out.
     /// </remarks>
-    public bool IsFullScreenOpen => IsSettingsActive || IsCardEditorOpen || IsComponentDetailOpen;
+    public bool IsFullScreenOpen => IsSettingsActive || IsCardEditorOpen || IsComponentDetailOpen || IsMapFull;
 
     /// <summary>
     /// Whether the cards are showing.
@@ -1110,6 +1257,15 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(StageBands));
         OnPropertyChanged(nameof(WidgetBands));
 
+        // The stage can take the map away without asking: choosing anything else disposes the
+        // occupant. Reconciled here, after every stage change, so the map's placement cannot
+        // outlive the occupant that justified it — and not from the occupant's own Dispose,
+        // which runs in the middle of SetStage and would re-enter it.
+        if (Map.IsOnStage && !ReferenceEquals(_screenOption, MapStageOption))
+        {
+            Map.BringBackCommand.Execute(null);
+        }
+
         // A new occupant can claim a different number of bands, which changes how many rows of
         // cards fit and therefore how they page.
         SyncWidgetBands();
@@ -1203,6 +1359,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _source?.Dispose();
         (ClimateContent as IDisposable)?.Dispose();
         (ConsoleContent as IDisposable)?.Dispose();
+        (MapContent as IDisposable)?.Dispose();
 
         // The panel is just a view; the player and its ticker are the things holding resources.
     }
@@ -1254,6 +1411,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         if (IsSettingsActive && Settings.IsDisplay)
         {
             Settings.RefreshGps();
+        }
+
+        // The map's position readout, on the same terms — while MAPS is the destination, or
+        // while the map is on the stage and so on screen whatever the nav says.
+        if (IsMapsActive || Map.IsOnStage)
+        {
+            Map.Refresh();
         }
 
         // The banner the mockups have and the shell never showed. Sampled here, on the UI

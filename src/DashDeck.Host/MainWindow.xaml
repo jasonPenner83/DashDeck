@@ -489,6 +489,32 @@
                                 Content="{Binding ClimateContent}"
                                 Visibility="{Binding IsClimateVisible, Converter={StaticResource BoolToVis}}" />
 
+                <!-- The map (ADR-0062). One ContentControl for both of its in-nav sizes: at
+                     full screen the stage takes nought bands and this fills all six, which is
+                     the whole arrangement. The third placement is the stage, and then this is
+                     collapsed and the notice below takes its place. -->
+                <ContentControl Grid.Row="1"
+                                Content="{Binding MapContent}"
+                                Visibility="{Binding IsMapVisible, Converter={StaticResource BoolToVis}}" />
+
+                <!-- MAPS tapped while the map is on the stage. The nav's region has to answer
+                     for itself: the placeholder drawn twice would be a lie about where the map
+                     is, and an empty region reads as a destination that broke. -->
+                <StackPanel Grid.Row="1"
+                            VerticalAlignment="Center" HorizontalAlignment="Center"
+                            Visibility="{Binding IsMapOnStageNoticeVisible, Converter={StaticResource BoolToVis}}">
+                    <TextBlock HorizontalAlignment="Center"
+                               FontFamily="{DynamicResource UiFont}"
+                               FontSize="24"
+                               Foreground="{DynamicResource TextLowBrush}"
+                               Text="The map is on the stage" />
+                    <Button Margin="0,18,0,0"
+                            HorizontalAlignment="Center"
+                            Style="{StaticResource OptionChipButton}"
+                            Content="BRING IT BACK"
+                            Command="{Binding Map.BringBackCommand}" />
+                </StackPanel>
+
                 <!-- Drawn in the nav because the nav is the destination list (B3), but
                      nothing is behind them yet. Saying so beats a blank region. -->
                 <StackPanel Grid.Row="1"
@@ -614,6 +640,35 @@
                         </Button.Template>
                     </Button>
 
+                    <!-- MAPS (ADR-0062). Lit while it is the destination, at either of its two
+                         sizes — the size changes which region draws it, not which destination is
+                         chosen. Handed to the stage it is lit only while MAPS is still the
+                         destination, and then the region below says where the map went. -->
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="MAPS" Cursor="Hand" Width="130">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Cell" Background="Transparent"
+                                        BorderBrush="Transparent" BorderThickness="0,3,0,0">
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <Path x:Name="Glyph" Data="M12,2 C8.1,2 5,5.1 5,9 C5,14.2 12,22 12,22 C12,22 19,14.2 19,9 C19,5.1 15.9,2 12,2 Z M12,11.5 A2.5,2.5 0 1 1 11.99,11.5 Z"
+                                              Stroke="{DynamicResource NavTextBrush}" StrokeThickness="1.75"
+                                              Width="26" Height="26" Stretch="Uniform" HorizontalAlignment="Center" />
+                                        <TextBlock x:Name="Label" Margin="0,7,0,0" HorizontalAlignment="Center"
+                                                   FontFamily="{DynamicResource MonoFont}" FontSize="12"
+                                                   Foreground="{DynamicResource NavTextBrush}" Text="MAPS" />
+                                    </StackPanel>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsMapsActive}" Value="True">
+                                        <Setter TargetName="Cell" Property="Background" Value="{DynamicResource AccentWashBrush}" />
+                                        <Setter TargetName="Cell" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                        <Setter TargetName="Glyph" Property="Stroke" Value="{DynamicResource SelectedTextBrush}" />
+                                        <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource SelectedTextBrush}" />
+                                    </DataTrigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
 
                 </StackPanel>
             </Border>
