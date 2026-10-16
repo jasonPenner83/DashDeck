@@ -45,6 +45,7 @@ public sealed partial class MapViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsFull))]
     [NotifyPropertyChangedFor(nameof(IsOnStage))]
     [NotifyPropertyChangedFor(nameof(ResizeCaption))]
+    [NotifyPropertyChangedFor(nameof(ResizeHint))]
     private MapView _view = MapView.Default;
 
     /// <summary>Raised after the placement changes, so the shell can move the map.</summary>
@@ -63,10 +64,27 @@ public sealed partial class MapViewModel : ObservableObject
     /// <summary>True while the map is a stage occupant.</summary>
     public bool IsOnStage => View.IsOnStage;
 
-    /// <summary>What the size button says — the size it would give you, not the one you are in.</summary>
+    /// <summary>The size a resize would give you, not the one you are in.</summary>
     public string ResizeCaption => View.ResizeCaption;
 
-    /// <summary>Swap the two in-nav sizes: bottom third ⟷ all six bands.</summary>
+    /// <summary>
+    /// How the size is changed, written on the panel.
+    /// </summary>
+    /// <remarks>
+    /// The size control is a second press of the nav's MAPS cell (ADR-0062's addendum), and a
+    /// gesture with nothing on screen to say so is a control nobody finds. So the panel says it,
+    /// and names the size the press would give rather than the one you are in.
+    /// </remarks>
+    public string ResizeHint => $"TAP MAPS AGAIN FOR {ResizeCaption}";
+
+    /// <summary>
+    /// Swap the two in-nav sizes: bottom third ⟷ all six bands.
+    /// </summary>
+    /// <remarks>
+    /// Invoked by the nav cell rather than by anything in the panel. The chip that used to do it
+    /// was in the one place a control should not be — inside the thing being resized, competing
+    /// with the cell you had just pressed to get here.
+    /// </remarks>
     [RelayCommand]
     private void Resize() => Move(View.Resized());
 

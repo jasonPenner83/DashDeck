@@ -112,3 +112,28 @@ and `BroughtBack()` is idempotent for the case where the button got there first.
   so the real map's three placements need either one host that both regions can show or state
   that survives being rebuilt. The placeholder is stateless and hides this entirely.
 - **Q30, Q31, Q32** — unchanged from ADR-0058: range requests, cold start, extract scope.
+
+## Addendum — 2026-10-16: the nav cell is the size control
+
+Decision 8 above put the size control at the bottom of the map's own region, as a chip beside
+**TO THE STAGE**. That chip is gone. **A second press of MAPS in the nav swaps the two sizes**,
+and the panel carries a hint — *TAP MAPS AGAIN FOR FULL SCREEN* — naming the size the press would
+give.
+
+The reasoning that put the chip at the bottom of the region was right about *where* and wrong
+about *what*. The nav strip is the only band comfortably reachable from the driver's seat, and the
+MAPS cell is in it — so the control was being drawn one band above a button the thumb had just
+pressed to get there. Two targets for the same thing, one of them permanently better placed.
+
+It also makes MAPS the only cell that does something when you are already on it, which is a new
+behaviour in this nav and worth stating plainly:
+
+- **Not on MAPS** → go to MAPS, at the size it was left in.
+- **On MAPS, map in the nav** → swap the size.
+- **On MAPS, map on the stage** → bring it back, at the size it had. There is no second size on
+  the stage, and a nav cell that ignores a press reads as broken, so the press means the one move
+  the map has there. **BRING IT BACK** stays in the region as the explicit affordance.
+
+What this costs: a gesture rather than a visible control, which is why the hint is part of the
+feature and is tested rather than being decoration. The alternative — leaving both — was worse
+than either, because a chip and a nav press that do the same thing teach that neither is the way.

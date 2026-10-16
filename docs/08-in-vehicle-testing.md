@@ -1466,28 +1466,34 @@ reachable control bar actually read from the driver's seat, which a desk cannot 
 phone's GPS over Bluetooth* above — everything else works without it.
 
 1. **Tap MAPS in the nav.** **Expect:** a fourth cell with a map-pin glyph, lit in the accent
-   colour, and the bottom third filled with a panel: a pin, *No map yet*, a position line, and two
-   chips at the bottom left — **FULL SCREEN** and **TO THE STAGE**. Whatever was on the stage is
-   still on the stage and still running.
+   colour, and the bottom third filled with a panel: a pin, *No map yet*, a position line, a
+   **TO THE STAGE** chip at the bottom left, and at the bottom right the hint
+   *TAP MAPS AGAIN FOR FULL SCREEN*. Whatever was on the stage is still on the stage and still
+   running.
    **A failure looks like:** an empty bottom third, or the words *not built yet* — that is the
    strip the unbuilt destinations show, and it would mean the panel was not made.
-2. **Tap FULL SCREEN.** **Expect:** the map region grows to fill everything between the status
-   strip and the nav — the stage is gone, not shrunk — and the chip now reads **BOTTOM THIRD**.
-   The nav stays where it is and stays usable.
-   **A failure looks like:** the stage still visible above a taller panel (the collapse did not
-   happen), or the chip still reading FULL SCREEN (it is naming the state you are in rather than
-   the one it would give you).
-3. **Tap BOTTOM THIRD.** **Expect:** the stage comes back, with the same occupant it had, still
-   running — if it was playing something, it did not stop or restart. The panel is back to the
-   bottom third.
-4. **Tap FULL SCREEN again, then TO THE STAGE.** **Expect:** the placeholder moves up onto the
-   stage, its two chips are gone from it, the status strip reads **MAPS**, and the region below
-   says *The map is on the stage* with a **BRING IT BACK** button. The nav's MAPS cell is still
-   lit.
+2. **Tap MAPS again.** The nav cell is the size control; there is no chip for it.
+   **Expect:** the map region grows to fill everything between the status strip and the nav — the
+   stage is gone, not shrunk — and the hint now reads *TAP MAPS AGAIN FOR BOTTOM THIRD*. The nav
+   stays where it is and stays usable.
+   **A failure looks like:** nothing happening (the second press is not reaching the map), the
+   stage still visible above a taller panel (the collapse did not happen), or the hint still
+   reading FULL SCREEN — it names the size the press would give, not the one you are in.
+3. **Tap MAPS a third time.** **Expect:** the stage comes back, with the same occupant it had,
+   still running — if it was playing something, it did not stop or restart. The panel is back to
+   the bottom third and the hint back to *FULL SCREEN*.
+4. **Tap MAPS once more to go full screen, then TO THE STAGE.** **Expect:** the placeholder moves
+   up onto the stage, the chip and the hint are gone from it, the status strip reads **MAPS**, and
+   the region below says *The map is on the stage* with a **BRING IT BACK** button. The nav's MAPS
+   cell is still lit.
 5. **Tap BRING IT BACK.** **Expect:** the map returns **full screen** — the size it had when it
    went up, not the small one. The stage is left empty, saying so, with the launcher bar below it.
    **This is the step most likely to be wrong**, and it is wrong if the map comes back as a
    bottom-third strip.
+   **Then send it up again and press MAPS instead.** On the stage there is no second size, so the
+   press means the one move the map has there: **expect** the same return, full screen, without
+   touching the button. A press that does nothing is the failure — a nav cell that ignores you
+   reads as broken.
 6. **Send it to the stage again, then tap GAUGES in the launcher bar.** **Expect:** the gauges
    take the stage and the map goes back to the nav by itself — tap MAPS and the panel is there at
    the size it had, not the *on the stage* notice. A notice still saying the map is on the stage
@@ -1498,9 +1504,10 @@ phone's GPS over Bluetooth* above — everything else works without it.
    turns on the phone's GPS*. With the port open and the phone not sharing: **NO DATA** naming the
    port. **With the phone switched off mid-drive:** it should go **STALE** with the age climbing,
    never a position sitting there looking live.
-8. **In the cab, parked, at full screen.** Sit in the driver's seat. **Expect:** the two chips at
-   the bottom left are reachable without leaning in — they sit just above the nav strip on
-   purpose. If they are not, that is worth saying, because the whole region can move.
+8. **In the cab, parked, at full screen.** Sit in the driver's seat. **Expect:** changing the
+   size needs nothing but the MAPS cell you are already pressing — that is why the chip for it
+   went — and **TO THE STAGE** is reachable without leaning in, since it sits just above the nav
+   strip on purpose. If it is not, that is worth saying, because the whole region can move.
 
 **What this does not test**, and cannot yet: anything to do with a map. No tiles, no routing, no
 guidance — [ADR-0058](decisions/ADR-0058-offline-map-and-routing.md) is the plan for those and

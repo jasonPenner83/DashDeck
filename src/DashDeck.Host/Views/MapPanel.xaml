@@ -17,36 +17,34 @@
         When MapLibre arrives it replaces the Border's contents and the geometry around it is
         already settled.
 
-        The controls sit at the bottom rather than the top, and deliberately: the bottom of this
-        region is just above the nav strip at both sizes, which is the part of the screen that can
-        be reached from the driver's seat. At the top they would be mid-screen in the small size
-        and at arm's stretch in the large one.
+        The one control left sits at the bottom, and deliberately: the bottom of this region is
+        just above the nav strip at both sizes, which is the part of the screen that can be reached
+        from the driver's seat. At the top it would be mid-screen in the small size and at arm's
+        stretch in the large one.
+
+        The size is changed by pressing MAPS in the nav again (ADR-0062's addendum), so there is no
+        chip for it here — the hint on the right says so, because a gesture nothing announces is a
+        control nobody finds.
     -->
     <DockPanel Margin="31,0,31,0">
 
         <!--
             Hidden while the map is on the stage. An occupant's controls belong in the overflow
-            menu as actions, not drawn inside its own picture (ADR-0022) — so on the stage the
-            way back is BRING IT BACK in that menu, and these two would be a second, competing
-            set of controls for the same thing.
+            menu as actions, not drawn inside its own picture (ADR-0022) — so on the stage the way
+            back is BRING IT BACK in that menu, and the hint would be wrong there anyway: there is
+            no second size on the stage, and a press of MAPS brings the map back instead.
         -->
         <Grid DockPanel.Dock="Bottom" Margin="0,0,0,18"
               Visibility="{Binding IsOnStage, Converter={StaticResource NotBoolToVis}}">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                <!-- Names the size it would give you, not the one you are in. -->
-                <Button Style="{StaticResource OptionChipButton}"
-                        Content="{Binding ResizeCaption}"
-                        Command="{Binding ResizeCommand}" />
+            <Button HorizontalAlignment="Left"
+                    Style="{StaticResource OptionChipButton}"
+                    Content="TO THE STAGE"
+                    Command="{Binding SendToStageCommand}" />
 
-                <Button Style="{StaticResource OptionChipButton}"
-                        Margin="12,0,0,0"
-                        Content="TO THE STAGE"
-                        Command="{Binding SendToStageCommand}" />
-            </StackPanel>
-
+            <!-- Names the size the press would give you, not the one you are in. -->
             <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
                        Style="{StaticResource MicroText}"
-                       Text="MAPS · PLACEHOLDER" />
+                       Text="{Binding ResizeHint}" />
         </Grid>
 
         <Border CornerRadius="14"
