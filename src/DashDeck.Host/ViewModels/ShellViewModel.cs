@@ -230,10 +230,25 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         var location = ResolveLocationSource(gpsOverride, Display, clock);
         IDeviceSensors? device = null;
 
+        // Declared up here because the sensors are built before the map is, and the navigation
+        // readouts below have to reach it. Every closure over it runs long after it is filled in.
+        MapViewModel? map = null;
+
         if (location is not null)
         {
             location.Start();
-            device = new CompositeDeviceSensors(new DeviceSensors(), new PhoneLocationSensors(location, clock));
+            var phone = new PhoneLocationSensors(location, clock);
+
+            // The navigation readouts (ADR-0066): the dash's own arithmetic over the phone's fix
+            // and whatever the map has been pointed at. It reads the phone's aged fix rather than
+            // the raw source, so a GPS that goes quiet takes the navigation numbers with it
+            // instead of counting down from a position that stopped arriving.
+            var navigation = new NavigationSensors(
+                () => phone.Fix,
+                () => map?.Destination?.Camera,
+                () => map?.Directions?.Route);
+
+            device = new CompositeDeviceSensors(new DeviceSensors(), phone, navigation);
         }
 
         // One service for the whole session: it holds the mount reference and any vehicle
@@ -324,9 +339,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // Address search (ADR-0065) needs the map it is searching on — for where to bias the
         // search and how fast the truck is going — and the map needs the search, to go where it
         // was told. The closures are only ever called after both exist, which is what lets two
-        // things that need each other be built in one order.
-        MapViewModel? map = null;
-
+        // things that need each other be built in one order. The map itself is declared further
+        // up, with the sensors, for the same reason.
         var search = new MapSearchViewModel(
             Maps.AddressLookup.FetchAsync,
             clock,

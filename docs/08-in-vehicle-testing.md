@@ -1616,6 +1616,73 @@ stops filling in — tiles already fetched stay, new ground does not arrive. Tha
 useful on a highway. No routing and no guidance either — those are still
 [ADR-0058](decisions/ADR-0058-offline-map-and-routing.md)'s stages two and three.
 
+### Do the navigation readouts work (ADR-0066)
+
+The map's numbers are now **sensors**: a card or a stage layout can show the distance to where you
+are going the way it shows pitch or lateral g. Six of them, under **Navigation** in the picker.
+
+**Most of this is testable at the desk, and should be done there first** — launch with
+`DashDeck.Host.exe --gps synthetic`. The synthetic track now drives a real loop (800 m radius, a
+true 60 km/h, five kilometres a lap, about five minutes round), so a distance worked out from it
+actually changes. It used to weave inside a sixty-metre box while claiming 60 km/h, which was fine
+for showing a marker and useless for this.
+
+27. **MODIFY WIDGETS, add a card, and open the value picker.** **Expect** a **Navigation** group
+    below Location with six entries: *To Destination*, *Destination Bearing*, *Route Distance*,
+    *Route Time*, *Distance Left*, *Time Left*.
+    **A failure looks like:** no Navigation group at all, which means the catalog did not load —
+    check `catalog/sensors.device.json` travelled with the build.
+28. **Add *To Destination* and *Destination Bearing* and leave the map with no destination.**
+    **Expect** both cards to read as having nothing — a dash, not a zero — with **NAV · NO
+    DESTINATION** in the footer. **Expect *Distance Left* to say NAV · NO ROUTE**, which is a
+    different sentence on purpose.
+29. **Search an address and pick it, then come back to the cards.** **Expect** *To Destination* in
+    kilometres and *Destination Bearing* in degrees, both **blue** on the synthetic track, because
+    a number worked out from a simulated position is simulated. Watch them for a minute: the
+    distance should change by about a kilometre a minute and the bearing should swing round.
+    **A failure looks like:** white or amber instead of blue (the quality is not being carried
+    through), a distance that does not move (the fix is not being re-read), or a bearing outside
+    0–360.
+30. **Press DIRECTIONS TO HERE, then look at the four route cards.** **Expect** *Route Distance*
+    and *Route Time* to fill in and then sit still — they are the router's answer about the road,
+    so they are **white, not blue**, and need no position at all. **Expect** *Distance Left* and
+    *Time Left* to start near the totals and count down.
+31. **Keep watching *Distance Left* on the synthetic track.** **Expect it to go to NAV · OFF ROUTE
+    within a minute or so**, and that is the test passing, not failing: the route follows real
+    roads and the synthetic truck drives a circle through whatever is there, so it leaves the line
+    almost at once. **The straight-line card keeps working while that happens** — the dash refuses
+    the number it cannot stand behind and keeps the one it can.
+32. **Unplug the phone, or turn its GPS off, and wait five seconds.** **Expect** every navigation
+    card to go to nothing — the same staleness rule the location cards use, so the two cannot
+    disagree about when the GPS went quiet. **Expect *Route Distance* to carry on regardless**,
+    because it never needed a position.
+33. **Put one on the stage.** Add *Distance Left* to a stage layout the way any sensor goes on one.
+    **Expect** it to behave identically, including the dash when there is no route. Nothing in the
+    layout engine was changed for this.
+
+**In the truck, and this is the part the desk cannot do:**
+
+34. **Parked, with a route to somewhere a few kilometres off, drive it.** **Expect *Distance Left*
+    to count down smoothly and *Time Left* with it**, and expect both to hold up until you deviate.
+    Three things worth telling me about:
+    - **Does it jump backwards anywhere?** That is [Q47](04-open-questions.md) — the countdown
+      snaps to the nearest point of the route, so a road that doubles back near itself, a
+      cloverleaf, or a there-and-back errand can pick the wrong end. Where it happened matters
+      more than that it did.
+    - **Does OFF ROUTE come up while you are still on the road?** The limit is 150 m, which should
+      cover a divided highway drawn down its centre line. If a service road or a frontage road
+      reads as off route, the number is wrong.
+    - **Is *Time Left* believable?** It is the router's own estimate pro-rated by the distance
+      left, not a fresh one — so it will not notice traffic, and it will not notice that the
+      remaining half is town rather than highway. If it is badly out, that is worth knowing before
+      anyone trusts it.
+
+**What this is not.** No guidance: nothing speaks, nothing re-routes, and nothing highlights the
+turn you are on. Those are still
+[ADR-0058](decisions/ADR-0058-offline-map-and-routing.md)'s bundled engine. And **no text** — the
+destination's name, hours and telephone number are in the map's popup and the route strip, not on a
+card, because a sensor reading is a number. That is the next piece of work.
+
 ## When the dash will not open
 
 Added 2026-10-15, after a launch hung with no window and no log, and then — because it was still

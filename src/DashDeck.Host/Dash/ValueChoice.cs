@@ -77,13 +77,19 @@ public sealed record ValueChoice(
             States = d.States,
         });
 
-    /// <summary>Project the sensor catalog the same way. Tablet sensors and the phone's GPS
-    /// (ADR-0027) are their own groups, so the picker separates the truck's opinion from the
-    /// tablet's from the phone's.</summary>
+    /// <summary>Project the sensor catalog the same way. The tablet's sensors, the phone's GPS
+    /// (ADR-0027) and the navigation readouts (ADR-0066) are their own groups, so the picker
+    /// separates the truck's opinion from the tablet's from the phone's from the dash's own
+    /// arithmetic.</summary>
     public static IEnumerable<ValueChoice> From(SensorCatalog catalog) =>
         catalog.Definitions.Select(d => new ValueChoice(
             d.Id, d.Name, d.Unit, d.DefaultRateHz, d.Min, d.Max, CardSource.Sensor,
-            d.Source is SensorSource.Gps ? "Location" : "Tablet Sensors"));
+            d.Source switch
+            {
+                SensorSource.Gps => "Location",
+                SensorSource.Navigation => "Navigation",
+                _ => "Tablet Sensors",
+            }));
 
     /// <summary>
     /// Everything a card can be pointed at, signals first.

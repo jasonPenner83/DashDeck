@@ -11,6 +11,17 @@ public enum SensorSource
 
     /// <summary>The phone's GPS, over the network (ADR-0027). Not the tablet's own — it has none.</summary>
     Gps,
+
+    /// <summary>
+    /// The dash's own navigation arithmetic (ADR-0066): where the chosen place is, and what is
+    /// left of the route to it.
+    /// </summary>
+    /// <remarks>
+    /// The one source here that measures nothing. It reads the GPS and the route the dash already
+    /// has and does sums on them, which is why every value it produces is no better than the fix
+    /// underneath it — and why it reports that fix's own quality rather than inventing one.
+    /// </remarks>
+    Navigation,
 }
 
 /// <summary>Which value to take from that hardware, once the mount reference is applied.</summary>
@@ -34,6 +45,24 @@ public enum SensorChannel
 
     /// <summary>Speed over ground, from the GPS rather than the wheels.</summary>
     GroundSpeed,
+
+    /// <summary>Straight-line distance to the chosen place. Needs a destination, not a route.</summary>
+    DestinationDistance,
+
+    /// <summary>Bearing to the chosen place, degrees true. Where it is, not which way to turn.</summary>
+    DestinationBearing,
+
+    /// <summary>How far the route is, end to end, as the router worked it out.</summary>
+    RouteDistance,
+
+    /// <summary>How long the route takes, as the router worked it out.</summary>
+    RouteDuration,
+
+    /// <summary>How much of the route is still to drive.</summary>
+    RouteRemaining,
+
+    /// <summary>How long the rest of the route should take, the router's time pro-rated.</summary>
+    RouteEta,
 }
 
 /// <summary>
@@ -72,8 +101,11 @@ public sealed record SensorDefinition
     /// The vehicle signal that supersedes this sensor, if one is ever defined.
     /// </summary>
     /// <remarks>
-    /// Null means the tablet is the only possible source — nothing here is in that position
-    /// today, and it would be a surprising thing to add.
+    /// Null means nothing in the truck can supersede this row. That was once true of none of
+    /// them; the navigation rows (ADR-0066) are the exception, because some of what they work
+    /// out — a straight line to the destination, the bearing to it — is not a thing the truck
+    /// has an opinion about at any price. The rows the truck's own navigation does know, the
+    /// distance and time remaining, still name it.
     /// </remarks>
     public string? Prefer { get; init; }
 

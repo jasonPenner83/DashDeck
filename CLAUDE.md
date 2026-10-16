@@ -46,7 +46,8 @@ like CLIMATE: speed, rpm, fuel, temperature, range, nine warning lights, odomete
 occupant is on the stage. The **cards are a user-arranged list**
 (ADR-0015) loaded from `dashboard.json` — add, remove, reorder, resize, and pick each card's
 value, style, unit, rate and format. A card names a **`source`** (B4): a vehicle `Signal`
-from the catalog, or a tablet `Sensor` — heading, pitch, roll, G. Sensor cards cost no request
+from the catalog, or a tablet `Sensor` — heading, pitch, roll, G, the phone's GPS, and the
+navigation readouts (ADR-0066). Sensor cards cost no request
 budget, and their footer says where they answered from rather than an allocated rate. The
 **signal catalog now defines the standard OBD-II Mode 01 set** (~35, each `category`-tagged),
 so the card editor's picker is **searchable and grouped by function**; the synthetic truck
@@ -271,6 +272,36 @@ tested across ten manoeuvres. **Routes are never cached** where searches are —
 where the truck is now. **This is the display half, not navigation:** no voice, no re-routing,
 nothing that follows the truck. That is ADR-0058's bundled GraphHopper, still ahead, and following
 a vehicle over a public router would breach its terms as well.
+
+**The map's numbers are sensors** (ADR-0066). Six rows in the device catalog under a new
+`Navigation` source, behind a third `IDeviceSensors` provider (`NavigationSensors`) composed by
+`CompositeDeviceSensors`: a straight-line distance and bearing to the chosen place, the route's
+total distance and time, and the distance and time still to drive. So a card or a stage layout
+shows *Distance Left* the way it shows pitch, with nothing changed in either. The arithmetic is in
+Core — `Geo` (haversine and initial bearing) and `RouteProgress` (nearest point on the route's
+geometry, then everything after it) — and tested off Windows. **Every value carries the fix's own
+quality**, so a synthetic track produces blue navigation numbers, and the route *totals* are the
+router's answer about the road rather than a measurement, so they are Live and need no position.
+**More than 150 m off the line the countdown refuses** (`NAV · OFF ROUTE`) instead of shrinking
+towards a place being driven away from; `prefer` is named only on the two rows the truck's own
+navigation could really supersede. The remaining time is the router's duration pro-rated, never a
+fresh estimate. **Q47 is the known limit:** nearest-point snapping can pick the wrong end of a
+route that comes back near itself.
+
+**No strings in a sensor reading, and that is a decision rather than a type problem** (ADR-0066).
+Adding `string? Text` to `SensorReading` would break nothing — but the numeric contract is
+`ICardValue.Value`, and every face, `DisplayUnits`, `ValueChoice.HasRange` and the thresholds are
+built on that `double`; and **NaN is the dash's "nothing"**, which a string has no equivalent of.
+ADR-0056 already settled how the dash says words — a number plus a `states` table — and that works
+because the set is closed when the catalog loads, which a destination name never is. So text gets a
+**third `CardSource`**, which `CardValue.cs` already anticipates in its own comment, and is not
+built yet. Until then a place's name, hours and telephone live in the popup and the route strip.
+
+**The synthetic track drives a real loop now.** `SyntheticLocationSource` used to weave inside a
+sixty-metre box while reporting 60 km/h and an unrelated course; it circles at a true 60 km/h on an
+800 m radius (five kilometres a lap), so the speed it reports is the speed it travels and anything
+doing arithmetic on the position gets numbers that move. `--gps synthetic` is how the navigation
+readouts are tested at a desk.
 
 **Two looks, Modern and Glass; LCARS is yours** (ADR-0043). **Modern** is the built-in theme
 (`builtin/modern`: cool greys, accent `#5AC8FA`, Segoe UI Variable) and names the Modern stage
