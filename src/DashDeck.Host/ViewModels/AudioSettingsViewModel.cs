@@ -5,29 +5,22 @@ using DashDeck.Host.Settings;
 namespace DashDeck.Host.ViewModels;
 
 /// <summary>
-/// Settings ▸ AUDIO: where the music comes from, and whether playback gets out of the way of
-/// spoken instructions (Q14, ADR-0060).
+/// Settings ▸ AUDIO: whether DashDeck's own playback gets out of the way of spoken instructions
+/// (Q14, ADR-0060).
 /// </summary>
 /// <remarks>
-/// This section also carried the output delay, the video sync offset and the microphone
-/// measurement that fed them (ADR-0059). All of it is parked on <c>parked/audio-delay</c>: the
-/// offset only ever reached DashDeck's own player, and films are watched in a hosted application
-/// that nothing here can delay (Q39). What is left is the half that works.
+/// This section has lost two things to parked branches, and what is left is one switch. The
+/// output delay, the video sync offset and the microphone measurement are on
+/// <c>parked/audio-delay</c> (Q39); the music folder went with the Stereo panel to
+/// <c>parked/stereo-music</c>, because walking that folder — a network share — was the last of
+/// the four things holding the window shut at launch (Q41).
+///
+/// The ducking switch stays because it is a policy, not a player: it is tested, it is Q14's owed
+/// contract, and it costs nothing to keep.
 /// </remarks>
 public sealed partial class AudioSettingsViewModel(DisplaySettings settings) : ObservableObject
 {
     private readonly DisplaySettings _settings = settings;
-
-    /// <summary>Where the Stereo card reads music from.</summary>
-    public string MusicFolder
-    {
-        get => _settings.MusicFolder;
-        set
-        {
-            _settings.MusicFolder = value ?? "";
-            OnPropertyChanged();
-        }
-    }
 
     /// <summary>Whether playback gets out of the way of spoken instructions (Q14).</summary>
     public bool DuckUnderInstructions
@@ -54,7 +47,6 @@ public sealed partial class AudioSettingsViewModel(DisplaySettings settings) : O
     [RelayCommand]
     private void Refresh()
     {
-        OnPropertyChanged(nameof(MusicFolder));
         OnPropertyChanged(nameof(DuckUnderInstructions));
         OnPropertyChanged(nameof(DuckLabel));
     }

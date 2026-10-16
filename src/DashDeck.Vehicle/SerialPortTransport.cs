@@ -82,6 +82,46 @@ public sealed class SerialPortTransport : IStreamingTransport
     /// <summary>The rate it opens at.</summary>
     public int BaudRate => _baudRate;
 
+    /// <summary>
+    /// Run the blocking <see cref="SerialPort.Open"/> on a dedicated background thread.
+    /// </summary>
+    /// <remarks>
+    /// A thread rather than a pool work item, because the caller abandons this when it takes too
+    /// long and the thread stays blocked inside Windows until the port answers or gives up. A
+    /// blocked pool thread is one the whole process cannot use; a blocked dedicated thread costs
+    /// a megabyte of stack and nothing else, and it is a background thread so it never holds the
+    /// process open at exit.
+    /// </remarks>
+    private static Task OpenOnOwnThread(SerialPort port, CancellationToken ct)
+    {
+        var opened = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        if (ct.IsCancellationRequested)
+        {
+            opened.TrySetCanceled(ct);
+            return opened.Task;
+        }
+
+        new Thread(() =>
+        {
+            try
+            {
+                port.Open();
+                opened.TrySetResult();
+            }
+            catch (Exception ex)
+            {
+                opened.TrySetException(ex);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = $"serial open {port.PortName}",
+        }.Start();
+
+        return opened.Task;
+    }
+
     public async Task ConnectAsync(CancellationToken ct)
     {
         State = TransportState.Connecting;
@@ -105,9 +145,18 @@ public sealed class SerialPortTransport : IStreamingTransport
 
             // SerialPort.Open is synchronous and can block (see OpenTimeout), so it is bounded.
             // On a timeout the open is abandoned; disposing the port releases it if it lands late.
+            //
+            // On a THREAD OF ITS OWN, not the thread pool. An abandoned open keeps its thread
+            // until Windows finishes with it, which for a Bluetooth virtual COM port whose phone
+            // is out of range is far longer than this timeout — and pairing one phone creates
+            // several such ports. Through Task.Run those abandoned threads are pool threads: a
+            // handful of them starves the pool, every other await in the process queues behind
+            // them, and a launch that is merely searching for an adapter comes up minutes later
+            // with no window. That is exactly what happened on the Surface once a phone was
+            // paired for GPS (Q41).
             try
             {
-                await Task.Run(port.Open, ct).WaitAsync(OpenTimeout, ct).ConfigureAwait(false);
+                await OpenOnOwnThread(port, ct).WaitAsync(OpenTimeout, ct).ConfigureAwait(false);
             }
             catch (TimeoutException ex)
             {

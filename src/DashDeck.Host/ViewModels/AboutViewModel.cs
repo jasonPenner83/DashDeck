@@ -50,6 +50,12 @@ public sealed partial class AboutViewModel : ObservableObject
         Refresh();
     }
 
+    /// <summary>
+    /// The manual update (ADR-0061). It sits here because this is the section that already answers
+    /// "which build is this", and that is the question an update is the answer to.
+    /// </summary>
+    public UpdateViewModel Update { get; } = new();
+
     /// <summary>What this build is.</summary>
     public ObservableCollection<AboutFact> Facts { get; } = [];
 
@@ -109,10 +115,6 @@ public sealed partial class AboutViewModel : ObservableObject
         Folders.Add(new FolderRow("CAN databases", Path.Combine(root, "dbc")));
         Folders.Add(new FolderRow("Captures", Path.Combine(root, "captures")));
 
-        if (!string.IsNullOrWhiteSpace(_settings.MusicFolder))
-        {
-            Folders.Add(new FolderRow("Music", _settings.MusicFolder));
-        }
     }
 
     /// <summary>Open a folder in Explorer, creating it if it is not there yet.</summary>

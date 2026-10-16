@@ -288,12 +288,19 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// <param name="driveName">The scripted drive the simulator runs meanwhile.</param>
     /// <param name="sources">The vehicle and the user's overlay; read once, at launch.</param>
     /// <param name="cancellationToken">Cancels start-up.</param>
+    /// <param name="fastRequests">Mode 01 filtered to the engine computer (ADR-0049).</param>
+    /// <param name="locateBudget">
+    /// How long to look for the adapter <em>before returning</em>. <see cref="TimeSpan.Zero"/> —
+    /// what the shell passes — does not look at all: the stack comes up simulated and the watcher
+    /// attaches the adapter the moment it answers, so the window never waits on the truck.
+    /// </param>
     public static async Task<VehicleStack> StartAsync(
         AdapterLinkOptions? adapter,
         string driveName,
         CatalogSources sources,
         CancellationToken cancellationToken,
-        bool fastRequests = true)
+        bool fastRequests = true,
+        TimeSpan? locateBudget = null)
     {
         var loaded = LoadCatalog(sources);
         var drive = Drives.ByName(driveName);
@@ -306,16 +313,21 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         {
             link = AdapterLinkTransport.ForSerialPorts(adapter);
 
-            using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            budget.CancelAfter(StartupBudget);
+            var allowed = locateBudget ?? StartupBudget;
 
-            try
+            if (allowed > TimeSpan.Zero)
             {
-                found = await link.TryLocateAsync(budget.Token, relocate: false);
-            }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-            {
-                // Out of start-up time. The watcher carries on from here.
+                using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                budget.CancelAfter(allowed);
+
+                try
+                {
+                    found = await link.TryLocateAsync(budget.Token, relocate: false);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    // Out of start-up time. The watcher carries on from here.
+                }
             }
         }
 

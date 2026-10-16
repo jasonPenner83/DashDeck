@@ -95,10 +95,6 @@ public sealed partial class DisplaySettings : ObservableObject
     [ObservableProperty]
     private bool _allowClearCodes;
 
-    /// <summary>Where the Stereo card reads music from (Q14).</summary>
-    [ObservableProperty]
-    private string _musicFolder = "";
-
     /// <summary>Whether playback gets out of the way of spoken instructions (Q14).</summary>
     [ObservableProperty]
     private bool _duckUnderInstructions = true;
@@ -118,7 +114,6 @@ public sealed partial class DisplaySettings : ObservableObject
         AdapterIdentity = stored.AdapterIdentity;
         FastRequests = stored.FastRequests;
         AllowClearCodes = stored.AllowClearCodes;
-        MusicFolder = stored.MusicFolder;
         DuckUnderInstructions = stored.DuckUnderInstructions;
         _loaded = true;
     }
@@ -278,14 +273,6 @@ public sealed partial class DisplaySettings : ObservableObject
         {
             // Enumerating ports is not worth failing a settings screen over.
             return [];
-        }
-    }
-
-    partial void OnMusicFolderChanged(string value)
-    {
-        if (_loaded)
-        {
-            SettingsStore.Update(stored => stored with { MusicFolder = value });
         }
     }
 

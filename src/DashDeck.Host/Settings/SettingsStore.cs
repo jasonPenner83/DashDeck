@@ -143,10 +143,6 @@ public sealed record UserSettings
     [JsonPropertyName("dismissedWarnings")]
     public Dictionary<string, double?> DismissedWarnings { get; init; } = [];
 
-    /// <summary>Where the Stereo card reads music from (Q14, ADR-0060).</summary>
-    [JsonPropertyName("musicFolder")]
-    public string MusicFolder { get; init; } = "";
-
     /// <summary>Whether DashDeck's playback gets out of the way of spoken instructions (Q14).</summary>
     [JsonPropertyName("duckUnderInstructions")]
     public bool DuckUnderInstructions { get; init; } = true;

@@ -35,6 +35,10 @@ public sealed record DashboardLayout
             // The first components to arrive on the dash from plugins/ (ADR-0023). Their ids name
             // components, not catalog signals, and they draw their own widgets. Fuel economy is
             // the one a card could not be: a value derived from two signals at once.
+            // The five component cards below read UNAVAILABLE while the components are parked on
+            // `parked/components` (Q42). Kept rather than removed, which is ADR-0023's rule and
+            // the honest one: a card that names something not installed says so, and bringing the
+            // components back is then a merge rather than a merge plus a layout edit.
             new CardSpec { Id = "trip", SignalId = "com.jpenner.tripcomputer", Source = "Component" },
             new CardSpec { Id = "econ", SignalId = "com.jpenner.fueleconomy", Source = "Component" },
             // Tap this one — it offers a full-screen detail with the trip figures and a reset.

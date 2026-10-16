@@ -100,4 +100,35 @@ public class ComponentHostTests : IDisposable
 
         Assert.Empty(host.Components);
     }
+
+    [Fact]
+    public async Task Each_component_is_named_before_it_is_loaded()
+    {
+        // The startup trail writes these. Five components each spending a guarded call's five
+        // seconds is forty-five seconds of launch with nothing on screen, and without a name per
+        // component that reads as a broken dash rather than a slow one (Q41).
+        Plugin("com.test.first", "{ }");
+        Plugin("com.test.second", "not json at all");
+
+        var host = new ComponentHost(new FakeSignals(), new FixedClock(DateTimeOffset.UnixEpoch), _root, VehicleProfile.Empty);
+        var named = new List<string>();
+
+        await host.LoadAllAsync(CancellationToken.None, named.Add);
+
+        Assert.Equal(2, named.Count);
+        Assert.Contains("com.test.first", named);
+        Assert.Contains("com.test.second", named);
+    }
+
+    [Fact]
+    public async Task Naming_is_optional_so_every_other_caller_is_unaffected()
+    {
+        Plugin("com.test.first", "{ }");
+
+        var host = new ComponentHost(new FakeSignals(), new FixedClock(DateTimeOffset.UnixEpoch), _root, VehicleProfile.Empty);
+
+        await host.LoadAllAsync(CancellationToken.None);
+
+        Assert.Single(host.Components);
+    }
 }

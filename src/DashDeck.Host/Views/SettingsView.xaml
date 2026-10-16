@@ -1757,15 +1757,7 @@
                           Visibility="{Binding IsAudio, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="31,26,31,24" DataContext="{Binding Audio}">
 
-                    <TextBlock Style="{StaticResource CaptionText}" Text="MUSIC FOLDER" />
-                    <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
-                               Style="{StaticResource MicroText}"
-                               Text="Where the Stereo card reads from. Searched including subfolders. Files on the tablet rather than a service, because the dash is launched by hand in a truck that may have no signal." />
-                    <TextBox Margin="0,10,0,0" Width="700" HorizontalAlignment="Left"
-                             Style="{StaticResource InputField}"
-                             Text="{Binding MusicFolder, UpdateSourceTrigger=PropertyChanged}" />
-
-                    <TextBlock Margin="0,26,0,0" Style="{StaticResource CaptionText}" Text="OUT OF THE WAY OF DIRECTIONS" />
+                    <TextBlock Style="{StaticResource CaptionText}" Text="OUT OF THE WAY OF DIRECTIONS" />
                     <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
                                Style="{StaticResource MicroText}"
                                Text="Projection's audio and DashDeck's own land on the same Windows output, and Windows mixes rather than choosing — so without this a turn instruction arrives underneath a chorus. Music is lowered under speech rather than paused, because a pause leaves a longer hole than the words; the phone playing its own music stops ours outright." />
@@ -1879,7 +1871,70 @@
                           Visibility="{Binding IsAbout, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="31,26,31,24" DataContext="{Binding About}">
 
-                    <TextBlock Style="{StaticResource CaptionText}" Text="THIS BUILD" />
+                    <!--
+                        UPDATE (ADR-0061). Three buttons, nothing automatic between them: the dash
+                        never checks on its own, never downloads on its own, and never installs on
+                        its own. It sits above THIS BUILD because "which version is this" and "is
+                        there a newer one" are the same question asked twice.
+                    -->
+                    <StackPanel DataContext="{Binding Update}">
+                        <TextBlock Style="{StaticResource CaptionText}" Text="UPDATE" />
+
+                        <Border Margin="0,14,0,0" Padding="16,12" CornerRadius="6"
+                                Background="{DynamicResource SurfaceBrush}">
+                            <StackPanel>
+                                <TextBlock Text="{Binding Headline, Mode=OneWay}"
+                                           FontFamily="{DynamicResource MonoFont}" FontSize="16"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource TextHighBrush}"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Margin="0,6,0,0"
+                                           Text="{Binding Detail, Mode=OneWay}"
+                                           Style="{StaticResource MicroText}"
+                                           MaxWidth="640" HorizontalAlignment="Left"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Margin="0,6,0,0"
+                                           Text="{Binding Progress, Mode=OneWay}"
+                                           FontFamily="{DynamicResource MonoFont}" FontSize="14"
+                                           Foreground="{DynamicResource TextMidBrush}" />
+                            </StackPanel>
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                            <Button Style="{StaticResource OptionChipButton}"
+                                    Content="CHECK FOR AN UPDATE"
+                                    IsEnabled="{Binding IsIdle}"
+                                    Command="{Binding CheckCommand}" />
+                            <Button Margin="14,0,0,0"
+                                    Style="{StaticResource OptionChipButton}"
+                                    Content="DOWNLOAD"
+                                    Visibility="{Binding CanDownload, Converter={StaticResource BoolToVis}}"
+                                    IsEnabled="{Binding IsIdle}"
+                                    Command="{Binding DownloadCommand}" />
+                            <Button Margin="14,0,0,0"
+                                    Style="{StaticResource OptionChipButton}"
+                                    Content="INSTALL AND RESTART"
+                                    Visibility="{Binding CanInstall, Converter={StaticResource BoolToVis}}"
+                                    IsEnabled="{Binding IsIdle}"
+                                    Command="{Binding InstallCommand}" />
+                            <Button Margin="14,0,0,0"
+                                    Style="{StaticResource OptionChipButton}"
+                                    Content="WHAT CHANGED"
+                                    Visibility="{Binding HasNotes, Converter={StaticResource BoolToVis}}"
+                                    Command="{Binding OpenNotesCommand}" />
+                            <Button Margin="14,0,0,0"
+                                    Style="{StaticResource OptionChipButton}"
+                                    Content="STOP"
+                                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}"
+                                    Command="{Binding StopCommand}" />
+                        </StackPanel>
+
+                        <TextBlock Margin="2,12,0,0" MaxWidth="700" TextWrapping="Wrap"
+                                   Style="{StaticResource MicroText}"
+                                   Text="DashDeck never checks for updates by itself and never asks you to install one — this screen is the only place it happens. Installing closes the dash, swaps its folder for the new one and opens it again; the folder you were running is kept beside it as DashDeck.previous, so if the new one misbehaves you can launch the old one. Needs the internet, which usually means your phone's hotspot." />
+                    </StackPanel>
+
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,30,0,0" Text="THIS BUILD" />
                     <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
                                Style="{StaticResource MicroText}"
                                Text="Everything here was something that had to be dug out of a terminal at some point. In the truck there is no keyboard, so it lives on a screen. Read-only — nothing on this page changes anything." />

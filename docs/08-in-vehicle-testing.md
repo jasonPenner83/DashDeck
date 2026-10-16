@@ -1407,3 +1407,91 @@ and a single void sentence threw away a good position. A fix is now **built** fr
   reservation is exactly what ADR-0028 claims works.
 - **Numbers on the gauges and nothing on the compass** — the heading threshold or the moving rule.
 - **A position that never changes while driving** — the fix is being held rather than refreshed.
+
+## Updating from the dash (ADR-0061, Q40)
+
+**Do this once at a desk, on purpose, before you ever need it in a truck.** The check and the
+download are ordinary network code; the install replaces the folder the dash is running from, and
+that half has never run on Windows (Q40). Finding out whether it works while parked somewhere in
+the dark is the wrong way round.
+
+**You need:** a deploy folder (not a build folder — it will refuse), the internet, and a release
+newer than the build you are running. To create that second thing deliberately: publish a deploy
+with an older version stamp, `pwsh -File publish.ps1 -Version 0.8.0`, and the newest release will
+be ahead of it.
+
+### The three buttons
+
+1. **Settings ▸ ABOUT ▸ UPDATE.** **Expect** `You are on 0.9.0` and *"Nothing is checked until you
+   ask"* — and **expect no other buttons yet**. If anything here says an update is available
+   before you press a thing, that is a bug in the one rule this screen has.
+2. **CHECK FOR AN UPDATE.** **Expect** either `You are on 0.9.0 — nothing newer`, or
+   `0.10.0 is available — 334 MB` with when it was published, plus **DOWNLOAD** and **WHAT
+   CHANGED** appearing.
+3. **WHAT CHANGED** opens the release notes in the browser. The dash keeps running behind it.
+4. **DOWNLOAD.** **Expect** a percentage that climbs, then `0.10.0 is ready to install` and an
+   **INSTALL AND RESTART** button. Minutes on a hotspot — **STOP** is there and is meant to leave
+   everything as it was.
+5. **INSTALL AND RESTART.** **Expect** the dash to close, and to come back within about ten
+   seconds on the new version. Check Settings ▸ ABOUT: the version should have changed.
+6. **Look beside your deploy folder. Expect `DashDeck.previous`** — the folder you were running,
+   kept. That is the recovery, and it is the thing to confirm exists *before* you trust this in a
+   vehicle.
+
+### What a failure looks like, and the way back
+
+- **The dash closes and does not come back.** Launch `DashDeck.previous\DashDeck.Host.exe` — that
+  is the build you were on, untouched. Then read
+  `%LOCALAPPDATA%\DashDeck\updates\swap.log`, which says which move failed.
+- **"DashDeck did not exit within 30s — nothing was changed"** in that log: the dash was still
+  holding its files. Nothing was moved; try again from a clean launch.
+- **"could not move the current folder aside"**: something else has the folder open — Explorer
+  sitting in it, or antivirus reading it. Nothing was changed.
+- **"putting the old one back"**: the new folder could not be moved in and the old one was
+  restored. The dash should still start from its original path.
+- **"This cannot be installed"** with a reason, straight after the download: that is a guard
+  refusing, not a crash. A build folder, an unfinished download, an archive that is not a
+  DashDeck, or not enough free space for three copies.
+- **`%LOCALAPPDATA%\DashDeck\updates` is about 700 MB** after an update — the archive plus the
+  staged copy. Deleting its contents is safe; nothing automatic cleans it up yet.
+
+## When the dash will not open
+
+Added 2026-10-15, after a launch hung with no window and no log, and then — because it was still
+running and holding the single-instance lock — made every launch after it fail silently too.
+
+**First, the one command:**
+
+```
+powershell -ExecutionPolicy Bypass -File diagnose.ps1
+```
+
+It reads and changes nothing, and prints the four things that answer this: any DashDeck still
+running, the startup trail, the end of the crash log, and the ports and settings that decide what
+startup touches.
+
+**What to look for:**
+
+1. **A DashDeck process with `MainWindowHandle` of 0.** That is a stuck launch, and it is why
+   nothing else will start. `Stop-Process -Name DashDeck.Host -Force`, then launch again.
+2. **The last line of the startup trail** (`%LOCALAPPDATA%\DashDeck\startup.log`, rewritten every
+   launch). It names the phase that never finished — claiming the lock, reading settings, preparing
+   the adapter on a port, loading components, building the window. **That line is the diagnosis;
+   everything before it finished.**
+3. **`startup gave up after 45 s, still in: …`** in the trail or the crash log means the watchdog
+   ended it rather than letting it sit there. The phase it names is where to look.
+4. **A message saying another DashDeck is running and did not let go.** The gate used to exit
+   silently after twenty seconds; it now says this, and the fix is step 1.
+
+**To narrow it by hand**, these three launches separate the usual suspects:
+
+```
+dotnet run --project src\DashDeck.Host -- --port ""        the synthetic truck, no adapter search
+dotnet run --project src\DashDeck.Host -- --port "" --gps ""   neither adapter nor phone GPS
+dotnet run --project src\DashDeck.Host                     as it normally starts
+```
+
+If the first two start and the third does not, it is the serial side — the adapter search, or the
+phone's Bluetooth port. **Components are a separate case:** they are built by `publish.ps1`, not by
+`dotnet run`, so a repository checkout can hold component DLLs built against an older DashDeck.
+Those fail to load and are logged; they do not stop the dash.

@@ -1,6 +1,8 @@
 # ADR-0060 — The Stereo panel, and what gets out of the way for what
 
-**Status:** Accepted · 2026-10-14
+**Status:** Parked · 2026-10-14, parked 2026-10-15 — the panel, the player and the music folder
+are on the `parked/stereo-music` branch. The ducking contract stays in the tree, because it is a
+policy rather than a player. The reasoning below is unchanged and the return is a merge.
 **Answers:** Q14's remaining half — the Stereo card, and the ducking contract it left owed.
 **Relates to:** [ADR-0059](ADR-0059-audio-delay.md) (the output's delay),
 [ADR-0057](ADR-0057-android-auto-through-the-dongle.md) (projection lands on the same output),
@@ -127,3 +129,25 @@ later. Read-only, which is why it is safe to open with the engine running.
   separator — so on Linux `GetFileName` of a Windows path returns the whole string. That made
   `DashDeck.Core` quietly not platform-neutral, which is the one thing it claims to be, and it
   showed up the moment the tests ran anywhere but Windows.
+
+## Addendum — 2026-10-15: parked, and what it cost to find out why
+
+The panel never ran on a screen. What it did instead was keep the dash from starting, in two
+different ways on the same afternoon — and the second one is the more instructive:
+
+- **The music folder was walked in this view model's constructor**, which the shell builds while
+  starting up. That folder is a **large network share**: `Directory.Exists` and the recursive walk
+  each sit for as long as SMB takes, so the window did not appear until the walk finished.
+- **Making the player lazy did not fix it, because the constructor defeated its own laziness.**
+  Setting `Volume = 70` fired `OnVolumeChanged`, which touched the lazy `Player` property, which
+  built LibVLC — the seventeen-hundred-file plugin scan — right there on the startup path. A
+  fix that *looks* applied and is bypassed by one property setter is worse than no fix, because it
+  spends the next launch's evidence.
+
+So the music side is parked rather than patched again. What stays is `DuckPolicy` and the switch in
+Settings ▸ AUDIO: it is pure, it is tested, it is Q14's owed contract, and whatever plays audio
+next will need the same four answers.
+
+**For the return:** music on a network share is wrong for this dash whatever the code does — the
+share is unreachable in the truck, which is the only place the dash runs. Local files on the
+tablet, or nothing. That is a decision this ADR should have made and did not.
