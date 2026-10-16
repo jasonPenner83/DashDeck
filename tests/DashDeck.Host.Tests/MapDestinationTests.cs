@@ -89,13 +89,31 @@ public sealed class MapDestinationTests
     }
 
     [Fact]
-    public void The_size_button_names_the_size_it_would_give_you()
+    public void The_panel_says_how_the_size_is_changed_and_what_it_would_become()
     {
+        // The size control is a second press of the nav cell (ADR-0062's addendum), and a gesture
+        // with nothing on screen to announce it is a control nobody finds. So the hint is part of
+        // the feature, not decoration — and it names the size the press gives, not the current one.
         var map = new MapViewModel();
-        Assert.Equal("FULL SCREEN", map.ResizeCaption);
+        Assert.Equal("TAP MAPS AGAIN FOR FULL SCREEN", map.ResizeHint);
 
         map.ResizeCommand.Execute(null);
-        Assert.Equal("BOTTOM THIRD", map.ResizeCaption);
+        Assert.Equal("TAP MAPS AGAIN FOR BOTTOM THIRD", map.ResizeHint);
+    }
+
+    [Fact]
+    public void The_hint_follows_the_size_without_being_asked_twice()
+    {
+        // It is bound, so it has to be announced: a hint that still reads FULL SCREEN after the
+        // map went full screen is worse than none.
+        var map = new MapViewModel();
+        var told = new List<string>();
+        map.PropertyChanged += (_, e) => told.Add(e.PropertyName ?? "");
+
+        map.ResizeCommand.Execute(null);
+
+        Assert.Contains(nameof(MapViewModel.ResizeHint), told);
+        Assert.Contains(nameof(MapViewModel.ResizeCaption), told);
     }
 
     [Fact]

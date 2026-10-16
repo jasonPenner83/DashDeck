@@ -72,10 +72,12 @@ public readonly record struct MapView
     /// </summary>
     public MapView BroughtBack() => IsOnStage ? new MapView(Restores, Restores) : this;
 
-    /// <summary>What the size button would do next, in the words on the button.</summary>
+    /// <summary>The size a resize would give, in the words the shell shows.</summary>
     /// <remarks>
-    /// The caption names the destination size, not the current one: a control labelled with the
-    /// state you are already in is the oldest toggle mistake there is.
+    /// Names the destination size, not the current one: labelling a toggle with the state you are
+    /// already in is the oldest mistake there is. The shell says it as a hint rather than on a
+    /// button, since the control is a second press of the nav cell (ADR-0062's addendum) — but
+    /// which words go with which placement is this type's to decide either way.
     /// </remarks>
     public string ResizeCaption => Placement switch
     {

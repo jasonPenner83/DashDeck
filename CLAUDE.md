@@ -192,7 +192,12 @@ so Q17's existing rule collapses the stage and the one region fills all six band
 hands the map to the stage as an occupant through the same `SetStage` path the launcher uses.
 The placement is a value — `DashDeck.Core.Maps.MapView`, with `Resized()`, `SentToTheStage()` and
 `BroughtBack()` — so the rule that matters (a map sent up from full screen comes back to full
-screen) is tested off Windows, and the shell only turns a placement into bands. Coming off the
+screen) is tested off Windows, and the shell only turns a placement into bands. **The size control
+is a second press of the nav's MAPS cell**, not a chip in the panel (ADR-0062's addendum): the nav
+strip is the only band reachable from the driver's seat and the cell was already under the thumb.
+MAPS is therefore the one cell that does something when you are already on it — swap the size, or,
+with the map on the stage, bring it back. The panel carries the hint that says so, and the hint is
+tested, because a gesture nothing announces is a control nobody finds. Coming off the
 stage is **reconciled after every stage change** rather than reported from the occupant's
 `Dispose`, which would re-enter `SetStage`. The map is deliberately **not** in the stage picker
 until it can be a `map` launcher entry (ADR-0038), and the built-in launcher's `MAPS` web page is

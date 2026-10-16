@@ -103,9 +103,10 @@ public sealed class MapPlacementTests
     }
 
     [Fact]
-    public void The_size_button_names_the_size_it_would_give_you()
+    public void The_caption_names_the_size_a_resize_would_give_you()
     {
-        // Not the one you are already in — the oldest toggle mistake there is.
+        // Not the one you are already in — the oldest toggle mistake there is. The shell shows it
+        // as a hint, since the control is a second press of the nav cell, but the words are here.
         Assert.Equal("FULL SCREEN", MapView.Default.ResizeCaption);
         Assert.Equal("BOTTOM THIRD", MapView.Default.Resized().ResizeCaption);
     }

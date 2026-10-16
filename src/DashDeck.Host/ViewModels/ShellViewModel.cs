@@ -706,14 +706,39 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// Only the lower region changes. The stage keeps running underneath — that is the whole
     /// point of it being a layer rather than a screen (B2), and it is why choosing Settings
     /// does not stop the music.
+    /// <para>
+    /// MAPS is the one cell that does something when you are already on it: a second press is
+    /// the map's size control (ADR-0062's addendum). It replaced a chip in the panel, because
+    /// the nav strip is the only band comfortably reachable from the driver's seat and the cell
+    /// was already under the thumb that had just arrived there.
+    /// </para>
     /// </remarks>
     [RelayCommand]
     private void Navigate(string? destination)
     {
-        if (!string.IsNullOrWhiteSpace(destination))
+        if (string.IsNullOrWhiteSpace(destination))
         {
-            ActiveDestination = destination;
+            return;
         }
+
+        if (IsMapsActive && string.Equals(destination, "MAPS", StringComparison.OrdinalIgnoreCase))
+        {
+            // On the stage there is no second size — the occupant has the whole picture — and
+            // coming back is the only move the map has there. So that is what a second press
+            // means, rather than nothing at all: a nav cell that ignores a press reads as broken.
+            if (Map.IsOnStage)
+            {
+                Map.BringBackCommand.Execute(null);
+            }
+            else
+            {
+                Map.ResizeCommand.Execute(null);
+            }
+
+            return;
+        }
+
+        ActiveDestination = destination;
     }
 
     /// <summary>Outside temperature for the status strip, from the shared forecast.</summary>
