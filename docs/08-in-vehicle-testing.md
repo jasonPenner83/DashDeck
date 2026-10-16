@@ -1679,9 +1679,40 @@ for showing a marker and useless for this.
 
 **What this is not.** No guidance: nothing speaks, nothing re-routes, and nothing highlights the
 turn you are on. Those are still
-[ADR-0058](decisions/ADR-0058-offline-map-and-routing.md)'s bundled engine. And **no text** — the
-destination's name, hours and telephone number are in the map's popup and the route strip, not on a
-card, because a sensor reading is a number. That is the next piece of work.
+[ADR-0058](decisions/ADR-0058-offline-map-and-routing.md)'s bundled engine.
+
+### Do the words work (ADR-0067)
+
+The things a place knows that are *not* numbers — its name, its opening hours, its telephone
+number — are now cards too, as a third kind of source. Also testable at the desk, and the search
+needs a connection whether or not the GPS is real.
+
+35. **Add a card and look in the picker under Navigation again.** **Expect** seven more entries
+    beside the six numeric ones: *Destination*, *Destination Address*, *Destination Kind*, *Opening
+    Hours*, *Telephone*, *Website*, *Route*. Each one's second line ends in **words** rather than a
+    unit, which is how you tell the two kinds apart in the list.
+36. **Add *Destination* with nothing chosen.** **Expect** a dash and **nothing chosen** in the
+    footer. **Then search a place and pick it.** **Expect** the name to appear within a second,
+    with **FROM THE MAP** in the footer and a green border — a destination is what you chose, so it
+    is never stale and never simulated, even on a synthetic track where the distance to it is blue.
+37. **Search a business and add *Opening Hours*, *Telephone* and *Website*.** **Expect** OSM's own
+    wording — `Mo-Su 06:00-22:00` is normal and is not a bug — and **expect most places to leave
+    them blank**, which draws as a dash rather than as an empty card.
+38. **Put *Destination Address* on a one-column card.** **Expect** it to wrap to two lines at a
+    smaller size than a number, and to be cut off with an ellipsis if it is longer than that. **A
+    long website will not fit** and is not meant to; tell me if a name you actually use gets
+    clipped, because the size is a judgement rather than a measurement.
+39. **Open the editor on a readout card and look at the rows.** **Expect** BAR greyed out saying
+    *no range in the catalog*, the only unit **AUTO**, and the rate and format rows greyed saying
+    *words, not a number* — visible and refused rather than silently missing, the way an option
+    this dash cannot offer always is. **Switch a temperature card onto a readout** and expect the
+    °C to go with it rather than sitting beside a shop's name.
+40. **Add *Route* and press DIRECTIONS TO HERE.** **Expect** one line — `12 km · 18 min` — the same
+    wording the chip under the map uses, because it is the same sentence rather than a second
+    opinion about it.
+
+**Cards only, deliberately.** A stage layout's gauge reads through the sensor service and readouts
+are not in it, so *Destination* cannot go on a COMPASS layout. That is worth doing and is not done.
 
 ## When the dash will not open
 

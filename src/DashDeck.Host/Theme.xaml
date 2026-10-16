@@ -85,6 +85,23 @@
         <Setter Property="Foreground" Value="{DynamicResource TextMidBrush}" />
     </Style>
 
+    <!--
+        Words on a card (ADR-0067). Smaller than a value and wrapped, because a destination's name
+        is not a number: "25.6" is four characters at 30px and "Tim Hortons, Portage Avenue" is
+        twenty-seven, so the same typography would clip every one of them. Two lines, then
+        ellipsis — a card is read at a glance and a third line is a paragraph.
+    -->
+    <Style x:Key="ReadoutText" TargetType="TextBlock" BasedOn="{StaticResource ValueText}">
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="LineHeight" Value="21" />
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+        <Setter Property="MaxHeight" Value="42" />
+        <Setter Property="VerticalAlignment" Value="Bottom" />
+    </Style>
+
     <Style x:Key="StatusText" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
         <Setter Property="FontSize" Value="15" />
@@ -471,7 +488,8 @@
                 <!-- Value and unit. The fonts are sized so the realistic worst case on a narrow
                      5×3 card — a value like "25.6" beside a long unit like "L/100km" — fits the
                      ~122px inside a single column rather than clipping the unit. -->
-                <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                <StackPanel Grid.Row="1" Orientation="Horizontal" VerticalAlignment="Bottom"
+                            Visibility="{Binding IsWords, Converter={StaticResource NotBoolToVisToken}}">
                     <TextBlock Style="{StaticResource ValueText}"
                                Foreground="{Binding Quality, Converter={StaticResource ValueBrushToken}}"
                                Text="{Binding Text}" />
@@ -480,6 +498,15 @@
                                VerticalAlignment="Bottom"
                                Text="{Binding UnitText}" />
                 </StackPanel>
+
+                <!-- Words instead (ADR-0067). Its own block rather than a resized value, so a
+                     readout gets typography that suits a sentence and nothing about the way every
+                     other card draws its number changes. -->
+                <TextBlock Grid.Row="1"
+                           Style="{StaticResource ReadoutText}"
+                           Visibility="{Binding IsWords, Converter={StaticResource BoolToVisToken}}"
+                           Foreground="{Binding Quality, Converter={StaticResource ValueBrushToken}}"
+                           Text="{Binding Text}" />
 
                 <!-- The bar, when the card asked for one and the catalog gave it a range to
                      be a fraction of. Star columns, so one template serves 270 and 560. -->

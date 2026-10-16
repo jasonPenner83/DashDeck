@@ -44,6 +44,23 @@ public interface ICardValue : IDisposable
     event Action? Changed;
 }
 
+/// <summary>
+/// A card value that is words rather than a number (ADR-0067).
+/// </summary>
+/// <remarks>
+/// <b>A second interface rather than a wider <see cref="ICardValue"/>.</b> Everything above a card
+/// value is built on <c>double</c> — the faces, <see cref="DisplayUnits"/>, the ranges a bar is a
+/// fraction of, the warning thresholds — and NaN is how all of it says "nothing to draw". Adding a
+/// string to that contract would make every one of those places check which kind it had. This way
+/// the numeric contract is untouched and exactly one place asks the question: the card's own
+/// <c>Text</c>.
+/// </remarks>
+public interface ITextValue
+{
+    /// <summary>The words, or null when there are none right now.</summary>
+    string? Words { get; }
+}
+
 /// <summary>A vehicle signal, declared through the arbiter.</summary>
 /// <remarks>
 /// Thin, because <see cref="ObservableSignal"/> already does the work — declaring the demand,
@@ -169,19 +186,109 @@ public sealed class SensorCardValue : ICardValue
     }
 }
 
+/// <summary>
+/// Words the dash already knows, polled like a sensor (ADR-0067).
+/// </summary>
+/// <remarks>
+/// Slower than a number by four times, and for a reason rather than for thrift: a destination
+/// changes when somebody chooses one, which is minutes apart, where a sensor's number has to move
+/// smoothly to avoid reading as frozen. There is nothing to smooth here.
+/// <para>
+/// <see cref="Value"/> is always NaN and <see cref="Unit"/> always empty. That is not a gap — it is
+/// the point. A readout is not a quantity, so it does not claim to be one, and anything that asks
+/// it for a number gets the dash's own word for "nothing".
+/// </para>
+/// </remarks>
+public sealed class ReadoutCardValue : ICardValue, ITextValue
+{
+    /// <summary>Once a second. Words do not need to look like they are moving.</summary>
+    private static readonly TimeSpan Poll = TimeSpan.FromMilliseconds(1000);
+
+    private readonly ReadoutDefinition _definition;
+    private readonly DispatcherTimer _timer;
+
+    private string? _words;
+
+    public ReadoutCardValue(ReadoutDefinition definition)
+    {
+        _definition = definition;
+        _words = Current();
+
+        _timer = new DispatcherTimer(DispatcherPriority.Background) { Interval = Poll };
+        _timer.Tick += (_, _) => Refresh();
+        _timer.Start();
+    }
+
+    /// <inheritdoc />
+    public event Action? Changed;
+
+    /// <inheritdoc />
+    public string? Words => _words;
+
+    /// <summary>Never a number, and says so in the dash's own way.</summary>
+    public double Value => double.NaN;
+
+    /// <summary>Nothing. A name has no unit, and "" is how the card draws no unit at all.</summary>
+    public string Unit => "";
+
+    /// <summary>
+    /// Live when there are words, Unavailable when there are not.
+    /// </summary>
+    /// <remarks>
+    /// Never Stale and never Simulated, because there is nothing to go stale: a destination is what
+    /// the person chose, not something measured about the world that could have moved on. The
+    /// numbers derived from it carry the GPS fix's quality (ADR-0066); its name carries no such
+    /// doubt.
+    /// </remarks>
+    public SignalQuality Quality =>
+        _words is null ? SignalQuality.Unavailable : SignalQuality.Live;
+
+    /// <inheritdoc />
+    public bool IsUsable => _words is not null;
+
+    /// <summary>Where it came from, in the same place a sensor says TABLET.</summary>
+    public string Footer => _words is null ? "nothing chosen" : "FROM THE MAP";
+
+    /// <inheritdoc />
+    public void Dispose() => _timer.Stop();
+
+    /// <summary>Blank is nothing. OSM leaves plenty of fields empty rather than absent.</summary>
+    private string? Current() =>
+        _definition.Read() is { } words && !string.IsNullOrWhiteSpace(words) ? words.Trim() : null;
+
+    private void Refresh()
+    {
+        var next = Current();
+
+        if (string.Equals(next, _words, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _words = next;
+        Changed?.Invoke();
+    }
+}
+
 /// <summary>Builds the right kind of value for a card.</summary>
 /// <remarks>
 /// One place that knows both catalogs exist, so the dashboard and the cards do not have to.
 /// When components start contributing sources of their own (F3), this is where a third kind
 /// arrives — and nothing above it changes.
 /// </remarks>
-public sealed class CardValueFactory(IVehicleSignals signals, SensorService sensors)
+public sealed class CardValueFactory(
+    IVehicleSignals signals,
+    SensorService sensors,
+    ReadoutCatalog? readouts = null)
 {
     /// <summary>The vehicle signals, for anything that still needs them directly.</summary>
     public IVehicleSignals Signals => signals;
 
     /// <summary>The tablet sensors, resolved truck-first.</summary>
     public SensorService Sensors => sensors;
+
+    /// <summary>The words the dash can show (ADR-0067). Empty for a dash built without a map.</summary>
+    public ReadoutCatalog Readouts { get; } = readouts ?? ReadoutCatalog.Empty;
 
     /// <summary>
     /// Create a value for this card, or null when nothing can supply it.
@@ -200,6 +307,9 @@ public sealed class CardValueFactory(IVehicleSignals signals, SensorService sens
         return spec.ParsedSource switch
         {
             CardSource.Sensor => new SensorCardValue(sensors, spec.SignalId) { Unit = choice.Unit },
+            CardSource.Readout => Readouts.TryGet(spec.SignalId, out var readout)
+                ? new ReadoutCardValue(readout)
+                : null,
             _ => new SignalCardValue(signals, spec),
         };
     }

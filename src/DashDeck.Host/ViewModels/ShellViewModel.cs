@@ -400,10 +400,18 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // a null reference on startup: choosing the opening stage re-syncs the widget bands
         // and so needs this to exist, and StageBands reads IsCardEditorOpen, which reads this.
         // It starts on its own default and SyncWidgetBands settles it below.
+        // The words the map knows (ADR-0067), as a third kind of card source beside signals and
+        // sensors. Closures again, and this time with no ordering to work around — the map is
+        // already built by here. It is always available, unlike the navigation *numbers*, because
+        // choosing a destination needs no GPS.
+        var readouts = Dash.ReadoutCatalog.ForNavigation(
+            () => map.Destination,
+            () => map.Directions?.Route);
+
         Shell.StartupTrace.Phase("shell: the dash and its cards");
         Dashboard = new DashboardViewModel(
-            new CardValueFactory(vehicle.Signals, Sensors),
-            ValueChoice.All(vehicle.Catalog, Sensors.Catalog),
+            new CardValueFactory(vehicle.Signals, Sensors, readouts),
+            ValueChoice.All(vehicle.Catalog, Sensors.Catalog, readouts),
             components);
 
         // The cards are on the stage now (ADR-0041): the stage's picture is their region, and

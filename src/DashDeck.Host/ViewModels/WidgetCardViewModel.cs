@@ -68,6 +68,16 @@ public sealed partial class WidgetCardViewModel : ObservableObject, IDashCard
     /// <summary>True when the value should be drawn as a bar as well as a number.</summary>
     public bool IsBar => Spec.ParsedStyle is CardStyle.Bar && Choice?.HasRange is true && Choice.HasStates is false;
 
+    /// <summary>
+    /// True when this card shows words rather than a number (ADR-0067).
+    /// </summary>
+    /// <remarks>
+    /// Read from the choice rather than from the value, so it is settled before activation and
+    /// does not flicker between a card being built and its first poll. A card the catalogs do not
+    /// define is not words — it is broken, and says so in the number's place.
+    /// </remarks>
+    public bool IsWords => Choice?.IsWords is true;
+
     /// <summary>How much this can be trusted. Missing is Unavailable, honestly.</summary>
     public SignalQuality Quality => _value?.Quality ?? SignalQuality.Unavailable;
 
@@ -76,6 +86,14 @@ public sealed partial class WidgetCardViewModel : ObservableObject, IDashCard
     {
         get
         {
+            // Words first, and before the NaN guard below: a readout has no number at all, so the
+            // guard that is right for every other card would turn every readout into a dash
+            // (ADR-0067). This is the one place in the dash that asks which kind it has.
+            if (!IsMissing && _value is ITextValue readout)
+            {
+                return readout.Words ?? ObservableSignal.Placeholder;
+            }
+
             if (IsMissing || _value is not { IsUsable: true } value || double.IsNaN(value.Value))
             {
                 return ObservableSignal.Placeholder;
@@ -93,8 +111,13 @@ public sealed partial class WidgetCardViewModel : ObservableObject, IDashCard
     }
 
     /// <summary>The unit symbol as displayed, which is not always the one the source sent.</summary>
+    /// <remarks>
+    /// A readout has none and must not borrow one: a stored <c>unit</c> from whatever the card
+    /// was pointed at before would print °C beside a shop's name.
+    /// </remarks>
     public string UnitText => IsMissing
         ? "no such value"
+        : IsWords ? string.Empty
         : DisplayUnits.Symbol(Spec.ParsedUnit, _value?.Unit ?? Choice?.Unit ?? "");
 
     /// <summary>
@@ -223,6 +246,7 @@ public sealed partial class WidgetCardViewModel : ObservableObject, IDashCard
         OnPropertyChanged(nameof(Columns));
         OnPropertyChanged(nameof(Width));
         OnPropertyChanged(nameof(IsBar));
+        OnPropertyChanged(nameof(IsWords));
         OnPropertyChanged(nameof(IsMissing));
         RaiseValueProperties();
     }

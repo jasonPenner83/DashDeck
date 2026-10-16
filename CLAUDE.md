@@ -46,8 +46,9 @@ like CLIMATE: speed, rpm, fuel, temperature, range, nine warning lights, odomete
 occupant is on the stage. The **cards are a user-arranged list**
 (ADR-0015) loaded from `dashboard.json` — add, remove, reorder, resize, and pick each card's
 value, style, unit, rate and format. A card names a **`source`** (B4): a vehicle `Signal`
-from the catalog, or a tablet `Sensor` — heading, pitch, roll, G, the phone's GPS, and the
-navigation readouts (ADR-0066). Sensor cards cost no request
+from the catalog, a tablet `Sensor` — heading, pitch, roll, G, the phone's GPS, and the navigation
+numbers (ADR-0066) — or a `Readout`, which is words rather than a number (ADR-0067). Sensor cards
+cost no request
 budget, and their footer says where they answered from rather than an allocated rate. The
 **signal catalog now defines the standard OBD-II Mode 01 set** (~35, each `category`-tagged),
 so the card editor's picker is **searchable and grouped by function**; the synthetic truck
@@ -288,14 +289,26 @@ navigation could really supersede. The remaining time is the router's duration p
 fresh estimate. **Q47 is the known limit:** nearest-point snapping can pick the wrong end of a
 route that comes back near itself.
 
+**Words on a card** (ADR-0067). The third source `CardValue.cs` has predicted since B4:
+`CardSource.Readout`, with seven entries for what a searched place knows that is not a number — its
+name, address, kind, opening hours, telephone, website, and the route's summary. It arrives as a
+**second interface, `ITextValue`**, so `ICardValue.Value` stays a `double` and every face, unit
+conversion, range and threshold is untouched; exactly one place asks which kind it has, the card's
+own `Text`, ahead of the NaN guard that would otherwise draw every readout as a dash. The
+`ReadoutCatalog` is **declared in code** rather than JSON — alone among the three catalogs —
+because a readout is a fact the dash already holds rather than something a user can add, and each
+definition is a **function**, so a destination chosen after the cards were built reaches them with
+no wiring. Words get their own text block (18px, wrapped to two lines, then ellipsis); no unit, no
+range, never a bar, never Stale. **Cards only** — a stage layout's gauge reads through
+`SensorService`, which a readout is not in.
+
 **No strings in a sensor reading, and that is a decision rather than a type problem** (ADR-0066).
 Adding `string? Text` to `SensorReading` would break nothing — but the numeric contract is
 `ICardValue.Value`, and every face, `DisplayUnits`, `ValueChoice.HasRange` and the thresholds are
 built on that `double`; and **NaN is the dash's "nothing"**, which a string has no equivalent of.
 ADR-0056 already settled how the dash says words — a number plus a `states` table — and that works
 because the set is closed when the catalog loads, which a destination name never is. So text gets a
-**third `CardSource`**, which `CardValue.cs` already anticipates in its own comment, and is not
-built yet. Until then a place's name, hours and telephone live in the popup and the route strip.
+**third `CardSource`**, which is ADR-0067 above rather than a wider sensor reading.
 
 **The synthetic track drives a real loop now.** `SyntheticLocationSource` used to weave inside a
 sixty-metre box while reporting 60 km/h and an unrelated course; it circles at a true 60 km/h on an
