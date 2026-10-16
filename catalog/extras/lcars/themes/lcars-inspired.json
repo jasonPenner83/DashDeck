@@ -41,6 +41,9 @@
     "buttonBorder": "#9999CC",
     "buttonText": "#000000",
 
+    "mapWater": "#1F1F3D",
+    "mapGreen": "#140F1A",
+
     "buttonRadius": 28,
     "cardRadius": 22,
     "panelRadius": 28,

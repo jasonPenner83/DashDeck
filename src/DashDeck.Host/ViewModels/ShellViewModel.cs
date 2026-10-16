@@ -322,6 +322,12 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Map = new MapViewModel(location, clock, mapStyle);
         Map.PlacementChanged += _ => OnMapMoved();
 
+        // The map is drawn by a browser that has never heard of the theme's resources, so it is
+        // handed the palette instead — once now, and again whenever one is applied (ADR-0064).
+        // A theme worn, an accent picked or dusk falling all restyle a map already on screen.
+        Map.Wear(Maps.MapTheme.From(Theme.ThemeResolver.Resolve(theme.Current, theme.IsNight)));
+        theme.Applied += resolved => Map.Wear(Maps.MapTheme.From(resolved));
+
         // The warning lights (ADR-0055): built before the stage, because whether the occupant is
         // drawn depends on whether the warning window is up.
         Shell.StartupTrace.Phase("shell: the warning lights");

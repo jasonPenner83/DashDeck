@@ -3,7 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using DashDeck.Abstractions;
 using DashDeck.Core.Location;
 using DashDeck.Core.Maps;
-using DashDeck.Host.Map;
+using DashDeck.Host.Maps;
 
 namespace DashDeck.Host.ViewModels;
 
@@ -59,12 +59,71 @@ public sealed partial class MapViewModel : ObservableObject
     {
         _location = location;
         _clock = clock ?? new SystemClock();
-        StyleUrl = MapSource.StyleOr(styleUrl);
+        StyleOverride = MapSource.IsAcceptableStyle(styleUrl) ? styleUrl!.Trim() : null;
         Refresh();
     }
 
-    /// <summary>The style the map loads — OpenFreeMap's dark one unless overridden.</summary>
-    public string StyleUrl { get; }
+    /// <summary>
+    /// A <c>--map-style</c> URL that wins over the theme's own, or null.
+    /// </summary>
+    /// <remarks>
+    /// The escape hatch, and the way to see OpenFreeMap's five hosted looks without a rebuild —
+    /// which is also the known-good comparison for a generated style that looks wrong.
+    /// </remarks>
+    public string? StyleOverride { get; }
+
+    /// <summary>
+    /// The style built from the theme's colours (ADR-0064), or null while the override is in force.
+    /// </summary>
+    /// <remarks>
+    /// Rebuilt whenever a palette is applied — a theme worn, an accent picked, dusk falling — and
+    /// handed to the live map, so the map turns with the rest of the dash instead of staying dark
+    /// grey under an LCARS console.
+    /// </remarks>
+    public string? StyleJson { get; private set; }
+
+    /// <summary>The colour the vehicle marker is drawn in, from the theme.</summary>
+    public string MarkerColour { get; private set; } = MapPalette.Default.Marker;
+
+    /// <summary>What went wrong with the theme's style, if the hosted one had to be used instead.</summary>
+    /// <remarks>
+    /// Carried into <see cref="Describe"/> rather than onto the screen. The generated style is
+    /// tested, so this is a bug rather than a state — but a map that silently stopped following
+    /// the theme would be a puzzle, and this is the sentence that solves it.
+    /// </remarks>
+    public string? StyleNote { get; private set; }
+
+    /// <summary>
+    /// Take a palette: build the style, keep the marker colour, and restyle a map already drawn.
+    /// </summary>
+    /// <remarks>
+    /// The marker is taken even under a <c>--map-style</c> override, because the vehicle is ours
+    /// to draw whoever supplies the cartography underneath it.
+    /// </remarks>
+    internal void Wear(MapPalette palette)
+    {
+        MarkerColour = palette.Marker;
+
+        if (StyleOverride is null)
+        {
+            var built = MapStyle.Build(palette);
+
+            if (MapStyle.IsWellFormed(built))
+            {
+                StyleJson = built;
+                StyleNote = null;
+            }
+            else
+            {
+                // Never hand a malformed style to the renderer: it draws a dark rectangle and
+                // reports nothing, which is indistinguishable from no signal.
+                StyleJson = null;
+                StyleNote = "the theme's map style would not build — using the hosted dark style";
+            }
+        }
+
+        Surface?.Restyle(StyleJson, MarkerColour);
+    }
 
     // ---- Where the map is drawn (ADR-0062) ----
 
@@ -407,8 +466,14 @@ public sealed partial class MapViewModel : ObservableObject
         && double.IsFinite(fix.Latitude) && double.IsFinite(fix.Longitude);
 
     /// <summary>Where the map is, what it is showing and what it would centre on, for <c>--shot</c>.</summary>
+    /// <remarks>
+    /// Carries the style note when there is one, because that is the only place it surfaces: a map
+    /// that quietly stopped following the theme is otherwise just a map in the wrong colours.
+    /// </remarks>
     public string Describe() =>
         $"{View.Describe()} · {Picture.ToString().ToLowerInvariant()}"
         + (Camera is { } c ? $" · {c.Describe()}" : string.Empty)
+        + (StyleOverride is { } url ? $" · style: {url}" : string.Empty)
+        + (StyleNote is { } note ? $" · style: {note}" : string.Empty)
         + $" · {PositionText}";
 }

@@ -328,6 +328,12 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
                     SetBrush(token.ResourceKey, accent);
                     break;
 
+                // A colour with no resource key paints no WPF — the map's do (ADR-0064), and
+                // they are read straight off the resolved theme instead. Without this they would
+                // all be written to the empty-string key, overwriting one another for nothing.
+                case TokenKind.Colour when token.ResourceKey.Length == 0:
+                    break;
+
                 case TokenKind.Colour:
                     var c = theme.Colour(token.Key);
                     SetBrush(token.ResourceKey, Color.FromArgb(c.A, c.R, c.G, c.B));
@@ -351,7 +357,19 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
         SetBrush("AccentWashBrush", Color.FromArgb(wash, accent.R, accent.G, accent.B));
 
         Problems = Describe(theme);
+        Applied?.Invoke(theme);
     }
+
+    /// <summary>
+    /// Raised with the resolved palette every time one is applied — a theme worn, an accent
+    /// picked, or dusk turning the dash to night.
+    /// </summary>
+    /// <remarks>
+    /// One signal rather than three watched properties. Everything the shell paints reads its
+    /// colours from application resources and needs no telling, but the map is drawn by a browser
+    /// that has never heard of them (ADR-0064), so it has to be handed the palette.
+    /// </remarks>
+    public event Action<ResolvedTheme>? Applied;
 
     /// <summary>Everything worth saying about the theme being worn, for Settings to show.</summary>
     private IReadOnlyList<string> Describe(ResolvedTheme worn)

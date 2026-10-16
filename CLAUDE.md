@@ -221,6 +221,21 @@ three no-page states and **the loading state lives inside the page**. What is st
 **Q44** — the offline half, a caching tile proxy on localhost seeded from a PMTiles cut of
 OpenFreeMap's own planet, so both halves end up the same data and the same look.
 
+**The map wears the theme** (ADR-0064). Ten `map*` colour tokens sit in the same vocabulary as
+every other, and **each defaults to one that already exists** — the ground follows `canvas`, the
+roads and names follow the text ramp, the vehicle follows `accent` — so a theme that says nothing
+about maps still gets a map that matches it, and night comes free through the same dimming factors
+(surfaces ×0.55, ink ×0.74). They carry no resource key, since they paint no WPF; `ThemeService`
+skips those and the map reads them off the resolved theme instead. DashDeck draws **its own
+cartography** from them: `MapStyle.Build` in Core, **eleven layers**, deliberately far simpler than
+OpenFreeMap's two hundred because a dash is read at a glance and not at a desk — and pure, so the
+JSON, the source-layer names, the colour routing and the paint order are all tested without
+Windows. The style is rebuilt and pushed on every applied palette, so a map on screen turns with
+the dash. **An LCARS map is two tokens** (`mapWater`, `mapGreen`): lavender roads and peach
+motorways already fall out of its text ramp. `--map-style` still wins, and then the theme supplies
+only the marker. A style that will not parse is never handed to the renderer. Labels are Noto Sans
+whatever the theme's fonts say — **Q45**.
+
 **Two looks, Modern and Glass; LCARS is yours** (ADR-0043). **Modern** is the built-in theme
 (`builtin/modern`: cool greys, accent `#5AC8FA`, Segoe UI Variable) and names the Modern stage
 (`catalog/stage/modern.json`), console and climate panel; **Glass** ships (`catalog/themes/glass.json`)
@@ -577,7 +592,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Sixty-two exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Sixty-four exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the

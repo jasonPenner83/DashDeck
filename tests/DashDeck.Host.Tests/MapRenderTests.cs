@@ -1,7 +1,7 @@
 using DashDeck.Abstractions;
 using DashDeck.Core.Location;
 using DashDeck.Core.Maps;
-using DashDeck.Host.Map;
+using DashDeck.Host.Maps;
 using DashDeck.Host.Stage;
 using DashDeck.Host.ViewModels;
 
@@ -53,6 +53,16 @@ public sealed class MapRenderTests
 
         public List<bool> Follows { get; } = [];
 
+        public List<string?> Styles { get; } = [];
+
+        public List<string> Markers { get; } = [];
+
+        public void Restyle(string? styleJson, string marker)
+        {
+            Styles.Add(styleJson);
+            Markers.Add(marker);
+        }
+
         public void Position(LocationFix fix, bool live)
         {
             Positions.Add(fix);
@@ -63,6 +73,18 @@ public sealed class MapRenderTests
 
         public void Follow(bool on) => Follows.Add(on);
     }
+
+    private static readonly MapPalette Trek = new(
+        Land: "#000000",
+        Water: "#1A1A2E",
+        Green: "#101810",
+        Building: "#202020",
+        Road: "#CC6666",
+        RoadMajor: "#FF9966",
+        RoadCasing: "#000000",
+        Label: "#FFCC66",
+        LabelHalo: "#000000",
+        Marker: "#FF9900");
 
     private static LocationFix Fix(double lat = 49.8951, double lon = -97.1384, double speed = 62, double course = 84)
         => new(lat, lon, speed, course, SignalQuality.Live, Noon);
@@ -342,14 +364,74 @@ public sealed class MapRenderTests
 
     // --- The style, and what the stage occupant offers ---
 
+    // --- The theme's colours (ADR-0064) ---
+
     [Fact]
-    public void The_style_is_the_dark_one_unless_a_usable_override_says_otherwise()
+    public void Without_an_override_the_map_is_drawn_in_the_themes_colours()
     {
-        Assert.Equal(MapSource.StyleUrl, new MapViewModel().StyleUrl);
-        Assert.Equal(MapSource.StyleUrl, new MapViewModel(styleUrl: "http://insecure/style").StyleUrl);
-        Assert.Equal(
-            "https://tiles.openfreemap.org/styles/fiord",
-            new MapViewModel(styleUrl: "https://tiles.openfreemap.org/styles/fiord").StyleUrl);
+        var map = new MapViewModel(new Source(Fix()), new Clock(Noon));
+
+        Assert.Null(map.StyleOverride);
+
+        map.Wear(Trek);
+
+        Assert.NotNull(map.StyleJson);
+        Assert.Contains(Trek.Water, map.StyleJson!, StringComparison.Ordinal);
+        Assert.Equal(Trek.Marker, map.MarkerColour);
+        Assert.Null(map.StyleNote);
+    }
+
+    [Fact]
+    public void A_map_already_on_screen_is_restyled_rather_than_left_behind()
+    {
+        // A theme worn, an accent picked or dusk falling, with the map up. The whole point: the
+        // map turns with the rest of the dash instead of staying grey under an LCARS console.
+        var map = new MapViewModel(new Source(Fix()), new Clock(Noon));
+        var surface = new FakeSurface();
+        map.Attach(surface);
+
+        map.Wear(Trek);
+
+        Assert.Single(surface.Styles);
+        Assert.Contains(Trek.Road, surface.Styles[0]!, StringComparison.Ordinal);
+        Assert.Equal([Trek.Marker], surface.Markers);
+    }
+
+    [Fact]
+    public void An_override_keeps_the_hosted_style_but_still_takes_the_themes_marker()
+    {
+        // The cartography is somebody else's under --map-style; the vehicle is always ours.
+        var map = new MapViewModel(
+            new Source(Fix()), new Clock(Noon), "https://tiles.openfreemap.org/styles/fiord");
+
+        Assert.Equal("https://tiles.openfreemap.org/styles/fiord", map.StyleOverride);
+
+        map.Wear(Trek);
+
+        Assert.Null(map.StyleJson);
+        Assert.Equal(Trek.Marker, map.MarkerColour);
+    }
+
+    [Fact]
+    public void An_unusable_override_is_ignored_so_the_theme_still_gets_its_map()
+    {
+        Assert.Null(new MapViewModel(styleUrl: "http://insecure/style").StyleOverride);
+        Assert.Null(new MapViewModel(styleUrl: "javascript:alert(1)").StyleOverride);
+        Assert.Null(new MapViewModel().StyleOverride);
+    }
+
+    [Fact]
+    public void A_style_that_will_not_build_falls_back_and_says_why()
+    {
+        // Tested, so this is a bug rather than a state — but a map that silently stopped
+        // following the theme would be a puzzle, and the note is what solves it.
+        var map = new MapViewModel(new Source(Fix()), new Clock(Noon));
+
+        map.Wear(Trek with { Water = "not a colour\" }" });
+
+        Assert.Null(map.StyleJson);
+        Assert.NotNull(map.StyleNote);
+        Assert.Contains("hosted dark", map.StyleNote!, StringComparison.Ordinal);
     }
 
     [Fact]

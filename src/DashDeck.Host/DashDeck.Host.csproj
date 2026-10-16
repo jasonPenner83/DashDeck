@@ -26,7 +26,7 @@
       alike. Code, not catalog: it is a renderer, where catalog/ is data the user may edit.
       Everything under web\ and nothing else, so the C# beside it is not copied as content.
     -->
-    <Content Include="Map\web\**\*" Link="map\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Maps\web\**\*" Link="map\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
