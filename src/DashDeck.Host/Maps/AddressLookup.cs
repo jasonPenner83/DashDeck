@@ -6,11 +6,15 @@ using DashDeck.Core.Maps;
 namespace DashDeck.Host.Maps;
 
 /// <summary>
-/// The one HTTP call address search makes (ADR-0065).
+/// The HTTP calls the map makes to somebody else's service (ADR-0065).
 /// </summary>
 /// <remarks>
-/// Separate from the view-model so the politeness, the URL and the parsing stay testable without
-/// a network — the view-model takes a function, the way <c>UpdateService</c> does.
+/// Both of them: the geocoder and the router. One client, because both want the same thing of us —
+/// an identifying User-Agent and a modest request rate — and two would be two places to get that
+/// wrong.
+/// <para>
+/// Separate from the view-models so the politeness, the URLs and the parsing stay testable without
+/// a network — they take a function, the way <c>UpdateService</c> does.
 /// <para>
 /// <b>The User-Agent is not optional.</b> Nominatim's usage policy requires an identifiable
 /// application with a way to make contact, and a generic agent is grounds for being blocked. It

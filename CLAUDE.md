@@ -252,6 +252,26 @@ destination cannot be typed above 5 km/h** (ADR-0058's distraction rule, reusing
 threshold), read on the beat so stopping unlocks it. Choosing an address moves the map, pins it and
 stops following. Recents are session-only and search needs signal — both are **Q46**.
 
+**The keyboard is the Surface's own**, after a drive (ADR-0065's addendum). DashDeck drew one first
+and it is deleted rather than parked: the in-box keyboard is the one the tablet's owner knows and
+it brings holding a key, the clipboard and prediction with it. The field is focused and `TabTip`
+nudged when the search opens, failing silently — a USB keyboard still types into it. **One
+guarantee moved with it:** the gate used to refuse keystrokes, and now the field's `IsEnabled`
+follows it while the view-model guarantees only that **no request leaves while moving**, which is
+the safety-relevant half.
+
+**A place says what it is, and you can get directions to it.** A result carries what OSM knows —
+kind, hours, telephone, website — at **no extra request**, because `extratags` is an output option
+on the search already being made. It shows in a **MapLibre popup inside the page**, themed, because
+WPF cannot draw over a child window (ADR-0021) — and built with `textContent` from
+`JsonSerializer`'d values, since a place name comes from anybody. Its button draws a route from
+**FOSSGIS's public OSRM**: distance, time, a line on the map and a turn list behind a chip, with
+the instruction wording ours (OSRM sends a manoeuvre type and a street name, no sentence) and
+tested across ten manoeuvres. **Routes are never cached** where searches are — a route depends on
+where the truck is now. **This is the display half, not navigation:** no voice, no re-routing,
+nothing that follows the truck. That is ADR-0058's bundled GraphHopper, still ahead, and following
+a vehicle over a public router would breach its terms as well.
+
 **Two looks, Modern and Glass; LCARS is yours** (ADR-0043). **Modern** is the built-in theme
 (`builtin/modern`: cool greys, accent `#5AC8FA`, Segoe UI Variable) and names the Modern stage
 (`catalog/stage/modern.json`), console and climate panel; **Glass** ships (`catalog/themes/glass.json`)

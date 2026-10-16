@@ -333,7 +333,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             () => map?.Camera,
             () => map?.SpeedKmh);
 
-        map = new MapViewModel(location, clock, mapStyle, search);
+        // Directions start from where the truck is now rather than from where the map is looking:
+        // a route from the corner you panned to would be a route from nowhere you have been.
+        var directions = new MapRouteViewModel(
+            Maps.AddressLookup.FetchAsync,
+            clock,
+            () => map?.Here);
+
+        map = new MapViewModel(location, clock, mapStyle, search, directions);
         Map = map;
         Map.PlacementChanged += _ => OnMapMoved();
 
@@ -347,10 +354,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // to know when it opens.
         Map.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName is nameof(MapViewModel.IsSearchOpen))
+            if (e.PropertyName is nameof(MapViewModel.IsSearchOpen) or nameof(MapViewModel.IsStepsOpen))
             {
                 OnPropertyChanged(nameof(IsMapVisible));
                 OnPropertyChanged(nameof(IsMapSearchVisible));
+                OnPropertyChanged(nameof(IsMapStepsVisible));
             }
         };
 
@@ -600,7 +608,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// whole six bands. So there is one binding, not two.
     /// </remarks>
     public bool IsMapVisible =>
-        IsMapsActive && !Map.IsOnStage && !Map.IsSearchOpen && !IsCardEditorOpen && !IsComponentDetailOpen;
+        IsMapsActive && !Map.IsOnStage && Map.IsMapShowing && !IsCardEditorOpen && !IsComponentDetailOpen;
 
     /// <summary>
     /// Whether address search is covering the map (ADR-0065).
@@ -611,6 +619,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// </remarks>
     public bool IsMapSearchVisible =>
         IsMapsActive && Map.IsSearchOpen && !IsCardEditorOpen && !IsComponentDetailOpen;
+
+    /// <summary>Whether the turn list is covering the map.</summary>
+    public bool IsMapStepsVisible =>
+        IsMapsActive && Map.IsStepsOpen && !IsCardEditorOpen && !IsComponentDetailOpen;
 
     /// <summary>
     /// Whether to say, in the nav's region, that the map is on the stage.

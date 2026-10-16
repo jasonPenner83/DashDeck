@@ -10,7 +10,12 @@ namespace DashDeck.Core.Maps;
 /// <param name="Detail">Where it is: town, province, country.</param>
 /// <param name="Latitude">Degrees north.</param>
 /// <param name="Longitude">Degrees east.</param>
-public readonly record struct GeocodeResult(string Label, string Detail, double Latitude, double Longitude)
+public readonly record struct GeocodeResult(
+    string Label,
+    string Detail,
+    double Latitude,
+    double Longitude,
+    PlaceDetails Details = default)
 {
     /// <summary>The camera that would put this on screen.</summary>
     public MapCamera Camera => new MapCamera(Longitude, Latitude, MapCamera.DrivingZoom, 0).Clamped();
@@ -80,8 +85,12 @@ public static class Geocoder
     public static string Url(string? query, MapCamera? near = null, double degrees = 1.0)
     {
         var normalised = AddressQuery.Normalise(query);
+        // extratags and addressdetails are output options rather than extra calls, so what the
+        // popup needs about a business — site, telephone, opening hours — arrives on the one
+        // request the policy counts (ADR-0065's addendum).
         var url = $"{Endpoint}?q={Uri.EscapeDataString(normalised)}" +
-            $"&format=jsonv2&limit={Limit.ToString(CultureInfo.InvariantCulture)}&accept-language=en";
+            $"&format=jsonv2&limit={Limit.ToString(CultureInfo.InvariantCulture)}&accept-language=en" +
+            "&extratags=1&addressdetails=1";
 
         if (near is not { } centre || !centre.IsUsable)
         {
@@ -143,7 +152,7 @@ public static class Geocoder
                     continue;
                 }
 
-                results.Add(new GeocodeResult(label, detail, latitude, longitude));
+                results.Add(new GeocodeResult(label, detail, latitude, longitude, Details(item)));
             }
 
             return results;
@@ -180,6 +189,46 @@ public static class Geocoder
             : parts[1..];
 
         return (label, string.Join(", ", rest));
+    }
+
+    /// <summary>
+    /// What else the result says about the place.
+    /// </summary>
+    /// <remarks>
+    /// <c>extratags</c> is whatever the mappers happened to put on the object, so every key is
+    /// looked for in the two or three spellings OSM actually uses and nothing is required. A
+    /// place with none of them is the normal case.
+    /// </remarks>
+    private static PlaceDetails Details(JsonElement item)
+    {
+        var extra = item.TryGetProperty("extratags", out var tags) && tags.ValueKind == JsonValueKind.Object
+            ? tags
+            : default;
+
+        return new PlaceDetails(
+            PlaceDetails.Describe(Text(item, "category"), Text(item, "type")),
+            First(extra, "website", "contact:website", "url"),
+            First(extra, "phone", "contact:phone", "telephone"),
+            First(extra, "opening_hours"));
+    }
+
+    /// <summary>The first of these keys that is there and says something.</summary>
+    private static string? First(JsonElement tags, params string[] keys)
+    {
+        if (tags.ValueKind != JsonValueKind.Object)
+        {
+            return null;
+        }
+
+        foreach (var key in keys)
+        {
+            if (Text(tags, key) is { Length: > 0 } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     private static bool TryCoordinate(JsonElement item, string property, out double value)

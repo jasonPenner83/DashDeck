@@ -54,18 +54,17 @@ public sealed class MapSearchTests
         return (search, server, clock);
     }
 
-    private static async Task TypeAsync(MapSearchViewModel search, string text)
+    /// <summary>
+    /// Typing, as the text field does it (ADR-0065's addendum).
+    /// </summary>
+    /// <remarks>
+    /// A plain assignment now that the keyboard is the tablet's own: the field is two-way bound,
+    /// so what it writes is exactly this.
+    /// </remarks>
+    private static Task TypeAsync(MapSearchViewModel search, string text)
     {
-        foreach (var c in text)
-        {
-            var key = c == ' '
-                ? new Key("SPACE", KeyAction.Space)
-                : new Key(c.ToString().ToUpperInvariant());
-
-            search.TypeCommand.Execute(key);
-        }
-
-        await Task.CompletedTask;
+        search.Query = text;
+        return Task.CompletedTask;
     }
 
     // --- No auto-complete, because the policy forbids it ---
@@ -80,7 +79,7 @@ public sealed class MapSearchTests
         await TypeAsync(search, "123 Main Street");
 
         Assert.Empty(server.Asked);
-        Assert.Equal("123 MAIN STREET", search.Query);
+        Assert.Equal("123 Main Street", search.Query);
     }
 
     [Fact]
@@ -92,7 +91,7 @@ public sealed class MapSearchTests
         await search.SearchCommand.ExecuteAsync(null);
 
         Assert.Single(server.Asked);
-        Assert.Contains("q=123%20MAIN", server.Asked[0], StringComparison.Ordinal);
+        Assert.Contains("q=123%20Main", server.Asked[0], StringComparison.Ordinal);
         Assert.Single(search.Results);
         Assert.Equal("123 Main Street", search.Results[0].Label);
         Assert.True(search.HasResults);
@@ -196,18 +195,21 @@ public sealed class MapSearchTests
     // --- The speed gate (ADR-0058) ---
 
     [Fact]
-    public async Task Moving_means_nothing_can_be_typed_or_searched()
+    public async Task Moving_means_nothing_can_be_searched()
     {
+        // The field itself is shut by the view (its IsEnabled follows MayType) and the touch
+        // keyboard is not asked for. What the view-model guarantees is the part that matters: no
+        // request leaves while the truck is moving, however text got into the box.
         var (search, server, _) = Build(speed: 60);
 
         await TypeAsync(search, "123 Main");
         await search.SearchCommand.ExecuteAsync(null);
 
-        Assert.Equal(string.Empty, search.Query);
         Assert.Empty(server.Asked);
         Assert.False(search.MayType);
         Assert.False(search.CanSearch);
         Assert.Contains("Stop first", search.Barred, StringComparison.Ordinal);
+        Assert.Equal(search.Barred, search.Message);
     }
 
     [Fact]
@@ -226,7 +228,7 @@ public sealed class MapSearchTests
         Assert.True(search.MayType);
 
         await TypeAsync(search, "123 Main");
-        Assert.Equal("123 MAIN", search.Query);
+        Assert.True(search.CanSearch);
     }
 
     // --- Where the search is biased, and what happens when one is chosen ---
@@ -370,7 +372,172 @@ public sealed class MapSearchTests
 
         var described = search.Describe();
 
-        Assert.Contains("123 MAIN", described, StringComparison.Ordinal);
+        Assert.Contains("123 Main", described, StringComparison.Ordinal);
         Assert.Contains("results=1", described, StringComparison.Ordinal);
+    }
+}
+
+/// <summary>
+/// Directions to a chosen place (ADR-0065's addendum).
+/// </summary>
+/// <remarks>
+/// Not the navigation ADR-0058 describes — this is how far, how long and which way, worked out
+/// once while stopped. What is pinned here is the politeness, the failure wording, and the way the
+/// map and the route keep each other honest when one of them is rebuilt.
+/// </remarks>
+public sealed class MapRouteTests
+{
+    private static readonly DateTimeOffset Noon = new(2026, 10, 16, 12, 0, 0, TimeSpan.Zero);
+    private static readonly MapCamera Here = new(-97.1384, 49.8951, 15, 0);
+    private static readonly MapCamera There = new(-97.1470, 49.8844, 15, 0);
+
+    private sealed class Clock(DateTimeOffset now) : IClock
+    {
+        public DateTimeOffset UtcNow { get; set; } = now;
+    }
+
+    private const string Ok = """
+        { "routes": [ { "distance": 1463.2, "duration": 182.5,
+            "geometry": { "coordinates": [[-97.1384, 49.8951], [-97.147, 49.8844]] },
+            "legs": [ { "steps": [
+              { "distance": 445, "name": "Main Street", "maneuver": { "type": "depart" } },
+              { "distance": 0, "name": "", "maneuver": { "type": "arrive" } } ] } ] } ] }
+        """;
+
+    private sealed class Server
+    {
+        public List<string> Asked { get; } = [];
+
+        public string Reply { get; set; } = Ok;
+
+        public Exception? Throws { get; set; }
+
+        public Task<string> FetchAsync(string url, CancellationToken ct)
+        {
+            Asked.Add(url);
+            return Throws is not null ? Task.FromException<string>(Throws) : Task.FromResult(Reply);
+        }
+    }
+
+    private static (MapRouteViewModel Directions, Server Server, Clock Clock) Build(MapCamera? from = null)
+    {
+        var server = new Server();
+        var clock = new Clock(Noon);
+
+        return (new MapRouteViewModel(server.FetchAsync, clock, () => from ?? Here), server, clock);
+    }
+
+    [Fact]
+    public async Task A_route_carries_the_two_numbers_and_the_turns()
+    {
+        var (directions, _, _) = Build();
+
+        await directions.FindAsync(There, "123 Main Street");
+
+        Assert.True(directions.HasRoute);
+        Assert.Equal("1.5 km · 3 min", directions.Summary);
+        Assert.Equal("123 Main Street", directions.DestinationName);
+        Assert.Equal(2, directions.Steps.Count);
+        Assert.Equal("Start on Main Street", directions.Steps[0].Instruction);
+        Assert.False(directions.IsRouting);
+    }
+
+    [Fact]
+    public async Task The_map_is_told_to_draw_it()
+    {
+        var (directions, _, _) = Build();
+        Route? drawn = null;
+        directions.Found += route => drawn = route;
+
+        await directions.FindAsync(There, "123 Main Street");
+
+        Assert.NotNull(drawn);
+        Assert.Equal(2, drawn!.Shape.Count);
+    }
+
+    [Fact]
+    public async Task With_no_position_there_is_nowhere_to_start_and_it_says_so()
+    {
+        var server = new Server();
+        var directions = new MapRouteViewModel(server.FetchAsync, new Clock(Noon), () => null);
+
+        await directions.FindAsync(There, "123 Main Street");
+
+        Assert.Empty(server.Asked);
+        Assert.Contains("has to start somewhere", directions.Note, StringComparison.Ordinal);
+        Assert.False(directions.HasRoute);
+    }
+
+    [Fact]
+    public async Task Two_requests_within_the_second_make_one()
+    {
+        var (directions, server, _) = Build();
+
+        await directions.FindAsync(There, "a");
+        await directions.FindAsync(There, "b");
+
+        Assert.Single(server.Asked);
+        Assert.Contains("one route a second", directions.Note, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_route_is_never_cached_because_it_depends_on_where_you_are_now()
+    {
+        // Searching is cached; routing is not. An answer from five minutes and two streets ago is
+        // not the same answer.
+        var (directions, server, clock) = Build();
+
+        await directions.FindAsync(There, "123 Main Street");
+        clock.UtcNow = Noon.AddSeconds(5);
+        await directions.FindAsync(There, "123 Main Street");
+
+        Assert.Equal(2, server.Asked.Count);
+    }
+
+    [Fact]
+    public async Task No_way_there_is_said_as_such()
+    {
+        var (directions, server, _) = Build();
+        server.Reply = """{ "code": "NoRoute", "routes": [] }""";
+
+        await directions.FindAsync(There, "123 Main Street");
+
+        Assert.False(directions.HasRoute);
+        Assert.Contains("No way there", directions.Note, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_connection_that_failed_blames_the_connection()
+    {
+        var (directions, server, _) = Build();
+        server.Throws = new HttpRequestException("no such host");
+
+        await directions.FindAsync(There, "123 Main Street");
+
+        Assert.Contains("need a connection", directions.Note, StringComparison.Ordinal);
+        Assert.False(directions.IsRouting);
+    }
+
+    [Fact]
+    public async Task Clearing_a_route_tells_the_map_to_rub_it_out()
+    {
+        var (directions, _, _) = Build();
+        var cleared = 0;
+        directions.Cleared += () => cleared++;
+
+        await directions.FindAsync(There, "123 Main Street");
+        directions.ClearCommand.Execute(null);
+
+        Assert.False(directions.HasRoute);
+        Assert.Empty(directions.Steps);
+        Assert.Equal(1, cleared);
+    }
+
+    [Fact]
+    public void The_router_is_credited_on_the_screen_that_shows_its_work()
+    {
+        var (directions, _, _) = Build();
+
+        Assert.Contains("OSRM", directions.Attribution, StringComparison.Ordinal);
     }
 }

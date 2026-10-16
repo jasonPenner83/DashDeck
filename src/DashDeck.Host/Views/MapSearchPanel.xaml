@@ -5,7 +5,6 @@
              Background="{DynamicResource CanvasBrush}">
 
     <UserControl.Resources>
-        <conv:KeyWidthConverter x:Key="KeyWidth" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <conv:InverseBoolToVisibilityConverter x:Key="NotBoolToVis" />
 
@@ -50,10 +49,10 @@
 
     <!--
         Address search (ADR-0065). It covers the map rather than floating over it, and has to: a
-        WebView2 is a child window, so WPF cannot draw a keyboard on top of it (ADR-0021).
+        WebView2 is a child window, so nothing WPF draws would appear on top of it (ADR-0021).
 
-        Only ever drawn full screen — five rows of keys, a field and a result list do not fit the
-        bottom third, so opening the search takes the map to its larger placement first.
+        Only ever drawn full screen: the tablet's own keyboard takes the lower half of the screen
+        when it appears, so the field and the results need the rest of it.
     -->
     <DockPanel Margin="31,18,31,18">
 
@@ -70,6 +69,11 @@
                     Content="‹ MAP"
                     Command="{Binding CloseSearchCommand}" />
 
+            <!--
+                A real text box, typed on the tablet's own keyboard (ADR-0065's addendum). It is
+                focused and the touch keyboard asked for when the search opens; a USB keyboard
+                works in it too, which is what makes the desk pleasant.
+            -->
             <Border Grid.Column="1" Margin="12,0,12,10"
                     CornerRadius="14"
                     Background="{DynamicResource SurfaceBrush}"
@@ -77,16 +81,23 @@
                     BorderThickness="1"
                     Height="56">
                 <Grid Margin="16,0">
-                    <!-- What has been typed. Big, because it is read at arm's length and checked
-                         against a street sign rather than a screen. -->
-                    <TextBlock VerticalAlignment="Center"
-                               FontFamily="{DynamicResource UiFont}"
-                               FontSize="24"
-                               Foreground="{DynamicResource TextHighBrush}"
-                               TextTrimming="CharacterEllipsis"
-                               Text="{Binding Search.Query}" />
+                    <TextBox x:Name="Field"
+                             VerticalAlignment="Center"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             CaretBrush="{DynamicResource AccentBrush}"
+                             FontFamily="{DynamicResource UiFont}"
+                             FontSize="24"
+                             Foreground="{DynamicResource TextHighBrush}"
+                             MaxLength="120"
+                             IsEnabled="{Binding Search.MayType}"
+                             Text="{Binding Search.Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
+                    <!-- The prompt sits behind an empty field, which is cheaper than a styled
+                         watermark and reads the same. Never hit-testable, or it would steal the tap
+                         that is meant to focus the field. -->
                     <TextBlock VerticalAlignment="Center"
+                               IsHitTestVisible="False"
                                FontFamily="{DynamicResource UiFont}"
                                FontSize="24"
                                Foreground="{DynamicResource TextFaintBrush}"
@@ -101,64 +112,6 @@
                     IsEnabled="{Binding Search.CanSearch}"
                     Command="{Binding Search.SearchCommand}" />
         </Grid>
-
-        <!--
-            The keyboard. Docked at the bottom, which is where a thumb reaches — and the rows are
-            drawn from KeyboardLayout, in key-widths, so the layout is data and this is only paint.
-        -->
-        <ItemsControl DockPanel.Dock="Bottom" ItemsSource="{Binding Search.Rows}"
-                      HorizontalAlignment="Center"
-                      IsEnabled="{Binding Search.MayType}">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate>
-                    <ItemsControl ItemsSource="{Binding}" HorizontalAlignment="Center">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Button Height="78" Margin="3"
-                                        Cursor="Hand"
-                                        Width="{Binding Width, Converter={StaticResource KeyWidth}}"
-                                        Command="{Binding DataContext.Search.TypeCommand,
-                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                        CommandParameter="{Binding}">
-                                    <Button.Template>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="Cap"
-                                                    CornerRadius="10"
-                                                    Background="{DynamicResource RaisedBrush}"
-                                                    BorderBrush="{DynamicResource HairlineStrongBrush}"
-                                                    BorderThickness="1">
-                                                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                           FontFamily="{DynamicResource MonoFont}"
-                                                           FontSize="20"
-                                                           Foreground="{DynamicResource TextHighBrush}"
-                                                           Text="{Binding Caption}" />
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <!-- Pressed rather than hovered: there is no pointer
-                                                     in the truck, and a key that does not visibly
-                                                     take the tap gets tapped twice. -->
-                                                <Trigger Property="IsPressed" Value="True">
-                                                    <Setter TargetName="Cap" Property="Background"
-                                                            Value="{DynamicResource AccentBrush}" />
-                                                </Trigger>
-                                                <Trigger Property="IsEnabled" Value="False">
-                                                    <Setter TargetName="Cap" Property="Opacity" Value="0.3" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Button.Template>
-                                </Button>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
 
         <!-- Whatever there is to say, and whatever there is to tap. -->
         <Grid>

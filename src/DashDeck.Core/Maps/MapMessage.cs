@@ -17,6 +17,9 @@ public enum MapSignal
 
     /// <summary>The map was panned by hand, so it is no longer following the vehicle.</summary>
     Freed,
+
+    /// <summary>Directions were asked for, from the popup on a searched place.</summary>
+    Directions,
 }
 
 /// <summary>
@@ -57,6 +60,12 @@ public readonly record struct MapMessage(MapSignal Signal, MapCamera? Camera = n
         if (body.Equals("free", StringComparison.Ordinal))
         {
             message = new MapMessage(MapSignal.Freed);
+            return true;
+        }
+
+        if (body.Equals("directions", StringComparison.Ordinal))
+        {
+            message = new MapMessage(MapSignal.Directions);
             return true;
         }
 

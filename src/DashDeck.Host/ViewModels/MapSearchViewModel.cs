@@ -59,10 +59,15 @@ public sealed partial class MapSearchViewModel : ObservableObject
         _speed = speed;
     }
 
-    /// <summary>The keys to draw, from <see cref="KeyboardLayout"/>.</summary>
-    public IReadOnlyList<IReadOnlyList<Key>> Rows => KeyboardLayout.Rows;
-
-    /// <summary>What has been typed.</summary>
+    /// <summary>
+    /// What has been typed.
+    /// </summary>
+    /// <remarks>
+    /// Written by the text field as well as read, so it is two-way — the field's own
+    /// <c>MaxLength</c> keeps it inside <see cref="AddressQuery.MaxLength"/>, and a stale message
+    /// is cleared when it changes, because a complaint about the last query hanging over the next
+    /// one reads as a broken field.
+    /// </remarks>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasQuery))]
     [NotifyPropertyChangedFor(nameof(CanSearch))]
@@ -70,6 +75,8 @@ public sealed partial class MapSearchViewModel : ObservableObject
 
     /// <summary>True once anything has been typed, so the field stops showing its prompt.</summary>
     public bool HasQuery => Query.Length > 0;
+
+    partial void OnQueryChanged(string value) => Message = null;
 
     /// <summary>What the field says when nothing has been typed.</summary>
     /// <remarks>
@@ -128,23 +135,6 @@ public sealed partial class MapSearchViewModel : ObservableObject
         OnPropertyChanged(nameof(MayType));
         OnPropertyChanged(nameof(Barred));
         OnPropertyChanged(nameof(CanSearch));
-    }
-
-    /// <summary>Press a key.</summary>
-    /// <remarks>
-    /// Typing alone never searches — see the class remarks. It does clear a stale message, because
-    /// a complaint about the last query hanging over the next one reads as a broken field.
-    /// </remarks>
-    [RelayCommand]
-    private void Type(Key? key)
-    {
-        if (key is null || !MayType)
-        {
-            return;
-        }
-
-        Query = KeyboardLayout.Press(Query, key);
-        Message = null;
     }
 
     /// <summary>Ask the geocoder.</summary>

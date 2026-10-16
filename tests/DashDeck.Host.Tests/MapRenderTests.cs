@@ -55,17 +55,27 @@ public sealed class MapRenderTests
 
         public List<string?> Styles { get; } = [];
 
-        public List<string> Markers { get; } = [];
+        public List<MapPalette> Palettes { get; } = [];
 
-        public List<(MapCamera Camera, string Label)> Destinations { get; } = [];
+        public List<string> Markers => [.. Palettes.Select(p => p.Marker)];
 
-        public void Restyle(string? styleJson, string marker)
+        public List<(MapCamera Camera, GeocodeResult Place)> Destinations { get; } = [];
+
+        public List<Route> Routes { get; } = [];
+
+        public int Cleared { get; private set; }
+
+        public void Restyle(string? styleJson, MapPalette palette)
         {
             Styles.Add(styleJson);
-            Markers.Add(marker);
+            Palettes.Add(palette);
         }
 
-        public void Destination(MapCamera camera, string label) => Destinations.Add((camera, label));
+        public void Destination(MapCamera camera, GeocodeResult place) => Destinations.Add((camera, place));
+
+        public void Route(Route route) => Routes.Add(route);
+
+        public void ClearRoute() => Cleared++;
 
         public void Position(LocationFix fix, bool live)
         {
@@ -396,9 +406,11 @@ public sealed class MapRenderTests
 
         map.Wear(Trek);
 
-        Assert.Single(surface.Styles);
-        Assert.Contains(Trek.Road, surface.Styles[0]!, StringComparison.Ordinal);
-        Assert.Equal([Trek.Marker], surface.Markers);
+        // Two: one when the surface attached, with whatever palette was current, and one now.
+        // A rebuilt map must be painted before it is looked at, not on the next theme change.
+        Assert.Equal(2, surface.Styles.Count);
+        Assert.Contains(Trek.Road, surface.Styles[^1]!, StringComparison.Ordinal);
+        Assert.Equal(Trek.Marker, surface.Markers[^1]);
     }
 
     [Fact]
