@@ -1,6 +1,6 @@
 using System.ComponentModel;
 using System.Windows.Controls;
-using DashDeck.Host.Map;
+using DashDeck.Host.Maps;
 using DashDeck.Host.ViewModels;
 
 namespace DashDeck.Host.Views;

@@ -5,7 +5,7 @@ using DashDeck.Core.Maps;
 using DashDeck.Host.ViewModels;
 using Microsoft.Web.WebView2.Wpf;
 
-namespace DashDeck.Host.Map;
+namespace DashDeck.Host.Maps;
 
 /// <summary>What the dash can tell a loaded map to do.</summary>
 /// <remarks>
@@ -25,6 +25,16 @@ public interface IMapSurface
 
     /// <summary>Follow the vehicle, or leave the map where it has been panned to.</summary>
     void Follow(bool on);
+
+    /// <summary>
+    /// Draw the map in these colours from now on.
+    /// </summary>
+    /// <param name="styleJson">
+    /// A style built from the theme, or null to keep whatever the page was started with — which is
+    /// the hosted style, under a <c>--map-style</c> override or after a style failed to build.
+    /// </param>
+    /// <param name="marker">The colour of the vehicle marker.</param>
+    void Restyle(string? styleJson, string marker);
 }
 
 /// <summary>
@@ -51,7 +61,6 @@ public interface IMapSurface
 public sealed class MapSurface : IMapSurface, IDisposable
 {
     private readonly MapViewModel _map;
-    private readonly string _styleUrl;
     private WebView2? _view;
     private bool _ready;
     private bool _disposed;
@@ -59,11 +68,7 @@ public sealed class MapSurface : IMapSurface, IDisposable
     /// <param name="map">
     /// The view-model this surface reports to, and takes its opening camera and style from.
     /// </param>
-    public MapSurface(MapViewModel map)
-    {
-        _map = map;
-        _styleUrl = map.StyleUrl;
-    }
+    public MapSurface(MapViewModel map) => _map = map;
 
     /// <summary>The control to put on screen. Built once.</summary>
     public FrameworkElement View => _view ??= Build();
@@ -155,7 +160,12 @@ public sealed class MapSurface : IMapSurface, IDisposable
         }
     }
 
-    /// <summary>The opening camera and style, as the page's own boot object.</summary>
+    /// <summary>The opening camera, style and marker, as the page's own boot object.</summary>
+    /// <remarks>
+    /// The style goes in as a <b>JSON object</b> when the theme built one, and as a quoted URL
+    /// when it did not — MapLibre's <c>style</c> option takes either, which is what lets the
+    /// theme's own cartography and somebody else's hosted style share one code path.
+    /// </remarks>
     private string BootJson()
     {
         var camera = _map.Camera;
@@ -166,10 +176,33 @@ public sealed class MapSurface : IMapSurface, IDisposable
                 $"\"lon\":{c.Longitude:0.######},\"lat\":{c.Latitude:0.######},\"zoom\":{c.Zoom:0.##},\"bearing\":{c.Bearing:0.#},")
             : string.Empty;
 
-        // The style URL is ours or validated as HTTPS with no credentials (MapSource), so the
-        // only escaping left that matters is the quote.
-        return $"{{{place}\"style\":\"{_styleUrl.Replace("\"", "\\\"", StringComparison.Ordinal)}\"}}";
+        // Either the theme's style verbatim, or a URL — ours or validated as HTTPS with no
+        // credentials (MapSource), so the only escaping left that matters is the quote.
+        var style = _map.StyleJson
+            ?? $"\"{StyleUrl().Replace("\"", "\\\"", StringComparison.Ordinal)}\"";
+
+        return $"{{{place}\"style\":{style},\"marker\":\"{_map.MarkerColour}\"}}";
     }
+
+    /// <summary>The hosted style to fall back on: the override, or OpenFreeMap's dark.</summary>
+    private string StyleUrl() => MapSource.StyleOr(_map.StyleOverride);
+
+    /// <inheritdoc />
+    public void Restyle(string? styleJson, string marker)
+    {
+        // The marker first and always: it is ours whoever drew the ground underneath it.
+        Run("marker", $"window.dash.marker({Quote(marker)})");
+
+        if (styleJson is not null)
+        {
+            // The style is JSON, which is a JavaScript expression — so it goes in as one rather
+            // than as a string the page would have to parse.
+            Run("restyle", $"window.dash.restyle({styleJson})");
+        }
+    }
+
+    private static string Quote(string value) =>
+        $"\"{value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal)}\"";
 
     /// <inheritdoc />
     public void Position(LocationFix fix, bool live) => Run(

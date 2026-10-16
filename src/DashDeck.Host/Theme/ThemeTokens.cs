@@ -188,6 +188,21 @@ public static class ThemeTokens
         // Lettering.
         new("uiFont", TokenKind.Font, "Archivo, Segoe UI", null, NightRule.Keep, "UiFont", "Values and headlines."),
         new("monoFont", TokenKind.Font, "IBM Plex Mono, Consolas", null, NightRule.Keep, "MonoFont", "Labels, captions and buttons."),
+
+        // The map (ADR-0064). These paint no WPF, so they carry no resource key — the map's style
+        // is built from them instead (MapStyle.Build). Every default follows a token that already
+        // exists, so a theme that says nothing about maps still gets a map that matches it, and
+        // the night rules dim the map exactly as they dim everything else.
+        new("mapLand", TokenKind.Colour, "@canvas", null, NightRule.Surface, "", "The map's ground: everything that is not something else."),
+        new("mapWater", TokenKind.Colour, "#0F1A24", null, NightRule.Surface, "", "Lakes, rivers and the sea."),
+        new("mapGreen", TokenKind.Colour, "#141712", null, NightRule.Surface, "", "Woods, grass, farmland and wetland."),
+        new("mapBuilding", TokenKind.Colour, "@raised", null, NightRule.Surface, "", "Building footprints, drawn close in."),
+        new("mapRoad", TokenKind.Colour, "@textLow", null, NightRule.Ink, "", "Streets and minor roads."),
+        new("mapRoadMajor", TokenKind.Colour, "@textMid", null, NightRule.Ink, "", "Motorways, trunk roads and primaries."),
+        new("mapRoadCasing", TokenKind.Colour, "@canvas", null, NightRule.Surface, "", "The outline under a road, which is what separates it from the ground."),
+        new("mapLabel", TokenKind.Colour, "@textHigh", null, NightRule.Ink, "", "Place and street names."),
+        new("mapLabelHalo", TokenKind.Colour, "@mapLand", null, NightRule.Surface, "", "Drawn behind a name so it reads over anything."),
+        new("mapMarker", TokenKind.Colour, "@accent", null, NightRule.Accent, "", "The vehicle on the map."),
     ];
 
     private static readonly Dictionary<string, ThemeToken> ByKey =

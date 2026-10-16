@@ -104,6 +104,45 @@ into `themes\`. Change its `name`, then press **RELOAD**.
 | `borderWidth` | number | `1` | same | Outline width of buttons, chips and fields. |
 | `uiFont` | font | `Archivo, Segoe UI` | same | Values and headlines. |
 | `monoFont` | font | `IBM Plex Mono, Consolas` | same | Labels, captions and buttons. |
+| `mapLand` | colour | follows `canvas` | dim ×0.55 | The map's ground: everything that is not something else. |
+| `mapWater` | colour | `#0F1A24` | dim ×0.55 | Lakes, rivers and the sea. |
+| `mapGreen` | colour | `#141712` | dim ×0.55 | Woods, grass, farmland and wetland. |
+| `mapBuilding` | colour | follows `raised` | dim ×0.55 | Building footprints, drawn close in. |
+| `mapRoad` | colour | follows `textLow` | dim ×0.74 | Streets and minor roads. |
+| `mapRoadMajor` | colour | follows `textMid` | dim ×0.74 | Motorways, trunk roads and primaries. |
+| `mapRoadCasing` | colour | follows `canvas` | dim ×0.55 | The outline under a road, which separates it from the ground. |
+| `mapLabel` | colour | follows `textHigh` | dim ×0.74 | Place and street names. |
+| `mapLabelHalo` | colour | follows `mapLand` | dim ×0.55 | Drawn behind a name so it reads over anything. |
+| `mapMarker` | colour | follows `accent` | dim ×0.82 | The vehicle on the map. |
+
+## Theming the map
+
+The map (ADR-0064) is drawn from the ten `map*` tokens above, and **you almost never need to set
+them.** Every one follows a token you have probably already changed: the ground follows `canvas`,
+the roads follow the text ramp, the vehicle follows `accent`. Change the dash and the map comes
+with it — including at night, through the same dimming factors.
+
+The LCARS theme is the whole argument in two lines. Its roads come out lavender and its motorways
+peach *because* `textLow` and `textMid` are lavender and peach; its marker is LCARS orange because
+`accent` is. The only things it has to say are the two that have no equivalent anywhere else on the
+dash:
+
+```jsonc
+"mapWater": "#1F1F3D",
+"mapGreen": "#140F1A"
+```
+
+Two caveats worth knowing before you spend an evening on it:
+
+- **Labels are always Noto Sans**, whatever `uiFont` says. A map label needs glyphs built into PBF
+  ranges, and a TTF in a theme folder has none. So an LCARS map is Star Trek colours in ordinary
+  lettering until there is a tool that builds glyphs from a theme's own font.
+- **Alpha is dropped.** A colour with transparency is taken as opaque, because translucent roads
+  over translucent landcover is how a map turns to mud.
+
+To see somebody else's cartography instead, `--map-style https://tiles.openfreemap.org/styles/dark`
+(or `bright`, `liberty`, `positron`, `fiord`) overrides the theme's map entirely — which is also
+the comparison to reach for if a themed map looks wrong.
 
 The **Appearance** accent picker still works on top of a theme: choosing a theme sets the accent
 to the theme's, and picking another afterwards overrides it until the next theme is chosen.

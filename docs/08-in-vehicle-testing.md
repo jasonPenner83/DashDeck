@@ -1523,12 +1523,34 @@ dotnet run --project src\DashDeck.Host -- --gps synthetic --nav MAPS
 9. **Press MAPS in the nav while it is on the stage.** **Expect:** the map comes back, at the size
    it had when it went up.
 
+### Does it wear the theme (ADR-0064)
+
+10. **Settings ▸ Appearance ▸ Themes, and choose LCARS.** **Expect** the map to change with the
+    rest of the dash, without a relaunch: **lavender streets, peach motorways, an orange vehicle,
+    near-black ground.** Those come from the theme's existing text ramp and accent, not from
+    anything map-specific — the LCARS file names only water and greenery.
+    **A failure looks like:** a grey map under an LCARS console (the restyle did not reach the
+    page), or the map going blank (the style would not parse — the `--shot` text file carries the
+    reason as `map: … style: …`).
+11. **Switch back to Modern, then to Glass.** **Expect** each one's map to match its dash. Then
+    **Settings ▸ Appearance ▸ NIGHT**: the ground should darken further than the names on it, so
+    labels stay legible rather than everything fading together.
+12. **Compare against somebody else's cartography.** Relaunch with
+    `--map-style https://tiles.openfreemap.org/styles/dark`. **Expect** OpenFreeMap's own map,
+    ignoring the theme, with the vehicle marker still in the theme's accent. This is the
+    comparison to reach for if the themed map looks wrong — and if theirs reads better in the cab,
+    say so, because that is a real answer and the token defaults can move.
+    Their other looks: `bright`, `liberty`, `positron`, `fiord`.
+13. **Labels are Noto Sans and will stay that way** whatever `uiFont` says — a map label needs
+    glyphs built into PBF ranges and a theme's TTF has none (Q45). If the LCARS map looks right in
+    every way except the lettering, that is why, and it is written down rather than a bug.
+
 ### In the cab
 
-10. **At night, parked.** **Expect** the dark style to be readable without being a torch. If it is
-    still too bright, try `--map-style https://tiles.openfreemap.org/styles/fiord` — same tiles,
-    another look, no rebuild. Tell me which of their five you prefer and it becomes the default.
-11. **Watch the data.** This is the first feature that spends the truck's data by moving. Vector
+14. **At night, parked.** **Expect** the map readable without being a torch. If the theme's map is
+    too bright or too dim at night, the fix is a token (`mapLand`, `mapRoad`) or the night rule
+    behind it — tell me which way it is wrong.
+15. **Watch the data.** This is the first feature that spends the truck's data by moving. Vector
     tiles are small and the browser caches them, so a repeated drive should be nearly free — a
     drive somewhere new will not be. If it costs more than you expect, say so: that is Q44's
     argument, and it is the next thing to build.

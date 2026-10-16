@@ -32,18 +32,20 @@
      without it they would place themselves against the page rather than against the marker, so
      the vehicle would be drawn in the top-left corner of the map and stay there. */
   #me { position: relative; width: 42px; height: 42px; }
+  /* The marker takes the theme's accent, handed in at boot and on every theme change
+     (ADR-0064), so the vehicle is ours to draw whoever supplies the map underneath it. */
   #me .cone {
     position: absolute; left: 11px; top: 0;
     width: 0; height: 0;
     border-left: 10px solid transparent;
     border-right: 10px solid transparent;
-    border-bottom: 20px solid #FF7A1A;
+    border-bottom: 20px solid var(--marker, #FF7A1A);
     opacity: 0.9;
   }
   #me .dot {
     position: absolute; left: 15px; top: 18px;
     width: 12px; height: 12px; border-radius: 50%;
-    background: #FF7A1A; border: 2px solid #0D0C0B;
+    background: var(--marker, #FF7A1A); border: 2px solid #0D0C0B;
   }
   /* Stale or no fix: the same marker, drained of colour. The dash never dresses an old
      reading up as a live one, and the map is not an exception. */
@@ -115,6 +117,10 @@ const fail = reason => {
 
 window.onerror = (message) => fail(message);
 window.onunhandledrejection = (event) => fail(event && event.reason);
+
+if (typeof boot.marker === "string") {
+  document.documentElement.style.setProperty("--marker", boot.marker);
+}
 
 try {
   const maplibre = await import("./lib/maplibre-gl.mjs");
@@ -211,7 +217,21 @@ try {
       if (following && marker) { map.easeTo({ center: marker.getLngLat(), duration: 600 }); }
     },
 
-    restyle(url) { try { map.setStyle(url); } catch (e) { fail(e); } },
+    /* A whole style, as an object. setStyle keeps the camera as long as the new style fixes
+       none of its own - which MapStyle deliberately does not (Q43). */
+    restyle(style) {
+      try {
+        map.setStyle(style);
+      } catch (e) {
+        fail(e);
+      }
+    },
+
+    marker(colour) {
+      if (typeof colour === "string") {
+        document.documentElement.style.setProperty("--marker", colour);
+      }
+    },
   };
 } catch (e) {
   fail(e);
