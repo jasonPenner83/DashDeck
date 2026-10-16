@@ -303,6 +303,8 @@ public partial class App : Application
 
         // --stage <NAME> opens on a named occupant: CLOCK, VIDEO, NUVIO, OSM or STREMIO — or
         // MAPS, which is the map on the stage rather than a launcher entry (ADR-0062).
+        // --map-style <https url> swaps the map's look without a rebuild (ADR-0063): OpenFreeMap
+        // serves bright, liberty, positron, dark and fiord over the same tiles.
         // --gps <host:port|synthetic> forces a phone-GPS source (ADR-0027) for a screenshot or a
         // quick test, over whatever the persisted setting says.
         Shell.StartupTrace.Phase("building the shell");
@@ -314,7 +316,8 @@ public partial class App : Application
             stagedVideo,
             ArgValue(e.Args, "--stage"),
             componentHost,
-            gpsArgument);
+            gpsArgument,
+            ArgValue(e.Args, "--map-style"));
 
         // --nav <DEST> opens on a destination below the stage, so Settings can be reviewed
         // without a finger.

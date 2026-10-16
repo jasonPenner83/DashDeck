@@ -1455,64 +1455,89 @@ be ahead of it.
 - **`%LOCALAPPDATA%\DashDeck\updates` is about 700 MB** after an update — the archive plus the
   staged copy. Deleting its contents is safe; nothing automatic cleans it up yet.
 
-## The MAPS destination and its three sizes (ADR-0062)
+## The map (ADR-0063) and its three sizes (ADR-0062)
 
-**Added 2026-10-16. Nothing here needs the truck running, the adapter, or the internet** — it is
-the layout being checked, not a map, because there is no map yet. Five minutes in a driveway or at
-a desk. What it is worth doing in the cab for is the last step: whether a full-screen region and a
-reachable control bar actually read from the driver's seat, which a desk cannot tell you.
+**Added 2026-10-16, and nothing in it has ever been run.** There is no Windows, no WebView2 and no
+signal in the session that built it, so the map has never been seen to draw. Everything testable
+without those is tested; what follows is the part that needs glass.
 
-**You need:** the dash running. For step 6, the phone sharing GPS over Bluetooth as in *The
-phone's GPS over Bluetooth* above — everything else works without it.
+**Start here, before anything else.** The tile endpoints are read from OpenFreeMap's own README and
+have never been probed — that session's proxy refuses the hosts. One command settles it, on the
+Surface, on the truck's connection:
 
-1. **Tap MAPS in the nav.** **Expect:** a fourth cell with a map-pin glyph, lit in the accent
-   colour, and the bottom third filled with a panel: a pin, *No map yet*, a position line, a
-   **TO THE STAGE** chip at the bottom left, and at the bottom right the hint
-   *TAP MAPS AGAIN FOR FULL SCREEN*. Whatever was on the stage is still on the stage and still
-   running.
-   **A failure looks like:** an empty bottom third, or the words *not built yet* — that is the
-   strip the unbuilt destinations show, and it would mean the panel was not made.
-2. **Tap MAPS again.** The nav cell is the size control; there is no chip for it.
-   **Expect:** the map region grows to fill everything between the status strip and the nav — the
-   stage is gone, not shrunk — and the hint now reads *TAP MAPS AGAIN FOR BOTTOM THIRD*. The nav
-   stays where it is and stays usable.
-   **A failure looks like:** nothing happening (the second press is not reaching the map), the
-   stage still visible above a taller panel (the collapse did not happen), or the hint still
-   reading FULL SCREEN — it names the size the press would give, not the one you are in.
-3. **Tap MAPS a third time.** **Expect:** the stage comes back, with the same occupant it had,
-   still running — if it was playing something, it did not stop or restart. The panel is back to
-   the bottom third and the hint back to *FULL SCREEN*.
-4. **Tap MAPS once more to go full screen, then TO THE STAGE.** **Expect:** the placeholder moves
-   up onto the stage, the chip and the hint are gone from it, the status strip reads **MAPS**, and
-   the region below says *The map is on the stage* with a **BRING IT BACK** button. The nav's MAPS
-   cell is still lit.
-5. **Tap BRING IT BACK.** **Expect:** the map returns **full screen** — the size it had when it
-   went up, not the small one. The stage is left empty, saying so, with the launcher bar below it.
-   **This is the step most likely to be wrong**, and it is wrong if the map comes back as a
-   bottom-third strip.
-   **Then send it up again and press MAPS instead.** On the stage there is no second size, so the
-   press means the one move the map has there: **expect** the same return, full screen, without
-   touching the button. A press that does nothing is the failure — a nav cell that ignores you
-   reads as broken.
-6. **Send it to the stage again, then tap GAUGES in the launcher bar.** **Expect:** the gauges
-   take the stage and the map goes back to the nav by itself — tap MAPS and the panel is there at
-   the size it had, not the *on the stage* notice. A notice still saying the map is on the stage
-   after something else took it is the failure.
-7. **Read the position line** (any size). **Expect**, with the phone sharing: `FIX — 49.xxxxx,
-   -97.xxxxx · nn km/h · course nnn°` and under it the port and an age — the same words Settings ▸
-   Display uses, because it is the same reading. With GPS off: **NO GPS** and *Settings ▸ Display
-   turns on the phone's GPS*. With the port open and the phone not sharing: **NO DATA** naming the
-   port. **With the phone switched off mid-drive:** it should go **STALE** with the age climbing,
-   never a position sitting there looking live.
-8. **In the cab, parked, at full screen.** Sit in the driver's seat. **Expect:** changing the
-   size needs nothing but the MAPS cell you are already pressing — that is why the chip for it
-   went — and **TO THE STAGE** is reachable without leaning in, since it sits just above the nav
-   strip on purpose. If it is not, that is worth saying, because the whole region can move.
+```powershell
+curl.exe -s -o $null -w "style %{http_code}`n" https://tiles.openfreemap.org/styles/dark
+curl.exe -s -o $null -w "tile  %{http_code} %{size_download} bytes`n" https://tiles.openfreemap.org/planet/latest/10/246/355.pbf
+```
 
-**What this does not test**, and cannot yet: anything to do with a map. No tiles, no routing, no
-guidance — [ADR-0058](decisions/ADR-0058-offline-map-and-routing.md) is the plan for those and
-[Q43](04-open-questions.md) is the question the placeholder is hiding, which is that a real
-WebView2 map cannot be moved between these three places without reloading.
+**Expect:** `style 200` and `tile 200` with a few kilobytes. Anything else and the map cannot work
+yet, and the rest of this is pointless — send me the output instead.
+
+**You need:** the dash running, the truck's connection up, and the phone sharing GPS over Bluetooth
+as in *The phone's GPS over Bluetooth* above. **At a desk instead**, `--gps synthetic` gives a
+moving fix near downtown Winnipeg and the whole walkthrough works without the truck:
+
+```
+dotnet run --project src\DashDeck.Host -- --gps synthetic --nav MAPS
+```
+
+### Does it draw
+
+1. **Tap MAPS in the nav.** **Expect:** the bottom third fills with a dark map, an orange cone and
+   dot where you are, and a small attribution line bottom right reading *OpenStreetMap contributors
+   · OpenMapTiles · OpenFreeMap*. Before it draws you get *Loading the map · fetching tiles* on a
+   dark panel, which should last a second or two on a good connection.
+   **A failure looks like:** *No map* with a reason under it — that is the honest state and the
+   reason is the thing to send me. A **white** flash or a white map means the style loaded but not
+   the dark one. A dark rectangle with no words at all is the one outcome that should be impossible;
+   if you get it, say so, because it means the page failed without reporting.
+2. **Check the position states.** With GPS off (Settings ▸ Display): **expect** *No GPS* and a line
+   saying where to turn it on — **not** *No map*, because the missing thing is the position, not the
+   tiles. With GPS on and the phone not sharing: **expect** *Waiting for a position* naming the
+   port. Those two being told apart is the point.
+3. **Watch the marker while moving.** **Expect:** the cone points the way the truck is going and the
+   map slides to keep you centred. Below about 5 km/h the cone **stops turning** rather than
+   spinning on the spot — that is deliberate, since a GPS course at a standstill is noise.
+4. **Turn the phone's GPS off while driving.** **Expect:** within about ten seconds the marker
+   **goes grey where it is** and the readout ages. It must not sit there in orange looking current,
+   and it must not jump to nowhere.
+
+### Does it behave
+
+5. **Drag the map with a finger.** **Expect:** it pans, it stops following, and a **RECENTRE** chip
+   appears beside TO THE STAGE. Tap it: the map comes back to the truck and stays with it.
+   **A failure looks like:** the map fighting your drag (following was never switched off), or no
+   RECENTRE appearing — which leaves you with a map that has lost you.
+6. **Pinch to zoom, then tap MAPS again** to go full screen. **Expect:** the map fills everything
+   between the status strip and the nav, **at the zoom you left it at**. It will redraw — the
+   browser control is rebuilt by the move — so a second of tiles arriving is expected. What is not
+   expected is coming back at a different zoom or over a different place. **This is the step most
+   likely to be wrong.**
+7. **Tap MAPS again** for the bottom third, then again for full screen. **Expect:** the stage
+   reappears and disappears with the same occupant still running, and the map keeps its place each
+   time.
+8. **TO THE STAGE.** **Expect:** the map moves up onto the stage, the chips and the hint go, the
+   status strip reads **MAPS**, and the region below says *The map is on the stage* with **BRING IT
+   BACK**. Open the three-dot menu: **expect** **BRING THE MAP BACK** and **RECENTRE** in it — the
+   chips are not available on the stage, so the menu is the only way to either.
+9. **Press MAPS in the nav while it is on the stage.** **Expect:** the map comes back, at the size
+   it had when it went up.
+
+### In the cab
+
+10. **At night, parked.** **Expect** the dark style to be readable without being a torch. If it is
+    still too bright, try `--map-style https://tiles.openfreemap.org/styles/fiord` — same tiles,
+    another look, no rebuild. Tell me which of their five you prefer and it becomes the default.
+11. **Watch the data.** This is the first feature that spends the truck's data by moving. Vector
+    tiles are small and the browser caches them, so a repeated drive should be nearly free — a
+    drive somewhere new will not be. If it costs more than you expect, say so: that is Q44's
+    argument, and it is the next thing to build.
+
+**What this does not test**, and cannot yet: anything offline. Drive out of signal and the map
+stops filling in — tiles already fetched stay, new ground does not arrive. That is
+[Q44](04-open-questions.md), it is sketched and not built, and it is the half that makes this
+useful on a highway. No routing and no guidance either — those are still
+[ADR-0058](decisions/ADR-0058-offline-map-and-routing.md)'s stages two and three.
 
 ## When the dash will not open
 

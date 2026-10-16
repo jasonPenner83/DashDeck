@@ -205,7 +205,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         string? videoPath = null,
         string? startOn = null,
         Components.ComponentHost? components = null,
-        string? gpsOverride = null)
+        string? gpsOverride = null,
+        string? mapStyle = null)
     {
         _vehicle = vehicle;
         _clock = clock;
@@ -318,7 +319,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // SetStage path the launcher uses, and AfterStageChange reconciles the map's placement on
         // every stage change — including the opening one, below.
         Shell.StartupTrace.Phase("shell: the map");
-        Map = new MapViewModel(location, clock);
+        Map = new MapViewModel(location, clock, mapStyle);
         Map.PlacementChanged += _ => OnMapMoved();
 
         // The warning lights (ADR-0055): built before the stage, because whether the occupant is

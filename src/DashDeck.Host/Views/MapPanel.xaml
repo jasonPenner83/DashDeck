@@ -6,40 +6,55 @@
 
     <UserControl.Resources>
         <conv:InverseBoolToVisibilityConverter x:Key="NotBoolToVis" />
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </UserControl.Resources>
 
     <!--
-        The MAPS destination, standing in for ADR-0058's map until it is built.
+        The MAPS destination: MapLibre on tiles fetched as you drive (ADR-0063), in whichever of
+        its three placements is current (ADR-0062).
 
         It is drawn at two quite different sizes — two bands below the stage (912 x 390) and all
-        six (912 x 1170) — so nothing here is positioned against a fixed height: the picture
-        stretches and the content stays centred in it. That is the whole point of the placeholder.
-        When MapLibre arrives it replaces the Border's contents and the geometry around it is
-        already settled.
+        six (912 x 1170) — so nothing here is positioned against a fixed height.
 
         The one control left sits at the bottom, and deliberately: the bottom of this region is
         just above the nav strip at both sizes, which is the part of the screen that can be reached
-        from the driver's seat. At the top it would be mid-screen in the small size and at arm's
-        stretch in the large one.
+        from the driver's seat. The size is changed by pressing MAPS in the nav again (ADR-0062's
+        addendum), so there is no chip for it — the hint on the right says so.
 
-        The size is changed by pressing MAPS in the nav again (ADR-0062's addendum), so there is no
-        chip for it here — the hint on the right says so, because a gesture nothing announces is a
-        control nobody finds.
+        **The map and the placeholder never overlap.** A WebView2 is a child window and WPF cannot
+        draw over it (ADR-0021), so the two swap rather than stack: the dash draws the states where
+        there is no page at all, and the page draws its own "loading" over its own canvas.
     -->
     <DockPanel Margin="31,0,31,0">
 
         <!--
             Hidden while the map is on the stage. An occupant's controls belong in the overflow
             menu as actions, not drawn inside its own picture (ADR-0022) — so on the stage the way
-            back is BRING IT BACK in that menu, and the hint would be wrong there anyway: there is
-            no second size on the stage, and a press of MAPS brings the map back instead.
+            back is BRING THE MAP BACK in that menu, and RECENTRE is an action there too.
         -->
         <Grid DockPanel.Dock="Bottom" Margin="0,0,0,18"
               Visibility="{Binding IsOnStage, Converter={StaticResource NotBoolToVis}}">
-            <Button HorizontalAlignment="Left"
-                    Style="{StaticResource OptionChipButton}"
-                    Content="TO THE STAGE"
-                    Command="{Binding SendToStageCommand}" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <Button Style="{StaticResource OptionChipButton}"
+                        Content="TO THE STAGE"
+                        Command="{Binding SendToStageCommand}" />
+
+                <!-- Only after a pan has taken the map off the vehicle. A permanent RECENTRE
+                     would be a control that does nothing most of the time. -->
+                <Button Style="{StaticResource OptionChipButton}"
+                        Margin="12,0,0,0"
+                        Content="RECENTRE"
+                        Command="{Binding RecentreCommand}"
+                        Visibility="{Binding IsRecentreOffered, Converter={StaticResource BoolToVis}}" />
+
+                <!-- Offered only when it failed, which on this connection means the signal came
+                     and went rather than anything being wrong with the dash. -->
+                <Button Style="{StaticResource OptionChipButton}"
+                        Margin="12,0,0,0"
+                        Content="TRY AGAIN"
+                        Command="{Binding RetryCommand}"
+                        Visibility="{Binding HasFailed, Converter={StaticResource BoolToVis}}" />
+            </StackPanel>
 
             <!-- Names the size the press would give you, not the one you are in. -->
             <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
@@ -51,56 +66,62 @@
                 Margin="0,18,0,14"
                 Background="{DynamicResource SurfaceBrush}"
                 BorderBrush="{DynamicResource HairlineBrush}"
-                BorderThickness="1">
-            <!--
-                Margins are kept tight because the small size is the binding constraint: the
-                bottom third is 390 tall, the control row and the border's own margins take 116
-                of it, and what is left has to hold all of this without the centred stack being
-                clipped at both ends. The large size has three times the room and does not care.
-            -->
-            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16">
+                BorderThickness="1"
+                ClipToBounds="True">
+            <Grid>
+                <!-- The map. Filled in by the code-behind, which owns the browser control for as
+                     long as this panel is on screen. Shown whenever there is one at all: while it
+                     loads, the page itself says so over its own dark canvas. -->
+                <ContentPresenter x:Name="Surface"
+                                  Visibility="{Binding WantsSurface, Converter={StaticResource BoolToVis}}" />
 
-                <Path Data="M12,2 C8.1,2 5,5.1 5,9 C5,14.2 12,22 12,22 C12,22 19,14.2 19,9 C19,5.1 15.9,2 12,2 Z M12,11.5 A2.5,2.5 0 1 1 11.99,11.5 Z"
-                      Stroke="{DynamicResource TextLowBrush}" StrokeThickness="1.5"
-                      Width="44" Height="44" Stretch="Uniform" HorizontalAlignment="Center" />
+                <!-- No map, and why. The three states with no page: GPS off, no fix yet, and a
+                     load that failed. -->
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16"
+                            Visibility="{Binding WantsSurface, Converter={StaticResource NotBoolToVis}}">
 
-                <TextBlock Margin="0,16,0,0"
-                           HorizontalAlignment="Center"
-                           FontFamily="{DynamicResource UiFont}"
-                           FontSize="24"
-                           Foreground="{DynamicResource TextLowBrush}"
-                           Text="No map yet" />
+                    <Path Data="M12,2 C8.1,2 5,5.1 5,9 C5,14.2 12,22 12,22 C12,22 19,14.2 19,9 C19,5.1 15.9,2 12,2 Z M12,11.5 A2.5,2.5 0 1 1 11.99,11.5 Z"
+                          Stroke="{DynamicResource TextLowBrush}" StrokeThickness="1.5"
+                          Width="44" Height="44" Stretch="Uniform" HorizontalAlignment="Center" />
 
-                <!--
-                    The position is the one real thing on this panel, and it is here because it is
-                    the question that has to be answered before a map is worth drawing: the phone's
-                    GPS is proven in the truck (Q38), and a map centred on nothing is worse than no
-                    map. Same words as Settings' readout and the console probe, on purpose.
-                -->
-                <TextBlock Margin="0,22,0,0"
-                           HorizontalAlignment="Center"
-                           TextAlignment="Center"
-                           FontFamily="{DynamicResource MonoFont}"
-                           FontSize="15"
-                           Foreground="{DynamicResource TextMidBrush}"
-                           Text="{Binding PositionText}" />
+                    <TextBlock Margin="0,16,0,0"
+                               HorizontalAlignment="Center"
+                               FontFamily="{DynamicResource UiFont}"
+                               FontSize="24"
+                               Foreground="{DynamicResource TextLowBrush}"
+                               Text="{Binding PlaceholderTitle}" />
 
-                <TextBlock Margin="0,6,0,0"
-                           HorizontalAlignment="Center"
-                           TextAlignment="Center"
-                           Style="{StaticResource MicroText}"
-                           Text="{Binding PositionDetail}" />
+                    <TextBlock Margin="0,10,0,0"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               MaxWidth="620"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="{Binding PlaceholderDetail}" />
 
-                <Border Height="1" Width="320" Margin="0,22,0,18"
-                        Background="{DynamicResource HairlineBrush}" />
+                    <!--
+                        The position, in the same words Settings' readout and the console probe
+                        use. It stays on the no-map states because it is what says whether the
+                        problem is the position or the tiles — two failures that look identical
+                        otherwise.
+                    -->
+                    <Border Height="1" Width="320" Margin="0,22,0,16"
+                            Background="{DynamicResource HairlineBrush}" />
 
-                <TextBlock HorizontalAlignment="Center"
-                           TextAlignment="Center"
-                           MaxWidth="560"
-                           TextWrapping="Wrap"
-                           Style="{StaticResource MicroText}"
-                           Text="ADR-0058 · MAPLIBRE IN WEBVIEW2 · PMTILES ON THE TABLET · GRAPHHOPPER FOR ROUTES" />
-            </StackPanel>
+                    <TextBlock HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               FontFamily="{DynamicResource MonoFont}"
+                               FontSize="14"
+                               Foreground="{DynamicResource TextMidBrush}"
+                               Text="{Binding PositionText}" />
+
+                    <TextBlock Margin="0,6,0,0"
+                               HorizontalAlignment="Center"
+                               TextAlignment="Center"
+                               Style="{StaticResource MicroText}"
+                               Text="{Binding PositionDetail}" />
+                </StackPanel>
+            </Grid>
         </Border>
     </DockPanel>
 </UserControl>
