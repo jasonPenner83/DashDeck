@@ -236,6 +236,22 @@ motorways already fall out of its text ramp. `--map-style` still wins, and then 
 only the marker. A style that will not parse is never handed to the renderer. Labels are Noto Sans
 whatever the theme's fonts say — **Q45**.
 
+**Address search, and the dash's own keyboard** (ADR-0065). SEARCH on the map region opens a
+full-screen search — it **covers** the map rather than overlaying it, because a WebView2 is a child
+window and WPF cannot draw a keyboard over one (ADR-0021), and five rows of keys do not fit the
+bottom third anyway, so it takes the map to its larger placement first. The geocoder is
+**Nominatim** under its acceptable-use policy, and all five of the policy's requirements are code
+rather than good intentions: **no auto-complete** (it is forbidden outright, so typing never
+searches — a SEARCH button is the only thing that asks), at most one request a second, results
+cached by normalised query, a User-Agent naming DashDeck and its repository, and a `viewbox` bias
+towards the truck that is a preference rather than a fence. **DashDeck draws its own keyboard** —
+one page, no shift, a digits row first — because nothing in the dash had ever needed typing in the
+cab and Windows' touch keyboard over a borderless window may simply not appear; `KeyboardLayout` is
+data in Core, and a test about row proportions rejected the first two-page design outright. **A
+destination cannot be typed above 5 km/h** (ADR-0058's distraction rule, reusing the compass'
+threshold), read on the beat so stopping unlocks it. Choosing an address moves the map, pins it and
+stops following. Recents are session-only and search needs signal — both are **Q46**.
+
 **Two looks, Modern and Glass; LCARS is yours** (ADR-0043). **Modern** is the built-in theme
 (`builtin/modern`: cool greys, accent `#5AC8FA`, Segoe UI Variable) and names the Modern stage
 (`catalog/stage/modern.json`), console and climate panel; **Glass** ships (`catalog/themes/glass.json`)
@@ -592,7 +608,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Sixty-four exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Sixty-five exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the

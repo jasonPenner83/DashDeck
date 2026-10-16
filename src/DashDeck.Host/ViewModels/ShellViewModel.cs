@@ -117,6 +117,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsMapsActive))]
     [NotifyPropertyChangedFor(nameof(IsMapFull))]
     [NotifyPropertyChangedFor(nameof(IsMapVisible))]
+    [NotifyPropertyChangedFor(nameof(IsMapSearchVisible))]
     [NotifyPropertyChangedFor(nameof(IsMapOnStageNoticeVisible))]
     [NotifyPropertyChangedFor(nameof(IsSettingsActive))]
     [NotifyPropertyChangedFor(nameof(IsDestinationUnbuilt))]
@@ -319,7 +320,21 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // SetStage path the launcher uses, and AfterStageChange reconciles the map's placement on
         // every stage change — including the opening one, below.
         Shell.StartupTrace.Phase("shell: the map");
-        Map = new MapViewModel(location, clock, mapStyle);
+
+        // Address search (ADR-0065) needs the map it is searching on — for where to bias the
+        // search and how fast the truck is going — and the map needs the search, to go where it
+        // was told. The closures are only ever called after both exist, which is what lets two
+        // things that need each other be built in one order.
+        MapViewModel? map = null;
+
+        var search = new MapSearchViewModel(
+            Maps.AddressLookup.FetchAsync,
+            clock,
+            () => map?.Camera,
+            () => map?.SpeedKmh);
+
+        map = new MapViewModel(location, clock, mapStyle, search);
+        Map = map;
         Map.PlacementChanged += _ => OnMapMoved();
 
         // The map is drawn by a browser that has never heard of the theme's resources, so it is
@@ -327,6 +342,17 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // A theme worn, an accent picked or dusk falling all restyle a map already on screen.
         Map.Wear(Maps.MapTheme.From(Theme.ThemeResolver.Resolve(theme.Current, theme.IsNight)));
         theme.Applied += resolved => Map.Wear(Maps.MapTheme.From(resolved));
+
+        // The search covers the map's own region rather than floating over it, so the shell has
+        // to know when it opens.
+        Map.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(MapViewModel.IsSearchOpen))
+            {
+                OnPropertyChanged(nameof(IsMapVisible));
+                OnPropertyChanged(nameof(IsMapSearchVisible));
+            }
+        };
 
         // The warning lights (ADR-0055): built before the stage, because whether the occupant is
         // drawn depends on whether the warning window is up.
@@ -413,6 +439,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(IsDashVisible));
                 OnPropertyChanged(nameof(IsClimateVisible));
                 OnPropertyChanged(nameof(IsMapVisible));
+                OnPropertyChanged(nameof(IsMapSearchVisible));
                 OnPropertyChanged(nameof(IsMapOnStageNoticeVisible));
                 OnPropertyChanged(nameof(IsFullScreenOpen));
                 OnPropertyChanged(nameof(IsDashEditing));
@@ -573,7 +600,17 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// whole six bands. So there is one binding, not two.
     /// </remarks>
     public bool IsMapVisible =>
-        IsMapsActive && !Map.IsOnStage && !IsCardEditorOpen && !IsComponentDetailOpen;
+        IsMapsActive && !Map.IsOnStage && !Map.IsSearchOpen && !IsCardEditorOpen && !IsComponentDetailOpen;
+
+    /// <summary>
+    /// Whether address search is covering the map (ADR-0065).
+    /// </summary>
+    /// <remarks>
+    /// It covers rather than overlays, because a WebView2 is a child window and WPF cannot draw a
+    /// keyboard on top of one (ADR-0021). The map is still alive behind it.
+    /// </remarks>
+    public bool IsMapSearchVisible =>
+        IsMapsActive && Map.IsSearchOpen && !IsCardEditorOpen && !IsComponentDetailOpen;
 
     /// <summary>
     /// Whether to say, in the nav's region, that the map is on the stage.
@@ -631,6 +668,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         OnPropertyChanged(nameof(IsMapFull));
         OnPropertyChanged(nameof(IsMapVisible));
+        OnPropertyChanged(nameof(IsMapSearchVisible));
         OnPropertyChanged(nameof(IsMapOnStageNoticeVisible));
         OnPropertyChanged(nameof(IsFullScreenOpen));
         OnPropertyChanged(nameof(StageBands));

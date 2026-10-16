@@ -52,6 +52,18 @@
   #me.stale .cone { border-bottom-color: #6B665E; }
   #me.stale .dot { background: #6B665E; }
 
+  /* A searched address. Deliberately not the marker's colour: the vehicle and the destination
+     must never be mistaken for one another at a glance. */
+  #there {
+    position: relative; width: 34px; height: 34px;
+  }
+  #there .pin {
+    position: absolute; left: 11px; top: 4px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #F4F1EB; border: 3px solid #0D0C0B;
+    box-shadow: 0 0 0 2px #F4F1EB;
+  }
+
   /*
     The loading word lives in the page, and it has to: a WebView2 is a child window, so WPF
     content cannot be drawn over it (ADR-0021's airspace rule). Anything that must sit on top of
@@ -95,6 +107,7 @@ const boot = window.dashBoot || {};
 let map = null;
 let marker = null;
 let element = null;
+let destination = null;
 let following = true;
 
 /* Reported once, whatever went wrong, because every failure here looks the same on screen:
@@ -215,6 +228,29 @@ try {
     follow(on) {
       following = !!on;
       if (following && marker) { map.easeTo({ center: marker.getLngLat(), duration: 600 }); }
+    },
+
+    /* A searched address: fly there and pin it. Only ever one pin - a second search replaces the
+       first, because two destinations on a map is a question rather than an answer. */
+    destination(lon, lat, zoom, label) {
+      if (!Number.isFinite(lon) || !Number.isFinite(lat)) { return; }
+
+      if (!destination) {
+        const dot = document.createElement("div");
+        dot.id = "there";
+        dot.innerHTML = '<div class="pin"></div>';
+        destination = new maplibre.Marker({ element: dot, anchor: "center" });
+      }
+
+      destination.setLngLat([lon, lat]).addTo(map);
+
+      if (typeof label === "string" && label.length > 0) {
+        destination.getElement().title = label;
+      }
+
+      /* flyTo rather than jumpTo: the movement is what says "this is somewhere else", and the
+         dash has already stopped following so nothing fights it. */
+      map.flyTo({ center: [lon, lat], zoom: zoom || map.getZoom(), duration: 1200 });
     },
 
     /* A whole style, as an object. setStyle keeps the camera as long as the new style fixes

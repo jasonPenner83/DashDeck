@@ -1545,12 +1545,50 @@ dotnet run --project src\DashDeck.Host -- --gps synthetic --nav MAPS
     glyphs built into PBF ranges and a theme's TTF has none (Q45). If the LCARS map looks right in
     every way except the lettering, that is why, and it is written down rather than a bug.
 
+### Does the search work (ADR-0065)
+
+**Parked, with the connection up.** The dash will not let you type a destination above 5 km/h, so
+every step here is stationary on purpose.
+
+14. **Tap SEARCH on the map region.** **Expect:** the map goes full screen and the search covers
+    it — a field reading *Street and town*, **‹ MAP** and **SEARCH** either side, an empty
+    **RECENT** heading, and DashDeck's own keyboard across the bottom: digits, three letter rows,
+    then marks with SPACE and CLEAR.
+    **A failure looks like:** nothing happening (the chip is not reaching the command), or the
+    keyboard drawn with keys of wildly different sizes — the rows are meant to be within a key of
+    each other.
+15. **Type an address you know** — a street and a town. **Expect:** the letters appear in the
+    field, big enough to read at arm's length, and **nothing searches while you type.** That is
+    deliberate and required: Nominatim's policy forbids auto-complete outright.
+    Check the keys: **⌫** removes one, **CLEAR** empties it, and SPACE does nothing at the start
+    or twice in a row.
+16. **Tap SEARCH.** **Expect:** up to five results, each a bold line with the address under it.
+    Nearby matches should come first — the search is biased to where the truck is.
+    **Tap SEARCH again straight away.** **Expect:** *Just a moment — one search a second.* That is
+    the usage policy, enforced rather than trusted.
+17. **Tap a result.** **Expect:** the search closes, the map flies to the address and drops a
+    **pale pin** — deliberately not the vehicle's colour, so the two are never confused — and
+    **RECENTRE** appears, because choosing a destination stops the map following you.
+18. **Tap SEARCH again.** **Expect:** the address you just chose under **RECENT**. Tap it: straight
+    there, no request at all. **Search the same address a second time** and expect the results
+    instantly with no network — it is cached, which the policy asks for and which also means it
+    works when the signal has gone.
+19. **Search something that does not exist** ("qqqq zzzz"). **Expect:** *Nothing found for that. A
+    street and a town finds more than a street alone.* — advice, not an error.
+20. **Turn the connection off and search.** **Expect:** *No answer — the search needs a
+    connection.* The map behind it keeps whatever tiles it had. Recents still work.
+21. **The gate. Get someone to drive, or roll slowly, and tap SEARCH.** **Expect:** the search
+    opens and says *Stop first — a destination cannot be typed at nn km/h*, with the keyboard
+    dimmed and **‹ MAP** still working. **Stop again without touching anything.** **Expect** the
+    keyboard to come back by itself within a second or two.
+    **This is the step worth being fussy about** — it is the one safety rule in the feature.
+
 ### In the cab
 
-14. **At night, parked.** **Expect** the map readable without being a torch. If the theme's map is
+22. **At night, parked.** **Expect** the map readable without being a torch. If the theme's map is
     too bright or too dim at night, the fix is a token (`mapLand`, `mapRoad`) or the night rule
     behind it — tell me which way it is wrong.
-15. **Watch the data.** This is the first feature that spends the truck's data by moving. Vector
+23. **Watch the data.** This is the first feature that spends the truck's data by moving. Vector
     tiles are small and the browser caches them, so a repeated drive should be nearly free — a
     drive somewhere new will not be. If it costs more than you expect, say so: that is Q44's
     argument, and it is the next thing to build.

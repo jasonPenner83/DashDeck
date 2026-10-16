@@ -97,3 +97,27 @@ public sealed class EqualityConverter : IMultiValueConverter
     public object[] ConvertBack(object? value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 }
+
+/// <summary>
+/// A key's width in key-widths, as pixels (ADR-0065).
+/// </summary>
+/// <remarks>
+/// The keyboard is laid out in key-widths — a letter is 1, the space bar is 3 — so the layout can
+/// live in Core as data and be tested without a screen. This is the one place that turns those
+/// into pixels, which keeps the arithmetic in a single spot: ten keys across the map region's
+/// usable width, less the gap between them.
+/// </remarks>
+public sealed class KeyWidthConverter : IValueConverter
+{
+    /// <summary>One key-width in pixels. Ten across the 850 the region leaves after its margins.</summary>
+    public const double Unit = 84;
+
+    /// <summary>The gap between keys. Taken off each key rather than added between them.</summary>
+    public const double Gap = 6;
+
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is double widths ? Math.Max(1, (widths * Unit) - Gap) : Unit - Gap;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}

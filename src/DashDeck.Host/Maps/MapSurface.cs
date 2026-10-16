@@ -35,6 +35,11 @@ public interface IMapSurface
     /// </param>
     /// <param name="marker">The colour of the vehicle marker.</param>
     void Restyle(string? styleJson, string marker);
+
+    /// <summary>Fly to a chosen address and pin it.</summary>
+    /// <param name="camera">Where it is.</param>
+    /// <param name="label">What to call it.</param>
+    void Destination(MapCamera camera, string label);
 }
 
 /// <summary>
@@ -220,6 +225,13 @@ public sealed class MapSurface : IMapSurface, IDisposable
 
     /// <inheritdoc />
     public void Follow(bool on) => Run("follow", $"window.dash.follow({(on ? "true" : "false")})");
+
+    /// <inheritdoc />
+    public void Destination(MapCamera camera, string label) => Run(
+        "destination",
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"window.dash.destination({camera.Longitude:0.######},{camera.Latitude:0.######},{camera.Zoom:0.##},{Quote(label)})"));
 
     /// <summary>
     /// The course to draw the marker's cone at, or <c>NaN</c> to leave it where it is.

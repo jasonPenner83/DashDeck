@@ -1,0 +1,207 @@
+<UserControl x:Class="DashDeck.Host.Views.MapSearchPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:DashDeck.Host.Converters"
+             Background="{DynamicResource CanvasBrush}">
+
+    <UserControl.Resources>
+        <conv:KeyWidthConverter x:Key="KeyWidth" />
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <conv:InverseBoolToVisibilityConverter x:Key="NotBoolToVis" />
+
+        <!-- One row in either list: what it is, and where. Shared so the results and the recents
+             cannot drift apart. -->
+        <DataTemplate x:Key="FoundAddress">
+            <Button Margin="0,0,0,8" Cursor="Hand"
+                    Command="{Binding DataContext.Search.ChooseCommand,
+                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    CommandParameter="{Binding}">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Row"
+                                CornerRadius="12"
+                                Padding="18,12"
+                                Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource HairlineBrush}"
+                                BorderThickness="1">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Row" Property="BorderBrush"
+                                        Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+                <StackPanel>
+                    <TextBlock FontFamily="{DynamicResource UiFont}" FontSize="22"
+                               Foreground="{DynamicResource TextHighBrush}"
+                               TextTrimming="CharacterEllipsis"
+                               Text="{Binding Label}" />
+                    <TextBlock Margin="0,4,0,0"
+                               Style="{StaticResource MicroText}"
+                               TextTrimming="CharacterEllipsis"
+                               Text="{Binding Detail}" />
+                </StackPanel>
+            </Button>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <!--
+        Address search (ADR-0065). It covers the map rather than floating over it, and has to: a
+        WebView2 is a child window, so WPF cannot draw a keyboard on top of it (ADR-0021).
+
+        Only ever drawn full screen — five rows of keys, a field and a result list do not fit the
+        bottom third, so opening the search takes the map to its larger placement first.
+    -->
+    <DockPanel Margin="31,18,31,18">
+
+        <!-- The field, and the two things you can do with it. -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0"
+                    Style="{StaticResource OptionChipButton}"
+                    Content="‹ MAP"
+                    Command="{Binding CloseSearchCommand}" />
+
+            <Border Grid.Column="1" Margin="12,0,12,10"
+                    CornerRadius="14"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource HairlineStrongBrush}"
+                    BorderThickness="1"
+                    Height="56">
+                <Grid Margin="16,0">
+                    <!-- What has been typed. Big, because it is read at arm's length and checked
+                         against a street sign rather than a screen. -->
+                    <TextBlock VerticalAlignment="Center"
+                               FontFamily="{DynamicResource UiFont}"
+                               FontSize="24"
+                               Foreground="{DynamicResource TextHighBrush}"
+                               TextTrimming="CharacterEllipsis"
+                               Text="{Binding Search.Query}" />
+
+                    <TextBlock VerticalAlignment="Center"
+                               FontFamily="{DynamicResource UiFont}"
+                               FontSize="24"
+                               Foreground="{DynamicResource TextFaintBrush}"
+                               Text="{Binding Search.Prompt}"
+                               Visibility="{Binding Search.HasQuery, Converter={StaticResource NotBoolToVis}}" />
+                </Grid>
+            </Border>
+
+            <Button Grid.Column="2"
+                    Style="{StaticResource OptionChipButton}"
+                    Content="SEARCH"
+                    IsEnabled="{Binding Search.CanSearch}"
+                    Command="{Binding Search.SearchCommand}" />
+        </Grid>
+
+        <!--
+            The keyboard. Docked at the bottom, which is where a thumb reaches — and the rows are
+            drawn from KeyboardLayout, in key-widths, so the layout is data and this is only paint.
+        -->
+        <ItemsControl DockPanel.Dock="Bottom" ItemsSource="{Binding Search.Rows}"
+                      HorizontalAlignment="Center"
+                      IsEnabled="{Binding Search.MayType}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <ItemsControl ItemsSource="{Binding}" HorizontalAlignment="Center">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Height="78" Margin="3"
+                                        Cursor="Hand"
+                                        Width="{Binding Width, Converter={StaticResource KeyWidth}}"
+                                        Command="{Binding DataContext.Search.TypeCommand,
+                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="Cap"
+                                                    CornerRadius="10"
+                                                    Background="{DynamicResource RaisedBrush}"
+                                                    BorderBrush="{DynamicResource HairlineStrongBrush}"
+                                                    BorderThickness="1">
+                                                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           FontFamily="{DynamicResource MonoFont}"
+                                                           FontSize="20"
+                                                           Foreground="{DynamicResource TextHighBrush}"
+                                                           Text="{Binding Caption}" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <!-- Pressed rather than hovered: there is no pointer
+                                                     in the truck, and a key that does not visibly
+                                                     take the tap gets tapped twice. -->
+                                                <Trigger Property="IsPressed" Value="True">
+                                                    <Setter TargetName="Cap" Property="Background"
+                                                            Value="{DynamicResource AccentBrush}" />
+                                                </Trigger>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter TargetName="Cap" Property="Opacity" Value="0.3" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Whatever there is to say, and whatever there is to tap. -->
+        <Grid>
+            <!-- The speed gate (ADR-0058). Covers the lot, because while it is up there is
+                 nothing here worth reading. -->
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                        Visibility="{Binding Search.MayType, Converter={StaticResource NotBoolToVis}}">
+                <TextBlock HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="620"
+                           TextWrapping="Wrap"
+                           FontFamily="{DynamicResource UiFont}" FontSize="24"
+                           Foreground="{DynamicResource TextLowBrush}"
+                           Text="{Binding Search.Barred}" />
+                <TextBlock Margin="0,12,0,0" HorizontalAlignment="Center"
+                           Style="{StaticResource MicroText}"
+                           Text="THE MAP IS STILL BEHIND THIS — ‹ MAP GOES BACK TO IT" />
+            </StackPanel>
+
+            <DockPanel Visibility="{Binding Search.MayType, Converter={StaticResource BoolToVis}}">
+                <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10"
+                           Style="{StaticResource MicroText}"
+                           Text="{Binding Search.Message}"
+                           Visibility="{Binding Search.HasMessage, Converter={StaticResource BoolToVis}}" />
+
+                <!-- Results when there are some, and what you picked before when there are not.
+                     ADR-0058 put recents ahead of search on purpose: typing an address on glass is
+                     the slowest way to say where you are going. -->
+                <TextBlock DockPanel.Dock="Top" Margin="0,0,0,8"
+                           Style="{StaticResource CaptionText}"
+                           Text="RECENT"
+                           Visibility="{Binding Search.HasResults, Converter={StaticResource NotBoolToVis}}" />
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly">
+                    <Grid>
+                        <ItemsControl ItemsSource="{Binding Search.Results}"
+                                      Visibility="{Binding Search.HasResults, Converter={StaticResource BoolToVis}}"
+                                      ItemTemplate="{StaticResource FoundAddress}" />
+
+                        <ItemsControl ItemsSource="{Binding Search.Recent}"
+                                      Visibility="{Binding Search.HasResults, Converter={StaticResource NotBoolToVis}}"
+                                      ItemTemplate="{StaticResource FoundAddress}" />
+                    </Grid>
+                </ScrollViewer>
+            </DockPanel>
+        </Grid>
+    </DockPanel>
+</UserControl>

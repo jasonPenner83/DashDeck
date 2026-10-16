@@ -35,7 +35,16 @@
         <Grid DockPanel.Dock="Bottom" Margin="0,0,0,18"
               Visibility="{Binding IsOnStage, Converter={StaticResource NotBoolToVis}}">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <!-- Only offered when the dash was built with a search, and only usable when
+                     stopped — the gate itself is inside, so the chip opens and explains rather
+                     than being dead (ADR-0058's rule, ADR-0065). -->
                 <Button Style="{StaticResource OptionChipButton}"
+                        Content="SEARCH"
+                        Command="{Binding OpenSearchCommand}"
+                        Visibility="{Binding IsSearchOffered, Converter={StaticResource BoolToVis}}" />
+
+                <Button Style="{StaticResource OptionChipButton}"
+                        Margin="12,0,0,0"
                         Content="TO THE STAGE"
                         Command="{Binding SendToStageCommand}" />
 

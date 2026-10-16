@@ -57,11 +57,15 @@ public sealed class MapRenderTests
 
         public List<string> Markers { get; } = [];
 
+        public List<(MapCamera Camera, string Label)> Destinations { get; } = [];
+
         public void Restyle(string? styleJson, string marker)
         {
             Styles.Add(styleJson);
             Markers.Add(marker);
         }
+
+        public void Destination(MapCamera camera, string label) => Destinations.Add((camera, label));
 
         public void Position(LocationFix fix, bool live)
         {
