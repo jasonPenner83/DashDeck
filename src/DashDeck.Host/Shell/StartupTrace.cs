@@ -67,7 +67,14 @@ internal static class StartupTrace
         Write(StartupWatch.Line(phase, Watch.Elapsed));
     }
 
-    /// <summary>The window is up. Disarms the watchdog.</summary>
+    /// <summary>
+    /// The window is up. Disarms the watchdog.
+    /// </summary>
+    /// <remarks>
+    /// Plain ASCII in the lines on purpose: this file is read with <c>Get-Content</c> in Windows
+    /// PowerShell, which decodes as ANSI and turns an em dash into mojibake. A log that is hard to
+    /// read is a log that gets skipped.
+    /// </remarks>
     public static void Ready()
     {
         lock (Gate)
@@ -75,7 +82,7 @@ internal static class StartupTrace
             _ready = true;
         }
 
-        Write(StartupWatch.Line("window shown — startup finished", Watch.Elapsed));
+        Write(StartupWatch.Line("window shown - startup finished", Watch.Elapsed));
     }
 
     /// <summary>
