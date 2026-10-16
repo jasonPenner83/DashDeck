@@ -36,14 +36,21 @@ public sealed class MapStageOccupant(MapViewModel map, Action bringBack) : IStag
 
     /// <inheritdoc />
     /// <remarks>
-    /// One action, and it is the way out. The panel's own buttons are hidden here, because a
-    /// control drawn inside an occupant costs picture and competes with the menu that already
-    /// exists for exactly this.
+    /// Two, and they are the two the panel offers that still mean something here. An occupant's
+    /// controls belong in the menu rather than drawn inside its own picture — doubly so for this
+    /// one, which is a child window the menu has to be told to stand down for (ADR-0021).
     /// </remarks>
-    public IReadOnlyList<StageAction> Actions => [new StageAction("BRING THE MAP BACK", bringBack)];
+    public IReadOnlyList<StageAction> Actions =>
+    [
+        new StageAction("BRING THE MAP BACK", bringBack),
+
+        // The panel's chips are hidden on the stage, so this is the only way back to the vehicle
+        // after a pan — and a map that has lost you with no way to recentre is worse than none.
+        new StageAction("RECENTRE", () => map.RecentreCommand.Execute(null)),
+    ];
 
     /// <inheritdoc />
-    public string Describe() => $"map on the stage · {map.PositionText}";
+    public string Describe() => $"map on the stage · {map.Describe()}";
 
     /// <inheritdoc />
     /// <remarks>

@@ -202,11 +202,24 @@ stage is **reconciled after every stage change** rather than reported from the o
 `Dispose`, which would re-enter `SetStage`. The map is deliberately **not** in the stage picker
 until it can be a `map` launcher entry (ADR-0038), and the built-in launcher's `MAPS` web page is
 now **`OSM`**, since the online OpenStreetMap page is a different thing from the offline map.
-The picture is a placeholder; the **position readout is real** (the same words as Settings ▸ Display
-and `GpsProbe`), because whether there is a fix to centre on is the question worth answering before
-a map is worth drawing. What the map will be is [ADR-0058](docs/decisions/ADR-0058-offline-map-and-routing.md);
-**Q43** is what the placeholder hides — a WebView2 cannot be moved between these three places
-without reloading.
+**And there is a map in it now** (ADR-0063): **MapLibre GL JS**, vendored into the deploy
+(`src/DashDeck.Host/Map/web/`, 6.12.0, BSD-3-Clause), rendering **OpenFreeMap** vector tiles
+fetched as you pan — no API key, no request limit, their `dark` style, `--map-style <https url>` to
+swap it. **Never OSM's own tile servers**, whose usage policy forbids precisely this. The page runs
+in a **second WebView2** served from a virtual host (`https://dashdeck.map/index.html`, mapped to
+the deploy's `map/` folder), because an ES module and a web worker both refuse a `file://` origin,
+and it is driven over a string bridge — `window.dash.position/camera/follow` out, `map:ready` /
+`map:error:` / `map:camera:` / `map:free` back, parsed by `MapMessage` in Core. `MapCamera` lives
+in Core too, so where the map is looking **survives the rebuild a placement change causes** (Q43),
+along with invariant-culture formatting and clamping — a `NaN` across that bridge draws a blank
+canvas with no error. The map follows the vehicle until it is panned and then offers **RECENTRE**;
+on the stage both that and BRING THE MAP BACK are menu actions, since the panel's chips are hidden
+there. **Nothing invents a centre** — no fix, no map, and the region says which of the three
+reasons it is (GPS off, no fix yet, tiles did not load). The map and the placeholder never overlap,
+because a WebView2 is a child window and WPF cannot draw over it (ADR-0021): the dash draws the
+three no-page states and **the loading state lives inside the page**. What is still ahead is
+**Q44** — the offline half, a caching tile proxy on localhost seeded from a PMTiles cut of
+OpenFreeMap's own planet, so both halves end up the same data and the same look.
 
 **Two looks, Modern and Glass; LCARS is yours** (ADR-0043). **Modern** is the built-in theme
 (`builtin/modern`: cool greys, accent `#5AC8FA`, Segoe UI Variable) and names the Modern stage
@@ -603,7 +616,9 @@ shown as a row with the current one lit and matched by typing each state, and An
 the dongle — WinUSB by P/Invoke, the picture decoded into the visual tree, the sound on Windows'
 default output, and updating from the dash with nothing automatic between the three buttons, and
 MAPS as a destination with three placements — the bottom third, all six bands, or handed to the
-stage — with the geometry built and a placeholder in it.
+stage — and the map itself: MapLibre vendored into the deploy over OpenFreeMap tiles fetched as you
+drive, in a second WebView2 on a virtual host, with the camera held outside the page so a resize
+does not lose your place.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.
