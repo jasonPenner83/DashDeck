@@ -117,19 +117,20 @@ public sealed class MapDestinationTests
     }
 
     [Fact]
-    public void The_occupant_offers_one_action_and_it_is_the_way_back()
+    public void The_occupants_first_action_is_the_way_back()
     {
-        // The panel's own buttons are hidden on the stage, so this is the only way out of it
-        // short of choosing something else — and an occupant with no way back is a trap.
+        // The panel's own buttons are hidden on the stage, so the menu is the only way out short
+        // of choosing something else — and an occupant with no way back is a trap. It is first
+        // because it is the one you reach for; the full list is pinned in MapRenderTests, which
+        // is where RECENTRE joined it.
         var map = new MapViewModel();
         map.SendToStageCommand.Execute(null);
 
         var occupant = new MapStageOccupant(map, () => map.BringBackCommand.Execute(null));
 
-        var action = Assert.Single(occupant.Actions);
-        Assert.Equal("BRING THE MAP BACK", action.Caption);
+        Assert.Equal("BRING THE MAP BACK", occupant.Actions[0].Caption);
 
-        action.Invoke();
+        occupant.Actions[0].Invoke();
         Assert.False(map.IsOnStage);
     }
 
