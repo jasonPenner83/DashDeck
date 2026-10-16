@@ -301,7 +301,8 @@ public partial class App : Application
             Shell.StartupTrace.Phase("components still loading — carrying on without them");
         }
 
-        // --stage <NAME> opens on a named occupant: CLOCK, VIDEO, NUVIO, MAPS or STREMIO.
+        // --stage <NAME> opens on a named occupant: CLOCK, VIDEO, NUVIO, OSM or STREMIO — or
+        // MAPS, which is the map on the stage rather than a launcher entry (ADR-0062).
         // --gps <host:port|synthetic> forces a phone-GPS source (ADR-0027) for a screenshot or a
         // quick test, over whatever the persisted setting says.
         Shell.StartupTrace.Phase("building the shell");
@@ -449,7 +450,12 @@ public partial class App : Application
                 {
                     var climate = _shell.DescribeClimate() is { } c ? $"{Environment.NewLine}climate: {c}" : "";
                     var console = _shell.DescribeConsole() is { } d ? $"{Environment.NewLine}console: {d}" : "";
-                    System.IO.File.WriteAllText(shotPath + ".txt", state + climate + console);
+
+                    // The map's placement is the thing one picture cannot show: a map on the
+                    // stage and a map in the bottom third render as different regions, and
+                    // which one is which is the whole question while it is being built.
+                    var map = _shell.DescribeMap() is { } m ? $"{Environment.NewLine}map: {m}" : "";
+                    System.IO.File.WriteAllText(shotPath + ".txt", state + climate + console + map);
                 }
 
                 Shutdown();

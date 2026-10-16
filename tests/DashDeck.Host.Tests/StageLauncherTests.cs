@@ -30,7 +30,9 @@ public sealed class StageLauncherTests : IDisposable
 
     /// <summary>
     /// The list that was in code before, in the same order — nothing moved by becoming a file —
-    /// with CARDS second since the cards moved onto the stage (ADR-0041).
+    /// with CARDS second since the cards moved onto the stage (ADR-0041), and the web page that
+    /// was MAPS now called OSM: MAPS is the dash's own destination since ADR-0062, and the
+    /// online OpenStreetMap page is a different thing from the offline map ADR-0058 describes.
     /// </summary>
     [Fact]
     public void The_built_in_launcher_offers_what_the_code_did_in_the_same_order()
@@ -39,7 +41,7 @@ public sealed class StageLauncherTests : IDisposable
 
         Assert.Empty(launcher.Problems);
         Assert.Equal(
-            ["GAUGES", "CARDS", "CLOCK", "COMPASS", "PHONE", "VIDEO", "MAPS", "SPOTIFY", "MUSIC", "NUVIO", "STREMIO", "PROBE"],
+            ["GAUGES", "CARDS", "CLOCK", "COMPASS", "PHONE", "VIDEO", "OSM", "SPOTIFY", "MUSIC", "NUVIO", "STREMIO", "PROBE"],
             launcher.Offered.Where(e => e.Type != LauncherTypes.UserApps).Select(e => e.Name));
         Assert.Equal(LauncherTypes.UserApps, launcher.Entries[^1].Type);
         Assert.Equal("GAUGES", launcher.StartOn);
@@ -54,9 +56,9 @@ public sealed class StageLauncherTests : IDisposable
         Assert.Equal(names.Take(5), StageLauncher.BuiltIn.QuickBar);
     }
 
-    /// <summary>The sources that kept playing before still do (ADR-0026); MAPS never did.</summary>
+    /// <summary>The sources that kept playing before still do (ADR-0026); the map page never did.</summary>
     [Fact]
-    public void The_built_in_sources_keep_playing_and_maps_does_not()
+    public void The_built_in_sources_keep_playing_and_the_map_page_does_not()
     {
         var plays = StageLauncher.BuiltIn.Entries.Where(e => e.PlaysAudio).Select(e => e.Name).ToHashSet();
 

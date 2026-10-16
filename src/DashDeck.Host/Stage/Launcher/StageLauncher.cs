@@ -437,7 +437,10 @@ public sealed record StageLauncher
 
         // ── Pages in WebView2 ──
         // "zoom" fixes the page's zoom; without it, Settings ▸ Display decides.
-        { "name": "MAPS", "type": "web", "url": "https://www.openstreetmap.org" },
+        // Was MAPS, and renamed when MAPS became the dash's own destination (ADR-0062): this
+        // is the online OpenStreetMap page, which is a different thing from the offline map
+        // ADR-0058 describes, and two of them answering to one name would be a trap.
+        { "name": "OSM", "type": "web", "url": "https://www.openstreetmap.org", "detail": "OpenStreetMap - needs signal" },
         { "name": "SPOTIFY", "type": "web", "url": "https://open.spotify.com", "keepPlaying": true },
         { "name": "MUSIC", "type": "web", "url": "https://music.apple.com", "keepPlaying": true },
 
