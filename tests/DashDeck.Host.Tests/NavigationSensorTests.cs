@@ -284,6 +284,50 @@ public sealed class NavigationSensorTests
         Assert.Equal("NAV · NO ROUTE", Read(sensors, SensorChannel.RouteRemaining).Source);
     }
 
+    // ---- The catalog accepts them ----
+
+    /// <summary>
+    /// The one that shipped broken. The catalog's validator rejects any channel its source cannot
+    /// produce, and fell through to "no" for a source it had never heard of — so the six rows in
+    /// <c>sensors.device.json</c> threw at load, and the dash died at "shell: the sensor service"
+    /// on every launch, GPS or not. The shipped-catalog test in <c>SensorTests</c> guards the file;
+    /// this guards the rule.
+    /// </summary>
+    [Theory]
+    [InlineData(SensorChannel.DestinationDistance)]
+    [InlineData(SensorChannel.DestinationBearing)]
+    [InlineData(SensorChannel.RouteDistance)]
+    [InlineData(SensorChannel.RouteDuration)]
+    [InlineData(SensorChannel.RouteRemaining)]
+    [InlineData(SensorChannel.RouteEta)]
+    public void The_catalog_accepts_every_navigation_channel(SensorChannel channel)
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(new[] { Def(channel) });
+
+        var catalog = SensorCatalog.FromJson(json);
+
+        Assert.Equal(1, catalog.Count);
+    }
+
+    /// <summary>And still refuses the mistakes it exists to catch, in both directions.</summary>
+    [Fact]
+    public void The_catalog_refuses_a_channel_navigation_cannot_produce()
+    {
+        var wrong = Def(SensorChannel.Pitch);
+        var json = System.Text.Json.JsonSerializer.Serialize(new[] { wrong });
+
+        Assert.Throws<System.IO.InvalidDataException>(() => SensorCatalog.FromJson(json));
+    }
+
+    [Fact]
+    public void The_catalog_refuses_a_navigation_channel_on_another_source()
+    {
+        var wrong = Def(SensorChannel.RouteRemaining) with { Source = SensorSource.Gps };
+        var json = System.Text.Json.JsonSerializer.Serialize(new[] { wrong });
+
+        Assert.Throws<System.IO.InvalidDataException>(() => SensorCatalog.FromJson(json));
+    }
+
     // ---- Housekeeping ----
 
     [Fact]

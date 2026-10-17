@@ -103,6 +103,10 @@ public sealed class SensorCatalog
                 SensorSource.Inclinometer => d.Channel is SensorChannel.Pitch or SensorChannel.Roll,
                 SensorSource.Accelerometer => d.Channel is SensorChannel.Lateral or SensorChannel.Longitudinal,
                 SensorSource.Gps => d.Channel is SensorChannel.Latitude or SensorChannel.Longitude or SensorChannel.GroundSpeed,
+                SensorSource.Navigation => d.Channel
+                    is SensorChannel.DestinationDistance or SensorChannel.DestinationBearing
+                    or SensorChannel.RouteDistance or SensorChannel.RouteDuration
+                    or SensorChannel.RouteRemaining or SensorChannel.RouteEta,
                 _ => false,
             };
 
