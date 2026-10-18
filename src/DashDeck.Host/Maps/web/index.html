@@ -52,6 +52,64 @@
   #me.stale .cone { border-bottom-color: #6B665E; }
   #me.stale .dot { background: #6B665E; }
 
+  /* A searched address. Deliberately not the marker's colour: the vehicle and the destination
+     must never be mistaken for one another at a glance. */
+  #there {
+    position: relative; width: 34px; height: 34px;
+  }
+  #there .pin {
+    position: absolute; left: 11px; top: 4px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--ink, #F4F1EB); border: 3px solid var(--land, #0D0C0B);
+    box-shadow: 0 0 0 2px var(--ink, #F4F1EB);
+  }
+
+  /*
+    The place popup. It lives in the page and has to: a WebView2 is a child window, so anything
+    WPF drew over the map would be underneath it (ADR-0021). MapLibre's own popup chrome is white,
+    so all of it is repainted in the theme's colours, handed in with the palette.
+  */
+  .maplibregl-popup-content {
+    background: var(--surface, #191816) !important;
+    border: 1px solid var(--line, #3A3630);
+    border-radius: 14px;
+    padding: 14px 16px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+    max-width: 320px;
+  }
+  .maplibregl-popup-tip { display: none; }
+  .maplibregl-popup-close-button {
+    color: var(--ink, #A5A096) !important;
+    font-size: 22px; padding: 2px 10px 6px 10px;
+  }
+
+  .place-name {
+    font: 600 20px/1.25 Archivo, "Segoe UI", sans-serif;
+    color: var(--ink, #F4F1EB);
+  }
+  .place-detail, .place-fact {
+    margin-top: 6px;
+    font: 12px/1.45 "IBM Plex Mono", Consolas, monospace;
+    color: var(--mid, #A5A096);
+    word-break: break-word;
+  }
+  .place-kind {
+    display: inline-block; margin-top: 8px; padding: 2px 10px;
+    border: 1px solid var(--marker, #FF7A1A); border-radius: 999px;
+    font: 11px/1.6 "IBM Plex Mono", Consolas, monospace;
+    color: var(--marker, #FF7A1A); text-transform: uppercase;
+  }
+  /* A full-width target, because this is pressed with a thumb through a windscreen's worth of
+     glare rather than clicked. */
+  .place-go {
+    display: block; width: 100%; margin-top: 14px; padding: 12px 0;
+    background: var(--marker, #FF7A1A); color: var(--land, #0D0C0B);
+    border: 0; border-radius: 10px;
+    font: 600 15px/1 "IBM Plex Mono", Consolas, monospace;
+    letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
+  }
+  .place-go[disabled] { opacity: 0.45; }
+
   /*
     The loading word lives in the page, and it has to: a WebView2 is a child window, so WPF
     content cannot be drawn over it (ADR-0021's airspace rule). Anything that must sit on top of
@@ -95,6 +153,8 @@ const boot = window.dashBoot || {};
 let map = null;
 let marker = null;
 let element = null;
+let destination = null;
+let popup = null;
 let following = true;
 
 /* Reported once, whatever went wrong, because every failure here looks the same on screen:
@@ -118,9 +178,18 @@ const fail = reason => {
 window.onerror = (message) => fail(message);
 window.onunhandledrejection = (event) => fail(event && event.reason);
 
-if (typeof boot.marker === "string") {
-  document.documentElement.style.setProperty("--marker", boot.marker);
+/* The theme's colours, for everything the style does not paint: the vehicle, the pin and the
+   popup's chrome (ADR-0064). */
+function wear(palette) {
+  if (!palette) { return; }
+  for (const [name, value] of Object.entries(palette)) {
+    if (typeof value === "string") {
+      document.documentElement.style.setProperty("--" + name, value);
+    }
+  }
 }
+
+wear(boot.palette);
 
 try {
   const maplibre = await import("./lib/maplibre-gl.mjs");
@@ -181,6 +250,40 @@ try {
   map.on("touchmove", freed);
   map.on("wheel", freed);
 
+  /* The popup's contents, built as DOM with textContent rather than as HTML.
+     Everything in here - a place name, a website, opening hours - comes from OpenStreetMap, which
+     is to say from anybody, so none of it is ever parsed as markup. */
+  function card(place) {
+    const box = document.createElement("div");
+
+    const line = (text, className) => {
+      if (typeof text !== "string" || text.trim().length === 0) { return; }
+      const el = document.createElement("div");
+      el.className = className;
+      el.textContent = text.trim();
+      box.appendChild(el);
+    };
+
+    line(place.label, "place-name");
+    line(place.detail, "place-detail");
+    line(place.kind, "place-kind");
+    line(place.hours, "place-fact");
+    line(place.phone, "place-fact");
+    line(place.website, "place-fact");
+
+    const go = document.createElement("button");
+    go.className = "place-go";
+    go.textContent = "Directions to here";
+    go.addEventListener("click", () => {
+      go.disabled = true;
+      go.textContent = "Working it out\u2026";
+      say("map:directions");
+    });
+    box.appendChild(go);
+
+    return box;
+  }
+
   window.dash = {
     /* Where the vehicle is. Called on the dash's one-second beat while the map is on screen. */
     position(lon, lat, course, live) {
@@ -217,6 +320,78 @@ try {
       if (following && marker) { map.easeTo({ center: marker.getLngLat(), duration: 600 }); }
     },
 
+    /* A searched address: fly there, pin it, and open what is known about it. Only ever one pin -
+       a second search replaces the first, because two destinations on a map is a question rather
+       than an answer. */
+    destination(lon, lat, zoom, place) {
+      if (!Number.isFinite(lon) || !Number.isFinite(lat)) { return; }
+
+      if (!destination) {
+        const dot = document.createElement("div");
+        dot.id = "there";
+        dot.appendChild(Object.assign(document.createElement("div"), { className: "pin" }));
+        destination = new maplibre.Marker({ element: dot, anchor: "center" });
+      }
+
+      destination.setLngLat([lon, lat]).addTo(map);
+
+      if (popup) { popup.remove(); }
+      popup = new maplibre.Popup({ closeButton: true, closeOnClick: false, offset: 18, maxWidth: "320px" })
+        .setLngLat([lon, lat])
+        .setDOMContent(card(place || {}))
+        .addTo(map);
+
+      /* flyTo rather than jumpTo: the movement is what says "this is somewhere else", and the
+         dash has already stopped following so nothing fights it. */
+      map.flyTo({ center: [lon, lat], zoom: zoom || map.getZoom(), duration: 1200 });
+    },
+
+    /* The way there, as a line. Drawn under the markers so neither the vehicle nor the
+       destination is covered by it. */
+    route(coordinates) {
+      if (!Array.isArray(coordinates) || coordinates.length < 2) { return; }
+
+      const line = { type: "Feature", geometry: { type: "LineString", coordinates } };
+
+      if (map.getSource("route")) {
+        map.getSource("route").setData(line);
+      } else {
+        map.addSource("route", { type: "geojson", data: line });
+        map.addLayer({
+          id: "route-under", type: "line", source: "route",
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": getComputedStyle(document.documentElement).getPropertyValue("--land").trim() || "#0D0C0B",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 6, 7, 16, 20],
+          },
+        });
+        map.addLayer({
+          id: "route-line", type: "line", source: "route",
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": getComputedStyle(document.documentElement).getPropertyValue("--marker").trim() || "#FF7A1A",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 6, 3.5, 16, 12],
+          },
+        });
+      }
+
+      /* The whole way, with room for the panel that is about to cover the bottom of it. */
+      const bounds = coordinates.reduce(
+        (box, point) => box.extend(point),
+        new maplibre.LngLatBounds(coordinates[0], coordinates[0]));
+
+      map.fitBounds(bounds, { padding: { top: 80, bottom: 140, left: 60, right: 60 }, duration: 1200 });
+    },
+
+    clearRoute() {
+      for (const id of ["route-line", "route-under"]) {
+        if (map.getLayer(id)) { map.removeLayer(id); }
+      }
+      if (map.getSource("route")) { map.removeSource("route"); }
+      if (popup) { popup.remove(); popup = null; }
+      if (destination) { destination.remove(); destination = null; }
+    },
+
     /* A whole style, as an object. setStyle keeps the camera as long as the new style fixes
        none of its own - which MapStyle deliberately does not (Q43). */
     restyle(style) {
@@ -227,11 +402,7 @@ try {
       }
     },
 
-    marker(colour) {
-      if (typeof colour === "string") {
-        document.documentElement.style.setProperty("--marker", colour);
-      }
-    },
+    palette(colours) { wear(colours); },
   };
 } catch (e) {
   fail(e);

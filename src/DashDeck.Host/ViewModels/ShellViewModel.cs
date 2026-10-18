@@ -117,6 +117,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsMapsActive))]
     [NotifyPropertyChangedFor(nameof(IsMapFull))]
     [NotifyPropertyChangedFor(nameof(IsMapVisible))]
+    [NotifyPropertyChangedFor(nameof(IsMapSearchVisible))]
     [NotifyPropertyChangedFor(nameof(IsMapOnStageNoticeVisible))]
     [NotifyPropertyChangedFor(nameof(IsSettingsActive))]
     [NotifyPropertyChangedFor(nameof(IsDestinationUnbuilt))]
@@ -229,10 +230,25 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         var location = ResolveLocationSource(gpsOverride, Display, clock);
         IDeviceSensors? device = null;
 
+        // Declared up here because the sensors are built before the map is, and the navigation
+        // readouts below have to reach it. Every closure over it runs long after it is filled in.
+        MapViewModel? map = null;
+
         if (location is not null)
         {
             location.Start();
-            device = new CompositeDeviceSensors(new DeviceSensors(), new PhoneLocationSensors(location, clock));
+            var phone = new PhoneLocationSensors(location, clock);
+
+            // The navigation readouts (ADR-0066): the dash's own arithmetic over the phone's fix
+            // and whatever the map has been pointed at. It reads the phone's aged fix rather than
+            // the raw source, so a GPS that goes quiet takes the navigation numbers with it
+            // instead of counting down from a position that stopped arriving.
+            var navigation = new NavigationSensors(
+                () => phone.Fix,
+                () => map?.Destination?.Camera,
+                () => map?.Directions?.Route);
+
+            device = new CompositeDeviceSensors(new DeviceSensors(), phone, navigation);
         }
 
         // One service for the whole session: it holds the mount reference and any vehicle
@@ -319,7 +335,27 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // SetStage path the launcher uses, and AfterStageChange reconciles the map's placement on
         // every stage change — including the opening one, below.
         Shell.StartupTrace.Phase("shell: the map");
-        Map = new MapViewModel(location, clock, mapStyle);
+
+        // Address search (ADR-0065) needs the map it is searching on — for where to bias the
+        // search and how fast the truck is going — and the map needs the search, to go where it
+        // was told. The closures are only ever called after both exist, which is what lets two
+        // things that need each other be built in one order. The map itself is declared further
+        // up, with the sensors, for the same reason.
+        var search = new MapSearchViewModel(
+            Maps.AddressLookup.FetchAsync,
+            clock,
+            () => map?.Camera,
+            () => map?.SpeedKmh);
+
+        // Directions start from where the truck is now rather than from where the map is looking:
+        // a route from the corner you panned to would be a route from nowhere you have been.
+        var directions = new MapRouteViewModel(
+            Maps.AddressLookup.FetchAsync,
+            clock,
+            () => map?.Here);
+
+        map = new MapViewModel(location, clock, mapStyle, search, directions);
+        Map = map;
         Map.PlacementChanged += _ => OnMapMoved();
 
         // The map is drawn by a browser that has never heard of the theme's resources, so it is
@@ -327,6 +363,18 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // A theme worn, an accent picked or dusk falling all restyle a map already on screen.
         Map.Wear(Maps.MapTheme.From(Theme.ThemeResolver.Resolve(theme.Current, theme.IsNight)));
         theme.Applied += resolved => Map.Wear(Maps.MapTheme.From(resolved));
+
+        // The search covers the map's own region rather than floating over it, so the shell has
+        // to know when it opens.
+        Map.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(MapViewModel.IsSearchOpen) or nameof(MapViewModel.IsStepsOpen))
+            {
+                OnPropertyChanged(nameof(IsMapVisible));
+                OnPropertyChanged(nameof(IsMapSearchVisible));
+                OnPropertyChanged(nameof(IsMapStepsVisible));
+            }
+        };
 
         // The warning lights (ADR-0055): built before the stage, because whether the occupant is
         // drawn depends on whether the warning window is up.
@@ -352,10 +400,18 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // a null reference on startup: choosing the opening stage re-syncs the widget bands
         // and so needs this to exist, and StageBands reads IsCardEditorOpen, which reads this.
         // It starts on its own default and SyncWidgetBands settles it below.
+        // The words the map knows (ADR-0067), as a third kind of card source beside signals and
+        // sensors. Closures again, and this time with no ordering to work around — the map is
+        // already built by here. It is always available, unlike the navigation *numbers*, because
+        // choosing a destination needs no GPS.
+        var readouts = Dash.ReadoutCatalog.ForNavigation(
+            () => map.Destination,
+            () => map.Directions?.Route);
+
         Shell.StartupTrace.Phase("shell: the dash and its cards");
         Dashboard = new DashboardViewModel(
-            new CardValueFactory(vehicle.Signals, Sensors),
-            ValueChoice.All(vehicle.Catalog, Sensors.Catalog),
+            new CardValueFactory(vehicle.Signals, Sensors, readouts),
+            ValueChoice.All(vehicle.Catalog, Sensors.Catalog, readouts),
             components);
 
         // The cards are on the stage now (ADR-0041): the stage's picture is their region, and
@@ -413,6 +469,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(IsDashVisible));
                 OnPropertyChanged(nameof(IsClimateVisible));
                 OnPropertyChanged(nameof(IsMapVisible));
+                OnPropertyChanged(nameof(IsMapSearchVisible));
                 OnPropertyChanged(nameof(IsMapOnStageNoticeVisible));
                 OnPropertyChanged(nameof(IsFullScreenOpen));
                 OnPropertyChanged(nameof(IsDashEditing));
@@ -573,7 +630,21 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// whole six bands. So there is one binding, not two.
     /// </remarks>
     public bool IsMapVisible =>
-        IsMapsActive && !Map.IsOnStage && !IsCardEditorOpen && !IsComponentDetailOpen;
+        IsMapsActive && !Map.IsOnStage && Map.IsMapShowing && !IsCardEditorOpen && !IsComponentDetailOpen;
+
+    /// <summary>
+    /// Whether address search is covering the map (ADR-0065).
+    /// </summary>
+    /// <remarks>
+    /// It covers rather than overlays, because a WebView2 is a child window and WPF cannot draw a
+    /// keyboard on top of one (ADR-0021). The map is still alive behind it.
+    /// </remarks>
+    public bool IsMapSearchVisible =>
+        IsMapsActive && Map.IsSearchOpen && !IsCardEditorOpen && !IsComponentDetailOpen;
+
+    /// <summary>Whether the turn list is covering the map.</summary>
+    public bool IsMapStepsVisible =>
+        IsMapsActive && Map.IsStepsOpen && !IsCardEditorOpen && !IsComponentDetailOpen;
 
     /// <summary>
     /// Whether to say, in the nav's region, that the map is on the stage.
@@ -631,6 +702,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         OnPropertyChanged(nameof(IsMapFull));
         OnPropertyChanged(nameof(IsMapVisible));
+        OnPropertyChanged(nameof(IsMapSearchVisible));
         OnPropertyChanged(nameof(IsMapOnStageNoticeVisible));
         OnPropertyChanged(nameof(IsFullScreenOpen));
         OnPropertyChanged(nameof(StageBands));

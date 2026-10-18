@@ -35,7 +35,16 @@
         <Grid DockPanel.Dock="Bottom" Margin="0,0,0,18"
               Visibility="{Binding IsOnStage, Converter={StaticResource NotBoolToVis}}">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <!-- Only offered when the dash was built with a search, and only usable when
+                     stopped — the gate itself is inside, so the chip opens and explains rather
+                     than being dead (ADR-0058's rule, ADR-0065). -->
                 <Button Style="{StaticResource OptionChipButton}"
+                        Content="SEARCH"
+                        Command="{Binding OpenSearchCommand}"
+                        Visibility="{Binding IsSearchOffered, Converter={StaticResource BoolToVis}}" />
+
+                <Button Style="{StaticResource OptionChipButton}"
+                        Margin="12,0,0,0"
                         Content="TO THE STAGE"
                         Command="{Binding SendToStageCommand}" />
 
@@ -56,10 +65,34 @@
                         Visibility="{Binding HasFailed, Converter={StaticResource BoolToVis}}" />
             </StackPanel>
 
-            <!-- Names the size the press would give you, not the one you are in. -->
-            <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
-                       Style="{StaticResource MicroText}"
-                       Text="{Binding ResizeHint}" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <!-- What routing is doing, when it is doing anything. The route itself is on the
+                     map; this is the two numbers worth reading before setting off. -->
+                <TextBlock VerticalAlignment="Center" Margin="0,0,12,0"
+                           FontFamily="{DynamicResource MonoFont}" FontSize="14"
+                           Foreground="{DynamicResource TextMidBrush}"
+                           Text="{Binding Directions.Note}"
+                           Visibility="{Binding Directions.HasNote, Converter={StaticResource BoolToVis}}" />
+
+                <Button Style="{StaticResource OptionChipButton}"
+                        Margin="0,0,12,0"
+                        Command="{Binding ToggleStepsCommand}"
+                        Visibility="{Binding Directions.HasRoute, Converter={StaticResource BoolToVis}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="15"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   Text="{Binding Directions.Summary}" />
+                        <TextBlock Margin="10,0,0,0"
+                                   FontFamily="{DynamicResource MonoFont}" FontSize="15"
+                                   Text="STEPS ›" />
+                    </StackPanel>
+                </Button>
+
+                <!-- Names the size the press would give you, not the one you are in. -->
+                <TextBlock VerticalAlignment="Center"
+                           Style="{StaticResource MicroText}"
+                           Text="{Binding ResizeHint}" />
+            </StackPanel>
         </Grid>
 
         <Border CornerRadius="14"

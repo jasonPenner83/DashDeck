@@ -1,0 +1,71 @@
+<UserControl x:Class="DashDeck.Host.Views.MapStepsPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{DynamicResource CanvasBrush}">
+
+    <!--
+        The turn list (ADR-0065's addendum). It covers the map rather than floating over it, for the
+        same reason the search does: a WebView2 is a child window and nothing WPF draws over it
+        would be visible (ADR-0021). The route stays drawn on the map underneath.
+
+        Read while stopped. This is not guidance — nothing here follows the truck, speaks, or
+        re-routes, and the row you are on is not highlighted because the dash does not know it.
+        Guidance is the bundled engine ADR-0058 describes, and it is still ahead.
+    -->
+    <DockPanel Margin="31,18,31,18">
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
+            <Button HorizontalAlignment="Left"
+                    Style="{StaticResource OptionChipButton}"
+                    Content="‹ MAP"
+                    Command="{Binding ToggleStepsCommand}" />
+
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock HorizontalAlignment="Center"
+                           FontFamily="{DynamicResource UiFont}" FontSize="22"
+                           Foreground="{DynamicResource TextHighBrush}"
+                           TextTrimming="CharacterEllipsis"
+                           MaxWidth="520"
+                           Text="{Binding Directions.DestinationName}" />
+                <TextBlock Margin="0,4,0,0" HorizontalAlignment="Center"
+                           FontFamily="{DynamicResource MonoFont}" FontSize="15"
+                           Foreground="{DynamicResource AccentBrush}"
+                           Text="{Binding Directions.Summary}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Credit is a condition of using the router, so it is on the screen that shows its
+             work rather than buried in a settings page. -->
+        <TextBlock DockPanel.Dock="Bottom" Margin="0,12,0,0"
+                   HorizontalAlignment="Center"
+                   Style="{StaticResource MicroText}"
+                   Text="{Binding Directions.Attribution}" />
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly">
+            <ItemsControl ItemsSource="{Binding Directions.Steps}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="0,0,0,6" CornerRadius="10" Padding="16,12"
+                                Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource HairlineBrush}"
+                                BorderThickness="1">
+                            <Grid>
+                                <TextBlock HorizontalAlignment="Left"
+                                           Margin="0,0,90,0"
+                                           FontFamily="{DynamicResource UiFont}" FontSize="20"
+                                           Foreground="{DynamicResource TextHighBrush}"
+                                           TextWrapping="Wrap"
+                                           Text="{Binding Instruction}" />
+
+                                <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           FontFamily="{DynamicResource MonoFont}" FontSize="14"
+                                           Foreground="{DynamicResource TextMidBrush}"
+                                           Text="{Binding Distance}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>
