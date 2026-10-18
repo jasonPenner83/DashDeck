@@ -287,6 +287,12 @@ public sealed partial class CardEditorViewModel : ObservableObject
         var choice = Card.Choice;
         var hasRange = choice?.HasRange is true;
 
+        // Words (ADR-0067) have no rate and no number format. The chips stay visible and say why,
+        // the way BAR does when the catalog gave no range — an option that silently vanishes looks
+        // like a bug, and one that is offered and does nothing is worse.
+        var words = choice?.IsWords is true;
+        var notANumber = words ? "words, not a number" : null;
+
         // The chip carries the choice, not its id. Ids are no longer unique across the two
         // catalogs -- the sensor catalog names vehicle.heading as the signal it prefers, so
         // one day both will define it -- and a picker keyed on the id alone would offer two
@@ -320,20 +326,20 @@ public sealed partial class CardEditorViewModel : ObservableObject
 
         Fill(Rates,
             [
-                new OptionChip("rate", "CATALOG", 0.0),
-                new OptionChip("rate", "0.2 Hz", 0.2),
-                new OptionChip("rate", "0.5 Hz", 0.5),
-                new OptionChip("rate", "1 Hz", 1.0),
-                new OptionChip("rate", "2 Hz", 2.0),
-                new OptionChip("rate", "4 Hz", 4.0),
+                new OptionChip("rate", "CATALOG", 0.0, notANumber, !words),
+                new OptionChip("rate", "0.2 Hz", 0.2, notANumber, !words),
+                new OptionChip("rate", "0.5 Hz", 0.5, notANumber, !words),
+                new OptionChip("rate", "1 Hz", 1.0, notANumber, !words),
+                new OptionChip("rate", "2 Hz", 2.0, notANumber, !words),
+                new OptionChip("rate", "4 Hz", 4.0, notANumber, !words),
             ],
             spec.RateHz);
 
         Fill(Formats,
             [
-                new OptionChip("format", "0", "0"),
-                new OptionChip("format", "0.0", "0.0"),
-                new OptionChip("format", "0.00", "0.00"),
+                new OptionChip("format", "0", "0", notANumber, !words),
+                new OptionChip("format", "0.0", "0.0", notANumber, !words),
+                new OptionChip("format", "0.00", "0.00", notANumber, !words),
             ],
             spec.Format);
 

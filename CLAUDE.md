@@ -46,7 +46,9 @@ like CLIMATE: speed, rpm, fuel, temperature, range, nine warning lights, odomete
 occupant is on the stage. The **cards are a user-arranged list**
 (ADR-0015) loaded from `dashboard.json` — add, remove, reorder, resize, and pick each card's
 value, style, unit, rate and format. A card names a **`source`** (B4): a vehicle `Signal`
-from the catalog, or a tablet `Sensor` — heading, pitch, roll, G. Sensor cards cost no request
+from the catalog, a tablet `Sensor` — heading, pitch, roll, G, the phone's GPS, and the navigation
+numbers (ADR-0066) — or a `Readout`, which is words rather than a number (ADR-0067). Sensor cards
+cost no request
 budget, and their footer says where they answered from rather than an allocated rate. The
 **signal catalog now defines the standard OBD-II Mode 01 set** (~35, each `category`-tagged),
 so the card editor's picker is **searchable and grouped by function**; the synthetic truck
@@ -244,6 +246,84 @@ the dash. **An LCARS map is two tokens** (`mapWater`, `mapGreen`): lavender road
 motorways already fall out of its text ramp. `--map-style` still wins, and then the theme supplies
 only the marker. A style that will not parse is never handed to the renderer. Labels are Noto Sans
 whatever the theme's fonts say — **Q45**.
+
+**Address search, and the dash's own keyboard** (ADR-0065). SEARCH on the map region opens a
+full-screen search — it **covers** the map rather than overlaying it, because a WebView2 is a child
+window and WPF cannot draw a keyboard over one (ADR-0021), and five rows of keys do not fit the
+bottom third anyway, so it takes the map to its larger placement first. The geocoder is
+**Nominatim** under its acceptable-use policy, and all five of the policy's requirements are code
+rather than good intentions: **no auto-complete** (it is forbidden outright, so typing never
+searches — a SEARCH button is the only thing that asks), at most one request a second, results
+cached by normalised query, a User-Agent naming DashDeck and its repository, and a `viewbox` bias
+towards the truck that is a preference rather than a fence. **DashDeck draws its own keyboard** —
+one page, no shift, a digits row first — because nothing in the dash had ever needed typing in the
+cab and Windows' touch keyboard over a borderless window may simply not appear; `KeyboardLayout` is
+data in Core, and a test about row proportions rejected the first two-page design outright. **A
+destination cannot be typed above 5 km/h** (ADR-0058's distraction rule, reusing the compass'
+threshold), read on the beat so stopping unlocks it. Choosing an address moves the map, pins it and
+stops following. Recents are session-only and search needs signal — both are **Q46**.
+
+**The keyboard is the Surface's own**, after a drive (ADR-0065's addendum). DashDeck drew one first
+and it is deleted rather than parked: the in-box keyboard is the one the tablet's owner knows and
+it brings holding a key, the clipboard and prediction with it. The field is focused and `TabTip`
+nudged when the search opens, failing silently — a USB keyboard still types into it. **One
+guarantee moved with it:** the gate used to refuse keystrokes, and now the field's `IsEnabled`
+follows it while the view-model guarantees only that **no request leaves while moving**, which is
+the safety-relevant half.
+
+**A place says what it is, and you can get directions to it.** A result carries what OSM knows —
+kind, hours, telephone, website — at **no extra request**, because `extratags` is an output option
+on the search already being made. It shows in a **MapLibre popup inside the page**, themed, because
+WPF cannot draw over a child window (ADR-0021) — and built with `textContent` from
+`JsonSerializer`'d values, since a place name comes from anybody. Its button draws a route from
+**FOSSGIS's public OSRM**: distance, time, a line on the map and a turn list behind a chip, with
+the instruction wording ours (OSRM sends a manoeuvre type and a street name, no sentence) and
+tested across ten manoeuvres. **Routes are never cached** where searches are — a route depends on
+where the truck is now. **This is the display half, not navigation:** no voice, no re-routing,
+nothing that follows the truck. That is ADR-0058's bundled GraphHopper, still ahead, and following
+a vehicle over a public router would breach its terms as well.
+
+**The map's numbers are sensors** (ADR-0066). Six rows in the device catalog under a new
+`Navigation` source, behind a third `IDeviceSensors` provider (`NavigationSensors`) composed by
+`CompositeDeviceSensors`: a straight-line distance and bearing to the chosen place, the route's
+total distance and time, and the distance and time still to drive. So a card or a stage layout
+shows *Distance Left* the way it shows pitch, with nothing changed in either. The arithmetic is in
+Core — `Geo` (haversine and initial bearing) and `RouteProgress` (nearest point on the route's
+geometry, then everything after it) — and tested off Windows. **Every value carries the fix's own
+quality**, so a synthetic track produces blue navigation numbers, and the route *totals* are the
+router's answer about the road rather than a measurement, so they are Live and need no position.
+**More than 150 m off the line the countdown refuses** (`NAV · OFF ROUTE`) instead of shrinking
+towards a place being driven away from; `prefer` is named only on the two rows the truck's own
+navigation could really supersede. The remaining time is the router's duration pro-rated, never a
+fresh estimate. **Q47 is the known limit:** nearest-point snapping can pick the wrong end of a
+route that comes back near itself.
+
+**Words on a card** (ADR-0067). The third source `CardValue.cs` has predicted since B4:
+`CardSource.Readout`, with seven entries for what a searched place knows that is not a number — its
+name, address, kind, opening hours, telephone, website, and the route's summary. It arrives as a
+**second interface, `ITextValue`**, so `ICardValue.Value` stays a `double` and every face, unit
+conversion, range and threshold is untouched; exactly one place asks which kind it has, the card's
+own `Text`, ahead of the NaN guard that would otherwise draw every readout as a dash. The
+`ReadoutCatalog` is **declared in code** rather than JSON — alone among the three catalogs —
+because a readout is a fact the dash already holds rather than something a user can add, and each
+definition is a **function**, so a destination chosen after the cards were built reaches them with
+no wiring. Words get their own text block (18px, wrapped to two lines, then ellipsis); no unit, no
+range, never a bar, never Stale. **Cards only** — a stage layout's gauge reads through
+`SensorService`, which a readout is not in.
+
+**No strings in a sensor reading, and that is a decision rather than a type problem** (ADR-0066).
+Adding `string? Text` to `SensorReading` would break nothing — but the numeric contract is
+`ICardValue.Value`, and every face, `DisplayUnits`, `ValueChoice.HasRange` and the thresholds are
+built on that `double`; and **NaN is the dash's "nothing"**, which a string has no equivalent of.
+ADR-0056 already settled how the dash says words — a number plus a `states` table — and that works
+because the set is closed when the catalog loads, which a destination name never is. So text gets a
+**third `CardSource`**, which is ADR-0067 above rather than a wider sensor reading.
+
+**The synthetic track drives a real loop now.** `SyntheticLocationSource` used to weave inside a
+sixty-metre box while reporting 60 km/h and an unrelated course; it circles at a true 60 km/h on an
+800 m radius (five kilometres a lap), so the speed it reports is the speed it travels and anything
+doing arithmetic on the position gets numbers that move. `--gps synthetic` is how the navigation
+readouts are tested at a desk.
 
 **Two looks, Modern and Glass; LCARS is yours** (ADR-0043). **Modern** is the built-in theme
 (`builtin/modern`: cool greys, accent `#5AC8FA`, Segoe UI Variable) and names the Modern stage
@@ -601,7 +681,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Sixty-four exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Sixty-five exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the

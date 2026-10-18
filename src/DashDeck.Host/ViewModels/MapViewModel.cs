@@ -55,12 +55,170 @@ public sealed partial class MapViewModel : ObservableObject
     /// it is a URL off the command line going into a browser control, and an unusable one falls
     /// back to the dark default rather than leaving the dash with no map.
     /// </param>
-    public MapViewModel(ILocationSource? location = null, IClock? clock = null, string? styleUrl = null)
+    /// <param name="search">
+    /// Address search (ADR-0065), or null where there is none — which is how every test that does
+    /// not care about searching constructs this.
+    /// </param>
+    /// <param name="directions">Routing (ADR-0065's addendum), or null where there is none.</param>
+    public MapViewModel(
+        ILocationSource? location = null,
+        IClock? clock = null,
+        string? styleUrl = null,
+        MapSearchViewModel? search = null,
+        MapRouteViewModel? directions = null)
     {
         _location = location;
         _clock = clock ?? new SystemClock();
         StyleOverride = MapSource.IsAcceptableStyle(styleUrl) ? styleUrl!.Trim() : null;
+        Search = search;
+        Directions = directions;
+
+        if (Search is not null)
+        {
+            Search.Picked += GoTo;
+        }
+
+        if (Directions is not null)
+        {
+            Directions.Found += found => Surface?.Route(found);
+            Directions.Cleared += () => Surface?.ClearRoute();
+        }
+
         Refresh();
+    }
+
+    /// <summary>Address search, or null when the dash was built without it.</summary>
+    public MapSearchViewModel? Search { get; }
+
+    /// <summary>
+    /// Directions to a chosen place, or null when the dash was built without them.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Search"/> because they fail separately: a place can be found with
+    /// no way there, and a route can be asked for from a recent address with no search at all.
+    /// </remarks>
+    public MapRouteViewModel? Directions { get; }
+
+    /// <summary>The place the pin is on, or null.</summary>
+    /// <remarks>Kept so DIRECTIONS TO, which arrives from inside the page, knows where to.</remarks>
+    public GeocodeResult? Destination { get; private set; }
+
+    /// <summary>True when there is a search to offer.</summary>
+    public bool IsSearchOffered => Search is not null;
+
+    /// <summary>
+    /// True while the search is covering the map.
+    /// </summary>
+    /// <remarks>
+    /// It covers rather than overlays, and has to: a WebView2 is a child window, so WPF cannot
+    /// draw a keyboard on top of it (ADR-0021). The map is still there, still following, still
+    /// fetching nothing it did not already want — it is simply behind the search until it closes.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMapShowing))]
+    private bool _isSearchOpen;
+
+    /// <summary>
+    /// Open the search.
+    /// </summary>
+    /// <remarks>
+    /// It takes the map full screen on the way in. Five rows of keys, a field and a result list do
+    /// not fit the bottom third, and the placement already exists (ADR-0062) — so searching is the
+    /// first thing that uses a placement change for a reason other than taste.
+    /// </remarks>
+    [RelayCommand]
+    private void OpenSearch()
+    {
+        if (Search is null)
+        {
+            return;
+        }
+
+        // Off the stage first, then full screen. From the stage the nav's region shows only the
+        // "map is on the stage" notice, so a search opened there would have nowhere to draw.
+        if (View.IsOnStage)
+        {
+            Move(View.BroughtBack());
+        }
+
+        if (View.IsPanel)
+        {
+            Move(View.Resized());
+        }
+
+        Search.Refresh();
+        IsStepsOpen = false;
+        IsSearchOpen = true;
+    }
+
+    /// <summary>Close the search and leave the map where it is.</summary>
+    [RelayCommand]
+    private void CloseSearch() => IsSearchOpen = false;
+
+    /// <summary>
+    /// True while the turn list is covering the map.
+    /// </summary>
+    /// <remarks>
+    /// Covering, like the search, and for the same reason — a list drawn over a child window
+    /// would be behind it (ADR-0021). The route stays on the map underneath either way.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMapShowing))]
+    private bool _isStepsOpen;
+
+    /// <summary>Show or hide the turn list.</summary>
+    [RelayCommand]
+    private void ToggleSteps()
+    {
+        if (Directions?.HasRoute != true)
+        {
+            return;
+        }
+
+        IsStepsOpen = !IsStepsOpen;
+    }
+
+    /// <summary>
+    /// Go to a chosen address: move there, drop a pin, stop following and close the search.
+    /// </summary>
+    /// <remarks>
+    /// Following is switched off deliberately. You have just said where you want to look, and a
+    /// map that slid straight back to the truck would undo it — RECENTRE is how you return.
+    /// </remarks>
+    private void GoTo(GeocodeResult result)
+    {
+        Camera = result.Camera;
+        Destination = result;
+        IsFollowing = false;
+        IsSearchOpen = false;
+
+        // A new place means the old route is about somewhere else. Cleared before the pin moves,
+        // so there is never a line on screen going to a pin that is no longer there.
+        Directions?.ClearCommand.Execute(null);
+
+        Surface?.Destination(result.Camera, result);
+        OnPropertyChanged(nameof(Picture));
+        OnPropertyChanged(nameof(WantsSurface));
+    }
+
+    /// <summary>
+    /// Directions were asked for, from the button inside the popup.
+    /// </summary>
+    /// <remarks>
+    /// The request comes from the page rather than from a WPF control, because the popup is in the
+    /// page — a WebView2 is a child window and nothing WPF drew over the map would be visible
+    /// (ADR-0021). So the bridge carries it, and this is where it lands.
+    /// </remarks>
+    private void AskForDirections()
+    {
+        if (Directions is null || Destination is not { } place)
+        {
+            return;
+        }
+
+        // Fire and forget: the beat and the page both carry on, and the view-model reports its own
+        // progress. Awaiting here would mean a message handler that blocks the bridge.
+        _ = Directions.FindAsync(place.Camera, place.Label);
     }
 
     /// <summary>
@@ -82,8 +240,31 @@ public sealed partial class MapViewModel : ObservableObject
     /// </remarks>
     public string? StyleJson { get; private set; }
 
+    /// <summary>
+    /// How fast the truck is going, or null when nothing trustworthy says.
+    /// </summary>
+    /// <remarks>
+    /// For the search's speed gate (ADR-0058). From the phone's GPS rather than the adapter,
+    /// because the map already has it and a destination typed with no GPS has nothing to centre
+    /// on anyway. <c>NaN</c> is unknown, not nought — a stale fix carries no speed.
+    /// </remarks>
+    /// <summary>
+    /// Where the truck is, as a camera — which is where a route starts.
+    /// </summary>
+    /// <remarks>
+    /// Not <see cref="Camera"/>: that is where the map is <em>looking</em>, which after a search is
+    /// the place you searched for. A route from there would be a route from nowhere you have been.
+    /// </remarks>
+    public MapCamera? Here =>
+        _location?.Latest is { } fix && fix.HasFix ? MapCamera.Over(fix) : null;
+
+    public double? SpeedKmh =>
+        _location?.Latest is { } fix && double.IsFinite(fix.GroundSpeedKmh) ? fix.GroundSpeedKmh : null;
+
     /// <summary>The colour the vehicle marker is drawn in, from the theme.</summary>
     public string MarkerColour { get; private set; } = MapPalette.Default.Marker;
+
+    private MapPalette _palette = MapPalette.Default;
 
     /// <summary>What went wrong with the theme's style, if the hosted one had to be used instead.</summary>
     /// <remarks>
@@ -102,6 +283,7 @@ public sealed partial class MapViewModel : ObservableObject
     /// </remarks>
     internal void Wear(MapPalette palette)
     {
+        _palette = palette;
         MarkerColour = palette.Marker;
 
         if (StyleOverride is null)
@@ -122,7 +304,7 @@ public sealed partial class MapViewModel : ObservableObject
             }
         }
 
-        Surface?.Restyle(StyleJson, MarkerColour);
+        Surface?.Restyle(StyleJson, palette);
     }
 
     // ---- Where the map is drawn (ADR-0062) ----
@@ -221,6 +403,21 @@ public sealed partial class MapViewModel : ObservableObject
     {
         Surface = surface;
         surface.Follow(IsFollowing);
+        surface.Restyle(StyleJson, _palette);
+
+        // A rebuilt map starts empty, so anything that was on the old one goes back: the pin, its
+        // popup, and the route. Without this, moving the map between placements would quietly
+        // lose the destination you had just looked up.
+        if (Destination is { } place)
+        {
+            surface.Destination(place.Camera, place);
+        }
+
+        if (Directions?.Route is { } route)
+        {
+            surface.Route(route);
+        }
+
         Push();
     }
 
@@ -342,6 +539,10 @@ public sealed partial class MapViewModel : ObservableObject
             case MapSignal.Freed:
                 IsFollowing = false;
                 break;
+
+            case MapSignal.Directions:
+                AskForDirections();
+                break;
         }
     }
 
@@ -355,6 +556,11 @@ public sealed partial class MapViewModel : ObservableObject
 
     /// <summary>True when a map is on screen, so the placeholder gets out of the way.</summary>
     public bool IsMapDrawn => Picture is MapPicture.Drawn;
+
+    /// <summary>
+    /// Whether the map's own region is the thing being shown, rather than something over it.
+    /// </summary>
+    public bool IsMapShowing => !IsSearchOpen && !IsStepsOpen;
 
     /// <summary>
     /// Whether a surface is worth building.
@@ -420,6 +626,10 @@ public sealed partial class MapViewModel : ObservableObject
         PositionText = LocationStatus.Describe(fix);
         PositionDetail = $"{_location.Name} · {LocationStatus.Age(fix, _clock.UtcNow)}";
 
+        // The speed gate is read rather than latched, so stopping unlocks the keyboard and
+        // pulling away locks it again without anything else having to happen.
+        Search?.Refresh();
+
         // The first usable fix is what decides the map can be built at all, and where it opens.
         if (Camera is null && fix.HasFix)
         {
@@ -472,6 +682,8 @@ public sealed partial class MapViewModel : ObservableObject
     /// </remarks>
     public string Describe() =>
         $"{View.Describe()} · {Picture.ToString().ToLowerInvariant()}"
+        + (IsSearchOpen && Search is { } open ? $" · search: {open.Describe()}" : string.Empty)
+        + (Directions is { } going && (going.HasRoute || going.HasNote) ? $" · {going.Describe()}" : string.Empty)
         + (Camera is { } c ? $" · {c.Describe()}" : string.Empty)
         + (StyleOverride is { } url ? $" · style: {url}" : string.Empty)
         + (StyleNote is { } note ? $" · style: {note}" : string.Empty)

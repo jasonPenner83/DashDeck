@@ -47,6 +47,9 @@ public sealed record ValueChoice(
     /// <summary>True when a card on this shows a state's name rather than a number.</summary>
     public bool HasStates => States is { Count: > 0 };
 
+    /// <summary>True when this is words rather than a number (ADR-0067).</summary>
+    public bool IsWords => Source is CardSource.Readout;
+
     /// <summary>The name as the dash draws it.</summary>
     public string Caption => Name.ToUpperInvariant();
 
@@ -58,9 +61,12 @@ public sealed record ValueChoice(
     /// about: they cost nothing against the request budget, and most of them show nothing at
     /// all until the mount has been levelled.
     /// </remarks>
-    public string Detail => Source is CardSource.Sensor
-        ? $"{Id}  ·  {Unit}  ·  sensor"
-        : string.IsNullOrEmpty(Unit) ? Id : $"{Id}  ·  {Unit}";
+    public string Detail => Source switch
+    {
+        CardSource.Sensor => $"{Id}  ·  {Unit}  ·  sensor",
+        CardSource.Readout => $"{Id}  ·  words",
+        _ => string.IsNullOrEmpty(Unit) ? Id : $"{Id}  ·  {Unit}",
+    };
 
     /// <summary>True when this can be drawn as a bar, which needs a range to be a fraction of.</summary>
     public bool HasRange => Min is not null && Max is not null && Max > Min;
@@ -77,25 +83,46 @@ public sealed record ValueChoice(
             States = d.States,
         });
 
-    /// <summary>Project the sensor catalog the same way. Tablet sensors and the phone's GPS
-    /// (ADR-0027) are their own groups, so the picker separates the truck's opinion from the
-    /// tablet's from the phone's.</summary>
+    /// <summary>Project the sensor catalog the same way. The tablet's sensors, the phone's GPS
+    /// (ADR-0027) and the navigation readouts (ADR-0066) are their own groups, so the picker
+    /// separates the truck's opinion from the tablet's from the phone's from the dash's own
+    /// arithmetic.</summary>
     public static IEnumerable<ValueChoice> From(SensorCatalog catalog) =>
         catalog.Definitions.Select(d => new ValueChoice(
             d.Id, d.Name, d.Unit, d.DefaultRateHz, d.Min, d.Max, CardSource.Sensor,
-            d.Source is SensorSource.Gps ? "Location" : "Tablet Sensors"));
+            d.Source switch
+            {
+                SensorSource.Gps => "Location",
+                SensorSource.Navigation => "Navigation",
+                _ => "Tablet Sensors",
+            }));
+
+    /// <summary>Project the readouts (ADR-0067): words, so no unit, no range and no rate.</summary>
+    /// <remarks>
+    /// A rate would be a lie twice over — nothing is asked of the truck, and the card polls once a
+    /// second because a destination changes when somebody chooses one. A range would be a lie
+    /// about the kind of thing it is.
+    /// </remarks>
+    public static IEnumerable<ValueChoice> From(ReadoutCatalog catalog) =>
+        catalog.Definitions.Select(d => new ValueChoice(
+            d.Id, d.Name, string.Empty, 0, null, null, CardSource.Readout, d.Category));
 
     /// <summary>
     /// Everything a card can be pointed at, signals first.
     /// </summary>
     /// <remarks>
     /// Signals lead because they are what the dash is for; sensors follow because they are
-    /// the tablet's opinion until the truck has one. Sorted within each group by name, so the
+    /// the tablet's opinion until the truck has one; the readouts come last because they are
+    /// neither — they are what the dash already knows. Sorted within each group by name, so the
     /// list is stable as catalogs grow.
     /// </remarks>
-    public static IReadOnlyList<ValueChoice> All(SignalCatalog signals, SensorCatalog sensors) =>
+    public static IReadOnlyList<ValueChoice> All(
+        SignalCatalog signals,
+        SensorCatalog sensors,
+        ReadoutCatalog? readouts = null) =>
     [
         .. From(signals).OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase),
         .. From(sensors).OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase),
+        .. From(readouts ?? ReadoutCatalog.Empty).OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase),
     ];
 }

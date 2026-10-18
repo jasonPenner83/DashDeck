@@ -109,5 +109,81 @@
     "defaultRateHz": 2,
     "min": 0,
     "max": 320
+  },
+
+  // ---- Navigation (ADR-0066) ----
+  //
+  // The only rows here the tablet does not measure. They are worked out from the GPS fix and the
+  // destination the person chose on the map: a straight line, a bearing, and — once directions
+  // have been asked for — what is left of the route. Every one of them is no better than the fix
+  // underneath it and carries that fix's own quality, so a synthetic track produces synthetic
+  // navigation numbers and says so.
+  //
+  // Two of them name a "prefer" signal and four do not, which is new. The truck's own navigation
+  // knows how far and how long is left, and the day those identifiers are found these rows hand
+  // over like any other. It has no opinion at all about the straight-line distance to a place or
+  // the bearing to it, so those rows say so by leaving the field out rather than naming a signal
+  // that will never exist.
+  {
+    "id": "nav.destinationDistance",
+    "name": "To Destination",
+    "unit": "km",
+    "source": "Navigation",
+    "channel": "DestinationDistance",
+    "defaultRateHz": 1,
+    "min": 0,
+    "max": 20000
+  },
+  {
+    "id": "nav.destinationBearing",
+    "name": "Destination Bearing",
+    "unit": "\u00b0",
+    "source": "Navigation",
+    "channel": "DestinationBearing",
+    "defaultRateHz": 1,
+    "min": 0,
+    "max": 360
+  },
+  {
+    "id": "nav.routeDistance",
+    "name": "Route Distance",
+    "unit": "km",
+    "source": "Navigation",
+    "channel": "RouteDistance",
+    "defaultRateHz": 1,
+    "min": 0,
+    "max": 20000
+  },
+  {
+    "id": "nav.routeDuration",
+    "name": "Route Time",
+    "unit": "min",
+    "source": "Navigation",
+    "channel": "RouteDuration",
+    "defaultRateHz": 1,
+    "min": 0,
+    "max": 20000
+  },
+  {
+    "id": "nav.remaining",
+    "name": "Distance Left",
+    "unit": "km",
+    "source": "Navigation",
+    "channel": "RouteRemaining",
+    "prefer": "vehicle.nav.distanceRemaining",
+    "defaultRateHz": 1,
+    "min": 0,
+    "max": 20000
+  },
+  {
+    "id": "nav.eta",
+    "name": "Time Left",
+    "unit": "min",
+    "source": "Navigation",
+    "channel": "RouteEta",
+    "prefer": "vehicle.nav.timeRemaining",
+    "defaultRateHz": 1,
+    "min": 0,
+    "max": 20000
   }
 ]

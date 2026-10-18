@@ -497,6 +497,20 @@
                                 Content="{Binding MapContent}"
                                 Visibility="{Binding IsMapVisible, Converter={StaticResource BoolToVis}}" />
 
+                <!-- Address search (ADR-0065), covering the map's own region: a WebView2 is a
+                     child window, so a keyboard cannot be drawn over it (ADR-0021). Bound to the
+                     map's view-model, which holds both the search and the way back. -->
+                <ContentControl Grid.Row="1"
+                                Visibility="{Binding IsMapSearchVisible, Converter={StaticResource BoolToVis}}">
+                    <views:MapSearchPanel DataContext="{Binding Map}" />
+                </ContentControl>
+
+                <!-- The turn list for a route, covering the map for the same airspace reason. -->
+                <ContentControl Grid.Row="1"
+                                Visibility="{Binding IsMapStepsVisible, Converter={StaticResource BoolToVis}}">
+                    <views:MapStepsPanel DataContext="{Binding Map}" />
+                </ContentControl>
+
                 <!-- MAPS tapped while the map is on the stage. The nav's region has to answer
                      for itself: the placeholder drawn twice would be a lie about where the map
                      is, and an empty region reads as a destination that broke. -->

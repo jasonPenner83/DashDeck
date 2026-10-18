@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Windows;
 using DashDeck.Core.Location;
 using DashDeck.Core.Maps;
@@ -33,8 +34,22 @@ public interface IMapSurface
     /// A style built from the theme, or null to keep whatever the page was started with — which is
     /// the hosted style, under a <c>--map-style</c> override or after a style failed to build.
     /// </param>
-    /// <param name="marker">The colour of the vehicle marker.</param>
-    void Restyle(string? styleJson, string marker);
+    /// <param name="palette">
+    /// The theme's map colours. The style paints the cartography; these also reach the things it
+    /// does not — the vehicle, the pin and the popup's chrome (ADR-0064).
+    /// </param>
+    void Restyle(string? styleJson, MapPalette palette);
+
+    /// <summary>Fly to a chosen place, pin it, and open what is known about it.</summary>
+    /// <param name="camera">Where it is.</param>
+    /// <param name="place">What was found there.</param>
+    void Destination(MapCamera camera, GeocodeResult place);
+
+    /// <summary>Draw a route, and fit the map around it.</summary>
+    void Route(Route route);
+
+    /// <summary>Rub out the route, the pin and the popup.</summary>
+    void ClearRoute();
 }
 
 /// <summary>
@@ -188,10 +203,11 @@ public sealed class MapSurface : IMapSurface, IDisposable
     private string StyleUrl() => MapSource.StyleOr(_map.StyleOverride);
 
     /// <inheritdoc />
-    public void Restyle(string? styleJson, string marker)
+    public void Restyle(string? styleJson, MapPalette palette)
     {
-        // The marker first and always: it is ours whoever drew the ground underneath it.
-        Run("marker", $"window.dash.marker({Quote(marker)})");
+        // The palette first and always: the vehicle, the pin and the popup are ours to paint
+        // whoever drew the ground underneath them.
+        Run("palette", $"window.dash.palette({PaletteJson(palette)})");
 
         if (styleJson is not null)
         {
@@ -200,6 +216,53 @@ public sealed class MapSurface : IMapSurface, IDisposable
             Run("restyle", $"window.dash.restyle({styleJson})");
         }
     }
+
+    /// <inheritdoc />
+    public void Destination(MapCamera camera, GeocodeResult place) => Run(
+        "destination",
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"window.dash.destination({camera.Longitude:0.######},{camera.Latitude:0.######},{camera.Zoom:0.##},{PlaceJson(place)})"));
+
+    /// <inheritdoc />
+    public void Route(Route route) => Run("route", $"window.dash.route({ShapeJson(route)})");
+
+    /// <inheritdoc />
+    public void ClearRoute() => Run("clearRoute", "window.dash.clearRoute()");
+
+    /// <summary>
+    /// The place, as the page's popup wants it.
+    /// </summary>
+    /// <remarks>
+    /// Serialised rather than hand-quoted, and that is not fussiness: a place name, a website and
+    /// opening hours all come from OpenStreetMap, which is to say from anybody. The page builds
+    /// its popup with <c>textContent</c> so none of it is ever parsed as markup, and this end
+    /// escapes it properly so none of it can end a string and become script.
+    /// </remarks>
+    private static string PlaceJson(GeocodeResult place) => JsonSerializer.Serialize(new
+    {
+        label = place.Label,
+        detail = place.Detail,
+        kind = place.Details.Kind,
+        hours = place.Details.Hours,
+        phone = place.Details.Phone,
+        website = place.Details.Website,
+    });
+
+    /// <summary>The theme's colours, under the names the page's CSS variables use.</summary>
+    private static string PaletteJson(MapPalette palette) => JsonSerializer.Serialize(new
+    {
+        marker = palette.Marker,
+        ink = palette.Label,
+        mid = palette.RoadMajor,
+        line = palette.Road,
+        land = palette.Land,
+        surface = palette.Building,
+    });
+
+    /// <summary>The route's line, as longitude/latitude pairs.</summary>
+    private static string ShapeJson(Route route) => JsonSerializer.Serialize(
+        route.Shape.Select(point => new[] { point.Longitude, point.Latitude }));
 
     private static string Quote(string value) =>
         $"\"{value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal)}\"";
@@ -220,6 +283,13 @@ public sealed class MapSurface : IMapSurface, IDisposable
 
     /// <inheritdoc />
     public void Follow(bool on) => Run("follow", $"window.dash.follow({(on ? "true" : "false")})");
+
+    /// <inheritdoc />
+    public void Destination(MapCamera camera, string label) => Run(
+        "destination",
+        string.Create(
+            CultureInfo.InvariantCulture,
+            $"window.dash.destination({camera.Longitude:0.######},{camera.Latitude:0.######},{camera.Zoom:0.##},{Quote(label)})"));
 
     /// <summary>
     /// The course to draw the marker's cone at, or <c>NaN</c> to leave it where it is.
