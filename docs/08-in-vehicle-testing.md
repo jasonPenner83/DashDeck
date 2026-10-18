@@ -1561,6 +1561,55 @@ stops filling in — tiles already fetched stay, new ground does not arrive. Tha
 useful on a highway. No routing and no guidance either — those are still
 [ADR-0058](decisions/ADR-0058-offline-map-and-routing.md)'s stages two and three.
 
+## Screen brightness (ADR-0068)
+
+**Added 2026-10-18, and never run on the Surface.** The rules are tested; whether Windows lets
+DashDeck set this panel's backlight is what only the tablet can say. Steps 1–7 work at a desk.
+
+**You need:** the Surface, not another PC — a desktop on an external monitor cannot be dimmed
+this way and will say so. Note the brightness you have now (Action Center slider) before starting.
+
+**First, turn off Windows' automatic brightness** for this test: Settings ▸ System ▸ Display ▸
+Brightness ▸ untick *Change brightness automatically when lighting changes*. Step 8 turns it back
+on to see whether the two fight.
+
+1. **Launch DashDeck by day** with Appearance on DAY: `dotnet run --project src\DashDeck.Host`.
+   **Expect:** the screen goes to full brightness within a second or two of the window appearing.
+   **A failure looks like:** no change at all — open Settings ▸ DISPLAY and read the BRIGHTNESS box.
+2. **Settings ▸ DISPLAY ▸ BRIGHTNESS.** **Expect:** *Backlight 100 %, the day level. N % goes back
+   when DashDeck closes*, where N is the level you noted. If it says *can't be set from Windows*,
+   stop and send me that line — the rest cannot work.
+3. **Tap 60% under BY DAY.** **Expect:** the screen dims as you tap it, and the box says 60 %.
+4. **Settings ▸ APPEARANCE ▸ NIGHT.** **Expect:** the palette goes to night *and* the backlight
+   drops to 30 %, together. Tap 10% under BY NIGHT: darker at once, still readable.
+5. **Move the Action Center slider to somewhere else and wait ten seconds.** **Expect:** DashDeck
+   leaves it there. It should not snap back.
+6. **Close DashDeck (menu ▸ CLOSE DASHDECK).** **Expect:** the slider you moved in step 5 stays
+   where you moved it, because that was newer. Launch again, change nothing, close again:
+   **expect** the level you had before launching to come back.
+7. **Tap SET THE BACKLIGHT — ON so it reads OFF.** **Expect:** the level you had before DashDeck
+   came back immediately, the day and night rows grey out, and the box says *Off*.
+8. **Turn Windows' automatic brightness back on, ON in DashDeck, and cover the light sensor** (top
+   bezel, beside the camera) with a thumb. **Expect** Windows to move it after a few seconds.
+   **This is the question:** does the dash's level stay put once Windows moves it, or do they
+   take turns? Tell me which — it decides whether the walkthrough's first step stays "turn it off".
+9. **The crash case.** With it dimmed at night, end `DashDeck.Host` in Task Manager. **Expect:**
+   the screen stays dim — nothing could run to put it back. Launch DashDeck, set Appearance to DAY,
+   and close it normally. **Expect:** the level from *before the crash* comes back, not the dimmed
+   one.
+
+**In the cab, at night, parked:**
+
+10. **Appearance on AUTO after sunset.** **Expect:** dim on launch, without touching anything.
+11. **Put the map on, then Android Auto.** **Expect:** both as dim as the cards. This is the reason
+    for the backlight over a dark layer: neither of them would have dimmed otherwise.
+12. **Is 30 % right?** Step through BY NIGHT until the dash is readable and not a torch. Tell me the
+    number, and I'll make it the default.
+
+**A failure looks like:** the box saying *Windows refused to set the backlight*, or the level
+changing and then jumping back on its own with automatic brightness off. Send the box's line and
+whether automatic brightness was on.
+
 ## When the dash will not open
 
 Added 2026-10-15, after a launch hung with no window and no log, and then — because it was still

@@ -120,6 +120,15 @@ colours are not tokens**, and a theme's accent passes the same check a hand-pick
 `DynamicResource` now, like colours** — a view that reaches `UiFont` by `StaticResource` will not
 follow the theme.
 
+**Night dims the backlight too** (ADR-0068). DashDeck sets the Surface's own backlight through
+Windows' in-box WMI classes (`System.Management`), because a dark layer cannot reach the map,
+video, Android Auto or hosted apps (ADR-0021). A day and a night level live in Settings ▸ DISPLAY ▸
+BRIGHTNESS and follow `ThemeService.IsNight`, so when the headlights decide night (F10) both
+follow, and the console dimmer will become the night level in `BrightnessPolicy.Target`. **The
+backlight is borrowed:** the launch level goes back on exit unless somebody moved it since, the
+loan is in `settings.json` so a crash is undone next launch, and nothing is written unless the
+level wanted changes. The rules are in `DashDeck.Core.Brightness`; only `WmiBacklight` needs glass.
+
 **The GAUGES stage is a file** (ADR-0037): a *stage layout* is JSON of elements — gauges (`dial`,
 `arc`, `bar`, `lcarsBar`, `digital`, each tuned by `parts`), `text`, `clock` and `panel` — placed
 in pixels on a fixed 912 × 636 canvas scaled to the stage. A gauge's source is a signal, optionally

@@ -39,6 +39,29 @@ public sealed class SettingsStoreTests
     }
 
     [Fact]
+    public void Brightness_has_its_defaults_in_a_file_written_before_it_existed()
+    {
+        var older = JsonSerializer.Deserialize<UserSettings>("""{ "themeMode": "Day" }""", Options);
+
+        Assert.True(older!.BrightnessEnabled);
+        Assert.Equal(100, older.DayBrightness);
+        Assert.Equal(30, older.NightBrightness);
+        Assert.Null(older.BacklightOriginal);
+        Assert.Null(older.BacklightSet);
+    }
+
+    [Fact]
+    public void A_borrowed_backlight_level_survives_the_file()
+    {
+        var written = JsonSerializer.Serialize(new UserSettings { BacklightOriginal = 80, BacklightSet = 30 });
+        var read = JsonSerializer.Deserialize<UserSettings>(written, Options);
+
+        Assert.Contains("\"backlightOriginal\":80", written, StringComparison.Ordinal);
+        Assert.Equal(80, read!.BacklightOriginal);
+        Assert.Equal(30, read.BacklightSet);
+    }
+
+    [Fact]
     public void A_file_from_a_newer_build_loads_rather_than_throwing()
     {
         var settings = JsonSerializer.Deserialize<UserSettings>(
