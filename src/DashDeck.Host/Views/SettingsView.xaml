@@ -523,7 +523,80 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
                           Visibility="{Binding IsDisplay, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="31,26,31,24">
-                    <TextBlock Style="{StaticResource CaptionText}" Text="WEB SCALE" />
+                    <!-- The tablet's backlight, by day and by night (ADR-0068). -->
+                    <TextBlock Style="{StaticResource CaptionText}" Text="BRIGHTNESS" />
+
+                    <Border Margin="0,14,0,0" Padding="16,12" CornerRadius="6"
+                            Background="{DynamicResource SurfaceBrush}">
+                        <TextBlock Text="{Binding Brightness.Status, Mode=OneWay}"
+                                   FontFamily="{DynamicResource MonoFont}" FontSize="16"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource TextHighBrush}"
+                                   TextWrapping="Wrap" />
+                    </Border>
+
+                    <Button Style="{StaticResource StageLauncherButton}"
+                            Height="52" MinWidth="330" Margin="0,14,0,0"
+                            HorizontalAlignment="Left"
+                            Command="{Binding Brightness.ToggleEnabledCommand}">
+                        <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="14">
+                            <Run Text="SET THE BACKLIGHT —" />
+                            <Run Text="{Binding Brightness.EnabledLabel, Mode=OneWay}" FontWeight="Bold" />
+                        </TextBlock>
+                    </Button>
+
+                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,18,0,0" Text="BY DAY" />
+
+                    <ItemsControl Margin="0,10,0,0" ItemsSource="{Binding Brightness.DayLevels}"
+                                  IsEnabled="{Binding Brightness.IsEnabled}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource OptionChipButton}"
+                                        MinWidth="96"
+                                        Command="{Binding DataContext.Brightness.SetDayCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}">
+                                    <TextBlock Text="{Binding Label}"
+                                               FontFamily="{DynamicResource MonoFont}"
+                                               FontSize="15" />
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Style="{StaticResource FieldLabel}" Margin="0,18,0,0" Text="BY NIGHT" />
+
+                    <ItemsControl Margin="0,10,0,0" ItemsSource="{Binding Brightness.NightLevels}"
+                                  IsEnabled="{Binding Brightness.IsEnabled}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource OptionChipButton}"
+                                        MinWidth="96"
+                                        Command="{Binding DataContext.Brightness.SetNightCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}">
+                                    <TextBlock Text="{Binding Label}"
+                                               FontFamily="{DynamicResource MonoFont}"
+                                               FontSize="15" />
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Margin="2,12,0,0"
+                               MaxWidth="620"
+                               HorizontalAlignment="Left"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="Day and night follow Appearance — sunrise and sunset on Auto, and the truck's headlights once DashDeck can read them. The level you had goes back when DashDeck closes. If Windows' own automatic brightness is on, it may move the level again." />
+
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,30,0,0" Text="WEB SCALE" />
 
                     <ItemsControl Margin="0,16,0,0" ItemsSource="{Binding WebScales}">
                         <ItemsControl.ItemsPanel>

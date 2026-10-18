@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using DashDeck.Core.Brightness;
 
 namespace DashDeck.Host.Settings;
 
@@ -99,6 +100,18 @@ public sealed partial class DisplaySettings : ObservableObject
     [ObservableProperty]
     private bool _duckUnderInstructions = true;
 
+    /// <summary>Whether DashDeck sets the tablet's backlight (ADR-0068).</summary>
+    [ObservableProperty]
+    private bool _brightnessEnabled = true;
+
+    /// <summary>The backlight by day, per cent (ADR-0068).</summary>
+    [ObservableProperty]
+    private int _dayBrightness = 100;
+
+    /// <summary>The backlight by night, per cent (ADR-0068).</summary>
+    [ObservableProperty]
+    private int _nightBrightness = 30;
+
     public DisplaySettings()
     {
         var stored = SettingsStore.Load();
@@ -115,8 +128,14 @@ public sealed partial class DisplaySettings : ObservableObject
         FastRequests = stored.FastRequests;
         AllowClearCodes = stored.AllowClearCodes;
         DuckUnderInstructions = stored.DuckUnderInstructions;
+        BrightnessEnabled = stored.BrightnessEnabled;
+        DayBrightness = BrightnessPolicy.Clamp(stored.DayBrightness);
+        NightBrightness = BrightnessPolicy.Clamp(stored.NightBrightness);
         _loaded = true;
     }
+
+    /// <summary>The backlight as chosen, for <see cref="DashDeck.Host.Brightness.ScreenBrightness"/>.</summary>
+    public BrightnessChoice Backlight => new(BrightnessEnabled, DayBrightness, NightBrightness);
 
     /// <summary>The tank in US gallons, for the hint beside the litres field — Jason thinks in gallons.</summary>
     public string FuelTankGallons => $"≈ {FuelTankLitres / 3.785411784:0.0} US gal";
@@ -281,6 +300,30 @@ public sealed partial class DisplaySettings : ObservableObject
         if (_loaded)
         {
             SettingsStore.Update(stored => stored with { DuckUnderInstructions = value });
+        }
+    }
+
+    partial void OnBrightnessEnabledChanged(bool value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { BrightnessEnabled = value });
+        }
+    }
+
+    partial void OnDayBrightnessChanged(int value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { DayBrightness = value });
+        }
+    }
+
+    partial void OnNightBrightnessChanged(int value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { NightBrightness = value });
         }
     }
 }

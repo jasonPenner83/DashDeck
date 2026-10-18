@@ -146,6 +146,29 @@ public sealed record UserSettings
     /// <summary>Whether DashDeck's playback gets out of the way of spoken instructions (Q14).</summary>
     [JsonPropertyName("duckUnderInstructions")]
     public bool DuckUnderInstructions { get; init; } = true;
+
+    /// <summary>Whether DashDeck sets the tablet's backlight (ADR-0068).</summary>
+    [JsonPropertyName("brightnessEnabled")]
+    public bool BrightnessEnabled { get; init; } = true;
+
+    /// <summary>The backlight by day, per cent (ADR-0068).</summary>
+    [JsonPropertyName("dayBrightness")]
+    public int DayBrightness { get; init; } = 100;
+
+    /// <summary>The backlight by night, per cent (ADR-0068).</summary>
+    [JsonPropertyName("nightBrightness")]
+    public int NightBrightness { get; init; } = 30;
+
+    /// <summary>
+    /// The level the backlight was at before DashDeck changed it, while it is still owed back —
+    /// written when it is borrowed so a crash can be undone at the next launch (ADR-0068).
+    /// </summary>
+    [JsonPropertyName("backlightOriginal")]
+    public int? BacklightOriginal { get; init; }
+
+    /// <summary>The level DashDeck last left the backlight at, beside <see cref="BacklightOriginal"/>.</summary>
+    [JsonPropertyName("backlightSet")]
+    public int? BacklightSet { get; init; }
 }
 
 /// <summary>
@@ -158,6 +181,8 @@ public sealed record UserSettings
 /// </remarks>
 public static class SettingsStore
 {
+    private static readonly Lock Gate = new();
+
     /// <summary>Why the last load or save failed, if it did.</summary>
     public static string? LastError { get; private set; }
 
@@ -196,12 +221,18 @@ public static class SettingsStore
     /// would reset that preference to its default with nothing to show for it.
     /// <para>
     /// Read, transform, write. Not atomic against another process, which does not matter —
-    /// one dash, one writer at a time.
+    /// one dash at a time — but serialised within this one.
     /// </para>
     /// </remarks>
     public static void Update(Func<UserSettings, UserSettings> change)
     {
         ArgumentNullException.ThrowIfNull(change);
-        Save(change(Load()));
+
+        // One process, but no longer one thread: the backlight's worker writes here too
+        // (ADR-0068), and two read-transform-writes interleaved would lose one of them.
+        lock (Gate)
+        {
+            Save(change(Load()));
+        }
     }
 }
