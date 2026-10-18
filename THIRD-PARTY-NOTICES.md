@@ -13,6 +13,7 @@ again whenever a `PackageReference` is added.
 | [VideoLAN.LibVLC.Windows](https://code.videolan.org/videolan/libvlc-nuget) | Host (native VLC) | LGPL-2.1-or-later (libVLC core); individual VLC plugins carry their own licenses, some GPL |
 | [Microsoft.Web.WebView2](https://www.nuget.org/packages/Microsoft.Web.WebView2) | Host (web stage) | Microsoft WebView2 SDK license (BSD-style) |
 | [System.IO.Ports](https://github.com/dotnet/runtime) | Vehicle transports | MIT |
+| [System.Management](https://github.com/dotnet/runtime) | Host (the tablet's backlight, ADR-0068) | MIT |
 | .NET runtime (self-contained publish) | Everything | MIT |
 | [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) 6.12.0 — `src/DashDeck.Host/Map/web/lib/`, deployed as `map/lib/` | The map renderer (ADR-0063) | BSD-3-Clause — text in `map/lib/LICENSE-maplibre-gl.txt`, shipped beside it |
 

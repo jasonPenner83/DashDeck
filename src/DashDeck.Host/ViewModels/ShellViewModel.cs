@@ -37,6 +37,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
     private readonly IClock _clock;
     private readonly ThemeService _theme;
+    private readonly Brightness.ScreenBrightness _brightness;
     private readonly DispatcherTimer _timer;
     private readonly string? _videoPath;
     private readonly Stage.UserAppStore _userApps;
@@ -217,6 +218,14 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Shell.StartupTrace.Phase("shell: reading display settings");
         Display = new DisplaySettings();
 
+        // The tablet's backlight, by day and by night (ADR-0068). Started before anything slow so
+        // a launch at night dims early; its reads and writes run on a worker of their own.
+        Shell.StartupTrace.Phase("shell: the backlight");
+        _brightness = new Brightness.ScreenBrightness(
+            new Brightness.WmiBacklight(), new Brightness.SettingsBacklightMemory(), () => Display.Backlight);
+        _brightness.Start();
+        _brightness.Apply(theme.IsNight);
+
         // The player outlives the panel, so it is made here and disposed with the shell. It is
         // allowed to fail: a missing native LibVLC must cost the music, never the whole dash.
 
@@ -328,7 +337,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         Shell.StartupTrace.Phase("shell: settings");
         Settings = new SettingsViewModel(
-            theme, Display, Sensors, _userApps, _launcher, Inventory, VehicleIdentity, Adapter, location, clock);
+            theme, Display, Sensors, _userApps, _launcher, Inventory, VehicleIdentity, Adapter, location, clock, _brightness);
 
         // The MAPS destination (ADR-0062). Built before anything touches the stage, for two
         // ordering reasons that are both real: handing the map to the stage goes through the same
@@ -1465,6 +1474,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         (ConsoleContent as IDisposable)?.Dispose();
         (MapContent as IDisposable)?.Dispose();
 
+        // Last, so the backlight is given back once nothing else is left to wait on.
+        _brightness.Dispose();
+
         // The panel is just a view; the player and its ticker are the things holding resources.
     }
 
@@ -1484,6 +1496,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // Auto re-checks itself on the same beat as the clock: sunset does not need a
         // dedicated timer.
         _theme.Reevaluate();
+
+        // The backlight follows the same answer, so palette and panel never disagree about
+        // whether it is night (ADR-0068). Writes nothing unless the level wanted has changed.
+        _brightness.Apply(_theme.IsNight);
 
         // The status strip carries the weather now, so it is refreshed on the same beat as
         // the clock. Reading, never fetching — WeatherService owns the one request.

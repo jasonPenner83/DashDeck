@@ -40,6 +40,10 @@
          port using Windows' in-box serial-over-Bluetooth driver, so this reads NMEA from it.
          No driver install, so it does not touch C1's two-driver limit. -->
     <PackageReference Include="System.IO.Ports" Version="10.0.0" />
+    <!-- The tablet's backlight (ADR-0068): Windows reaches a built-in panel's brightness only
+         through WMI's root\wmi classes, the ones the Action Center slider uses. In-box, nothing
+         installed, no elevation. -->
+    <PackageReference Include="System.Management" Version="10.0.0" />
   </ItemGroup>
 
   <PropertyGroup>

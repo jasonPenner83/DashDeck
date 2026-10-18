@@ -163,7 +163,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         VehicleIdentityViewModel vehicle,
         AdapterPortsViewModel adapter,
         DashDeck.Core.Location.ILocationSource? location = null,
-        IClock? clock = null)
+        IClock? clock = null,
+        DashDeck.Host.Brightness.ScreenBrightness? brightness = null)
     {
         Adapter = adapter;
         _location = location;
@@ -178,6 +179,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Vehicle = vehicle;
         Display = display;
         Audio = new AudioSettingsViewModel(display);
+        Brightness = new BrightnessSettingsViewModel(display, brightness);
         About = new AboutViewModel(display);
         _sensors = sensors;
         _userApps = userApps;
@@ -228,6 +230,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Which vehicle this is: its VIN, the decode, the signal pack (ADR-0033).</summary>
     public VehicleIdentityViewModel Vehicle { get; }
+
+    /// <summary>Settings ▸ DISPLAY ▸ BRIGHTNESS: the backlight by day and by night (ADR-0068).</summary>
+    public BrightnessSettingsViewModel Brightness { get; }
 
     /// <summary>Settings ▸ AUDIO: where the music comes from, and ducking (Q14, ADR-0060).</summary>
     public AudioSettingsViewModel Audio { get; }
