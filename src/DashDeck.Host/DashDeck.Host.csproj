@@ -20,6 +20,13 @@
     <Content Include="..\..\catalog\themes\*.ttf;..\..\catalog\themes\*.otf;..\..\catalog\themes\*.txt" Link="catalog\themes\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <!-- The extras (LCARS, ADR-0043) travel with the binary too: installed into the user's folders once. -->
     <Content Include="..\..\catalog\extras\**\*.ttf;..\..\catalog\extras\**\*.otf;..\..\catalog\extras\**\*.txt" Link="catalog\extras\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!--
+      The map page and its vendored MapLibre (ADR-0063), served to WebView2 from a virtual host
+      mapped at this folder — so it has to sit beside the executable in a build and in a publish
+      alike. Code, not catalog: it is a renderer, where catalog/ is data the user may edit.
+      Everything under web\ and nothing else, so the C# beside it is not copied as content.
+    -->
+    <Content Include="Maps\web\**\*" Link="map\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

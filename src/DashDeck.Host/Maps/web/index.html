@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>DashDeck map</title>
+<link rel="stylesheet" href="lib/maplibre-gl.css">
+<style>
+  /*
+    The page is the whole region and nothing else. Chrome belongs to the dash: the controls are
+    WPF, above this, where the theme and the touch sizes already are (ADR-0062).
+  */
+  html, body, #map { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
+  body { background: #0D0C0B; }
+
+  /* Matches the dash's canvas, so a map that has not drawn yet is dark rather than white. */
+  .maplibregl-canvas { outline: none; }
+
+  /* Attribution is a licence obligation (ODbL), so it is styled to be readable rather than
+     hidden — small, bottom right, dark enough not to glare at night. */
+  .maplibregl-ctrl-attrib {
+    background: rgba(13, 12, 11, 0.72) !important;
+    font: 10px/1.4 "IBM Plex Mono", Consolas, monospace;
+  }
+  .maplibregl-ctrl-attrib a { color: #A5A096 !important; }
+
+  /*
+    The vehicle. A cone for where it is pointing and a dot for where it is, drawn here rather
+    than as an image so it needs no asset and takes the dash's accent colour.
+  */
+  /* position: relative is load-bearing — the cone and the dot are absolutely positioned, and
+     without it they would place themselves against the page rather than against the marker, so
+     the vehicle would be drawn in the top-left corner of the map and stay there. */
+  #me { position: relative; width: 42px; height: 42px; }
+  /* The marker takes the theme's accent, handed in at boot and on every theme change
+     (ADR-0064), so the vehicle is ours to draw whoever supplies the map underneath it. */
+  #me .cone {
+    position: absolute; left: 11px; top: 0;
+    width: 0; height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 20px solid var(--marker, #FF7A1A);
+    opacity: 0.9;
+  }
+  #me .dot {
+    position: absolute; left: 15px; top: 18px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--marker, #FF7A1A); border: 2px solid #0D0C0B;
+  }
+  /* Stale or no fix: the same marker, drained of colour. The dash never dresses an old
+     reading up as a live one, and the map is not an exception. */
+  #me.stale .cone { border-bottom-color: #6B665E; }
+  #me.stale .dot { background: #6B665E; }
+
+  /* A searched address. Deliberately not the marker's colour: the vehicle and the destination
+     must never be mistaken for one another at a glance. */
+  #there {
+    position: relative; width: 34px; height: 34px;
+  }
+  #there .pin {
+    position: absolute; left: 11px; top: 4px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--ink, #F4F1EB); border: 3px solid var(--land, #0D0C0B);
+    box-shadow: 0 0 0 2px var(--ink, #F4F1EB);
+  }
+
+  /*
+    The place popup. It lives in the page and has to: a WebView2 is a child window, so anything
+    WPF drew over the map would be underneath it (ADR-0021). MapLibre's own popup chrome is white,
+    so all of it is repainted in the theme's colours, handed in with the palette.
+  */
+  .maplibregl-popup-content {
+    background: var(--surface, #191816) !important;
+    border: 1px solid var(--line, #3A3630);
+    border-radius: 14px;
+    padding: 14px 16px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+    max-width: 320px;
+  }
+  .maplibregl-popup-tip { display: none; }
+  .maplibregl-popup-close-button {
+    color: var(--ink, #A5A096) !important;
+    font-size: 22px; padding: 2px 10px 6px 10px;
+  }
+
+  .place-name {
+    font: 600 20px/1.25 Archivo, "Segoe UI", sans-serif;
+    color: var(--ink, #F4F1EB);
+  }
+  .place-detail, .place-fact {
+    margin-top: 6px;
+    font: 12px/1.45 "IBM Plex Mono", Consolas, monospace;
+    color: var(--mid, #A5A096);
+    word-break: break-word;
+  }
+  .place-kind {
+    display: inline-block; margin-top: 8px; padding: 2px 10px;
+    border: 1px solid var(--marker, #FF7A1A); border-radius: 999px;
+    font: 11px/1.6 "IBM Plex Mono", Consolas, monospace;
+    color: var(--marker, #FF7A1A); text-transform: uppercase;
+  }
+  /* A full-width target, because this is pressed with a thumb through a windscreen's worth of
+     glare rather than clicked. */
+  .place-go {
+    display: block; width: 100%; margin-top: 14px; padding: 12px 0;
+    background: var(--marker, #FF7A1A); color: var(--land, #0D0C0B);
+    border: 0; border-radius: 10px;
+    font: 600 15px/1 "IBM Plex Mono", Consolas, monospace;
+    letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer;
+  }
+  .place-go[disabled] { opacity: 0.45; }
+
+  /*
+    The loading word lives in the page, and it has to: a WebView2 is a child window, so WPF
+    content cannot be drawn over it (ADR-0021's airspace rule). Anything that must sit on top of
+    the map belongs here. The dash keeps the states where there is no page at all — no GPS, no
+    fix yet, failed — and draws those itself.
+  */
+  #waiting {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #0D0C0B;
+    font: 24px/1.4 Archivo, "Segoe UI", sans-serif; color: #6B665E;
+    text-align: center; padding: 0 24px;
+  }
+  #waiting small {
+    margin-top: 10px;
+    font: 11px/1.5 "IBM Plex Mono", Consolas, monospace; color: #4A453E;
+  }
+  #waiting.gone { display: none; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="waiting">Loading the map<small id="waiting-detail">fetching tiles</small></div>
+
+<script type="module">
+/*
+  The dash drives this page; the page reports back. Two directions, both deliberately narrow:
+
+    host -> page   window.dash.position(...) / camera(...) / follow(...)
+    page -> host   postMessage("map:ready" | "map:error:..." | "map:camera:..." | "map:free")
+
+  The string protocol is parsed in C# by MapMessage, which is tested — a bridge between two
+  languages is the thing that breaks silently, and a page that keeps working while the dash
+  stops hearing it would look like a frozen map.
+*/
+const say = text => {
+  try { window.chrome.webview.postMessage(text); } catch (e) { /* not hosted; harmless */ }
+};
+
+const boot = window.dashBoot || {};
+let map = null;
+let marker = null;
+let element = null;
+let destination = null;
+let popup = null;
+let following = true;
+
+/* Reported once, whatever went wrong, because every failure here looks the same on screen:
+   a dark rectangle. Almost always it is no signal. */
+let failed = false;
+const fail = reason => {
+  if (failed) { return; }
+  failed = true;
+
+  /* Said here as well as reported, because the dash tears this page down on a failure and the
+     moment in between should not read as a map that is still coming. */
+  const waiting = document.getElementById("waiting");
+  if (waiting) {
+    waiting.firstChild.nodeValue = "No map";
+    document.getElementById("waiting-detail").textContent = "no signal for the tiles";
+  }
+
+  say("map:error:" + String(reason || "the map did not load").slice(0, 200));
+};
+
+window.onerror = (message) => fail(message);
+window.onunhandledrejection = (event) => fail(event && event.reason);
+
+/* The theme's colours, for everything the style does not paint: the vehicle, the pin and the
+   popup's chrome (ADR-0064). */
+function wear(palette) {
+  if (!palette) { return; }
+  for (const [name, value] of Object.entries(palette)) {
+    if (typeof value === "string") {
+      document.documentElement.style.setProperty("--" + name, value);
+    }
+  }
+}
+
+wear(boot.palette);
+
+try {
+  const maplibre = await import("./lib/maplibre-gl.mjs");
+
+  map = new maplibre.Map({
+    container: "map",
+    style: boot.style,
+    center: [boot.lon ?? 0, boot.lat ?? 0],
+    zoom: boot.zoom ?? 2,
+    bearing: boot.bearing ?? 0,
+    // Off in a vehicle: a map that tilts is harder to read at a glance, and both gestures are
+    // easy to trigger by accident with a thumb on a touch screen.
+    pitch: 0,
+    pitchWithRotate: false,
+    dragRotate: false,
+    touchPitch: false,
+    attributionControl: { compact: true },
+    // The dash says what is happening in its own words; a second set of browser-styled
+    // messages inside the picture would only disagree with them.
+    fadeDuration: 0,
+  });
+
+  map.on("load", () => {
+    document.getElementById("waiting").classList.add("gone");
+    say("map:ready");
+  });
+
+  /* An error from the style or a tile. The style failing is fatal and worth saying; a single
+     tile failing is not, and must not raise an alarm that covers a map you can still read. */
+  map.on("error", event => {
+    const bad = event && event.error;
+    const url = bad && bad.url ? String(bad.url) : "";
+
+    if (url && !url.includes("/styles/")) { return; }
+
+    fail(bad && bad.message ? bad.message : "the style did not load");
+  });
+
+  const report = () => {
+    const c = map.getCenter();
+    say("map:camera:" + [c.lng.toFixed(6), c.lat.toFixed(6),
+                         map.getZoom().toFixed(2), map.getBearing().toFixed(1)].join(","));
+  };
+
+  map.on("moveend", report);
+  map.on("zoomend", report);
+
+  /* A pan or a pinch by hand stops the map following the vehicle. Only user gestures do this,
+     which is why it listens for dragstart rather than movestart — our own easeTo would
+     otherwise switch following off the first time it recentred. */
+  const freed = () => {
+    if (!following) { return; }
+    following = false;
+    say("map:free");
+  };
+
+  map.on("dragstart", freed);
+  map.on("touchmove", freed);
+  map.on("wheel", freed);
+
+  /* The popup's contents, built as DOM with textContent rather than as HTML.
+     Everything in here - a place name, a website, opening hours - comes from OpenStreetMap, which
+     is to say from anybody, so none of it is ever parsed as markup. */
+  function card(place) {
+    const box = document.createElement("div");
+
+    const line = (text, className) => {
+      if (typeof text !== "string" || text.trim().length === 0) { return; }
+      const el = document.createElement("div");
+      el.className = className;
+      el.textContent = text.trim();
+      box.appendChild(el);
+    };
+
+    line(place.label, "place-name");
+    line(place.detail, "place-detail");
+    line(place.kind, "place-kind");
+    line(place.hours, "place-fact");
+    line(place.phone, "place-fact");
+    line(place.website, "place-fact");
+
+    const go = document.createElement("button");
+    go.className = "place-go";
+    go.textContent = "Directions to here";
+    go.addEventListener("click", () => {
+      go.disabled = true;
+      go.textContent = "Working it out\u2026";
+      say("map:directions");
+    });
+    box.appendChild(go);
+
+    return box;
+  }
+
+  window.dash = {
+    /* Where the vehicle is. Called on the dash's one-second beat while the map is on screen. */
+    position(lon, lat, course, live) {
+      if (!Number.isFinite(lon) || !Number.isFinite(lat)) { return; }
+
+      if (!marker) {
+        element = document.createElement("div");
+        element.id = "me";
+        element.innerHTML = '<div class="cone"></div><div class="dot"></div>';
+        marker = new maplibre.Marker({ element, rotationAlignment: "map" })
+          .setLngLat([lon, lat]).addTo(map);
+      } else {
+        marker.setLngLat([lon, lat]);
+      }
+
+      /* No course below walking pace, so the cone does not spin on the spot at a red light.
+         The dash decides that threshold and passes NaN when it does not trust the heading. */
+      if (Number.isFinite(course)) { marker.setRotation(course); }
+
+      element.classList.toggle("stale", !live);
+
+      if (following) { map.easeTo({ center: [lon, lat], duration: 900 }); }
+    },
+
+    /* Put the map back where it was. Used after a rebuild — moving between the dash's three
+       placements reparents the browser control, which reloads this page (Q43). */
+    camera(lon, lat, zoom, bearing) {
+      if (!Number.isFinite(lon) || !Number.isFinite(lat)) { return; }
+      map.jumpTo({ center: [lon, lat], zoom, bearing });
+    },
+
+    follow(on) {
+      following = !!on;
+      if (following && marker) { map.easeTo({ center: marker.getLngLat(), duration: 600 }); }
+    },
+
+    /* A searched address: fly there, pin it, and open what is known about it. Only ever one pin -
+       a second search replaces the first, because two destinations on a map is a question rather
+       than an answer. */
+    destination(lon, lat, zoom, place) {
+      if (!Number.isFinite(lon) || !Number.isFinite(lat)) { return; }
+
+      if (!destination) {
+        const dot = document.createElement("div");
+        dot.id = "there";
+        dot.appendChild(Object.assign(document.createElement("div"), { className: "pin" }));
+        destination = new maplibre.Marker({ element: dot, anchor: "center" });
+      }
+
+      destination.setLngLat([lon, lat]).addTo(map);
+
+      if (popup) { popup.remove(); }
+      popup = new maplibre.Popup({ closeButton: true, closeOnClick: false, offset: 18, maxWidth: "320px" })
+        .setLngLat([lon, lat])
+        .setDOMContent(card(place || {}))
+        .addTo(map);
+
+      /* flyTo rather than jumpTo: the movement is what says "this is somewhere else", and the
+         dash has already stopped following so nothing fights it. */
+      map.flyTo({ center: [lon, lat], zoom: zoom || map.getZoom(), duration: 1200 });
+    },
+
+    /* The way there, as a line. Drawn under the markers so neither the vehicle nor the
+       destination is covered by it. */
+    route(coordinates) {
+      if (!Array.isArray(coordinates) || coordinates.length < 2) { return; }
+
+      const line = { type: "Feature", geometry: { type: "LineString", coordinates } };
+
+      if (map.getSource("route")) {
+        map.getSource("route").setData(line);
+      } else {
+        map.addSource("route", { type: "geojson", data: line });
+        map.addLayer({
+          id: "route-under", type: "line", source: "route",
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": getComputedStyle(document.documentElement).getPropertyValue("--land").trim() || "#0D0C0B",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 6, 7, 16, 20],
+          },
+        });
+        map.addLayer({
+          id: "route-line", type: "line", source: "route",
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": getComputedStyle(document.documentElement).getPropertyValue("--marker").trim() || "#FF7A1A",
+            "line-width": ["interpolate", ["linear"], ["zoom"], 6, 3.5, 16, 12],
+          },
+        });
+      }
+
+      /* The whole way, with room for the panel that is about to cover the bottom of it. */
+      const bounds = coordinates.reduce(
+        (box, point) => box.extend(point),
+        new maplibre.LngLatBounds(coordinates[0], coordinates[0]));
+
+      map.fitBounds(bounds, { padding: { top: 80, bottom: 140, left: 60, right: 60 }, duration: 1200 });
+    },
+
+    clearRoute() {
+      for (const id of ["route-line", "route-under"]) {
+        if (map.getLayer(id)) { map.removeLayer(id); }
+      }
+      if (map.getSource("route")) { map.removeSource("route"); }
+      if (popup) { popup.remove(); popup = null; }
+      if (destination) { destination.remove(); destination = null; }
+    },
+
+    /* A whole style, as an object. setStyle keeps the camera as long as the new style fixes
+       none of its own - which MapStyle deliberately does not (Q43). */
+    restyle(style) {
+      try {
+        map.setStyle(style);
+      } catch (e) {
+        fail(e);
+      }
+    },
+
+    palette(colours) { wear(colours); },
+  };
+} catch (e) {
+  fail(e);
+}
+</script>
+</body>
+</html>

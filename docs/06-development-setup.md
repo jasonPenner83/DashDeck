@@ -68,7 +68,14 @@ DashDeck.Host.exe --level                  # capture the mount reference at laun
 DashDeck.Host.exe --menu                   # open the overflow menu
 DashDeck.Host.exe --page 1                 # open on a later page of cards
 DashDeck.Host.exe --edit-card 2            # open the card editor on the third card
+DashDeck.Host.exe --gps synthetic          # a moving fix with no phone paired
+DashDeck.Host.exe --gps COM6               # a paired phone's port, this launch only
 ```
+
+`--gps synthetic` drives a loop near downtown Winnipeg at a true 60 km/h — five kilometres a
+lap — so anything that does arithmetic on a position (the map's marker, the navigation
+readouts of ADR-0066) has a position that actually moves. It is the only way to get the
+synthetic track: Settings offers Bluetooth and Network, not this.
 
 `--theme` and `--accent` **preview without saving** (ADR-0014). Everything chosen in Settings
 is written to `%LOCALAPPDATA%\DashDeck\settings.json` the moment it changes, and a development

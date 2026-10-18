@@ -373,16 +373,16 @@ truck. Internet for the web page in step 6. Notepad.
 4. Tap **OPEN FOLDER**. **Expect:** Explorer on `…\AppData\Local\DashDeck` with `launcher.json`
    and `launcher.example.json` in it. Open `launcher.json` in Notepad.
 5. **Reorder the bar.** Change the `quickBar` line to
-   `"quickBar": [ "MAPS", "GAUGES", "CLOCK" ],`. Save. Back in Settings ▸ Apps tap **RELOAD**.
-   **Expect:** the line *Reloaded launcher.json: …* and **BAR** now beside MAPS, GAUGES and CLOCK.
-   Go back to the dash. **Expect:** three buttons — **MAPS, GAUGES, CLOCK** — plus the nine-dot.
+   `"quickBar": [ "OSM", "GAUGES", "CLOCK" ],`. Save. Back in Settings ▸ Apps tap **RELOAD**.
+   **Expect:** the line *Reloaded launcher.json: …* and **BAR** now beside OSM, GAUGES and CLOCK.
+   Go back to the dash. **Expect:** three buttons — **OSM, GAUGES, CLOCK** — plus the nine-dot.
    Whatever was on the stage is still on it and still lit; if it was COMPASS, a fourth COMPASS
    button sits at the end.
-6. **Add a web page with its own zoom.** In `entries`, after the MAPS line, add:
+6. **Add a web page with its own zoom.** In `entries`, after the OSM line, add:
    `{ "name": "RADAR", "type": "web", "url": "https://weather.gc.ca/radar/", "zoom": 0.75, "group": "WEATHER" },`
    Save, **RELOAD**. Open the grid. **Expect:** a **WEATHER** heading with **RADAR** under it,
    detail `weather.gc.ca`. Tap it. **Expect:** the radar page on the stage, zoomed out further than
-   MAPS, and **RADAR** in the status strip.
+   OSM, and **RADAR** in the status strip.
 7. **Rename and hide.** Change `"name": "CLOCK"` to `"name": "TIME"` (and `CLOCK` in `quickBar` to
    `TIME`), and add `"hidden": true` to the MUSIC entry. Save, **RELOAD**. **Expect:** the bar says
    **TIME**; choosing it shows the clock with **TIME** in the status strip and the TIME button lit.
@@ -1454,6 +1454,265 @@ be ahead of it.
   DashDeck, or not enough free space for three copies.
 - **`%LOCALAPPDATA%\DashDeck\updates` is about 700 MB** after an update — the archive plus the
   staged copy. Deleting its contents is safe; nothing automatic cleans it up yet.
+
+## The map (ADR-0063) and its three sizes (ADR-0062)
+
+**Added 2026-10-16, and nothing in it has ever been run.** There is no Windows, no WebView2 and no
+signal in the session that built it, so the map has never been seen to draw. Everything testable
+without those is tested; what follows is the part that needs glass.
+
+**Start here, before anything else.** The tile endpoints are read from OpenFreeMap's own README and
+have never been probed — that session's proxy refuses the hosts. One command settles it, on the
+Surface, on the truck's connection:
+
+```powershell
+curl.exe -s -o $null -w "style %{http_code}`n" https://tiles.openfreemap.org/styles/dark
+curl.exe -s -o $null -w "tile  %{http_code} %{size_download} bytes`n" https://tiles.openfreemap.org/planet/latest/10/246/355.pbf
+```
+
+**Expect:** `style 200` and `tile 200` with a few kilobytes. Anything else and the map cannot work
+yet, and the rest of this is pointless — send me the output instead.
+
+**You need:** the dash running, the truck's connection up, and the phone sharing GPS over Bluetooth
+as in *The phone's GPS over Bluetooth* above. **At a desk instead**, `--gps synthetic` gives a
+moving fix near downtown Winnipeg and the whole walkthrough works without the truck:
+
+```
+dotnet run --project src\DashDeck.Host -- --gps synthetic --nav MAPS
+```
+
+### Does it draw
+
+1. **Tap MAPS in the nav.** **Expect:** the bottom third fills with a dark map, an orange cone and
+   dot where you are, and a small attribution line bottom right reading *OpenStreetMap contributors
+   · OpenMapTiles · OpenFreeMap*. Before it draws you get *Loading the map · fetching tiles* on a
+   dark panel, which should last a second or two on a good connection.
+   **A failure looks like:** *No map* with a reason under it — that is the honest state and the
+   reason is the thing to send me. A **white** flash or a white map means the style loaded but not
+   the dark one. A dark rectangle with no words at all is the one outcome that should be impossible;
+   if you get it, say so, because it means the page failed without reporting.
+2. **Check the position states.** With GPS off (Settings ▸ Display): **expect** *No GPS* and a line
+   saying where to turn it on — **not** *No map*, because the missing thing is the position, not the
+   tiles. With GPS on and the phone not sharing: **expect** *Waiting for a position* naming the
+   port. Those two being told apart is the point.
+3. **Watch the marker while moving.** **Expect:** the cone points the way the truck is going and the
+   map slides to keep you centred. Below about 5 km/h the cone **stops turning** rather than
+   spinning on the spot — that is deliberate, since a GPS course at a standstill is noise.
+4. **Turn the phone's GPS off while driving.** **Expect:** within about ten seconds the marker
+   **goes grey where it is** and the readout ages. It must not sit there in orange looking current,
+   and it must not jump to nowhere.
+
+### Does it behave
+
+5. **Drag the map with a finger.** **Expect:** it pans, it stops following, and a **RECENTRE** chip
+   appears beside TO THE STAGE. Tap it: the map comes back to the truck and stays with it.
+   **A failure looks like:** the map fighting your drag (following was never switched off), or no
+   RECENTRE appearing — which leaves you with a map that has lost you.
+6. **Pinch to zoom, then tap MAPS again** to go full screen. **Expect:** the map fills everything
+   between the status strip and the nav, **at the zoom you left it at**. It will redraw — the
+   browser control is rebuilt by the move — so a second of tiles arriving is expected. What is not
+   expected is coming back at a different zoom or over a different place. **This is the step most
+   likely to be wrong.**
+7. **Tap MAPS again** for the bottom third, then again for full screen. **Expect:** the stage
+   reappears and disappears with the same occupant still running, and the map keeps its place each
+   time.
+8. **TO THE STAGE.** **Expect:** the map moves up onto the stage, the chips and the hint go, the
+   status strip reads **MAPS**, and the region below says *The map is on the stage* with **BRING IT
+   BACK**. Open the three-dot menu: **expect** **BRING THE MAP BACK** and **RECENTRE** in it — the
+   chips are not available on the stage, so the menu is the only way to either.
+9. **Press MAPS in the nav while it is on the stage.** **Expect:** the map comes back, at the size
+   it had when it went up.
+
+### Does it wear the theme (ADR-0064)
+
+10. **Settings ▸ Appearance ▸ Themes, and choose LCARS.** **Expect** the map to change with the
+    rest of the dash, without a relaunch: **lavender streets, peach motorways, an orange vehicle,
+    near-black ground.** Those come from the theme's existing text ramp and accent, not from
+    anything map-specific — the LCARS file names only water and greenery.
+    **A failure looks like:** a grey map under an LCARS console (the restyle did not reach the
+    page), or the map going blank (the style would not parse — the `--shot` text file carries the
+    reason as `map: … style: …`).
+11. **Switch back to Modern, then to Glass.** **Expect** each one's map to match its dash. Then
+    **Settings ▸ Appearance ▸ NIGHT**: the ground should darken further than the names on it, so
+    labels stay legible rather than everything fading together.
+12. **Compare against somebody else's cartography.** Relaunch with
+    `--map-style https://tiles.openfreemap.org/styles/dark`. **Expect** OpenFreeMap's own map,
+    ignoring the theme, with the vehicle marker still in the theme's accent. This is the
+    comparison to reach for if the themed map looks wrong — and if theirs reads better in the cab,
+    say so, because that is a real answer and the token defaults can move.
+    Their other looks: `bright`, `liberty`, `positron`, `fiord`.
+13. **Labels are Noto Sans and will stay that way** whatever `uiFont` says — a map label needs
+    glyphs built into PBF ranges and a theme's TTF has none (Q45). If the LCARS map looks right in
+    every way except the lettering, that is why, and it is written down rather than a bug.
+
+### Does the search work (ADR-0065)
+
+**Parked, with the connection up.** The dash will not let you type a destination above 5 km/h, so
+every step here is stationary on purpose.
+
+14. **Tap SEARCH on the map region.** **Expect:** the map goes full screen, the search covers it,
+    and **the Surface's own keyboard comes up** with the field already focused — the caret is in it
+    and you can type straight away.
+    **If no keyboard appears:** that is Windows, not the dash. Settings ▸ Devices ▸ Typing ▸ *Show
+    the touch keyboard when there's no keyboard attached*. Tell me either way, because it decides
+    whether this is usable with the tablet mounted.
+15. **Type an address you know** — a street and a town. **Expect:** it appears in the field, and
+    **nothing searches while you type.** That is deliberate and required: Nominatim's policy
+    forbids auto-complete outright.
+16. **Tap SEARCH.** **Expect:** up to five results, each a bold line with the address under it,
+    nearby ones first. **Tap SEARCH again straight away** and expect *Just a moment — one search a
+    second*, which is the usage policy enforced rather than trusted.
+17. **Tap a result.** **Expect:** the search closes, the map flies to it, drops a **pale pin** —
+    deliberately not the vehicle's colour — and **a popup opens on the map** with the name, the
+    address, and a **DIRECTIONS TO HERE** button. RECENTRE appears, because choosing a destination
+    stops the map following you.
+18. **Search a business** — a coffee shop, a garage, a hardware store. **Expect** the popup to
+    carry what OpenStreetMap knows: a kind in an accent-coloured pill, opening hours, a telephone
+    number, a website. **Most places will have none of it** and that is normal — OSM knows what a
+    house is and rarely anything else. A business in town is where this shows.
+    **A failure looks like:** raw HTML or quotes in the popup (the contents are meant to be plain
+    text, never markup), or the popup in white rather than the theme's colours.
+19. **Press DIRECTIONS TO HERE.** **Expect:** the button says *Working it out…*, then a route is
+    drawn from where the truck is to the pin, the map zooms out to fit the whole way, and a chip
+    appears at the bottom reading something like **12.4 km · 18 min  STEPS ›**.
+    **A failure looks like:** *No answer — directions need a connection*, or *No way there that the
+    router could find* — both honest, and both worth telling me which.
+20. **Tap the STEPS chip.** **Expect:** the turn list, each row an instruction and a distance —
+    *Turn right onto Portage Avenue · 570 m* — with the destination and the summary at the top,
+    the router credited at the bottom, and **‹ MAP** to go back. The route is still drawn on the
+    map behind it.
+    **This is directions, not guidance.** Nothing here follows the truck, speaks, or re-routes, and
+    the row you are on is not highlighted because the dash does not know it. That is
+    [ADR-0058](decisions/ADR-0058-offline-map-and-routing.md)'s bundled engine and it is still
+    ahead — read these while stopped.
+21. **Search somewhere else without clearing anything.** **Expect** the old route and pin to
+    disappear as the new pin lands. One destination at a time; two on a map is a question rather
+    than an answer.
+22. **Tap SEARCH again.** **Expect** the address you chose under **RECENT** — tap it and go
+    straight there with no request at all. **Search the same address twice** and expect the results
+    instantly, with no network: it is cached, which the policy asks for and which also means it
+    works once the signal has gone.
+23. **Turn the connection off and search.** **Expect** *No answer — the search needs a connection*,
+    with the map keeping whatever tiles it had. Recents still work.
+24. **The gate. Roll slowly, or get someone to drive, and tap SEARCH.** **Expect** the search to
+    open and say *Stop first — a destination cannot be typed at nn km/h*, with the field shut, **no
+    keyboard asked for**, and **‹ MAP** still working. **Stop again without touching anything** and
+    expect the field to come back within a second or two.
+    **This is the step worth being fussy about** — it is the one safety rule in the feature.
+
+### In the cab
+
+25. **At night, parked.** **Expect** the map readable without being a torch. If the theme's map is
+    too bright or too dim at night, the fix is a token (`mapLand`, `mapRoad`) or the night rule
+    behind it — tell me which way it is wrong.
+26. **Watch the data.** This is the first feature that spends the truck's data by moving. Vector
+    tiles are small and the browser caches them, so a repeated drive should be nearly free — a
+    drive somewhere new will not be. If it costs more than you expect, say so: that is Q44's
+    argument, and it is the next thing to build.
+
+**What this does not test**, and cannot yet: anything offline. Drive out of signal and the map
+stops filling in — tiles already fetched stay, new ground does not arrive. That is
+[Q44](04-open-questions.md), it is sketched and not built, and it is the half that makes this
+useful on a highway. No routing and no guidance either — those are still
+[ADR-0058](decisions/ADR-0058-offline-map-and-routing.md)'s stages two and three.
+
+### Do the navigation readouts work (ADR-0066)
+
+The map's numbers are now **sensors**: a card or a stage layout can show the distance to where you
+are going the way it shows pitch or lateral g. Six of them, under **Navigation** in the picker.
+
+**Most of this is testable at the desk, and should be done there first** — launch with
+`DashDeck.Host.exe --gps synthetic`. The synthetic track now drives a real loop (800 m radius, a
+true 60 km/h, five kilometres a lap, about five minutes round), so a distance worked out from it
+actually changes. It used to weave inside a sixty-metre box while claiming 60 km/h, which was fine
+for showing a marker and useless for this.
+
+27. **MODIFY WIDGETS, add a card, and open the value picker.** **Expect** a **Navigation** group
+    below Location with six entries: *To Destination*, *Destination Bearing*, *Route Distance*,
+    *Route Time*, *Distance Left*, *Time Left*.
+    **A failure looks like:** no Navigation group at all, which means the catalog did not load —
+    check `catalog/sensors.device.json` travelled with the build.
+28. **Add *To Destination* and *Destination Bearing* and leave the map with no destination.**
+    **Expect** both cards to read as having nothing — a dash, not a zero — with **NAV · NO
+    DESTINATION** in the footer. **Expect *Distance Left* to say NAV · NO ROUTE**, which is a
+    different sentence on purpose.
+29. **Search an address and pick it, then come back to the cards.** **Expect** *To Destination* in
+    kilometres and *Destination Bearing* in degrees, both **blue** on the synthetic track, because
+    a number worked out from a simulated position is simulated. Watch them for a minute: the
+    distance should change by about a kilometre a minute and the bearing should swing round.
+    **A failure looks like:** white or amber instead of blue (the quality is not being carried
+    through), a distance that does not move (the fix is not being re-read), or a bearing outside
+    0–360.
+30. **Press DIRECTIONS TO HERE, then look at the four route cards.** **Expect** *Route Distance*
+    and *Route Time* to fill in and then sit still — they are the router's answer about the road,
+    so they are **white, not blue**, and need no position at all. **Expect** *Distance Left* and
+    *Time Left* to start near the totals and count down.
+31. **Keep watching *Distance Left* on the synthetic track.** **Expect it to go to NAV · OFF ROUTE
+    within a minute or so**, and that is the test passing, not failing: the route follows real
+    roads and the synthetic truck drives a circle through whatever is there, so it leaves the line
+    almost at once. **The straight-line card keeps working while that happens** — the dash refuses
+    the number it cannot stand behind and keeps the one it can.
+32. **Unplug the phone, or turn its GPS off, and wait five seconds.** **Expect** every navigation
+    card to go to nothing — the same staleness rule the location cards use, so the two cannot
+    disagree about when the GPS went quiet. **Expect *Route Distance* to carry on regardless**,
+    because it never needed a position.
+33. **Put one on the stage.** Add *Distance Left* to a stage layout the way any sensor goes on one.
+    **Expect** it to behave identically, including the dash when there is no route. Nothing in the
+    layout engine was changed for this.
+
+**In the truck, and this is the part the desk cannot do:**
+
+34. **Parked, with a route to somewhere a few kilometres off, drive it.** **Expect *Distance Left*
+    to count down smoothly and *Time Left* with it**, and expect both to hold up until you deviate.
+    Three things worth telling me about:
+    - **Does it jump backwards anywhere?** That is [Q47](04-open-questions.md) — the countdown
+      snaps to the nearest point of the route, so a road that doubles back near itself, a
+      cloverleaf, or a there-and-back errand can pick the wrong end. Where it happened matters
+      more than that it did.
+    - **Does OFF ROUTE come up while you are still on the road?** The limit is 150 m, which should
+      cover a divided highway drawn down its centre line. If a service road or a frontage road
+      reads as off route, the number is wrong.
+    - **Is *Time Left* believable?** It is the router's own estimate pro-rated by the distance
+      left, not a fresh one — so it will not notice traffic, and it will not notice that the
+      remaining half is town rather than highway. If it is badly out, that is worth knowing before
+      anyone trusts it.
+
+**What this is not.** No guidance: nothing speaks, nothing re-routes, and nothing highlights the
+turn you are on. Those are still
+[ADR-0058](decisions/ADR-0058-offline-map-and-routing.md)'s bundled engine.
+
+### Do the words work (ADR-0067)
+
+The things a place knows that are *not* numbers — its name, its opening hours, its telephone
+number — are now cards too, as a third kind of source. Also testable at the desk, and the search
+needs a connection whether or not the GPS is real.
+
+35. **Add a card and look in the picker under Navigation again.** **Expect** seven more entries
+    beside the six numeric ones: *Destination*, *Destination Address*, *Destination Kind*, *Opening
+    Hours*, *Telephone*, *Website*, *Route*. Each one's second line ends in **words** rather than a
+    unit, which is how you tell the two kinds apart in the list.
+36. **Add *Destination* with nothing chosen.** **Expect** a dash and **nothing chosen** in the
+    footer. **Then search a place and pick it.** **Expect** the name to appear within a second,
+    with **FROM THE MAP** in the footer and a green border — a destination is what you chose, so it
+    is never stale and never simulated, even on a synthetic track where the distance to it is blue.
+37. **Search a business and add *Opening Hours*, *Telephone* and *Website*.** **Expect** OSM's own
+    wording — `Mo-Su 06:00-22:00` is normal and is not a bug — and **expect most places to leave
+    them blank**, which draws as a dash rather than as an empty card.
+38. **Put *Destination Address* on a one-column card.** **Expect** it to wrap to two lines at a
+    smaller size than a number, and to be cut off with an ellipsis if it is longer than that. **A
+    long website will not fit** and is not meant to; tell me if a name you actually use gets
+    clipped, because the size is a judgement rather than a measurement.
+39. **Open the editor on a readout card and look at the rows.** **Expect** BAR greyed out saying
+    *no range in the catalog*, the only unit **AUTO**, and the rate and format rows greyed saying
+    *words, not a number* — visible and refused rather than silently missing, the way an option
+    this dash cannot offer always is. **Switch a temperature card onto a readout** and expect the
+    °C to go with it rather than sitting beside a shop's name.
+40. **Add *Route* and press DIRECTIONS TO HERE.** **Expect** one line — `12 km · 18 min` — the same
+    wording the chip under the map uses, because it is the same sentence rather than a second
+    opinion about it.
+
+**Cards only, deliberately.** A stage layout's gauge reads through the sensor service and readouts
+are not in it, so *Destination* cannot go on a COMPASS layout. That is worth doing and is not done.
 
 ## When the dash will not open
 

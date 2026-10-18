@@ -1,5 +1,6 @@
 using DashDeck.Abstractions;
 using DashDeck.Core.Location;
+using DashDeck.Core.Maps;
 
 namespace DashDeck.Host.Location;
 
@@ -8,10 +9,18 @@ namespace DashDeck.Host.Location;
 /// <c>--shot</c>.
 /// </summary>
 /// <remarks>
-/// Computes where a truck would be, weaving gently along a road near Winnipeg at about 60 km/h,
-/// from the time since it started — no timer, just arithmetic on the clock. Every fix is stamped
-/// <see cref="SignalQuality.Simulated"/>, so it reads on screen as the blue that means "not a
-/// real truck" exactly like a synthetic OBD value, and can never be mistaken for a live position.
+/// Computes where a truck would be from the time since it started — no timer, just arithmetic on
+/// the clock. Every fix is stamped <see cref="SignalQuality.Simulated"/>, so it reads on screen as
+/// the blue that means "not a real truck" exactly like a synthetic OBD value, and can never be
+/// mistaken for a live position.
+/// <para>
+/// <b>It drives a real loop, and its numbers agree with each other.</b> It used to weave inside a
+/// sixty-metre box while reporting 60 km/h and a course that had nothing to do with the direction
+/// it was moving — fine for showing that a marker is on a map, useless for anything that does
+/// arithmetic on a position. Now it circles at a constant 60 km/h on an 800 m radius, so the speed
+/// it reports is the speed it travels, the course is the actual tangent, and a distance worked out
+/// from it (ADR-0066) changes the way a distance should.
+/// </para>
 /// </remarks>
 public sealed class SyntheticLocationSource : ILocationSource
 {
@@ -19,6 +28,17 @@ public sealed class SyntheticLocationSource : ILocationSource
     private DateTimeOffset? _started;
 
     public SyntheticLocationSource(IClock clock) => _clock = clock;
+
+    /// <summary>Where the loop is centred — near Winnipeg, as it always has been.</summary>
+    private const double CentreLatitude = 49.8951;
+
+    private const double CentreLongitude = -97.1384;
+
+    /// <summary>The loop's radius in metres. About five kilometres a lap at 60 km/h.</summary>
+    private const double RadiusMetres = 800;
+
+    /// <summary>A steady 60 km/h, which is now also the speed it actually travels.</summary>
+    private const double SpeedKmh = 60;
 
     /// <inheritdoc />
     public string Name => "synthetic track";
@@ -35,12 +55,19 @@ public sealed class SyntheticLocationSource : ILocationSource
 
             var t = (_clock.UtcNow - started).TotalSeconds;
 
-            var course = ((30 + (15 * Math.Sin(t / 15))) % 360 + 360) % 360;
-            var speed = 60 + (5 * Math.Sin(t / 10));
-            var latitude = 49.8951 + (0.0006 * Math.Sin(t / 30));
-            var longitude = -97.1384 + (0.0006 * Math.Cos(t / 30));
+            // How far round the loop, worked out from the speed and the radius rather than from a
+            // chosen period — which is what makes the reported speed true instead of decorative.
+            var radians = SpeedKmh / 3.6 / RadiusMetres * t;
 
-            return new LocationFix(latitude, longitude, speed, course, SignalQuality.Simulated, _clock.UtcNow);
+            // Starts due north of the centre and travels east, so the course is the tangent.
+            var latitude = CentreLatitude + (RadiusMetres * Math.Cos(radians) / Geo.MetresPerDegree);
+            var longitude = CentreLongitude
+                + (RadiusMetres * Math.Sin(radians)
+                    / (Geo.MetresPerDegree * Math.Cos(CentreLatitude * Math.PI / 180)));
+
+            var course = (((radians * 180 / Math.PI) + 90) % 360 + 360) % 360;
+
+            return new LocationFix(latitude, longitude, SpeedKmh, course, SignalQuality.Simulated, _clock.UtcNow);
         }
     }
 

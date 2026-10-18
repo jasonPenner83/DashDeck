@@ -1,0 +1,160 @@
+<UserControl x:Class="DashDeck.Host.Views.MapSearchPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:DashDeck.Host.Converters"
+             Background="{DynamicResource CanvasBrush}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <conv:InverseBoolToVisibilityConverter x:Key="NotBoolToVis" />
+
+        <!-- One row in either list: what it is, and where. Shared so the results and the recents
+             cannot drift apart. -->
+        <DataTemplate x:Key="FoundAddress">
+            <Button Margin="0,0,0,8" Cursor="Hand"
+                    Command="{Binding DataContext.Search.ChooseCommand,
+                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    CommandParameter="{Binding}">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Row"
+                                CornerRadius="12"
+                                Padding="18,12"
+                                Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource HairlineBrush}"
+                                BorderThickness="1">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Row" Property="BorderBrush"
+                                        Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+                <StackPanel>
+                    <TextBlock FontFamily="{DynamicResource UiFont}" FontSize="22"
+                               Foreground="{DynamicResource TextHighBrush}"
+                               TextTrimming="CharacterEllipsis"
+                               Text="{Binding Label}" />
+                    <TextBlock Margin="0,4,0,0"
+                               Style="{StaticResource MicroText}"
+                               TextTrimming="CharacterEllipsis"
+                               Text="{Binding Detail}" />
+                </StackPanel>
+            </Button>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <!--
+        Address search (ADR-0065). It covers the map rather than floating over it, and has to: a
+        WebView2 is a child window, so nothing WPF draws would appear on top of it (ADR-0021).
+
+        Only ever drawn full screen: the tablet's own keyboard takes the lower half of the screen
+        when it appears, so the field and the results need the rest of it.
+    -->
+    <DockPanel Margin="31,18,31,18">
+
+        <!-- The field, and the two things you can do with it. -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button Grid.Column="0"
+                    Style="{StaticResource OptionChipButton}"
+                    Content="‹ MAP"
+                    Command="{Binding CloseSearchCommand}" />
+
+            <!--
+                A real text box, typed on the tablet's own keyboard (ADR-0065's addendum). It is
+                focused and the touch keyboard asked for when the search opens; a USB keyboard
+                works in it too, which is what makes the desk pleasant.
+            -->
+            <Border Grid.Column="1" Margin="12,0,12,10"
+                    CornerRadius="14"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource HairlineStrongBrush}"
+                    BorderThickness="1"
+                    Height="56">
+                <Grid Margin="16,0">
+                    <TextBox x:Name="Field"
+                             VerticalAlignment="Center"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             CaretBrush="{DynamicResource AccentBrush}"
+                             FontFamily="{DynamicResource UiFont}"
+                             FontSize="24"
+                             Foreground="{DynamicResource TextHighBrush}"
+                             MaxLength="120"
+                             IsEnabled="{Binding Search.MayType}"
+                             Text="{Binding Search.Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <!-- The prompt sits behind an empty field, which is cheaper than a styled
+                         watermark and reads the same. Never hit-testable, or it would steal the tap
+                         that is meant to focus the field. -->
+                    <TextBlock VerticalAlignment="Center"
+                               IsHitTestVisible="False"
+                               FontFamily="{DynamicResource UiFont}"
+                               FontSize="24"
+                               Foreground="{DynamicResource TextFaintBrush}"
+                               Text="{Binding Search.Prompt}"
+                               Visibility="{Binding Search.HasQuery, Converter={StaticResource NotBoolToVis}}" />
+                </Grid>
+            </Border>
+
+            <Button Grid.Column="2"
+                    Style="{StaticResource OptionChipButton}"
+                    Content="SEARCH"
+                    IsEnabled="{Binding Search.CanSearch}"
+                    Command="{Binding Search.SearchCommand}" />
+        </Grid>
+
+        <!-- Whatever there is to say, and whatever there is to tap. -->
+        <Grid>
+            <!-- The speed gate (ADR-0058). Covers the lot, because while it is up there is
+                 nothing here worth reading. -->
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                        Visibility="{Binding Search.MayType, Converter={StaticResource NotBoolToVis}}">
+                <TextBlock HorizontalAlignment="Center" TextAlignment="Center" MaxWidth="620"
+                           TextWrapping="Wrap"
+                           FontFamily="{DynamicResource UiFont}" FontSize="24"
+                           Foreground="{DynamicResource TextLowBrush}"
+                           Text="{Binding Search.Barred}" />
+                <TextBlock Margin="0,12,0,0" HorizontalAlignment="Center"
+                           Style="{StaticResource MicroText}"
+                           Text="THE MAP IS STILL BEHIND THIS — ‹ MAP GOES BACK TO IT" />
+            </StackPanel>
+
+            <DockPanel Visibility="{Binding Search.MayType, Converter={StaticResource BoolToVis}}">
+                <TextBlock DockPanel.Dock="Top" Margin="0,0,0,10"
+                           Style="{StaticResource MicroText}"
+                           Text="{Binding Search.Message}"
+                           Visibility="{Binding Search.HasMessage, Converter={StaticResource BoolToVis}}" />
+
+                <!-- Results when there are some, and what you picked before when there are not.
+                     ADR-0058 put recents ahead of search on purpose: typing an address on glass is
+                     the slowest way to say where you are going. -->
+                <TextBlock DockPanel.Dock="Top" Margin="0,0,0,8"
+                           Style="{StaticResource CaptionText}"
+                           Text="RECENT"
+                           Visibility="{Binding Search.HasResults, Converter={StaticResource NotBoolToVis}}" />
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly">
+                    <Grid>
+                        <ItemsControl ItemsSource="{Binding Search.Results}"
+                                      Visibility="{Binding Search.HasResults, Converter={StaticResource BoolToVis}}"
+                                      ItemTemplate="{StaticResource FoundAddress}" />
+
+                        <ItemsControl ItemsSource="{Binding Search.Recent}"
+                                      Visibility="{Binding Search.HasResults, Converter={StaticResource NotBoolToVis}}"
+                                      ItemTemplate="{StaticResource FoundAddress}" />
+                    </Grid>
+                </ScrollViewer>
+            </DockPanel>
+        </Grid>
+    </DockPanel>
+</UserControl>

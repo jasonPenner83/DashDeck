@@ -147,9 +147,20 @@ A gauge can read a **tablet sensor** from `catalog/sensors.device.json` instead 
 | `attitude.pitch`, `attitude.roll` | Nose up/down and lean, ° — **needs the mount levelled** |
 | `motion.lateralG`, `motion.longitudinalG` | Sideways and fore-aft g — **needs the mount levelled** |
 | `location.latitude`, `location.longitude`, `location.groundSpeed` | From the phone's GPS (ADR-0027) |
+| `nav.destinationDistance`, `nav.destinationBearing` | Straight line and bearing to the place chosen on the map, km and ° (ADR-0066) |
+| `nav.routeDistance`, `nav.routeDuration` | The whole route, km and min — the router's own answer, so no position needed |
+| `nav.remaining`, `nav.eta` | Still to drive, km and min — **nothing while the truck is off the route** |
 
 - **Truck first.** Each sensor names the vehicle signal that would replace it; when the truck
-  answers, that is what you see. Otherwise it is the tablet's (or the phone's).
+  answers, that is what you see. Otherwise it is the tablet's (or the phone's). The two navigation
+  rows the truck could not possibly know — a straight line to a place, the bearing to it — name
+  nothing, because a `prefer` that will never exist would be a lie in a data file.
+- **The navigation rows are worked out, not measured** (ADR-0066), so they carry the GPS fix's own
+  quality: on a synthetic track they read as simulated, and a GPS that goes quiet takes them with
+  it. The route *totals* are the exception and stay live, having never needed a position.
+  `nav.remaining` and `nav.eta` show **nothing at all** once the truck is more than 150 m off the
+  line, rather than a distance to a place it is driving away from. There is **no text** here: a
+  destination's name is not a sensor.
 - **It says which.** A small line along the bottom of the gauge reads `TRUCK`, `TABLET`,
   `PHONE · GPS`, or why there is nothing (`NOT LEVELLED`, `NO SENSOR`), in the quality colour. Turn it
   off with `"showSource": false`.

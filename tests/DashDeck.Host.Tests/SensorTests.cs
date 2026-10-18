@@ -126,8 +126,9 @@ public sealed class SensorTests
 
         var catalog = SensorCatalog.FromFileOrEmpty(path);
 
-        // Five tablet sensors plus the three phone-GPS entries (ADR-0027).
-        Assert.Equal(8, catalog.Count);
+        // Five tablet sensors, the three phone-GPS entries (ADR-0027) and the six navigation
+        // readouts (ADR-0066).
+        Assert.Equal(14, catalog.Count);
         Assert.True(catalog.TryGet("motion.lateralG", out var lateral));
         Assert.Equal("vehicle.lateralAccel", lateral.Prefer);
         Assert.True(lateral.NeedsMountReference);
@@ -141,6 +142,17 @@ public sealed class SensorTests
         Assert.True(catalog.TryGet("location.groundSpeed", out var speed));
         Assert.Equal(SensorSource.Gps, speed.Source);
         Assert.Equal("vehicle.speed", speed.Prefer);
+
+        // The distance left is the truck's to supply the day its own navigation is decoded.
+        Assert.True(catalog.TryGet("nav.remaining", out var remaining));
+        Assert.Equal(SensorSource.Navigation, remaining.Source);
+        Assert.Equal("vehicle.nav.distanceRemaining", remaining.Prefer);
+        Assert.False(remaining.NeedsMountReference);
+
+        // The straight line to a place is not: nothing in the truck has an opinion about it, so
+        // the row names no superseding signal rather than one that will never exist (ADR-0066).
+        Assert.True(catalog.TryGet("nav.destinationDistance", out var toward));
+        Assert.Null(toward.Prefer);
     }
 
     [Fact]

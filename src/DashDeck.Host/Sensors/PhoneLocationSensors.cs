@@ -81,6 +81,16 @@ public sealed class PhoneLocationSensors : IDeviceSensors
         return false;
     }
 
+    /// <summary>
+    /// The latest fix, with the staleness rule already applied.
+    /// </summary>
+    /// <remarks>
+    /// Exposed so the navigation sensors (ADR-0066) can work from the same fix the location rows
+    /// show, rather than carrying a second copy of the ageing rule that would eventually disagree
+    /// with this one about when a GPS has gone quiet.
+    /// </remarks>
+    public LocationFix? Fix => Current();
+
     /// <summary>The phone cannot level a mount — that is the tablet's accelerometer's job.</summary>
     public MountReference? CaptureReference(DateTimeOffset nowUtc) => null;
 

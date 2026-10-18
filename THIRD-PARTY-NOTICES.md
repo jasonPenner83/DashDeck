@@ -14,6 +14,7 @@ again whenever a `PackageReference` is added.
 | [Microsoft.Web.WebView2](https://www.nuget.org/packages/Microsoft.Web.WebView2) | Host (web stage) | Microsoft WebView2 SDK license (BSD-style) |
 | [System.IO.Ports](https://github.com/dotnet/runtime) | Vehicle transports | MIT |
 | .NET runtime (self-contained publish) | Everything | MIT |
+| [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) 6.12.0 — `src/DashDeck.Host/Map/web/lib/`, deployed as `map/lib/` | The map renderer (ADR-0063) | BSD-3-Clause — text in `map/lib/LICENSE-maplibre-gl.txt`, shipped beside it |
 
 ### Fonts
 
@@ -35,6 +36,22 @@ again whenever a `PackageReference` is added.
 |---|---|---|
 | [Open-Meteo](https://open-meteo.com/) | Weather on the clock face | Free for non-commercial use; data is **CC BY 4.0** and must be attributed |
 | OpenStreetMap, Spotify, Apple Music web apps | Loaded as-is in the web stage | Each site's own terms; DashDeck only hosts the page |
+| [OpenFreeMap](https://openfreemap.org) | Map tiles and style, fetched as you drive (ADR-0063) | No key and no stated request limit; commercial use allowed. Donation-funded with no SLA — the offline half exists partly for that reason. **Attribution required** |
+| [OpenMapTiles](https://openmaptiles.org) schema | The tiles OpenFreeMap serves are built to it | Schema **CC-BY**; must be credited |
+| [OSRM at FOSSGIS](https://routing.openstreetmap.de/about.html) | Working out a route to a searched place (ADR-0065's addendum) | FOSSGIS **usage policy**: attribution on screen, an identifying User-Agent, at most one request a second, no scraping or heavy use. Enforced in code (`Router`, `MapRouteViewModel`), and the reason live turn-by-turn waits for the bundled engine — following a vehicle would be heavy use |
+| [Nominatim](https://nominatim.openstreetmap.org) | Turning a typed address into a position (ADR-0065) | OSM Foundation **acceptable-use policy**: end-user-triggered searches only, **no auto-complete**, at most one request a second, caching expected, and a User-Agent that identifies the application. All five are enforced in code (`AddressQuery`, `Geocoder`, `MapSearchViewModel`) rather than left to good intentions |
+| OpenStreetMap data (via OpenFreeMap) | Everything on the map | **ODbL** — © OpenStreetMap contributors, and the credit is a licence condition, not a courtesy |
+
+**The map's attribution line** is `© OpenStreetMap contributors · OpenMapTiles · OpenFreeMap`
+(`MapSource.Attribution`). MapLibre draws the style's own attribution control on the map, and the
+dash repeats it in the loading state — both are deliberate, because the obligation survives a map
+that has not finished drawing.
+
+**Not used, deliberately:** OpenStreetMap's own tile servers. Their
+[tile usage policy](https://operations.osmfoundation.org/policies/vector/) prohibits fetching
+tiles ahead of being viewed and names archives and offline use — the exact shape of a dash that
+keeps what it downloads. The data is the same; the capacity to serve it is what the policy
+protects.
 
 ## Before publishing a binary release
 

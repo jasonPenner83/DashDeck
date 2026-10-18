@@ -21,6 +21,18 @@ public enum CardSource
     /// a catalog entry, and the card draws whatever the component draws.
     /// </summary>
     Component,
+
+    /// <summary>
+    /// Words the dash already knows (ADR-0067) — a destination's name, its opening hours, a
+    /// route's summary. Not a measurement, and not a number.
+    /// </summary>
+    /// <remarks>
+    /// The third source <c>CardValue.cs</c> has been predicting since B4, and the reason
+    /// <see cref="DashDeck.Host.Sensors.SensorReading"/> was never widened to carry a string: a
+    /// card can show a word without every face, unit conversion and threshold in the dash having
+    /// to learn that a value might not be a number.
+    /// </remarks>
+    Readout,
 }
 
 /// <summary>How a card draws its value.</summary>

@@ -22,7 +22,9 @@ the first release that reads the real F-150; `main` is what is on the tablet.
 
 Engine (`Abstractions`, `Vehicle`, `Core`, `Simulator`, `DebugConsole`) targets plain
 `net10.0` and builds anywhere. Shell (`Abstractions.Wpf`, `Host`) targets `net10.0-windows`
-(ADR-0010). **852 tests green** — 397 engine, 455 shell.
+(ADR-0010). **533 engine tests green** — `DashDeck.Tests` builds and runs anywhere, which is why
+pure logic belongs in Core; `DashDeck.Host.Tests` needs the WindowsDesktop runtime and is CI's
+(`windows-latest`).
 
 ```bash
 dotnet run --project src/DashDeck.Host              # the shell, on the synthetic truck
@@ -44,7 +46,9 @@ like CLIMATE: speed, rpm, fuel, temperature, range, nine warning lights, odomete
 occupant is on the stage. The **cards are a user-arranged list**
 (ADR-0015) loaded from `dashboard.json` — add, remove, reorder, resize, and pick each card's
 value, style, unit, rate and format. A card names a **`source`** (B4): a vehicle `Signal`
-from the catalog, or a tablet `Sensor` — heading, pitch, roll, G. Sensor cards cost no request
+from the catalog, a tablet `Sensor` — heading, pitch, roll, G, the phone's GPS, and the navigation
+numbers (ADR-0066) — or a `Readout`, which is words rather than a number (ADR-0067). Sensor cards
+cost no request
 budget, and their footer says where they answered from rather than an allocated rate. The
 **signal catalog now defines the standard OBD-II Mode 01 set** (~35, each `category`-tagged),
 so the card editor's picker is **searchable and grouped by function**; the synthetic truck
@@ -182,6 +186,135 @@ door, brake and tyres are `warning.*` **placeholders**, and so are the economy a
 while it is off the stage, so no card declares; MODIFY WIDGETS puts CARDS on the stage first; a
 launcher file that never mentions `cards` gets it at the end of the grid. The card editor and
 component details can open over CLIMATE now, so both panels hide beneath them.
+
+**MAPS is a destination with three sizes** (ADR-0062) — and, for now, a placeholder in them. It is
+the first destination that does not own exactly one region: `Panel` is the bottom third beside the
+stage, `Full` is everything between the status strip and the nav (it reports as a full-screen view,
+so Q17's existing rule collapses the stage and the one region fills all six bands), and `Stage`
+hands the map to the stage as an occupant through the same `SetStage` path the launcher uses.
+The placement is a value — `DashDeck.Core.Maps.MapView`, with `Resized()`, `SentToTheStage()` and
+`BroughtBack()` — so the rule that matters (a map sent up from full screen comes back to full
+screen) is tested off Windows, and the shell only turns a placement into bands. **The size control
+is a second press of the nav's MAPS cell**, not a chip in the panel (ADR-0062's addendum): the nav
+strip is the only band reachable from the driver's seat and the cell was already under the thumb.
+MAPS is therefore the one cell that does something when you are already on it — swap the size, or,
+with the map on the stage, bring it back. The panel carries the hint that says so, and the hint is
+tested, because a gesture nothing announces is a control nobody finds. Coming off the
+stage is **reconciled after every stage change** rather than reported from the occupant's
+`Dispose`, which would re-enter `SetStage`. The map is deliberately **not** in the stage picker
+until it can be a `map` launcher entry (ADR-0038), and the built-in launcher's `MAPS` web page is
+now **`OSM`**, since the online OpenStreetMap page is a different thing from the offline map.
+**And there is a map in it now** (ADR-0063): **MapLibre GL JS**, vendored into the deploy
+(`src/DashDeck.Host/Map/web/`, 6.12.0, BSD-3-Clause), rendering **OpenFreeMap** vector tiles
+fetched as you pan — no API key, no request limit, their `dark` style, `--map-style <https url>` to
+swap it. **Never OSM's own tile servers**, whose usage policy forbids precisely this. The page runs
+in a **second WebView2** served from a virtual host (`https://dashdeck.map/index.html`, mapped to
+the deploy's `map/` folder), because an ES module and a web worker both refuse a `file://` origin,
+and it is driven over a string bridge — `window.dash.position/camera/follow` out, `map:ready` /
+`map:error:` / `map:camera:` / `map:free` back, parsed by `MapMessage` in Core. `MapCamera` lives
+in Core too, so where the map is looking **survives the rebuild a placement change causes** (Q43),
+along with invariant-culture formatting and clamping — a `NaN` across that bridge draws a blank
+canvas with no error. The map follows the vehicle until it is panned and then offers **RECENTRE**;
+on the stage both that and BRING THE MAP BACK are menu actions, since the panel's chips are hidden
+there. **Nothing invents a centre** — no fix, no map, and the region says which of the three
+reasons it is (GPS off, no fix yet, tiles did not load). The map and the placeholder never overlap,
+because a WebView2 is a child window and WPF cannot draw over it (ADR-0021): the dash draws the
+three no-page states and **the loading state lives inside the page**. What is still ahead is
+**Q44** — the offline half, a caching tile proxy on localhost seeded from a PMTiles cut of
+OpenFreeMap's own planet, so both halves end up the same data and the same look.
+
+**The map wears the theme** (ADR-0064). Ten `map*` colour tokens sit in the same vocabulary as
+every other, and **each defaults to one that already exists** — the ground follows `canvas`, the
+roads and names follow the text ramp, the vehicle follows `accent` — so a theme that says nothing
+about maps still gets a map that matches it, and night comes free through the same dimming factors
+(surfaces ×0.55, ink ×0.74). They carry no resource key, since they paint no WPF; `ThemeService`
+skips those and the map reads them off the resolved theme instead. DashDeck draws **its own
+cartography** from them: `MapStyle.Build` in Core, **eleven layers**, deliberately far simpler than
+OpenFreeMap's two hundred because a dash is read at a glance and not at a desk — and pure, so the
+JSON, the source-layer names, the colour routing and the paint order are all tested without
+Windows. The style is rebuilt and pushed on every applied palette, so a map on screen turns with
+the dash. **An LCARS map is two tokens** (`mapWater`, `mapGreen`): lavender roads and peach
+motorways already fall out of its text ramp. `--map-style` still wins, and then the theme supplies
+only the marker. A style that will not parse is never handed to the renderer. Labels are Noto Sans
+whatever the theme's fonts say — **Q45**.
+
+**Address search, and the dash's own keyboard** (ADR-0065). SEARCH on the map region opens a
+full-screen search — it **covers** the map rather than overlaying it, because a WebView2 is a child
+window and WPF cannot draw a keyboard over one (ADR-0021), and five rows of keys do not fit the
+bottom third anyway, so it takes the map to its larger placement first. The geocoder is
+**Nominatim** under its acceptable-use policy, and all five of the policy's requirements are code
+rather than good intentions: **no auto-complete** (it is forbidden outright, so typing never
+searches — a SEARCH button is the only thing that asks), at most one request a second, results
+cached by normalised query, a User-Agent naming DashDeck and its repository, and a `viewbox` bias
+towards the truck that is a preference rather than a fence. **DashDeck draws its own keyboard** —
+one page, no shift, a digits row first — because nothing in the dash had ever needed typing in the
+cab and Windows' touch keyboard over a borderless window may simply not appear; `KeyboardLayout` is
+data in Core, and a test about row proportions rejected the first two-page design outright. **A
+destination cannot be typed above 5 km/h** (ADR-0058's distraction rule, reusing the compass'
+threshold), read on the beat so stopping unlocks it. Choosing an address moves the map, pins it and
+stops following. Recents are session-only and search needs signal — both are **Q46**.
+
+**The keyboard is the Surface's own**, after a drive (ADR-0065's addendum). DashDeck drew one first
+and it is deleted rather than parked: the in-box keyboard is the one the tablet's owner knows and
+it brings holding a key, the clipboard and prediction with it. The field is focused and `TabTip`
+nudged when the search opens, failing silently — a USB keyboard still types into it. **One
+guarantee moved with it:** the gate used to refuse keystrokes, and now the field's `IsEnabled`
+follows it while the view-model guarantees only that **no request leaves while moving**, which is
+the safety-relevant half.
+
+**A place says what it is, and you can get directions to it.** A result carries what OSM knows —
+kind, hours, telephone, website — at **no extra request**, because `extratags` is an output option
+on the search already being made. It shows in a **MapLibre popup inside the page**, themed, because
+WPF cannot draw over a child window (ADR-0021) — and built with `textContent` from
+`JsonSerializer`'d values, since a place name comes from anybody. Its button draws a route from
+**FOSSGIS's public OSRM**: distance, time, a line on the map and a turn list behind a chip, with
+the instruction wording ours (OSRM sends a manoeuvre type and a street name, no sentence) and
+tested across ten manoeuvres. **Routes are never cached** where searches are — a route depends on
+where the truck is now. **This is the display half, not navigation:** no voice, no re-routing,
+nothing that follows the truck. That is ADR-0058's bundled GraphHopper, still ahead, and following
+a vehicle over a public router would breach its terms as well.
+
+**The map's numbers are sensors** (ADR-0066). Six rows in the device catalog under a new
+`Navigation` source, behind a third `IDeviceSensors` provider (`NavigationSensors`) composed by
+`CompositeDeviceSensors`: a straight-line distance and bearing to the chosen place, the route's
+total distance and time, and the distance and time still to drive. So a card or a stage layout
+shows *Distance Left* the way it shows pitch, with nothing changed in either. The arithmetic is in
+Core — `Geo` (haversine and initial bearing) and `RouteProgress` (nearest point on the route's
+geometry, then everything after it) — and tested off Windows. **Every value carries the fix's own
+quality**, so a synthetic track produces blue navigation numbers, and the route *totals* are the
+router's answer about the road rather than a measurement, so they are Live and need no position.
+**More than 150 m off the line the countdown refuses** (`NAV · OFF ROUTE`) instead of shrinking
+towards a place being driven away from; `prefer` is named only on the two rows the truck's own
+navigation could really supersede. The remaining time is the router's duration pro-rated, never a
+fresh estimate. **Q47 is the known limit:** nearest-point snapping can pick the wrong end of a
+route that comes back near itself.
+
+**Words on a card** (ADR-0067). The third source `CardValue.cs` has predicted since B4:
+`CardSource.Readout`, with seven entries for what a searched place knows that is not a number — its
+name, address, kind, opening hours, telephone, website, and the route's summary. It arrives as a
+**second interface, `ITextValue`**, so `ICardValue.Value` stays a `double` and every face, unit
+conversion, range and threshold is untouched; exactly one place asks which kind it has, the card's
+own `Text`, ahead of the NaN guard that would otherwise draw every readout as a dash. The
+`ReadoutCatalog` is **declared in code** rather than JSON — alone among the three catalogs —
+because a readout is a fact the dash already holds rather than something a user can add, and each
+definition is a **function**, so a destination chosen after the cards were built reaches them with
+no wiring. Words get their own text block (18px, wrapped to two lines, then ellipsis); no unit, no
+range, never a bar, never Stale. **Cards only** — a stage layout's gauge reads through
+`SensorService`, which a readout is not in.
+
+**No strings in a sensor reading, and that is a decision rather than a type problem** (ADR-0066).
+Adding `string? Text` to `SensorReading` would break nothing — but the numeric contract is
+`ICardValue.Value`, and every face, `DisplayUnits`, `ValueChoice.HasRange` and the thresholds are
+built on that `double`; and **NaN is the dash's "nothing"**, which a string has no equivalent of.
+ADR-0056 already settled how the dash says words — a number plus a `states` table — and that works
+because the set is closed when the catalog loads, which a destination name never is. So text gets a
+**third `CardSource`**, which is ADR-0067 above rather than a wider sensor reading.
+
+**The synthetic track drives a real loop now.** `SyntheticLocationSource` used to weave inside a
+sixty-metre box while reporting 60 km/h and an unrelated course; it circles at a true 60 km/h on an
+800 m radius (five kilometres a lap), so the speed it reports is the speed it travels and anything
+doing arithmetic on the position gets numbers that move. `--gps synthetic` is how the navigation
+readouts are tested at a desk.
 
 **Two looks, Modern and Glass; LCARS is yours** (ADR-0043). **Modern** is the built-in theme
 (`builtin/modern`: cool greys, accent `#5AC8FA`, Segoe UI Variable) and names the Modern stage
@@ -539,7 +672,7 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 ## Decisions
 
 ADRs live in [`docs/decisions/`](docs/decisions/) and are immutable once accepted — a
-changed decision gets a new ADR that supersedes the old one. Fifty-seven exist so far, covering
+changed decision gets a new ADR that supersedes the old one. Sixty-five exist so far, covering
 the UI stack, plugin model, transport split, request arbiter, mock-first development, the
 additive/read-only posture, the widget/applet split, theming, the arranged dashboard and the
 vehicle-first rule and sensor catalog for anything the tablet could also guess at, the
@@ -576,7 +709,11 @@ listening there — noise learned, a MARK, states A and B ranked — and warning
 as the first write through the five gates, and signals with named states — 4WD, gear, drive mode —
 shown as a row with the current one lit and matched by typing each state, and Android Auto through
 the dongle — WinUSB by P/Invoke, the picture decoded into the visual tree, the sound on Windows'
-default output.
+default output, and updating from the dash with nothing automatic between the three buttons, and
+MAPS as a destination with three placements — the bottom third, all six bands, or handed to the
+stage — and the map itself: MapLibre vendored into the deploy over OpenFreeMap tiles fetched as you
+drive, in a second WebView2 on a virtual host, with the camera held outside the page so a resize
+does not lose your place.
 **Read them before proposing an architectural change**;
 several rejected alternatives were rejected for reasons that are not obvious from the
 code.
