@@ -387,8 +387,98 @@ public sealed class SwapScriptTests
     {
         var script = Script;
 
-        Assert.Contains($"start \"\" {SwapScript.Quote(Request.ExecutablePath)}", script, StringComparison.Ordinal);
+        Assert.Contains(Relaunch, script, StringComparison.Ordinal);
         Assert.Contains("del \"%~f0\"", script, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// How the script opens a dash: in its own folder, the way its shortcut does, so nothing that
+    /// reads a relative path finds the temp folder instead.
+    /// </summary>
+    private static string Relaunch =>
+        $"start \"\" /D {SwapScript.Quote(Request.CurrentFolder)} {SwapScript.Quote(Request.ExecutablePath)}";
+
+    /// <summary>
+    /// The bug that kept every update from installing on the tablet (Q40): cmd inherited the dash's
+    /// working directory, which is the deploy folder when the dash is opened from its shortcut or
+    /// from Explorer, and Windows will not move a folder a process is standing in. The first move
+    /// failed, the script said "nothing was changed", and nothing started again.
+    /// </summary>
+    [Fact]
+    public void It_leaves_the_folder_it_is_replacing_before_anything_else()
+    {
+        var commands = Commands(Script);
+        var leave = commands.FindIndex(l => l.StartsWith("cd /d ", StringComparison.Ordinal));
+
+        Assert.True(leave >= 0, "the script must change directory");
+        Assert.True(leave < IndexOfCommand(Script, "tasklist"), "before it waits");
+        Assert.True(leave < IndexOfCommand(Script, "move "), "and certainly before it moves");
+        Assert.DoesNotContain(@"app\dist", commands[leave], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Moving_the_folder_aside_is_tried_again_rather_than_given_up_at_once()
+    {
+        var commands = Commands(Script);
+        var aside = $"move {SwapScript.Quote(Request.CurrentFolder)} {SwapScript.Quote(Request.PreviousFolder)}";
+        var label = commands.IndexOf(":aside");
+        var move = commands.FindIndex(l => l.StartsWith(aside, StringComparison.Ordinal));
+
+        // A label just above the move, and a jump back to it after a pause.
+        Assert.Equal(label + 1, move);
+        Assert.Contains("goto aside", commands.Skip(move));
+        Assert.Contains($"GEQ {SwapScript.MoveTries}", Script, StringComparison.Ordinal);
+        Assert.InRange(SwapScript.MoveTries, 5, 60);
+    }
+
+    /// <summary>
+    /// After the dash has exited, every way the script can end opens a dash — the new one, or the
+    /// old one still in place. The one exception is a dash that never exited, which is still open.
+    /// </summary>
+    [Fact]
+    public void Every_failure_after_the_dash_exits_opens_the_old_one_again()
+    {
+        var commands = Commands(Script);
+        var restart = commands.IndexOf(":restart");
+
+        Assert.True(restart >= 0);
+        Assert.Equal(Relaunch, commands.Skip(restart).First(l => l.StartsWith("start ", StringComparison.Ordinal)));
+
+        // Each give-up after :gone goes there: the stuck previous copy, the folder that would not
+        // move aside, and the rollback.
+        var gone = commands.IndexOf(":gone");
+        var afterGone = commands.Skip(gone).Take(restart - gone).ToList();
+
+        Assert.Equal(3, afterGone.Count(l => l.Contains("goto restart", StringComparison.Ordinal)));
+        Assert.Contains(afterGone, l => l.StartsWith("echo could not clear the previous copy", StringComparison.Ordinal));
+        Assert.Contains(afterGone, l => l.StartsWith("echo could not move the current folder aside", StringComparison.Ordinal));
+        Assert.Contains(afterGone, l => l.StartsWith("echo could not move the new folder in", StringComparison.Ordinal));
+
+        // And the success path does not fall through into it.
+        var success = commands.FindIndex(l => l.StartsWith("echo swapped", StringComparison.Ordinal));
+        Assert.Contains("exit /b 0", commands.Skip(success).Take(restart - success));
+    }
+
+    [Fact]
+    public void A_dash_that_never_exited_is_not_started_a_second_time()
+    {
+        var commands = Commands(Script);
+        var still = commands.IndexOf(":stillrunning");
+        var end = commands.FindIndex(still, l => l.StartsWith("exit /b", StringComparison.Ordinal));
+
+        Assert.DoesNotContain(commands.Skip(still).Take(end - still + 1), l => l.StartsWith("start ", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_previous_copy_that_would_not_delete_stops_the_swap_before_any_move()
+    {
+        // "move A B" with B already there puts A inside B, and the rollback would then put back
+        // the wrong folder. So a previous copy that survives its delete ends the attempt.
+        var commands = Commands(Script);
+        var check = commands.FindIndex(l => l.StartsWith($"if exist {SwapScript.Quote(Request.PreviousFolder)} (", StringComparison.Ordinal));
+
+        Assert.True(check >= 0);
+        Assert.True(check < IndexOfCommand(Script, "move "));
     }
 
     [Fact]
