@@ -79,6 +79,10 @@ internal sealed partial class Wizard
                 {
                     await CheckDatabaseAsync(ct).ConfigureAwait(false);
                 }
+                else if (choice == "M")
+                {
+                    await FreeMatchAsync(ct).ConfigureAwait(false);
+                }
                 else if (int.TryParse(choice, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) && n >= 1 && n <= _targets.Count)
                 {
                     var target = _targets[n - 1];
@@ -91,7 +95,7 @@ internal sealed partial class Wizard
                 }
                 else if (choice.Length > 0)
                 {
-                    _io.WriteLine("Type a number from the list, S, L, A, D or Q.");
+                    _io.WriteLine("Type a number from the list, S, L, A, M, D or Q.");
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -128,6 +132,7 @@ internal sealed partial class Wizard
         _io.WriteLine("  S   Scan for modules (what is on each bus)");
         _io.WriteLine("  L   Listen freely — name your own action");
         _io.WriteLine("  A   Ask a module while you do something — for what is never broadcast");
+        _io.WriteLine("  M   Match a number you name — like cruise set speed — as it changes");
         _io.WriteLine("  D   Check a CAN database (.dbc file) against the truck");
         _io.WriteLine("  Q   Quit");
     }

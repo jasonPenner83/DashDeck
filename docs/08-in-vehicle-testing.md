@@ -780,6 +780,53 @@ The guide itself: [id-hunter](id-hunter.md).
 - any warning on the cluster while DashDeck runs;
 - the scan still finding nothing on MS-CAN with the engine running.
 
+## The ID hunter — cruise control's set speed (M, ADR-0069)
+
+**You need:**
+- a laptop with the hunter, and the adapter. DashDeck and FORScan must be closed, since one program
+  holds the adapter;
+- **a passenger to work the laptop**;
+- a road where cruise can be set safely at 60 and at 100 km/h.
+
+**The driver never types.** If there is no passenger, do the sweep and stop there.
+
+**At a desk first:**
+
+1. Run `IdHunter.exe --simulate` and choose **M**. Name it `Cruise set speed`. Press Enter, type
+   `7E0`, then `4100-41FF`, then Enter to sweep.
+   - **Expect:** *4100–41FF: 5 answered*.
+2. Type the speed the *Practice* line gives (60), then the next one (100).
+   - **Expect:** *1 still fits all 2 readings*.
+   - Type **R**. **Expect** the first row `4105  u16@0  ÷ 100`.
+
+**In the truck:**
+
+3. **Parked, ignition on:**
+   - run **S** and note what answered;
+   - choose **M**, name it, then module `7E0` and the range it suggests;
+   - sweep.
+   - **Expect:** a count of identifiers *to watch*, and *one pass takes about N s*.
+4. **Drive.** Set cruise at **60 km/h**. The passenger types `60`.
+   - **Expect:** *The truck is moving (60 km/h). On the road, readings are taken by a passenger…*
+   - The passenger types `PASSENGER`.
+   - **Expect:** *Reading every identifier once…*, then a count that *could hold 60*.
+5. Set cruise at **100**. The passenger types `100`. It does not ask for the word again.
+   - **Expect:** *N still fit all 2 readings*.
+   - If more than one still fits, set **80** and type it.
+6. **Park.** Type **R**.
+   - **Expect** a ranked table.
+   - Pick the first one, then drive and set cruise again. The live readout should follow the set
+     speed.
+   - Answer **y** if it did.
+7. Send `findings.csv`, and the `match-free.cruise-set-speed-…csv` capture beside it. They can hold
+   the VIN, so they stay off the repository.
+
+**A failure looks like:**
+- **"Nothing fits all 2 readings"** after two different speeds: the PCM does not hold it in that
+  range. Try a wider range in `7E0`, then the cruise/radar module if the truck has adaptive cruise.
+- **No moving prompt at all on the road:** the truck did not answer its speed. The hunter asks before
+  reading. Only press Enter if the passenger has the laptop.
+
 ## The ID hunter — checking a CAN database (ADR-0045)
 
 **You need:**

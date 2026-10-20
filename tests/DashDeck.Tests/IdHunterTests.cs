@@ -22,10 +22,14 @@ public sealed class IdHunterTests : IDisposable
 
     /// <summary>
     /// A person reading from a script. <c>@hold</c> is someone not pressing Enter: a read while
-    /// something else runs waits on it until cancelled, and a plain read skips it.
+    /// something else runs waits on it until cancelled, and a plain read skips it. Any other
+    /// <c>@</c> line a plain read meets is handed to <see cref="Hook"/> — the test changing the world
+    /// between two things the person types, the way a driver sets cruise between two readings.
     /// </summary>
     private sealed class Script(params string[] lines) : IHuntConsole
     {
+        public Action<string>? Hook { get; init; }
+
         private readonly Queue<string> _lines = new(lines);
         private readonly StringBuilder _out = new();
 
@@ -54,7 +58,15 @@ public sealed class IdHunterTests : IDisposable
         {
             while (_lines.TryPeek(out var next) && next.StartsWith('@'))
             {
-                Wait(_lines.Dequeue());
+                var item = _lines.Dequeue();
+                if (item.StartsWith("@wait:", StringComparison.Ordinal))
+                {
+                    Wait(item);
+                }
+                else
+                {
+                    Hook?.Invoke(item);
+                }
             }
 
             return _lines.TryDequeue(out var line) ? line : "q";
@@ -207,6 +219,177 @@ public sealed class IdHunterTests : IDisposable
         Assert.DoesNotContain("Listening on", io.Output);
         Assert.DoesNotContain("SYNTH-ENGINE", io.Output);
     }
+
+    /// <summary>
+    /// A truck that sits parked for ten minutes and then drives at 100 km/h, so a test can sweep while
+    /// it is parked and take readings once it is not. <c>@drive</c> moves it on; <c>@cruise:N</c> sets
+    /// the synthetic module's cruise set speed.
+    /// </summary>
+    private async Task<Script> RunOnTheRoad(params string[] script)
+    {
+        var (targets, _) = HuntTargetFile.Load(TargetsFile());
+        var truck = new DashDeck.Simulator.SimulatedF150(new DashDeck.Simulator.ScriptedDrive(
+            "parked-then-highway", "Parked, then 100 km/h.",
+            [new DashDeck.Simulator.DriveSegment("parked", 600, 0), new DashDeck.Simulator.DriveSegment("highway", 3600, 100)]));
+        var transport = new DashDeck.Simulator.SyntheticTransport(truck, faults: DashDeck.Simulator.SyntheticFaults.Perfect);
+        await using var session = await HuntSession.ForAsync(transport, truck, CancellationToken.None);
+
+        var io = new Script(script) { Hook = item => Act(truck, item) };
+        await new Wizard(io, session, targets, new HuntOutput(_folder, DashDeck.Abstractions.SystemClock.Instance), Array.Empty<VehiclePack>())
+            .RunAsync(new CancellationTokenSource(TimeSpan.FromMinutes(2)).Token);
+
+        return io;
+    }
+
+    private static void Act(DashDeck.Simulator.SimulatedF150 truck, string item)
+    {
+        if (item == "@drive")
+        {
+            // In the model's own small steps: past the parked ten minutes and twenty seconds up the road.
+            for (var i = 0; i < 620 * 20; i++)
+            {
+                truck.Advance(TimeSpan.FromMilliseconds(50));
+            }
+        }
+        else if (item.StartsWith("@cruise:", StringComparison.Ordinal))
+        {
+            truck.Cabin.Set("cruiseSet", double.Parse(item[8..], System.Globalization.CultureInfo.InvariantCulture));
+        }
+    }
+
+    private static readonly string[] SweepTheEngine =
+    [
+        "M", "Cruise set speed", "",   // M, the name, Enter for the parked sweep's needs
+        "7E0", "4100-41FF", "",         // the engine module, its invented range, sweep
+    ];
+
+    [Fact]
+    public async Task A_number_you_name_is_found_from_two_readings_while_parked()
+    {
+        var io = await RunOnTheRoad([
+            .. SweepTheEngine,
+            "@cruise:60", "60",
+            "@cruise:100", "100",
+            "R",
+            "",
+            "q",
+        ]);
+
+        var output = io.Output.Replace("\r", "", StringComparison.Ordinal);
+        Assert.Contains("Cruise set speed — likeliest first:\n  #   ID     READ     DECODE                  GIVES     MATCHED\n  1   4105", output);
+        Assert.Contains("÷ 100", output);
+        Assert.Contains("1 still fits all 2 readings", output);
+        Assert.DoesNotContain("The truck is moving", output);
+
+        var findings = await File.ReadAllTextAsync(Path.Combine(_folder, "findings.csv"));
+        Assert.Contains("Cruise set speed,,match,HS-CAN,7E0,,4105,Cruise set speed", findings);
+    }
+
+    [Fact]
+    public async Task On_the_road_a_passenger_takes_the_readings_once_they_have_said_so()
+    {
+        var io = await RunOnTheRoad([
+            .. SweepTheEngine,
+            "@drive",
+            "@cruise:60", "60", Wizard.PassengerWord.ToLowerInvariant(),
+            "@cruise:100", "100",
+            "R",
+            "",
+            "q",
+        ]);
+
+        var output = io.Output.Replace("\r", "", StringComparison.Ordinal);
+
+        // Asked once, not at every reading; then both readings taken and the right one ranked first.
+        Assert.Equal(1, output.Split("The truck is moving").Length - 1);
+        Assert.Contains("Passenger readings for the rest of this match", output);
+        Assert.Equal(2, output.Split("Reading every identifier once").Length - 1);
+        Assert.Contains("likeliest first:\n  #   ID     READ     DECODE                  GIVES     MATCHED\n  1   4105", output);
+    }
+
+    [Fact]
+    public async Task On_the_road_nobody_who_will_not_say_passenger_gets_a_reading()
+    {
+        var io = await RunOnTheRoad([
+            .. SweepTheEngine,
+            "@drive",
+            "@cruise:60", "60", "y",    // not the word
+            "60", "",                   // not the word again
+            "B",
+            "q",
+        ]);
+
+        var output = io.Output;
+
+        Assert.Equal(2, output.Split("Not while you drive").Length - 1);
+        Assert.DoesNotContain("Reading every identifier once", output);
+        Assert.DoesNotContain("could hold", output);
+    }
+
+    [Fact]
+    public async Task On_the_road_the_sweep_is_still_refused()
+    {
+        var io = await RunOnTheRoad([
+            "@drive",
+            "M", "Cruise set speed", "",
+            "q",
+        ]);
+
+        Assert.Contains("The truck says it is moving", io.Output);
+        Assert.DoesNotContain("answers on", io.Output);
+        Assert.DoesNotContain("PASSENGER", io.Output);
+    }
+
+    [Fact]
+    public async Task The_same_number_twice_is_not_a_second_reading()
+    {
+        var io = await RunOnTheRoad([
+            .. SweepTheEngine,
+            "@cruise:60", "60",
+            "60",                       // not changed: refused, not counted
+            "@cruise:100", "100",
+            "R",
+            "",
+            "q",
+        ]);
+
+        Assert.Contains("That is 60 again", io.Output);
+        Assert.Equal(2, io.Output.Split("Reading every identifier once").Length - 1);
+    }
+
+    [Theory]
+    [InlineData(0.0, false, "Read")]
+    [InlineData(0.0, true, "Read")]
+    [InlineData(-1.0, false, "Read")]
+    [InlineData(3.0, false, "AskPassenger")]
+    [InlineData(100.0, false, "AskPassenger")]
+    [InlineData(100.0, true, "Read")]
+    [InlineData(null, false, "UnknownSpeed")]
+    [InlineData(null, true, "UnknownSpeed")]
+    public void A_reading_on_the_road_needs_a_passenger_and_nothing_else_does(double? speed, bool passenger, string expected) =>
+        Assert.Equal(expected, ReadingRule.Decide(speed, passenger).ToString());
+
+    [Theory]
+    [InlineData("100", true, 100.0, "100")]
+    [InlineData("100 km/h", true, 100.0, "100")]
+    [InlineData(" 13.4", true, 13.4, "13.4")]
+    [InlineData("km/h", false, 0.0, "")]
+    public void A_typed_reading_keeps_the_number_and_drops_the_unit(string typed, bool ok, double shown, string number)
+    {
+        Assert.Equal(ok, Wizard.TryShown(typed, out var value, out var digits));
+        Assert.Equal(number, digits);
+        if (ok)
+        {
+            Assert.Equal(shown, value, 6);
+        }
+    }
+
+    [Theory]
+    [InlineData("Cruise set speed", "cruise-set-speed")]
+    [InlineData("  Trip B / distance ", "trip-b-distance")]
+    [InlineData("???", "value")]
+    public void A_name_becomes_a_file_safe_id(string name, string slug) =>
+        Assert.Equal(slug, Wizard.Slug(name));
 
     [Fact]
     public void Ranges_are_checked_before_a_sweep()

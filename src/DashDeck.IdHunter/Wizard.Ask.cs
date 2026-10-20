@@ -318,6 +318,15 @@ internal sealed partial class Wizard
             }
         }
 
+        await ReportMatchAsync(target, tally, module, bus, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Rank what a match's readings found, offer each candidate live, and record the findings —
+    /// the same for a checklist target and for one named on the spot (M).
+    /// </summary>
+    private async Task ReportMatchAsync(HuntTarget target, MatchTally tally, ushort module, CanBus bus, CancellationToken ct)
+    {
         var shownAny = false;
         var all = new List<(string Label, MatchHit Hit, double Score, int Matched, int Rounds)>();
 
@@ -348,7 +357,7 @@ internal sealed partial class Wizard
             return;
         }
 
-        if (all.All(a => a.Rounds < 2) && target.Rounds < 2 && target.Readings.Count < 2)
+        if (all.All(a => a.Rounds < 2) && target.Readings.Count < 2)
         {
             _io.WriteLine("One reading matches a lot by chance. Run it again later, when the number has changed, to thin these out.");
         }

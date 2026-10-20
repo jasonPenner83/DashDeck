@@ -55,11 +55,19 @@ public sealed class SimulatedCabin
     /// <summary>Extra engine speed while parked — the throttle blip a guide asks for.</summary>
     public double ExtraRpm { get; set; }
 
+    /// <summary>
+    /// Cruise control's set speed in km/h, zero when none is set — for practising the ID hunter's
+    /// match-a-number-you-name (ADR-0069). The synthetic truck does not cruise; this is only a number
+    /// a module holds.
+    /// </summary>
+    public double CruiseSetKph { get; set; }
+
     /// <summary>Every name <see cref="Set"/> knows.</summary>
     public static IReadOnlyList<string> Names { get; } =
     [
         "driverDoor", "passengerDoor", "driverSeat", "passengerSeat", "wheelHeat", "fan", "ac",
         "recirc", "rearDefrost", "auto", "driverSetTemp", "driverSeatbelt", "parkingBrake", "rev", "tailgate",
+        "cruiseSet",
     ];
 
     /// <summary>Set one control by name, as a guide's step names it. False for a name it does not know.</summary>
@@ -83,6 +91,7 @@ public sealed class SimulatedCabin
             case "parkingBrake": ParkingBrake = on; break;
             case "rev": ExtraRpm = value; break;
             case "tailgate": TailgateOpen = on; break;
+            case "cruiseSet": CruiseSetKph = value; break;
             default: return false;
         }
 

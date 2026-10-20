@@ -158,6 +158,7 @@ public sealed partial class SimulatedF150
             ["cabin.driverSetTemp"] = () => Cabin.DriverSetTempC,
             ["cabin.seatbeltUnbuckled"] = () => On(!Cabin.DriverSeatbeltBuckled),
             ["cabin.parkingBrake"] = () => On(Cabin.ParkingBrake),
+            ["cabin.cruiseSet"] = () => Cabin.CruiseSetKph,
         };
     }
 }
