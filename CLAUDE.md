@@ -347,7 +347,10 @@ through a checklist (`targets.json`) of things to find, three ways: **listen** (
 alternating states — door shut/open — while the bus is heard; `BroadcastRanker` keeps fields steady
 within each step and different between states), **follow** (sweep a module, watch its identifiers
 beside coolant or rpm while the person makes it change; `FollowRanker` by correlation, with a scaling
-hint) and **match** (numbers read off the cluster; `MatchRanker`/`MatchTally`). Each ends in a live
+hint) and **match** (numbers read off the cluster; `MatchRanker`/`MatchTally`). **M** on the menu
+matches a number named on the spot (ADR-0069) with open-ended readings. **The hunter no longer checks
+whether the truck is moving** — any step, any speed; each M reading's speed is recorded instead. The
+dash's own Settings ▸ Sensors sweeps still refuse while moving (ADR-0035), to keep the gauges live. Each ends in a live
 check and a row in `findings.csv` with the verdict, plus captures (which can hold the VIN — never in
 the repo). **Listening is new to the vehicle layer**: `IStreamingTransport.StreamAsync` carries the
 adapter's monitor (`STMA`/`ATMA`), and `CanMonitor` sets it up **silent (`ATCSM1`)**, headers on, CAN

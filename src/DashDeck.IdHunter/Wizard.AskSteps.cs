@@ -52,11 +52,6 @@ internal sealed partial class Wizard
         _io.WriteLine();
         _io.WriteLine($"{target.Name.ToUpperInvariant()} — asking a module while you do it.");
 
-        if (!await ParkedAsync(ct).ConfigureAwait(false))
-        {
-            return;
-        }
-
         if (await ChooseModuleAsync(target, ct).ConfigureAwait(false) is not { } chosen)
         {
             return;
@@ -135,11 +130,6 @@ internal sealed partial class Wizard
                 capture.WriteLine(HuntOutput.Row(frame.At.TotalSeconds, phase < 0 ? "" : phases[phase].Label,
                     frame.Id.ToString("X4", CultureInfo.InvariantCulture), Convert.ToHexString(frame.Data)));
             }
-        }
-
-        if (!await ParkedAsync(ct).ConfigureAwait(false))
-        {
-            return;
         }
 
         var ranked = BroadcastRanker.Rank(frames, phases).Take(10).ToList();

@@ -28,7 +28,10 @@
         { "did": "4101", "value": "oil.temp", "offset": -40, "jitter": 0.2 },
         { "did": "4102", "value": "transmission.temp", "byteLength": 2, "scale": 0.0625, "offset": -40 },
         { "did": "4103", "value": "engine.fuelRate", "byteLength": 2, "scale": 0.01, "jitter": 0.02 },
-        { "did": "4104", "random": true }
+        { "did": "4104", "random": true },
+        // For the ID hunter's M, match a number you name (ADR-0069): cruise control's set speed in
+        // hundredths of a km/h, which the synthetic cabin's "cruiseSet" control sets.
+        { "did": "4105", "value": "cabin.cruiseSet", "byteLength": 2, "scale": 0.01 }
       ]
     },
     { "bus": "hs", "address": "7E1", "identity": "SYNTH-TRANS-01" },

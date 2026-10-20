@@ -54,12 +54,14 @@ quit.
   S   Scan for modules
   L   Listen freely — name your own action
   A   Ask a module while you do something
+  M   Match a number you name — like cruise set speed
   D   Check a CAN database against the truck
   Q   Quit
 ```
 
 Type a number and press Enter. Each target says first what it **needs**: ignition on or engine
-running, parked, a cold engine. **Everything is refused while the truck is moving.**
+running, a cold engine, a door to open. Nothing checks whether the truck is moving: when and where you
+run it is your call ([ADR-0069](decisions/ADR-0069-match-a-number-you-name.md)).
 
 ### listen — doors, belts, switches, buttons
 
@@ -161,6 +163,33 @@ is kept.
 
 Asks every module address on both buses for its part number, and lists what answered with a likely
 name. Do it once; follow and match then know which bus each module is on.
+
+### M — match a number you name
+
+For any number you can read that is not on the checklist: cruise control's set speed, a trip meter, a
+setting a screen shows. FORScan does not have to list it. ([ADR-0069](decisions/ADR-0069-match-a-number-you-name.md))
+
+1. **Name it** (`Cruise set speed`).
+2. **Pick the module and ranges, and sweep.** Same as any match. For cruise, try the engine
+   computer `7E0` first. If your truck has adaptive cruise, try its cruise/radar module next (S on the
+   main menu lists what answered).
+3. **Make the number show and type it**, exactly as shown, unit optional (`60`, or `60 km/h`).
+4. **Change it and type it again.** Set 60, type `60`; set 100, type `100`. After each one the
+   hunter says how many identifiers still fit every reading. The same number twice is refused, because
+   it proves nothing new. A zero is skipped, because it matches almost everything.
+5. **R** ranks them, then the live check: pick one, change the number, watch it follow, answer **y**.
+
+Cruise only sets on the road, so that is where its readings are taken; the hunter records the speed
+of each one in the match capture. The way to do it:
+- sweep `7E0` (before you leave saves waiting on the road; a sweep takes a few minutes);
+- set cruise at 60 and type `60`;
+- set 100 and type `100`;
+- type **R** to rank.
+
+**To practise at a desk:** `IdHunter.exe --simulate`, then **M**. Name it *Cruise set speed* and use
+`7E0`, `4100-41FF`. The simulated truck sets its cruise to a new speed at each reading and tells you
+which. Two readings find `4105 ÷ 100`. That identifier is invented, like everything in the synthetic
+truck.
 
 ### L — listen freely
 

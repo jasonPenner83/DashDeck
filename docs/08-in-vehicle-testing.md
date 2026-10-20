@@ -756,7 +756,6 @@ The guide itself: [id-hunter](id-hunter.md).
 - anything on the truck behaving differently while the hunter runs — a warning on the cluster, the
   radio resetting, a module going quiet. Listening is silent, so this should never happen; if it does,
   quit straight away and tell me;
-- a step running while the truck is moving;
 - a listen that hears nothing with the ignition on;
 - the program stuck and not answering Enter (Ctrl+C quits it).
 
@@ -779,6 +778,49 @@ The guide itself: [id-hunter](id-hunter.md).
 **A failure looks like:**
 - any warning on the cluster while DashDeck runs;
 - the scan still finding nothing on MS-CAN with the engine running.
+
+## The ID hunter — cruise control's set speed (M, ADR-0069)
+
+**You need:**
+- a laptop with the hunter, and the adapter. DashDeck and FORScan must be closed, since one program
+  holds the adapter;
+- a road where cruise can be set at 60 and at 100 km/h.
+
+**At a desk first:**
+
+1. Run `IdHunter.exe --simulate` and choose **M**. Name it `Cruise set speed`. Press Enter, type
+   `7E0`, then `4100-41FF`, then Enter to sweep.
+   - **Expect:** *4100–41FF: 5 answered*.
+2. Type the speed the *Practice* line gives (60), then the next one (100).
+   - **Expect:** *1 still fits all 2 readings*.
+   - Type **R**. **Expect** the first row `4105  u16@0  ÷ 100`.
+
+**In the truck:**
+
+3. **Ignition on:**
+   - run **S** and note what answered;
+   - choose **M**, name it, then module `7E0` and the range it suggests;
+   - sweep. Doing this before you drive saves waiting on the road.
+   - **Expect:** a count of identifiers *to watch*, and *one pass takes about N s*.
+4. **Set cruise at 60 km/h** and type `60`.
+   - **Expect:** *Reading every identifier once…*, then a count that *could hold 60*.
+   - No prompt about the truck moving: there is none any more.
+5. **Set cruise at 100** and type `100`.
+   - **Expect:** *N still fit all 2 readings*.
+   - If more than one still fits, set **80** and type it.
+6. Type **R**.
+   - **Expect** a ranked table.
+   - Pick the first one and change the set speed. The live readout should follow it.
+   - Answer **y** if it did.
+7. Send `findings.csv`, and the `match-free.cruise-set-speed-…csv` capture beside it. They can hold
+   the VIN, so they stay off the repository. The capture's last column is the speed each reading
+   was taken at.
+
+**A failure looks like:**
+- **"Nothing fits all 2 readings"** after two different speeds: the PCM does not hold it in that
+  range. Try a wider range in `7E0`, then the cruise/radar module if the truck has adaptive cruise.
+- **A reading with no speed in the capture:** the truck did not answer its speed then. The reading is
+  still good; only the record of where it was taken is missing.
 
 ## The ID hunter — checking a CAN database (ADR-0045)
 

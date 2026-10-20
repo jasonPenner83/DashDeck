@@ -126,7 +126,12 @@ catch (OperationCanceledException)
 
 await using (session)
 {
-    await new Wizard(io, session, targets, output, packs, clock) { DatabasePath = ArgValue("--dbc") }.RunAsync(cts.Token);
+    await new Wizard(io, session, targets, output, packs, clock)
+    {
+        DatabasePath = ArgValue("--dbc"),
+        // M at a desk: the synthetic cruise takes a new set speed at each reading (ADR-0069).
+        PracticeCruise = Flag("--simulate") ? [60, 100, 80, 110] : null,
+    }.RunAsync(cts.Token);
 }
 
 return 0;
