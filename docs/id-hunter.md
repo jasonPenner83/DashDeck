@@ -60,8 +60,8 @@ quit.
 ```
 
 Type a number and press Enter. Each target says first what it **needs**: ignition on or engine
-running, parked, a cold engine. **Everything is refused while the truck is moving**, with one
-exception: readings in **M**, taken by a passenger (below).
+running, a cold engine, a door to open. Nothing checks whether the truck is moving: when and where you
+run it is your call ([ADR-0069](decisions/ADR-0069-match-a-number-you-name.md)).
 
 ### listen — doors, belts, switches, buttons
 
@@ -170,7 +170,7 @@ For any number you can read that is not on the checklist: cruise control's set s
 setting a screen shows. FORScan does not have to list it. ([ADR-0069](decisions/ADR-0069-match-a-number-you-name.md))
 
 1. **Name it** (`Cruise set speed`).
-2. **Pick the module and ranges, and sweep, parked.** Same as any match. For cruise, try the engine
+2. **Pick the module and ranges, and sweep.** Same as any match. For cruise, try the engine
    computer `7E0` first. If your truck has adaptive cruise, try its cruise/radar module next (S on the
    main menu lists what answered).
 3. **Make the number show and type it**, exactly as shown, unit optional (`60`, or `60 km/h`).
@@ -179,16 +179,12 @@ setting a screen shows. FORScan does not have to list it. ([ADR-0069](decisions/
    it proves nothing new. A zero is skipped, because it matches almost everything.
 5. **R** ranks them, then the live check: pick one, change the number, watch it follow, answer **y**.
 
-**On the road, a passenger types.** The sweep is always refused while moving. The readings are not,
-because cruise only sets while driving, but the first reading taken on the move asks for the word
-**PASSENGER**. Anything else refuses it and keeps the sweep. Typed once, it holds for the rest of that
-match. **The driver never touches the laptop.**
-
-The way to do cruise:
-- parked, sweep `7E0`;
-- drive, set 60, and the passenger types `60` and `PASSENGER`;
-- set 100, and the passenger types `100`;
-- the passenger types **R**, or you park first and rank there.
+Cruise only sets on the road, so that is where its readings are taken; the hunter records the speed
+of each one in the match capture. The way to do it:
+- sweep `7E0` (before you leave saves waiting on the road; a sweep takes a few minutes);
+- set cruise at 60 and type `60`;
+- set 100 and type `100`;
+- type **R** to rank.
 
 **To practise at a desk:** `IdHunter.exe --simulate`, then **M**. Name it *Cruise set speed* and use
 `7E0`, `4100-41FF`. The simulated truck sets its cruise to a new speed at each reading and tells you

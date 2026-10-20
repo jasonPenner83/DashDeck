@@ -24,7 +24,7 @@ internal sealed partial class Wizard
             return (held.Module, held.Bus, new IdentifierWatch(held.Found));
         }
 
-        if (!Proceed() || !await ParkedAsync(ct).ConfigureAwait(false))
+        if (!Proceed())
         {
             return null;
         }
@@ -116,12 +116,6 @@ internal sealed partial class Wizard
             }
 
             var value = await _session.ReferenceAsync(reference, stop.Token).ConfigureAwait(false);
-            var speed = await _session.SpeedAsync(stop.Token).ConfigureAwait(false);
-            if (speed is > 0)
-            {
-                _io.WriteLine("The truck is moving — stopped. Park, then start again.");
-                break;
-            }
 
             var answers = Answers(watch);
             passes.Add(new FollowPass(_clock.UtcNow - started, value, answers));

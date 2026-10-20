@@ -13,18 +13,13 @@ namespace DashDeck.IdHunter;
 /// engine with the target made up at the menu — cruise control's set speed, say — and the rounds left
 /// open, because the person knows better than a file how many different values they can produce.
 /// <para>
-/// <b>The sweep is parked, always.</b> It takes the adapter for minutes. A <b>reading</b> is one pass
-/// over the identifiers the sweep found — what FORScan's live data does — and some numbers only exist
-/// on the road: a set speed needs cruise control set. So a reading may be taken while moving, but only
-/// once whoever is at the keyboard has said, in so many words, that they are a passenger. A driver
-/// typing into a laptop is the thing every other refusal in this program exists to prevent.
+/// Some numbers only exist on the road — a set speed needs cruise control set — so nothing here asks
+/// whether the truck is moving. Each reading's speed is recorded in the capture instead, so a reading
+/// taken on the road is visibly one.
 /// </para>
 /// </remarks>
 internal sealed partial class Wizard
 {
-    /// <summary>The word that has to be typed to take readings on the road.</summary>
-    internal const string PassengerWord = "PASSENGER";
-
     /// <summary>The most readings one match takes; enough for any number a person can make vary.</summary>
     internal const int MaxFreeReadings = 12;
 
@@ -37,7 +32,7 @@ internal sealed partial class Wizard
     private async Task FreeMatchAsync(CancellationToken ct)
     {
         _io.WriteLine();
-        _io.WriteLine("MATCH A NUMBER YOU NAME — sweep a module once, parked, then type the number each time it changes.");
+        _io.WriteLine("MATCH A NUMBER YOU NAME — sweep a module once, then type the number each time it changes.");
         _io.WriteLine("For a number you can see but FORScan does not list: cruise control's set speed, a trip meter, a setting.");
 
         var name = Ask("What is it called (like Cruise set speed), or B to go back");
@@ -51,7 +46,7 @@ internal sealed partial class Wizard
             Id = "free." + Slug(name),
             Name = name,
             Method = "match",
-            Needs = "Ignition ON, parked, for the sweep. The readings can come later, wherever the number is.",
+            Needs = "Ignition ON. The readings can come later, wherever the number is — cruise needs the road.",
         };
 
         if (await PrepareAsync(target, ct).ConfigureAwait(false) is not { } prepared)
@@ -61,7 +56,6 @@ internal sealed partial class Wizard
 
         var (module, bus, watch) = prepared;
         var tally = new MatchTally();
-        var passenger = false;
 
         using var capture = _output.Capture($"match-{target.Id}-{Hex(module)}-{_clock.UtcNow.ToLocalTime():HHmmss}", "round,label,shown,did,data,km_h");
 
@@ -115,10 +109,6 @@ internal sealed partial class Wizard
             }
 
             var speed = await SpeedOnceAsync(ct).ConfigureAwait(false);
-            if (!MayRead(speed, ref passenger))
-            {
-                continue;
-            }
 
             _io.WriteLine("Reading every identifier once…");
             if (!await watch.PassAsync(_session.RequestAsync, bus, module, null, ct).ConfigureAwait(false))
@@ -157,37 +147,6 @@ internal sealed partial class Wizard
         await ReportMatchAsync(target, tally, module, bus, ct).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// Whether a reading may be taken at this speed. Parked needs nothing; moving needs the person to
-    /// have typed the word, once per match, which <paramref name="passenger"/> remembers.
-    /// </summary>
-    private bool MayRead(double? speed, ref bool passenger)
-    {
-        switch (ReadingRule.Decide(speed, passenger))
-        {
-            case ReadingDecision.Read:
-                return true;
-
-            case ReadingDecision.UnknownSpeed:
-                _io.WriteLine("The truck did not answer its speed.");
-                return Proceed("Enter to read anyway — only if parked or a passenger has the laptop — or B to skip");
-
-            default:
-                _io.WriteLine(string.Create(CultureInfo.InvariantCulture,
-                    $"The truck is moving ({speed:0} km/h). On the road, readings are taken by a passenger and never the driver."));
-                var word = Ask($"Type {PassengerWord} if a passenger is working this laptop, or anything else to stop");
-                if (!word.Equals(PassengerWord, StringComparison.OrdinalIgnoreCase))
-                {
-                    _io.WriteLine("Not while you drive. Park, or hand the laptop to a passenger, then type the number again.");
-                    return false;
-                }
-
-                passenger = true;
-                _io.WriteLine("Passenger readings for the rest of this match. Driver: eyes on the road; the passenger types.");
-                return true;
-        }
-    }
-
     private static string Count(int n, string noun) =>
         string.Create(CultureInfo.InvariantCulture, $"{n} {noun}{(n == 1 ? "" : "s")}");
 
@@ -217,33 +176,4 @@ internal sealed partial class Wizard
         var words = cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         return words.Length == 0 ? "value" : string.Join('-', words);
     }
-}
-
-/// <summary>What a free match may do with a reading at a given speed (ADR-0069).</summary>
-internal enum ReadingDecision
-{
-    /// <summary>Take it.</summary>
-    Read,
-
-    /// <summary>Moving, and nobody has said they are a passenger yet: ask.</summary>
-    AskPassenger,
-
-    /// <summary>The truck did not say how fast it is going.</summary>
-    UnknownSpeed,
-}
-
-/// <summary>
-/// The one rule a reading on the road has to pass, kept apart so it is tested as a table rather than
-/// trusted to the prompts around it.
-/// </summary>
-internal static class ReadingRule
-{
-    /// <param name="speed">km/h, or null when the truck did not answer.</param>
-    /// <param name="passenger">True once the person has typed the word in this match.</param>
-    public static ReadingDecision Decide(double? speed, bool passenger) => speed switch
-    {
-        null => ReadingDecision.UnknownSpeed,
-        <= 0 => ReadingDecision.Read,
-        _ => passenger ? ReadingDecision.Read : ReadingDecision.AskPassenger,
-    };
 }

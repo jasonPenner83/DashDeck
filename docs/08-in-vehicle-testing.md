@@ -756,7 +756,6 @@ The guide itself: [id-hunter](id-hunter.md).
 - anything on the truck behaving differently while the hunter runs — a warning on the cluster, the
   radio resetting, a module going quiet. Listening is silent, so this should never happen; if it does,
   quit straight away and tell me;
-- a step running while the truck is moving;
 - a listen that hears nothing with the ignition on;
 - the program stuck and not answering Enter (Ctrl+C quits it).
 
@@ -785,10 +784,7 @@ The guide itself: [id-hunter](id-hunter.md).
 **You need:**
 - a laptop with the hunter, and the adapter. DashDeck and FORScan must be closed, since one program
   holds the adapter;
-- **a passenger to work the laptop**;
-- a road where cruise can be set safely at 60 and at 100 km/h.
-
-**The driver never types.** If there is no passenger, do the sweep and stop there.
+- a road where cruise can be set at 60 and at 100 km/h.
 
 **At a desk first:**
 
@@ -801,31 +797,30 @@ The guide itself: [id-hunter](id-hunter.md).
 
 **In the truck:**
 
-3. **Parked, ignition on:**
+3. **Ignition on:**
    - run **S** and note what answered;
    - choose **M**, name it, then module `7E0` and the range it suggests;
-   - sweep.
+   - sweep. Doing this before you drive saves waiting on the road.
    - **Expect:** a count of identifiers *to watch*, and *one pass takes about N s*.
-4. **Drive.** Set cruise at **60 km/h**. The passenger types `60`.
-   - **Expect:** *The truck is moving (60 km/h). On the road, readings are taken by a passenger…*
-   - The passenger types `PASSENGER`.
+4. **Set cruise at 60 km/h** and type `60`.
    - **Expect:** *Reading every identifier once…*, then a count that *could hold 60*.
-5. Set cruise at **100**. The passenger types `100`. It does not ask for the word again.
+   - No prompt about the truck moving: there is none any more.
+5. **Set cruise at 100** and type `100`.
    - **Expect:** *N still fit all 2 readings*.
    - If more than one still fits, set **80** and type it.
-6. **Park.** Type **R**.
+6. Type **R**.
    - **Expect** a ranked table.
-   - Pick the first one, then drive and set cruise again. The live readout should follow the set
-     speed.
+   - Pick the first one and change the set speed. The live readout should follow it.
    - Answer **y** if it did.
 7. Send `findings.csv`, and the `match-free.cruise-set-speed-…csv` capture beside it. They can hold
-   the VIN, so they stay off the repository.
+   the VIN, so they stay off the repository. The capture's last column is the speed each reading
+   was taken at.
 
 **A failure looks like:**
 - **"Nothing fits all 2 readings"** after two different speeds: the PCM does not hold it in that
   range. Try a wider range in `7E0`, then the cruise/radar module if the truck has adaptive cruise.
-- **No moving prompt at all on the road:** the truck did not answer its speed. The hunter asks before
-  reading. Only press Enter if the passenger has the laptop.
+- **A reading with no speed in the capture:** the truck did not answer its speed then. The reading is
+  still good; only the record of where it was taken is missing.
 
 ## The ID hunter — checking a CAN database (ADR-0045)
 

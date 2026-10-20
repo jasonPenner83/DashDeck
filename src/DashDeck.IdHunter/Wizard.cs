@@ -166,31 +166,6 @@ internal sealed partial class Wizard
         }
     }
 
-    /// <summary>Refuse to go on while the truck is moving; warn when it does not say.</summary>
-    private async Task<bool> ParkedAsync(CancellationToken ct)
-    {
-        // Asked up to three times: one unanswered request is routine, and should not stop the guide.
-        double? speed = null;
-        for (var attempt = 0; attempt < 3 && speed is null; attempt++)
-        {
-            speed = await _session.SpeedAsync(ct).ConfigureAwait(false);
-        }
-
-        if (speed is > 0)
-        {
-            _io.WriteLine($"The truck says it is moving ({speed} km/h). Stop and park first — this is never done on the road.");
-            return false;
-        }
-
-        if (speed is null)
-        {
-            _io.WriteLine("The truck did not answer its speed. Is the ignition on?");
-            return Proceed("Press Enter to carry on anyway, or B to go back");
-        }
-
-        return true;
-    }
-
     private string? ModuleName(ushort address) => _session.Reference.Modules.GetValueOrDefault(address);
 
     private static string Hex(ushort value) => value.ToString("X3", CultureInfo.InvariantCulture);
@@ -203,8 +178,8 @@ internal sealed partial class Wizard
     {
         _io.WriteLine();
         _io.WriteLine("SCAN FOR MODULES — asks every module address on both buses for its part number.");
-        _io.WriteLine("Needs: ignition ON, parked. About half a minute.");
-        if (!Proceed() || !await ParkedAsync(ct).ConfigureAwait(false))
+        _io.WriteLine("Needs: ignition ON. About half a minute.");
+        if (!Proceed())
         {
             return;
         }
@@ -323,8 +298,8 @@ internal sealed partial class Wizard
 
         var total = ranges.Sum(r => r.Last - r.First + 1);
         _io.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"{total} identifiers: about {Math.Ceiling(total / 19.0 / 60.0)} minute(s). Keep the ignition on and stay parked."));
-        if (!Proceed("Press Enter to sweep, or B to go back") || !await ParkedAsync(ct).ConfigureAwait(false))
+            $"{total} identifiers: about {Math.Ceiling(total / 19.0 / 60.0)} minute(s). Keep the ignition on."));
+        if (!Proceed("Press Enter to sweep, or B to go back"))
         {
             return null;
         }
@@ -344,11 +319,6 @@ internal sealed partial class Wizard
             }
 
             _io.WriteLine($"  {first:X4}–{last:X4}: {result.Found.Count(f => f.RefusalCode is null)} answered{(result.Problem is { } p ? $" ({p})" : "")}.");
-        }
-
-        if (!await ParkedAsync(ct).ConfigureAwait(false))
-        {
-            return null;
         }
 
         return found;
