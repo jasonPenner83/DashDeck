@@ -33,6 +33,17 @@ public readonly record struct SwapRequest(
 /// moved straight back, which is the whole reason the first step is not a delete.
 /// </para>
 /// <para>
+/// <b>It stands somewhere else first.</b> cmd inherits the dash's working directory, and when the
+/// dash was started from its shortcut or from Explorer that <i>is</i> the folder being replaced.
+/// Windows will not move a folder a process is standing in, so the first move failed on the tablet
+/// every time and the dash never came back (Q40). The script's first act is to leave.
+/// </para>
+/// <para>
+/// <b>Every way out starts a dash</b> except the one where the dash never exited. A swap that
+/// cannot happen leaves the old folder in place and opens it again, so a failed update looks like
+/// nothing happened rather than like a tablet with no dash on it.
+/// </para>
+/// <para>
 /// Generated as text, and tested as text. The order of these lines is the difference between a
 /// recoverable failure and a tablet with no dash on it in a parking lot, which is worth pinning
 /// in a truth table rather than trusting to a careful afternoon.
@@ -42,6 +53,13 @@ public static class SwapScript
 {
     /// <summary>How long to wait for the dash to exit before giving up, in seconds.</summary>
     public const int WaitSeconds = 30;
+
+    /// <summary>
+    /// How many times to try moving the current folder aside, a second apart. Something can hold a
+    /// file in it for a moment after the dash exits — the map's browser reads its page from there,
+    /// and an antivirus may be scanning what just closed.
+    /// </summary>
+    public const int MoveTries = 15;
 
     /// <summary>Build the script. Throws when a path is missing, because a blank path in a
     /// <c>move</c> is how a batch file deletes the wrong thing.</summary>
@@ -65,6 +83,11 @@ public static class SwapScript
             rem DashDeck update swap. Written by the dash, runs after it exits, deletes itself.
             rem Nothing is installed: no service, no task, no registry.
 
+            rem Out of the dash's folder before anything else. cmd starts in the dash's working
+            rem directory, which is the folder being replaced, and Windows will not move a folder
+            rem a process is standing in.
+            cd /d "%TEMP%"
+
             echo swap started %DATE% %TIME%> {log}
 
             rem Wait for the dash to let go of its own files. Without this the move fails.
@@ -86,24 +109,47 @@ public static class SwapScript
             rem has arrived to replace it. One generation back is kept, not two.
             if exist {previous} rd /s /q {previous}
 
-            move {current} {previous} >> {log} 2>&1
-            if errorlevel 1 (
-                echo could not move the current folder aside - nothing was changed>> {log}
-                exit /b 1
+            rem If it is still there, a move would put the current folder inside it rather than
+            rem beside it, and the rollback would then restore the wrong thing.
+            if exist {previous} (
+                echo could not clear the previous copy - nothing was changed>> {log}
+                goto restart
             )
 
+            set /a tries=0
+            :aside
+            move {current} {previous} >> {log} 2>&1
+            if not errorlevel 1 goto moved
+            set /a tries+=1
+            if %tries% GEQ {MoveTries} goto stuck
+            timeout /t 1 /nobreak >nul
+            goto aside
+
+            :stuck
+            echo could not move the current folder aside after {MoveTries} tries - nothing was changed>> {log}
+            goto restart
+
+            :moved
             move {staged} {current} >> {log} 2>&1
             if errorlevel 1 (
                 echo could not move the new folder in - putting the old one back>> {log}
                 move {previous} {current} >> {log} 2>&1
-                exit /b 1
+                goto restart
             )
 
             echo swapped, starting {exe}>> {log}
-            start "" {exe}
+            start "" /D {current} {exe}
 
             rem Deleting the running batch file works: cmd has already read the line.
             del "%~f0"
+            exit /b 0
+
+            :restart
+            rem The swap did not happen, so the folder in place is the one that was running.
+            rem Open it again rather than leave the tablet with no dash on it.
+            echo starting the version that was already there>> {log}
+            start "" /D {current} {exe}
+            exit /b 1
             """).ReplaceLineEndings("\r\n");
     }
 

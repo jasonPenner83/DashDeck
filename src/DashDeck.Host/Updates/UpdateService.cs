@@ -250,6 +250,10 @@ public sealed class UpdateService
 
         Process.Start(new ProcessStartInfo(path)
         {
+            // Never the dash's own folder, which is what it would inherit: Windows will not move a
+            // folder that a process is standing in. The script leaves it too; this is the
+            // belt to that pair of braces (Q40).
+            WorkingDirectory = Path.GetTempPath(),
             UseShellExecute = true,
             CreateNoWindow = true,
             WindowStyle = ProcessWindowStyle.Hidden,

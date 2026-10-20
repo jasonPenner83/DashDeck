@@ -93,3 +93,30 @@ the helper is a temp file that removes itself.
   honest description of INSTALL AND RESTART is "written and unproven".
 - **Settings keys: none.** Nothing is remembered between checks, which is also what guarantees
   there is nothing to build a reminder out of later.
+
+## Addendum 2026-10-18 — the first real swap failed, and why
+
+The first update on the Surface (v.0.9.0 → v.0.10.0) downloaded and staged correctly, closed the
+dash, and then nothing: no dash, and the old version when opened by hand. The script was right
+about line order and wrong about where it was standing. **cmd inherits the dash's working
+directory**, which is the deploy folder whenever the dash is started from its shortcut
+(`publish.ps1 -Shortcut` sets it there) or from Explorer, and **Windows will not move a folder
+that a process has as its current directory**. The very first move failed, the script logged
+*nothing was changed* and stopped — correctly, by its own rules, and leaving the tablet with no
+dash.
+
+Three changes, none of which alter the decisions above:
+
+1. **The script leaves before it does anything** — `cd /d "%TEMP%"` is its first command, and
+   `UpdateService` starts it with the temp folder as its working directory too.
+2. **The move aside is retried**, once a second for 15 s. After the dash exits, the map's browser
+   (which serves its page from the deploy folder) or an antivirus can hold a file for a moment.
+3. **Every failure after the dash has exited opens the old dash again**: a previous copy that
+   would not delete (now checked, because `move A B` with `B` present puts `A` inside `B`), a
+   folder that would not move aside, and the rollback. A failed update now looks like nothing
+   happened, not like a dash that has gone. The one exception is a dash that never exited, which
+   is still open. The relaunch uses `start /D` so the new dash starts in its own folder, the same
+   as its shortcut.
+
+The consequence above still stands with one word changed: INSTALL AND RESTART is "written, failed
+once, fixed, and unproven" until a swap is seen to complete on the tablet.

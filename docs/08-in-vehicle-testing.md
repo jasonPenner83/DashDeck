@@ -1440,13 +1440,21 @@ be ahead of it.
 
 ### What a failure looks like, and the way back
 
-- **The dash closes and does not come back.** Launch `DashDeck.previous\DashDeck.Host.exe` — that
-  is the build you were on, untouched. Then read
-  `%LOCALAPPDATA%\DashDeck\updates\swap.log`, which says which move failed.
+- **The dash closes and does not come back.** Since 2026-10-18 a failed swap opens the old dash
+  again, so this should not happen; if it does, launch `DashDeck\DashDeck.Host.exe`, or
+  `DashDeck.previous\DashDeck.Host.exe` if that folder is there — either is the build you were
+  on. Then send `%LOCALAPPDATA%\DashDeck\updates\swap.log`, which says which move failed.
+- **The dash comes back on the old version.** The swap did not happen and the old folder was
+  reopened. `swap.log` says why. Before 2026-10-18 this was every update: the script stood in the
+  folder it was trying to move (ADR-0061's addendum).
 - **"DashDeck did not exit within 30s — nothing was changed"** in that log: the dash was still
   holding its files. Nothing was moved; try again from a clean launch.
-- **"could not move the current folder aside"**: something else has the folder open — Explorer
-  sitting in it, or antivirus reading it. Nothing was changed.
+- **"could not move the current folder aside after 15 tries"**: something else has the folder
+  open for longer than 15 s — Explorer sitting in it, a terminal `cd`'d into it, or antivirus
+  reading it. Nothing was changed and the old dash was reopened. Close whatever it is and try again.
+- **"could not clear the previous copy"**: `DashDeck.previous` from the last update would not
+  delete, usually because something has a file in it open. Nothing was changed. Delete that folder
+  by hand and try again.
 - **"putting the old one back"**: the new folder could not be moved in and the old one was
   restored. The dash should still start from its original path.
 - **"This cannot be installed"** with a reason, straight after the download: that is a guard
