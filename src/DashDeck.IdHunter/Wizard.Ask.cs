@@ -200,43 +200,50 @@ internal sealed partial class Wizard
             }
 
             var (did, reading, decode) = candidates[n - 1];
-            _io.WriteLine($"LIVE: {Hex(module)} {did:X4} read {reading}. Change what it should follow. Press Enter to stop.");
-
-            using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            var enter = _io.ReadLineAsync(stop.Token);
-
-            while (!enter.IsCompleted)
-            {
-                var response = await _session.RequestAsync(new PidRequest(0x22, did, bus, module), stop.Token).ConfigureAwait(false);
-                var refValue = reference is null ? null : await _session.ReferenceAsync(reference, stop.Token).ConfigureAwait(false);
-                var raw = response.IsSuccess ? reading.Read(response.Data) : null;
-
-                var decoded = raw is { } r ? decode(r).ToString("0.#", CultureInfo.InvariantCulture) : "—";
-                var line = $"  raw {raw?.ToString(CultureInfo.InvariantCulture) ?? "—",-8} decoded {decoded,-8}";
-                if (reference is not null)
-                {
-                    line += $" {reference} {refValue?.ToString("0", CultureInfo.InvariantCulture) ?? "—"} {unit}";
-                }
-
-                _io.WriteLine(line);
-
-                try
-                {
-                    await Task.Delay(700, stop.Token).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-            }
-
-            await stop.CancelAsync().ConfigureAwait(false);
+            await LiveRequestAsync(did, reading, decode, module, bus, reference, unit, ct).ConfigureAwait(false);
             verdicts[n - 1] = Verdict();
             if (verdicts[n - 1] == "confirmed")
             {
                 return verdicts;
             }
         }
+    }
+
+    /// <summary>Ask one identifier over and over, printing it decoded, until Enter.</summary>
+    private async Task LiveRequestAsync(
+        ushort did, Reading reading, Func<long, double> decode, ushort module, CanBus bus, string? reference, string unit, CancellationToken ct)
+    {
+        _io.WriteLine($"LIVE: {Hex(module)} {did:X4} read {reading}. Change what it should follow. Press Enter to stop.");
+
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var enter = _io.ReadLineAsync(stop.Token);
+
+        while (!enter.IsCompleted)
+        {
+            var response = await _session.RequestAsync(new PidRequest(0x22, did, bus, module), stop.Token).ConfigureAwait(false);
+            var refValue = reference is null ? null : await _session.ReferenceAsync(reference, stop.Token).ConfigureAwait(false);
+            var raw = response.IsSuccess ? reading.Read(response.Data) : null;
+
+            var decoded = raw is { } r ? decode(r).ToString("0.#", CultureInfo.InvariantCulture) : "—";
+            var line = $"  raw {raw?.ToString(CultureInfo.InvariantCulture) ?? "—",-8} decoded {decoded,-8}";
+            if (reference is not null)
+            {
+                line += $" {reference} {refValue?.ToString("0", CultureInfo.InvariantCulture) ?? "—"} {unit}";
+            }
+
+            _io.WriteLine(line);
+
+            try
+            {
+                await Task.Delay(700, stop.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+
+        await stop.CancelAsync().ConfigureAwait(false);
     }
 
     // ── Match ────────────────────────────────────────────────────────────────

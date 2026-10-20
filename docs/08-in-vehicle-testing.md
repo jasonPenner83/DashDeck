@@ -779,7 +779,7 @@ The guide itself: [id-hunter](id-hunter.md).
 - any warning on the cluster while DashDeck runs;
 - the scan still finding nothing on MS-CAN with the engine running.
 
-## The ID hunter — cruise control's set speed (M, ADR-0069)
+## The ID hunter — cruise control's set speed (M, ADR-0069, ADR-0070)
 
 **You need:**
 - a laptop with the hunter, and the adapter. DashDeck and FORScan must be closed, since one program
@@ -788,39 +788,46 @@ The guide itself: [id-hunter](id-hunter.md).
 
 **At a desk first:**
 
-1. Run `IdHunter.exe --simulate` and choose **M**. Name it `Cruise set speed`. Press Enter, type
-   `7E0`, then `4100-41FF`, then Enter to sweep.
-   - **Expect:** *4100–41FF: 5 answered*.
+1. Run `IdHunter.exe --simulate` and choose **M**. Name it `Cruise set speed` and press Enter. Then:
+   - modules `7E0, 7A0`;
+   - Enter to listen as well;
+   - ranges `4100-41FF,4300-43FF`;
+   - Enter to sweep.
+   - **Expect:** *1024 identifiers across 2 modules*, then a line starting *Looking in broadcast on
+     HS-CAN…*
 2. Type the speed the *Practice* line gives (60), then the next one (100).
-   - **Expect:** *1 still fits all 2 readings*.
-   - Type **R**. **Expect** the first row `4105  u16@0  ÷ 100`.
+   - **Expect:** *2 places still fit all 2 readings*.
+3. Type **R**. **Expect:**
+   - `3F2 u16@1 ÷ 2` (broadcast) and `4105 u16@0 ÷ 100` (7E0) at the top, both `2/2`;
+   - nothing from byte 0 of `3F2`, which is a counter.
 
 **In the truck:**
 
-3. **Ignition on:**
-   - run **S** and note what answered;
-   - choose **M**, name it, then module `7E0` and the range it suggests;
-   - sweep. Doing this before you drive saves waiting on the road.
-   - **Expect:** a count of identifiers *to watch*, and *one pass takes about N s*.
-4. **Set cruise at 60 km/h** and type `60`.
-   - **Expect:** *Reading every identifier once…*, then a count that *could hold 60*.
-   - No prompt about the truck moving: there is none any more.
-5. **Set cruise at 100** and type `100`.
-   - **Expect:** *N still fit all 2 readings*.
-   - If more than one still fits, set **80** and type it.
-6. Type **R**.
-   - **Expect** a ranked table.
+4. **Ignition on, before you drive:**
+   - choose **M**, name it, type **ALL**, press Enter to listen;
+   - take the suggested ranges, or a range you suspect;
+   - sweep.
+   - **Expect:** the scan, a sweep per module, then *Looking in …* with how long a reading takes.
+5. **Set cruise at 60 km/h** and type `60`.
+   - **Expect:** *Listening to HS-CAN… N frames heard*, a line per module, then *N places could hold
+     60*.
+6. **Set cruise at 100** and type `100`.
+   - **Expect:** *N places still fit all 2 readings*.
+   - If more than a few still fit, set **80** and type it.
+7. Type **R**.
+   - **Expect** one table with WHERE beside each row.
    - Pick the first one and change the set speed. The live readout should follow it.
    - Answer **y** if it did.
-7. Send `findings.csv`, and the `match-free.cruise-set-speed-…csv` capture beside it. They can hold
-   the VIN, so they stay off the repository. The capture's last column is the speed each reading
-   was taken at.
+8. Send `findings.csv` and the `match-free.cruise-set-speed-…csv` capture beside it. They can hold the
+   VIN, so they stay off the repository. The capture's last column is the speed of each reading.
 
 **A failure looks like:**
-- **"Nothing fits all 2 readings"** after two different speeds: the PCM does not hold it in that
-  range. Try a wider range in `7E0`, then the cruise/radar module if the truck has adaptive cruise.
-- **A reading with no speed in the capture:** the truck did not answer its speed then. The reading is
-  still good; only the record of where it was taken is missing.
+- **"Nothing fits all 2 readings"** after two different speeds, with listening on: neither the swept
+  ranges nor the broadcasts hold it. Try wider ranges.
+- **"0 frames heard"** on a bus: the adapter heard nothing there. Is the ignition on? The modules are
+  still read.
+- **Only broadcast rows fit:** the value is broadcast and not asked-for in those ranges. Send it
+  anyway. The frame tells us which module to search next.
 
 ## The ID hunter — checking a CAN database (ADR-0045)
 

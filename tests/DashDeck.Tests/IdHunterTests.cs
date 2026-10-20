@@ -224,7 +224,7 @@ public sealed class IdHunterTests : IDisposable
     /// <summary>
     /// A truck that sits parked for ten minutes and then drives at 100 km/h, so a test can do things
     /// parked, on the road, or one then the other. <c>@drive</c> moves it on; <c>@cruise:N</c> sets
-    /// the synthetic module's cruise set speed.
+    /// the synthetic cruise set speed, which the engine module holds and the bus broadcasts.
     /// </summary>
     private async Task<Script> RunOnTheRoad(params string[] script)
     {
@@ -236,8 +236,8 @@ public sealed class IdHunterTests : IDisposable
         await using var session = await HuntSession.ForAsync(transport, truck, CancellationToken.None);
 
         var io = new Script(script) { Hook = item => Act(truck, item) };
-        await new Wizard(io, session, targets, new HuntOutput(_folder, DashDeck.Abstractions.SystemClock.Instance), Array.Empty<VehiclePack>())
-            .RunAsync(new CancellationTokenSource(TimeSpan.FromMinutes(2)).Token);
+        await new Wizard(io, session, targets, new HuntOutput(_folder, DashDeck.Abstractions.SystemClock.Instance), Array.Empty<VehiclePack>()) { ListenSeconds = 1.5 }
+            .RunAsync(new CancellationTokenSource(TimeSpan.FromMinutes(3)).Token);
 
         return io;
     }
@@ -260,9 +260,27 @@ public sealed class IdHunterTests : IDisposable
 
     private static readonly string[] SweepTheEngine =
     [
-        "M", "Cruise set speed", "",   // M, the name, Enter for the sweep's needs
-        "7E0", "4100-41FF", "",         // the engine module, its invented range, sweep
+        "M", "Cruise set speed", "",   // M, the name, Enter for the needs
+        "7E0", "n",                     // the engine module only, no listening
+        "4100-41FF", "",                // its invented range, sweep
     ];
+
+    /// <summary>The first row of M's table, whitespace squeezed, so a test can say what came first.</summary>
+    private static string FirstRow(string output)
+    {
+        var lines = output.Replace("\r", "", StringComparison.Ordinal).Split('\n');
+        var header = Array.FindLastIndex(lines, l => l.TrimStart().StartsWith("#   WHERE", StringComparison.Ordinal));
+        return header < 0 ? "" : string.Join(' ', lines[header + 1].Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    /// <summary>Every row of M's last table, whitespace squeezed.</summary>
+    private static List<string> Rows(string output)
+    {
+        var lines = output.Replace("\r", "", StringComparison.Ordinal).Split('\n');
+        var header = Array.FindLastIndex(lines, l => l.TrimStart().StartsWith("#   WHERE", StringComparison.Ordinal));
+        return [.. lines.Skip(header + 1).TakeWhile(l => l.Trim().Length > 0)
+            .Select(l => string.Join(' ', l.Split(' ', StringSplitOptions.RemoveEmptyEntries)))];
+    }
 
     [Fact]
     public async Task A_number_you_name_is_found_from_two_readings_while_parked()
@@ -277,9 +295,9 @@ public sealed class IdHunterTests : IDisposable
         ]);
 
         var output = io.Output.Replace("\r", "", StringComparison.Ordinal);
-        Assert.Contains("Cruise set speed — likeliest first:\n  #   ID     READ     DECODE                  GIVES     MATCHED\n  1   4105", output);
-        Assert.Contains("÷ 100", output);
-        Assert.Contains("1 still fits all 2 readings", output);
+        Assert.Contains("Cruise set speed — likeliest first, wherever it was found:", output);
+        Assert.StartsWith("1 7E0 on HS-CAN 4105 u16@0 ÷ 100", FirstRow(output), StringComparison.Ordinal);
+        Assert.Contains("1 place still fits all 2 readings", output);
         Assert.DoesNotContain("The truck is moving", output);
 
         var findings = await File.ReadAllTextAsync(Path.Combine(_folder, "findings.csv"));
@@ -303,11 +321,11 @@ public sealed class IdHunterTests : IDisposable
         var output = io.Output.Replace("\r", "", StringComparison.Ordinal);
 
         Assert.DoesNotContain("moving", output, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal(2, output.Split("Reading every identifier once").Length - 1);
-        Assert.Contains("likeliest first:\n  #   ID     READ     DECODE                  GIVES     MATCHED\n  1   4105", output);
+        Assert.Equal(2, output.Split("Reading every identifier").Length - 1);
+        Assert.StartsWith("1 7E0 on HS-CAN 4105", FirstRow(output), StringComparison.Ordinal);
 
         // Each reading's speed is in the capture, so one taken on the road is visibly one.
-        var capture = Directory.GetFiles(_folder, "match-free.cruise-set-speed-7E0-*.csv").Single();
+        var capture = Directory.GetFiles(_folder, "match-free.cruise-set-speed-*.csv").Single();
         var rows = File.ReadAllLines(capture).Skip(1).Where(r => r.Contains(",4105,", StringComparison.Ordinal)).ToList();
         Assert.Equal(2, rows.Count);
         Assert.All(rows, r => Assert.True(double.Parse(r.Split(',')[^1], System.Globalization.CultureInfo.InvariantCulture) > 0, r));
@@ -327,8 +345,96 @@ public sealed class IdHunterTests : IDisposable
         ]);
 
         Assert.Contains("That is 60 again", io.Output);
-        Assert.Equal(2, io.Output.Split("Reading every identifier once").Length - 1);
+        Assert.Equal(2, io.Output.Split("Reading every identifier").Length - 1);
     }
+
+    [Fact]
+    public async Task Listening_alone_finds_a_broadcast_number_and_never_a_counter()
+    {
+        var io = await RunOnTheRoad([
+            "M", "Cruise set speed", "",
+            "NONE", "",                 // no modules; listen (the default)
+            "@cruise:60", "60",
+            "@cruise:100", "100",
+            "R",
+            "",
+            "q",
+        ]);
+
+        var output = io.Output;
+        Assert.DoesNotContain("Reading every identifier", output);
+        Assert.Contains("Listening to HS-CAN", output);
+
+        // Halves of a km/h in bytes 1-2, beside a counter in byte 0 that changes all the time.
+        Assert.StartsWith("1 broadcast on HS-CAN 3F2 u16@1 ÷ 2", FirstRow(output), StringComparison.Ordinal);
+        Assert.DoesNotContain(Rows(output), r => r.Contains(" 3F2 u8@0 ", StringComparison.Ordinal) || r.Contains(" 3F2 u16@0 ", StringComparison.Ordinal));
+
+        var findings = await File.ReadAllTextAsync(Path.Combine(_folder, "findings.csv"));
+        Assert.Contains("Cruise set speed,,match,HS-CAN,,3F2,,Cruise set speed,u16@1", findings);
+        Assert.Contains(",broadcast", findings);
+    }
+
+    [Fact]
+    public async Task One_match_looks_in_several_modules_and_on_the_bus_at_once()
+    {
+        var io = await RunOnTheRoad([
+            "M", "Cruise set speed", "",
+            "7E0, 7A0", "y",            // two modules, and listen
+            "4100-41FF,4300-43FF", "",  // ranges for both, sweep
+            "@cruise:60", "60",
+            "@cruise:100", "100",
+            "R",
+            "",
+            "q",
+        ]);
+
+        var output = io.Output;
+        Assert.Contains("across 2 modules", output);
+        Assert.Contains("Looking in broadcast on HS-CAN", output);
+        Assert.Contains("7E0 on HS-CAN", output);
+        Assert.Contains("7A0 on pins 3/11", output);
+
+        // The value is in two places, a module and a frame, and both fit both readings.
+        Assert.Contains("2 places still fit all 2 readings", output);
+        var top = Rows(output).Take(4).ToList();
+        Assert.Contains(top, r => r.Contains("7E0 on HS-CAN 4105", StringComparison.Ordinal) && r.EndsWith("2/2", StringComparison.Ordinal));
+        Assert.Contains(top, r => r.Contains("broadcast on HS-CAN 3F2", StringComparison.Ordinal) && r.EndsWith("2/2", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task All_scans_for_modules_and_searches_every_one()
+    {
+        var io = await RunOnTheRoad([
+            "M", "Cruise set speed", "",
+            "ALL", "n",
+            "4100-41FF", "",
+            "@cruise:60", "60",
+            "@cruise:100", "100",
+            "R",
+            "",
+            "q",
+        ]);
+
+        var output = io.Output;
+        Assert.Contains("SYNTH-ENGINE", output);   // the scan ran first
+        Assert.Matches(@"across [2-9] modules", output);
+        Assert.StartsWith("1 7E0 on HS-CAN 4105", FirstRow(output), StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("7E0", new[] { 0x7E0 })]
+    [InlineData("7e0, 720 760", new[] { 0x7E0, 0x720, 0x760 })]
+    [InlineData("7E0,7E0", new[] { 0x7E0 })]
+    public void Modules_are_read_from_a_list(string typed, int[] expected) =>
+        Assert.Equal(expected.Select(e => (ushort)e), Wizard.ParseModules(typed)!);
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("7E0, 7F8")]
+    [InlineData("engine")]
+    [InlineData("12")]
+    public void A_list_with_anything_that_is_not_a_module_is_refused(string typed) =>
+        Assert.Null(Wizard.ParseModules(typed));
 
     [Theory]
     [InlineData("100", true, 100.0, "100")]

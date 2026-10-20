@@ -174,12 +174,13 @@ internal sealed partial class Wizard
 
     // ── Modules ──────────────────────────────────────────────────────────────
 
-    private async Task ScanModulesAsync(CancellationToken ct)
+    /// <param name="confirm">False when the caller has already asked to go ahead (M's ALL).</param>
+    private async Task ScanModulesAsync(CancellationToken ct, bool confirm = true)
     {
         _io.WriteLine();
         _io.WriteLine("SCAN FOR MODULES — asks every module address on both buses for its part number.");
         _io.WriteLine("Needs: ignition ON. About half a minute.");
-        if (!Proceed())
+        if (confirm && !Proceed())
         {
             return;
         }
@@ -268,12 +269,23 @@ internal sealed partial class Wizard
     /// <summary>Ask which identifier ranges to sweep, and sweep them.</summary>
     private async Task<List<FoundIdentifier>?> SweepAsync(HuntTarget target, ushort module, CanBus bus, CancellationToken ct)
     {
+        var ranges = AskRanges(target);
+        if (!ConfirmSweep(ranges, modules: 1))
+        {
+            return null;
+        }
+
+        return await SweepRangesAsync(module, bus, ranges, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Ask which identifier ranges to sweep: the checklist's, else the reference's.</summary>
+    private List<(ushort First, ushort Last)> AskRanges(HuntTarget target)
+    {
         var defaults = _session.Simulated && target.SimulateRanges.Count > 0 ? target.SimulateRanges : target.Ranges;
         // The checklist's ranges, else the standards' and the user's vehicle files' (ADR-0052).
         var known = _session.Reference.IdentifierRanges.Select(r => $"{r.First:X4}-{r.Last:X4}").ToList();
         var suggestion = defaults.Count > 0 ? string.Join(",", defaults) : string.Join(",", known);
 
-        List<(ushort First, ushort Last)> ranges;
         while (true)
         {
             var typed = Ask(suggestion.Length > 0 ? $"Identifier ranges to sweep [{suggestion}]" : "Identifier ranges to sweep (like 1000-1FFF)");
@@ -289,21 +301,25 @@ internal sealed partial class Wizard
 
             if (ParseRanges(typed) is { } parsed)
             {
-                ranges = parsed;
-                break;
+                return parsed;
             }
 
             _io.WriteLine("Ranges look like 1000-1FFF, at most 1000 (hex) identifiers each, separated by commas.");
         }
+    }
 
-        var total = ranges.Sum(r => r.Last - r.First + 1);
+    /// <summary>Say how long a sweep will take and wait for the go-ahead.</summary>
+    private bool ConfirmSweep(IReadOnlyList<(ushort First, ushort Last)> ranges, int modules)
+    {
+        var total = ranges.Sum(r => r.Last - r.First + 1) * modules;
         _io.WriteLine(string.Create(CultureInfo.InvariantCulture,
-            $"{total} identifiers: about {Math.Ceiling(total / 19.0 / 60.0)} minute(s). Keep the ignition on."));
-        if (!Proceed("Press Enter to sweep, or B to go back"))
-        {
-            return null;
-        }
+            $"{total} identifiers{(modules > 1 ? $" across {modules} modules" : "")}: about {Math.Ceiling(total / 19.0 / 60.0)} minute(s). Keep the ignition on."));
+        return Proceed("Press Enter to sweep, or B to go back");
+    }
 
+    /// <summary>Sweep one module's ranges, capturing what answered.</summary>
+    private async Task<List<FoundIdentifier>> SweepRangesAsync(ushort module, CanBus bus, IReadOnlyList<(ushort First, ushort Last)> ranges, CancellationToken ct)
+    {
         var found = new List<FoundIdentifier>();
         foreach (var (first, last) in ranges)
         {
@@ -318,7 +334,7 @@ internal sealed partial class Wizard
                 capture.WriteLine(HuntOutput.Row(f.Did.ToString("X4", CultureInfo.InvariantCulture), f.Data.Length, Convert.ToHexString(f.Data), f.RefusalCode));
             }
 
-            _io.WriteLine($"  {first:X4}–{last:X4}: {result.Found.Count(f => f.RefusalCode is null)} answered{(result.Problem is { } p ? $" ({p})" : "")}.");
+            _io.WriteLine($"  {Hex(module)} {first:X4}–{last:X4}: {result.Found.Count(f => f.RefusalCode is null)} answered{(result.Problem is { } p ? $" ({p})" : "")}.");
         }
 
         return found;

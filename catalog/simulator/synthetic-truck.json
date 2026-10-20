@@ -120,6 +120,12 @@
     {
       "bus": "hs", "id": "420", "periodMs": 100,
       "bytes": [ { "value": "engine.coolantTemp", "offset": -40 }, 0, 0 ]
+    },
+    {
+      // Cruise control's set speed as the engine computer might tell the cluster, in halves of a
+      // km/h, beside a counter that a match must not take for it (ADR-0070). Invented.
+      "bus": "hs", "id": "3F2", "periodMs": 100,
+      "bytes": [ { "counter": 15 }, { "value": "cabin.cruiseSet", "byteLength": 2, "scale": 0.5 }, 0, 0, 0, 0, 0 ]
     }
   ]
 }
