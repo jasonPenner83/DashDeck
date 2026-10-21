@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace DashDeck.Core.Maps;
 
@@ -56,7 +57,101 @@ public static class MapStyle
     /// <summary>The highest zoom the tiles themselves carry.</summary>
     public const int SourceMaxZoom = 14;
 
-    /// <summary>Build a style in these colours.</summary>
+    /// <summary>Build a style in these colours, over the chosen base (ADR-0071).</summary>
+    /// <remarks>
+    /// The road map is the template as it stands. The other two are the same style changed, rather
+    /// than styles of their own, so the roads and names a theme paints are the same on all three:
+    /// <list type="bullet">
+    /// <item><b>Satellite</b> puts imagery straight over the ground and drops the fills it makes
+    /// redundant — water, greenery and buildings are in the picture. The roads and the names stay,
+    /// in the theme's colours, because imagery from ten metres up does not say which road is which.</item>
+    /// <item><b>Terrain</b> shades the ground from elevation tiles, under the water and the roads,
+    /// in the theme's own colours so it darkens and lightens with the rest at dusk.</item>
+    /// </list>
+    /// </remarks>
+    public static string Build(MapPalette palette, MapBase mapBase) => mapBase switch
+    {
+        MapBase.Satellite => Satellite(Build(palette)),
+        MapBase.Terrain => Terrain(Build(palette), palette),
+        _ => Build(palette),
+    };
+
+    /// <summary>The fills that imagery replaces.</summary>
+    private static readonly string[] ImageryCovers = ["green", "water", "waterway", "building"];
+
+    private static string Satellite(string road)
+    {
+        var style = JsonNode.Parse(road)!.AsObject();
+
+        style["sources"]!.AsObject()["imagery"] = new JsonObject
+        {
+            ["type"] = "raster",
+            ["tiles"] = new JsonArray(MapSource.ImageryTemplate),
+            ["tileSize"] = 256,
+            ["minzoom"] = 0,
+            ["maxzoom"] = MapSource.ImageryMaxZoom,
+            ["attribution"] = MapSource.ImageryAttribution,
+        };
+
+        var layers = style["layers"]!.AsArray();
+
+        foreach (var covered in layers.Where(l => ImageryCovers.Contains((string?)l!["id"])).ToList())
+        {
+            layers.Remove(covered);
+        }
+
+        // Straight after the background, which stays: it is what shows while the imagery arrives,
+        // and the dash's own canvas colour is better than a flash of white.
+        layers.Insert(1, new JsonObject
+        {
+            ["id"] = "imagery",
+            ["type"] = "raster",
+            ["source"] = "imagery",
+            ["paint"] = new JsonObject { ["raster-fade-duration"] = 0 },
+        });
+
+        return style.ToJsonString();
+    }
+
+    private static string Terrain(string road, MapPalette palette)
+    {
+        var style = JsonNode.Parse(road)!.AsObject();
+
+        style["sources"]!.AsObject()["elevation"] = new JsonObject
+        {
+            ["type"] = "raster-dem",
+            ["tiles"] = new JsonArray(MapSource.TerrainTemplate),
+            ["encoding"] = "terrarium",
+            ["tileSize"] = 256,
+            ["minzoom"] = 0,
+            ["maxzoom"] = MapSource.TerrainMaxZoom,
+            ["attribution"] = MapSource.TerrainAttribution,
+        };
+
+        var layers = style["layers"]!.AsArray();
+        var water = layers.Select((l, i) => (Id: (string?)l!["id"], i)).First(l => l.Id == "water").i;
+
+        // Over the ground and the greenery, under the water and every road, so the shading reads
+        // as the shape of the land rather than as something laid over the map. Exaggerated,
+        // because most of the province is flat enough that true relief would draw nothing.
+        layers.Insert(water, new JsonObject
+        {
+            ["id"] = "hillshade",
+            ["type"] = "hillshade",
+            ["source"] = "elevation",
+            ["paint"] = new JsonObject
+            {
+                ["hillshade-shadow-color"] = "#000000",
+                ["hillshade-highlight-color"] = palette.RoadMajor,
+                ["hillshade-accent-color"] = palette.Road,
+                ["hillshade-exaggeration"] = 0.6,
+            },
+        });
+
+        return style.ToJsonString();
+    }
+
+    /// <summary>Build the road map in these colours.</summary>
     public static string Build(MapPalette palette) => Template
         .Replace("$LAND", palette.Land, StringComparison.Ordinal)
         .Replace("$WATER", palette.Water, StringComparison.Ordinal)

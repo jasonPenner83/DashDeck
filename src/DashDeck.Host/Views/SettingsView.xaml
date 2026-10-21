@@ -643,6 +643,26 @@
                                Style="{StaticResource MicroText}"
                                Text="On: a source — Spotify, Music, video, Stremio, Nuvio, phone — keeps playing when you switch the stage to a screen like the gauges, and the ▶ pill in the status bar brings it back. Off: switching stops it." />
 
+                    <!-- The map search's speed gate, as the owner's switch (ADR-0072). -->
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,30,0,0" Text="MAP SEARCH" />
+
+                    <Button Style="{StaticResource StageLauncherButton}"
+                            Height="52" MinWidth="330" Margin="0,14,0,0"
+                            HorizontalAlignment="Left"
+                            Command="{Binding ToggleSearchWhileMovingCommand}">
+                        <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="14">
+                            <Run Text="TYPE WHILE MOVING —" />
+                            <Run Text="{Binding SearchWhileMovingLabel, Mode=OneWay}" FontWeight="Bold" />
+                        </TextBlock>
+                    </Button>
+
+                    <TextBlock Margin="2,12,0,0"
+                               MaxWidth="620"
+                               HorizontalAlignment="Left"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="Off: an address can only be typed with the truck stopped. On: the search works at any speed — for a passenger, or when you choose." />
+
                     <TextBlock Style="{StaticResource CaptionText}" Margin="0,30,0,0" Text="LOCATION (PHONE GPS)" />
 
                     <!-- What the GPS is doing now. Before this, the only feedback was the compass. -->

@@ -1771,6 +1771,82 @@ needs a connection whether or not the GPS is real.
 **Cards only, deliberately.** A stage layout's gauge reads through the sensor service and readouts
 are not in it, so *Destination* cannot go on a COMPASS layout. That is worth doing and is not done.
 
+## The map's buttons and range lines (ADR-0071)
+
+**Added 2026-10-21.** The buttons were driven in a headless browser and draw, press and survive a
+restyle; nothing has been seen on the Surface's glass, and **neither imagery nor elevation has been
+fetched from the tablet**. Start with the two probes.
+
+**On the Surface, on the truck's connection:**
+
+```powershell
+curl.exe -s -o $null -w "imagery %{http_code} %{size_download} bytes`n" https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/10/337/235.jpg
+curl.exe -s -o $null -w "terrain %{http_code} %{size_download} bytes`n" https://s3.amazonaws.com/elevation-tiles-prod/terrarium/10/235/337.png
+```
+
+**Expect:** `imagery 200` with tens of kilobytes and `terrain 200` with a few. A failure on one
+means only that base will be blank; the other two still work.
+
+**At a desk first.** `DashDeck.Host.exe --gps synthetic`, with the adapter unplugged, gives a
+moving fix near Winnipeg *and* the synthetic truck's distance to empty (the dash falls back to it
+when the adapter does not answer), so every step below works without the truck.
+
+1. **Open MAPS.** **Expect** four buttons down the right of the map — **SEARCH**, **ROAD**,
+   **NORTH UP**, and the range with a number in kilometres — and **no SEARCH or RECENTRE chips**
+   under the map any more. TO THE STAGE is still there.
+   **A failure looks like:** no buttons at all once the map has drawn (the page did not get its
+   `map:ready` dressing — send `--shot`), or the old chips still there (an old build).
+2. **Range lines.** Zoom out (pinch) until you see two dashed rings around the truck: **orange,
+   labelled 80 KM LEFT**, and **red, labelled EMPTY**, further out. The number on the range button
+   is the red ring's radius. **Expect** them to be roughly circles centred on the truck.
+   **A failure looks like:** the button says **NO RANGE** (no distance to empty is arriving — on the
+   truck that means its identifier is not in your catalog yet, see below), or rings that stay put
+   while the truck moves more than a few hundred metres.
+3. **Press the range button.** **Expect** the rings to disappear and the button to say **OFF**.
+   Press again and they come back. Close and reopen the dash: **expect** it to remember.
+4. **Press ROAD.** **Expect** three choices to open beside it: ROAD, SATELLITE, TERRAIN.
+   - **SATELLITE:** **expect** imagery under the theme's roads and names in a second or two. It is
+     ten-metre imagery: fields, rivers, yards and towns read; houses do not, and close in it goes soft.
+   - **TERRAIN:** **expect** the road map with shading where the ground rises — river valleys and
+     the escarpment show; the flat Red River valley mostly does not, and that is right.
+   - Back to **ROAD.** **Expect** the theme's map exactly as before.
+   **Expect** the rings (and a route, if one is drawn) to **stay on the map through every switch**.
+   **A failure looks like:** a blank map on one base (the probe above for that one), or the range
+   lines vanishing after a switch.
+5. **Press NORTH UP.** **Expect** it to say **TRACK UP** and light up, and once the truck is moving
+   above walking pace the map to turn so the way you are going is up, with the truck in the lower
+   third. The compass needle on the button keeps pointing north. Stopped at a light, **expect** the
+   map to hold still rather than spin. Press again: **expect** north back at the top at once.
+6. **Pan the map.** **Expect RECENTRE** low on the left, clear of the small attribution text.
+   Press it: the map goes back to the truck and the button goes.
+7. **SEARCH on the map** **expect** to open the search exactly as the old chip did.
+8. **A route past the range.** Search somewhere further than the range button says (on the
+   simulator, a few hundred kilometres away) and press **DIRECTIONS TO HERE**. Zoom out along it.
+   **Expect** the route solid in your accent until the orange point, then **orange dashes to the
+   red ring, and red dashes beyond it**. A route shorter than the range minus 80 km stays solid.
+9. **Change the size and send it to the stage and back** with satellite and track up on.
+   **Expect** it to come back on satellite, track up, with its lines.
+
+**In the truck.** The rings need the truck's own **distance to empty** (`fuel.range`), which is a
+placeholder until its identifier is found. If the button says **NO RANGE** with the adapter
+connected, run the ID matcher's **19 — Distance to empty**, or the hunter's **M** with the number the
+cluster shows; once it is in your catalog the lines draw on the next launch. **Expect** the number
+on the button to match the cluster's DTE, and **expect** the rings to be drawn grey if the adapter
+stops answering — a stale range is never drawn as a live one.
+
+### Typing an address while moving (ADR-0072)
+
+1. **With the switch OFF (the default), drive above walking pace and tap SEARCH on the map.**
+   **Expect** the field greyed out and *Stop first — a destination cannot be typed at N km/h.
+   Settings ▸ Display ▸ TYPE WHILE MOVING lifts this.*
+2. **Settings ▸ Display ▸ MAP SEARCH ▸ TYPE WHILE MOVING — ON.** Back to the map and SEARCH.
+   **Expect** the field to take typing and SEARCH to find the address, moving. No restart.
+3. **Turn it OFF again while the search is open and moving.** **Expect** the field to lock within a
+   second.
+4. **Close and reopen the dash.** **Expect** the switch where you left it.
+
+At a desk, `--gps synthetic` moves at 60 km/h, so all four work without the truck.
+
 ## Screen brightness (ADR-0068)
 
 **Added 2026-10-18, and never run on the Surface.** The rules are tested; whether Windows lets

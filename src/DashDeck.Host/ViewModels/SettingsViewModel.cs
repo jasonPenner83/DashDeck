@@ -295,6 +295,17 @@ public sealed partial class SettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(KeepStageAudioLabel));
     }
 
+    /// <summary>ON/OFF for typing a destination while moving (ADR-0072).</summary>
+    public string SearchWhileMovingLabel => Display.SearchWhileMoving ? "ON" : "OFF";
+
+    /// <summary>Flip whether the map's search can be typed into while the truck is moving (ADR-0072).</summary>
+    [RelayCommand]
+    private void ToggleSearchWhileMoving()
+    {
+        Display.SearchWhileMoving = !Display.SearchWhileMoving;
+        OnPropertyChanged(nameof(SearchWhileMovingLabel));
+    }
+
     /// <summary>ON/OFF for fast requests (ADR-0049).</summary>
     public string FastRequestsLabel => Display.FastRequests ? "ON" : "OFF";
 

@@ -284,6 +284,21 @@ public sealed class SearchGateTests
     }
 
     [Fact]
+    public void The_owners_switch_lets_a_destination_be_typed_at_any_speed()
+    {
+        // ADR-0072: Settings ▸ Display ▸ TYPE WHILE MOVING. Off unless turned on.
+        Assert.True(SearchGate.MayType(90, whileMoving: true));
+        Assert.Null(SearchGate.WhyNot(90, whileMoving: true));
+        Assert.False(SearchGate.MayType(90));
+    }
+
+    [Fact]
+    public void Refused_says_where_the_switch_is()
+    {
+        Assert.Contains("TYPE WHILE MOVING", SearchGate.WhyNot(90), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void It_is_the_same_threshold_the_compass_already_uses()
     {
         // One number rather than two that nearly agree (ADR-0027's moving-heading rule).

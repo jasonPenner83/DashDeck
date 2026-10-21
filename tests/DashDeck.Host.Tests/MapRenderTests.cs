@@ -21,12 +21,12 @@ public sealed class MapRenderTests
 {
     private static readonly DateTimeOffset Noon = new(2026, 10, 16, 12, 0, 0, TimeSpan.Zero);
 
-    private sealed class Clock(DateTimeOffset now) : IClock
+    internal sealed class Clock(DateTimeOffset now) : IClock
     {
         public DateTimeOffset UtcNow { get; set; } = now;
     }
 
-    private sealed class Source(LocationFix? fix, string name = "COM4") : ILocationSource
+    internal sealed class Source(LocationFix? fix, string name = "COM4") : ILocationSource
     {
         public LocationFix? Fix { get; set; } = fix;
 
@@ -43,7 +43,7 @@ public sealed class MapRenderTests
         }
     }
 
-    private sealed class FakeSurface : IMapSurface
+    internal sealed class FakeSurface : IMapSurface
     {
         public List<LocationFix> Positions { get; } = [];
 
@@ -86,6 +86,14 @@ public sealed class MapRenderTests
         public void Camera(MapCamera camera) => Cameras.Add(camera);
 
         public void Follow(bool on) => Follows.Add(on);
+
+        public List<MapButtons> Buttoned { get; } = [];
+
+        public List<(string Rings, string Route, bool Live)> Ranges { get; } = [];
+
+        public void Buttons(MapButtons buttons) => Buttoned.Add(buttons);
+
+        public void Range(string ringsJson, string routeJson, bool live) => Ranges.Add((ringsJson, routeJson, live));
     }
 
     private static readonly MapPalette Trek = new(
