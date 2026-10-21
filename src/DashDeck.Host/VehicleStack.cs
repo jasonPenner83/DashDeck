@@ -117,11 +117,17 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// <summary>Where the user's own vehicle files live: <c>%LOCALAPPDATA%\DashDeck\vehicles\</c> (ADR-0052).</summary>
     public static string UserVehiclesFolder => Settings.JsonFile.InLocalAppData("vehicles");
 
+    /// <summary>The person's own CAN databases, which vehicle files and the overlay may refer into (ADR-0074).</summary>
+    public static string UserDatabaseFolder => Settings.JsonFile.InLocalAppData("dbc");
+
     /// <summary>Every pack that ships, so Settings can say which one a newly decoded VIN would pick.</summary>
     public IReadOnlyList<VehiclePack> AvailablePacks => Loaded.AvailablePacks;
 
     /// <summary>Why a pack was left out, when one was. Never fatal.</summary>
     public string? PackProblem => Loaded.PackProblem;
+
+    /// <summary>Signals not asked for because their CAN database could not say where they are, and why (ADR-0074).</summary>
+    public string? DatabaseProblem => Loaded.DatabaseProblem;
 
     /// <summary>
     /// The catalog as it ships for this vehicle — the standard set plus any matching vehicle
@@ -447,7 +453,8 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     internal static LoadedCatalog LoadCatalog(CatalogSources sources)
     {
         var standard = SignalCatalog.FromFile(FindCatalog());
-        var (available, problems) = VehiclePacks.LoadFolders(CatalogPath.FindFolder("vehicles"), UserVehiclesFolder);
+        var (available, problems) = VehiclePacks.LoadFolders(
+            DashDeck.Core.Dbc.DbcLibrary.InFolder(UserDatabaseFolder), CatalogPath.FindFolder("vehicles"), UserVehiclesFolder);
         var active = VehiclePacks.Select(available, sources.Vehicle);
         var packProblem = problems.Count > 0 ? string.Join(" ", problems) : null;
         var referenceFolder = CatalogPath.FindFolder("reference");
@@ -471,9 +478,14 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         }
 
         var (catalog, overlayError) = ApplyOverlay(shipped, sources.UserSignals);
+
+        // A reference its database could not answer loads as a placeholder (ADR-0074); say which, and why.
+        var unresolved = catalog.Definitions.Where(d => d.DbcProblem is not null).Select(d => $"{d.Id}: {d.DbcProblem}.").ToList();
+
         return new LoadedCatalog(shipped, catalog, overlayError, active, available, packProblem)
         {
             Reference = reference.With(active),
+            DatabaseProblem = unresolved.Count > 0 ? string.Join(" ", unresolved) : null,
         };
     }
 
@@ -556,6 +568,9 @@ public sealed record LoadedCatalog(
 {
     /// <summary>The standards' reference tables with the active vehicle files laid over them (ADR-0052).</summary>
     public ObdReference Reference { get; init; } = ObdReference.Empty;
+
+    /// <summary>The signals whose CAN database could not say where they are, and why, or null (ADR-0074).</summary>
+    public string? DatabaseProblem { get; init; }
 }
 
 /// <summary>What choosing an adapter port did.</summary>

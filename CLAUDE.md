@@ -393,8 +393,17 @@ message per module on its answer id (`7E0` → `7E8`), multiplexed by `Service` 
 cantools' bare-`M` form and one-multiplexor hand-made files, and refuses (with a reason) what it cannot
 place. `Layout`/`ToDecodeSpec` bridge to the catalog's `DecodeSpec` and refuse what it cannot say. One
 file is one bus: the network attribute `DashDeckBus`, an ENUM **written as its index**. Files live in
-`%LOCALAPPDATA%\DashDeck\dbc\` and are never committed; tests invent everything. Next: catalog
-entries pointing into a database (stage 2), then the editors writing to it (stage 3).
+`%LOCALAPPDATA%\DashDeck\dbc\` and are never committed; tests invent everything. **Stage 2
+(ADR-0074): a catalog entry can point into one** — `"dbc": { "file", "message", "signal" }` — and
+`SignalCatalog.ParseList`/`FromJson` and `VehiclePacks.Parse`/`LoadFolders` take a `DbcLibrary` and
+resolve as they read (`DbcReferences.Resolve`), so nothing downstream changes. The reading options
+make `decode` optional (a type-info modifier); `Resolve` refuses an entry with both or neither. An
+unanswerable reference is a placeholder with `DbcProblem` (never written), shown in Settings ▸
+Vehicle (`LoadedCatalog.DatabaseProblem`). `ToJson` writes a referenced entry as the reference alone;
+`DbcReferences.Keep` keeps the reference through an edit only while request, decode, unit and states
+are unchanged (both editors use it). `DbcResolved` makes resolving idempotent. `docs/examples/` holds
+the standard mode 01 set as a DBC and a test vehicle file, kept in step by tests. Next: the editors
+writing layouts into the database (stage 3).
 
 **The serial tap records FORScan** (ADR-0048): `src/DashDeck.SerialTap`, `SerialTap.exe` in
 `SerialTap\` beside the dash. Serial port monitors need filter drivers and kept failing, so the tap

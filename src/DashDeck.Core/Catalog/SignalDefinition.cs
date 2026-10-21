@@ -137,6 +137,31 @@ public sealed record SignalDefinition
     public required DecodeSpec Decode { get; init; }
 
     /// <summary>
+    /// Where in our own CAN database the signal's request and decode come from, or null for a
+    /// definition written wholly in the catalog (ADR-0074).
+    /// </summary>
+    /// <remarks>
+    /// A reference gives only how the dash <em>uses</em> the value — id, name, category, rate,
+    /// staleness, range, flags. The bus, mode, PID, module, decode, unit and states are read from
+    /// the database when the catalog is loaded (<see cref="DashDeck.Core.Dbc.DbcReferences.Resolve"/>), and are
+    /// left out again when it is written (<see cref="SignalCatalog.ToJson"/>), so the database is
+    /// the one place they live.
+    /// </remarks>
+    public DbcReference? Dbc { get; init; }
+
+    /// <summary>
+    /// Why <see cref="Dbc"/> could not be followed — no file, no such signal, a layout the catalog
+    /// cannot decode — or null. Such a signal loads as a <see cref="Placeholder"/>: nothing is
+    /// asked for it until its database says where it is. Never written.
+    /// </summary>
+    [JsonIgnore]
+    public string? DbcProblem { get; init; }
+
+    /// <summary>True once <see cref="Dbc"/> has been followed, so following it again changes nothing. Never written.</summary>
+    [JsonIgnore]
+    public bool DbcResolved { get; init; }
+
+    /// <summary>
     /// True for a signal whose identifier is still to be found (ADR-0050, ADR-0052): it is in the
     /// catalog so the screens that show it can be built, but it has <b>no request</b> — nothing is
     /// ever sent for it. A real vehicle reads Unavailable; the synthetic truck answers it by its id.
@@ -205,6 +230,15 @@ public sealed record SignalDefinition
     public bool InRange(double value) =>
         (Min is null || value >= Min) && (Max is null || value <= Max);
 }
+
+/// <summary>
+/// A signal in one of our own CAN databases (ADR-0074): the file, in the person's
+/// <c>%LOCALAPPDATA%\DashDeck\dbc\</c> folder, and the message and signal names in it.
+/// </summary>
+/// <param name="File">The file's name, without a folder: <c>truck-hs.dbc</c>.</param>
+/// <param name="Message">The answer message: <c>Module_7E0</c>.</param>
+/// <param name="Signal">The signal in it.</param>
+public sealed record DbcReference(string File, string Message, string Signal);
 
 /// <summary>One named state of a multi-state signal: the decoded value, and what the truck calls it.</summary>
 public sealed record SignalState(double Value, string Name)

@@ -885,6 +885,11 @@
                                Text="{Binding Vehicle.PackProblem, StringFormat=A signal pack was left out: {0}}"
                                Visibility="{Binding Vehicle.PackProblem, Converter={StaticResource EmptyToCollapsed}}" />
 
+                    <TextBlock Margin="2,6,0,0" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}" Foreground="#FFE5544B"
+                               Text="{Binding Vehicle.DatabaseProblem, StringFormat=Not asked for — your CAN databases could not say where these are: {0}}"
+                               Visibility="{Binding Vehicle.DatabaseProblem, Converter={StaticResource EmptyToCollapsed}}" />
+
                     <Border Margin="0,12,0,0" Padding="16,12,12,12" CornerRadius="{DynamicResource PanelRadius}"
                             Background="{DynamicResource AccentWashBrush}"
                             BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"

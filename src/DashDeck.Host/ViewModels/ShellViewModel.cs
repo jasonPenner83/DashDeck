@@ -308,7 +308,10 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             vehicle.AvailablePacks,
             vehicle.ActivePacks,
             vehicle.PackProblem,
-            App.RequestRestart);
+            App.RequestRestart)
+        {
+            DatabaseProblem = vehicle.DatabaseProblem,
+        };
 
         // The adapter and the tested-ports list (ADR-0034). Choosing a port while simulated is
         // watched for at once; the dash goes live when it answers, with no restart.

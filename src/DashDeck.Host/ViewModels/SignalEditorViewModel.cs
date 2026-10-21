@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashDeck.Abstractions;
 using DashDeck.Core.Catalog;
+using DashDeck.Core.Dbc;
 using DashDeck.Vehicle;
 
 namespace DashDeck.Host.ViewModels;
@@ -106,7 +107,11 @@ public sealed partial class SignalEditorViewModel : ObservableObject
         _states = start.States;
         _hidden = start.Hidden;
         _unconfirmed = start.Unconfirmed;
+        _start = start;
     }
+
+    /// <summary>What was opened, so a database reference survives an edit that leaves its part alone (ADR-0074).</summary>
+    private readonly SignalDefinition _start;
 
     private readonly bool _hidden;
     private readonly bool _unconfirmed;
@@ -347,6 +352,10 @@ public sealed partial class SignalEditorViewModel : ObservableObject
             Hidden = _hidden,
             Unconfirmed = _unconfirmed && !ConfirmedByTest,
         };
+
+        // Renamed, re-rated or re-ranged, a signal from our own database still comes from it; once
+        // its request or decode is changed here, the change is the catalog's and the reference goes.
+        definition = definition with { Dbc = DbcReferences.Keep(_start, definition), DbcResolved = _start.DbcResolved };
 
         problems = SignalCatalog.Check(definition);
         return problems.Count == 0 ? definition : null;

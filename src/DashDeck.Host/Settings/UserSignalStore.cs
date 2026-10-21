@@ -1,5 +1,6 @@
 using System.IO;
 using DashDeck.Core.Catalog;
+using DashDeck.Core.Dbc;
 
 namespace DashDeck.Host.Settings;
 
@@ -85,14 +86,24 @@ public sealed class UserSignalStore
         return true;
     }
 
+    /// <summary>
+    /// Where the person's own CAN databases are for this file: <c>dbc\</c> beside it, which for the
+    /// real file is <c>%LOCALAPPDATA%\DashDeck\dbc\</c> (ADR-0074).
+    /// </summary>
+    public static string DatabaseFolder(string path) =>
+        System.IO.Path.Combine(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(path)) ?? ".", "dbc");
+
     /// <summary>Read the file, or nothing if it is absent or unreadable. Never throws.</summary>
+    /// <remarks>An entry that refers to a database is followed into <see cref="DatabaseFolder"/>.</remarks>
     public static IReadOnlyList<SignalDefinition> Load(string path, out string? error)
     {
         error = null;
 
         try
         {
-            return File.Exists(path) ? SignalCatalog.ParseList(File.ReadAllText(path)) : [];
+            return File.Exists(path)
+                ? SignalCatalog.ParseList(File.ReadAllText(path), DbcLibrary.InFolder(DatabaseFolder(path)))
+                : [];
         }
         catch (Exception ex)
         {

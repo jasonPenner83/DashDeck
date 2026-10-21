@@ -75,6 +75,34 @@ on both buses for its part number, the way FORScan lists modules, and a found mo
 bus and mode 22 filled in (ADR-0035). Once a user definition has proved itself on
 the truck, promote it by copying it into the right file here.
 
+## From your own CAN database (ADR-0073, ADR-0074)
+
+Instead of a request and a decode, an entry can point into a CAN database (`.dbc`) of your own in
+`%LOCALAPPDATA%\DashDeck\dbc\`. The entry then gives only how the dash uses the value; the database
+gives the bus, mode, PID, module, decode, unit and states:
+
+```jsonc
+{
+  "id": "ford.oilTemp", "name": "Oil temperature", "category": "Engine",
+  "defaultRateHz": 1, "min": -40, "max": 160,
+  "dbc": { "file": "truck-hs.dbc", "message": "Module_7E0", "signal": "EngOilTemp" }
+}
+```
+
+- `file` is a file name in that folder, nothing more; `message` is the module's answer message
+  (`Module_7E0` for a value `7E0` answers on `7E8`); `signal` is the value in it. How a database
+  holds answers is in [ADR-0073](../docs/decisions/ADR-0073-our-own-can-database.md).
+- Leave out `bus`, `mode`, `pid`, `module`, `decode`, `states` and `placeholder` — an entry with a
+  reference and any of them is refused. `min`/`max` stay yours: the database's range is not used.
+- A reference the database cannot answer (no file, no such signal, no `DashDeckBus` attribute, a
+  layout the catalog cannot decode yet) loads as a **placeholder**: nothing is asked, and Settings ▸
+  Vehicle says which and why.
+- Saving from Settings ▸ Sensors or the ID matcher writes the reference back alone. Changing the
+  request or decode there detaches the signal from the database and saves the whole definition here.
+
+`docs/examples/obd2-standard.dbc` is the standard set below as such a database, and
+`docs/examples/dbc-test-vehicle.json` a vehicle file reading three of its values through it.
+
 ## Fields
 
 ```jsonc
@@ -105,7 +133,10 @@ the truck, promote it by copying it into the right file here.
                                 // working for anything already using it (ADR-0051)
   "unconfirmed": false,         // true: typed by hand; not offered until TEST answers it (ADR-0051)
   "min": 0,                     // decoded values outside the range are rejected, not shown
-  "max": 255
+  "max": 255,
+  "dbc": null                   // or { "file", "message", "signal" }: where and how come from your CAN
+                                // database instead, and bus/mode/pid/module/decode/states are left out
+                                // (ADR-0074; see above)
 }
 ```
 
