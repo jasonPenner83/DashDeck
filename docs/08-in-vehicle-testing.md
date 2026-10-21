@@ -1459,9 +1459,13 @@ and a single void sentence threw away a good position. A fix is now **built** fr
 
 ## Updating from the dash (ADR-0061, Q40)
 
+**Confirmed 2026-10-21:** v.0.10.1 → v.0.11.0 went all the way through on the Surface — it closed,
+swapped and came back by itself on the new version (ADR-0061's second addendum). The steps below
+stay as the check for any later change to the updater.
+
 **Do this once at a desk, on purpose, before you ever need it in a truck.** The check and the
 download are ordinary network code; the install replaces the folder the dash is running from, and
-that half has never run on Windows (Q40). Finding out whether it works while parked somewhere in
+until 2026-10-21 that half had never completed on Windows (Q40). Finding out whether it works while parked somewhere in
 the dark is the wrong way round.
 
 **You need:** a deploy folder (not a build folder — it will refuse), the internet, and a release

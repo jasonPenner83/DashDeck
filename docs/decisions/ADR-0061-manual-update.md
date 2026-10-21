@@ -120,3 +120,13 @@ Three changes, none of which alter the decisions above:
 
 The consequence above still stands with one word changed: INSTALL AND RESTART is "written, failed
 once, fixed, and unproven" until a swap is seen to complete on the tablet.
+
+## Addendum 2026-10-21 — a swap completed on the tablet
+
+v.0.10.1 → v.0.11.0 on the Surface, through **INSTALL AND RESTART**: the dash downloaded, closed,
+swapped its folder and **came back by itself on 0.11.0**, which Settings ▸ ABOUT confirmed. It is
+the first update to go all the way through on Windows, and the first run of the 2026-10-18 fixes.
+
+INSTALL AND RESTART is now **proven once**: one release, one tablet, one deploy started from its
+shortcut. What is still untried is the failure half — the relaunch of the old dash after a swap
+that fails — which by design only shows itself when something goes wrong.
