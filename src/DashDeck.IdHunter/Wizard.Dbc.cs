@@ -161,7 +161,6 @@ internal sealed partial class Wizard
     /// <summary>Listen a few seconds to each bus and note which of the file's messages are there.</summary>
     private async Task CheckPresenceAsync(CanDatabase database, CancellationToken ct)
     {
-
         _heard = [];
         var known = database.Messages.Select(m => m.Id).ToHashSet();
 
