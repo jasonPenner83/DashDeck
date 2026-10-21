@@ -231,6 +231,34 @@ public sealed class MapSearchTests
         Assert.True(search.CanSearch);
     }
 
+    [Fact]
+    public async Task With_the_switch_on_it_searches_while_moving_and_the_switch_is_read_live()
+    {
+        // ADR-0072: the owner's call, read on the beat like the speed, so turning it on in
+        // Settings unlocks the field with no restart and turning it off locks it again.
+        var whileMoving = false;
+        var server = new Server();
+        var search = new MapSearchViewModel(server.FetchAsync, new Clock(Noon), () => null, () => 90, () => whileMoving);
+
+        Assert.False(search.MayType);
+
+        whileMoving = true;
+        search.Refresh();
+
+        Assert.True(search.MayType);
+        Assert.Null(search.Barred);
+
+        await TypeAsync(search, "123 Main");
+        await search.SearchCommand.ExecuteAsync(null);
+
+        Assert.Single(server.Asked);
+
+        whileMoving = false;
+        search.Refresh();
+
+        Assert.False(search.MayType);
+    }
+
     // --- Where the search is biased, and what happens when one is chosen ---
 
     [Fact]

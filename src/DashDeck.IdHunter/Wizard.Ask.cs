@@ -24,7 +24,7 @@ internal sealed partial class Wizard
             return (held.Module, held.Bus, new IdentifierWatch(held.Found));
         }
 
-        if (!Proceed() || !await ParkedAsync(ct).ConfigureAwait(false))
+        if (!Proceed())
         {
             return null;
         }
@@ -116,12 +116,6 @@ internal sealed partial class Wizard
             }
 
             var value = await _session.ReferenceAsync(reference, stop.Token).ConfigureAwait(false);
-            var speed = await _session.SpeedAsync(stop.Token).ConfigureAwait(false);
-            if (speed is > 0)
-            {
-                _io.WriteLine("The truck is moving — stopped. Park, then start again.");
-                break;
-            }
 
             var answers = Answers(watch);
             passes.Add(new FollowPass(_clock.UtcNow - started, value, answers));
@@ -206,43 +200,50 @@ internal sealed partial class Wizard
             }
 
             var (did, reading, decode) = candidates[n - 1];
-            _io.WriteLine($"LIVE: {Hex(module)} {did:X4} read {reading}. Change what it should follow. Press Enter to stop.");
-
-            using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            var enter = _io.ReadLineAsync(stop.Token);
-
-            while (!enter.IsCompleted)
-            {
-                var response = await _session.RequestAsync(new PidRequest(0x22, did, bus, module), stop.Token).ConfigureAwait(false);
-                var refValue = reference is null ? null : await _session.ReferenceAsync(reference, stop.Token).ConfigureAwait(false);
-                var raw = response.IsSuccess ? reading.Read(response.Data) : null;
-
-                var decoded = raw is { } r ? decode(r).ToString("0.#", CultureInfo.InvariantCulture) : "—";
-                var line = $"  raw {raw?.ToString(CultureInfo.InvariantCulture) ?? "—",-8} decoded {decoded,-8}";
-                if (reference is not null)
-                {
-                    line += $" {reference} {refValue?.ToString("0", CultureInfo.InvariantCulture) ?? "—"} {unit}";
-                }
-
-                _io.WriteLine(line);
-
-                try
-                {
-                    await Task.Delay(700, stop.Token).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-            }
-
-            await stop.CancelAsync().ConfigureAwait(false);
+            await LiveRequestAsync(did, reading, decode, module, bus, reference, unit, ct).ConfigureAwait(false);
             verdicts[n - 1] = Verdict();
             if (verdicts[n - 1] == "confirmed")
             {
                 return verdicts;
             }
         }
+    }
+
+    /// <summary>Ask one identifier over and over, printing it decoded, until Enter.</summary>
+    private async Task LiveRequestAsync(
+        ushort did, Reading reading, Func<long, double> decode, ushort module, CanBus bus, string? reference, string unit, CancellationToken ct)
+    {
+        _io.WriteLine($"LIVE: {Hex(module)} {did:X4} read {reading}. Change what it should follow. Press Enter to stop.");
+
+        using var stop = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var enter = _io.ReadLineAsync(stop.Token);
+
+        while (!enter.IsCompleted)
+        {
+            var response = await _session.RequestAsync(new PidRequest(0x22, did, bus, module), stop.Token).ConfigureAwait(false);
+            var refValue = reference is null ? null : await _session.ReferenceAsync(reference, stop.Token).ConfigureAwait(false);
+            var raw = response.IsSuccess ? reading.Read(response.Data) : null;
+
+            var decoded = raw is { } r ? decode(r).ToString("0.#", CultureInfo.InvariantCulture) : "—";
+            var line = $"  raw {raw?.ToString(CultureInfo.InvariantCulture) ?? "—",-8} decoded {decoded,-8}";
+            if (reference is not null)
+            {
+                line += $" {reference} {refValue?.ToString("0", CultureInfo.InvariantCulture) ?? "—"} {unit}";
+            }
+
+            _io.WriteLine(line);
+
+            try
+            {
+                await Task.Delay(700, stop.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+
+        await stop.CancelAsync().ConfigureAwait(false);
     }
 
     // ── Match ────────────────────────────────────────────────────────────────
@@ -318,6 +319,15 @@ internal sealed partial class Wizard
             }
         }
 
+        await ReportMatchAsync(target, tally, module, bus, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Rank what a match's readings found, offer each candidate live, and record the findings —
+    /// the same for a checklist target and for one named on the spot (M).
+    /// </summary>
+    private async Task ReportMatchAsync(HuntTarget target, MatchTally tally, ushort module, CanBus bus, CancellationToken ct)
+    {
         var shownAny = false;
         var all = new List<(string Label, MatchHit Hit, double Score, int Matched, int Rounds)>();
 
@@ -348,7 +358,7 @@ internal sealed partial class Wizard
             return;
         }
 
-        if (all.All(a => a.Rounds < 2) && target.Rounds < 2 && target.Readings.Count < 2)
+        if (all.All(a => a.Rounds < 2) && target.Readings.Count < 2)
         {
             _io.WriteLine("One reading matches a lot by chance. Run it again later, when the number has changed, to thin these out.");
         }

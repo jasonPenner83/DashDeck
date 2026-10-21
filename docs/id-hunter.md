@@ -54,12 +54,14 @@ quit.
   S   Scan for modules
   L   Listen freely — name your own action
   A   Ask a module while you do something
+  M   Match a number you name — like cruise set speed
   D   Check a CAN database against the truck
   Q   Quit
 ```
 
 Type a number and press Enter. Each target says first what it **needs**: ignition on or engine
-running, parked, a cold engine. **Everything is refused while the truck is moving.**
+running, a cold engine, a door to open. Nothing checks whether the truck is moving: when and where you
+run it is your call ([ADR-0069](decisions/ADR-0069-match-a-number-you-name.md)).
 
 ### listen — doors, belts, switches, buttons
 
@@ -161,6 +163,52 @@ is kept.
 
 Asks every module address on both buses for its part number, and lists what answered with a likely
 name. Do it once; follow and match then know which bus each module is on.
+
+### M — match a number you name
+
+For any number you can read that is not on the checklist: cruise control's set speed, a trip meter, a
+setting a screen shows. FORScan does not have to list it, and **you do not need to know where it is**.
+M looks in as many modules as you name and listens to the bus as well, all at once.
+([ADR-0069](decisions/ADR-0069-match-a-number-you-name.md), [ADR-0070](decisions/ADR-0070-match-everywhere.md))
+
+1. **Name it** (`Cruise set speed`).
+2. **Say where to look.** One module (`7E0`), several (`7E0, 720, 760`), **ALL** for every one the
+   scan finds (it runs **S** first if you haven't), or **NONE** to only listen. Then whether to
+   listen to the bus too: Enter for yes.
+3. **Pick the ranges and sweep.** The ranges are swept in every module, and it says how long the
+   sweep will take. Sweep before you need the readings; ALL in a wide range takes a while.
+4. **Make the number show and type it**, exactly as shown, unit optional (`60`, or `60 km/h`). At
+   each reading it listens to each bus for a few seconds, then reads every swept identifier.
+5. **Change it and type it again.** Set 60, type `60`; set 100, type `100`. After each one it says
+   how many places still fit every reading. The same number twice is refused, because it proves
+   nothing new. A zero is skipped, because it matches almost everything.
+6. **R** ranks them in one table:
+
+   ```
+     #   WHERE                    ID     READ     DECODE                  GIVES     MATCHED
+     1   broadcast on HS-CAN      3F2    u16@1    ÷ 2                     100       2/2
+     2   7E0 on HS-CAN            4105   u16@0    ÷ 100                   100       2/2
+   ```
+
+   **WHERE** is a module or a bus's broadcasts. Pick a number to check it live: change the number and
+   watch it follow, then answer **y**.
+
+**Broadcasts:** only bytes that kept still during the listen are considered, so counters, checksums
+and live speeds never come up. A broadcast find tells you the frame and the bus. The dash can't show a
+broadcast value yet, so use it to choose which module to ask with M, if that module didn't already
+show up in the table.
+
+Cruise only sets on the road, so that is where its readings are taken. The speed of each reading is
+recorded in the match capture. The way to do it:
+- sweep `ALL` (or the modules you suspect) before you leave;
+- set cruise at 60 and type `60`;
+- set 100 and type `100`;
+- type **R** to rank.
+
+**To practise at a desk:** run `IdHunter.exe --simulate`, then **M**. Try `7E0, 7A0`, Enter to listen,
+and ranges `4100-41FF,4300-43FF`. The simulated truck sets its cruise to a new speed at each reading
+and tells you which. Two readings find it in two places: identifier `4105 ÷ 100` and broadcast frame
+`3F2 ÷ 2`. Both are invented, like everything in the synthetic truck.
 
 ### L — listen freely
 

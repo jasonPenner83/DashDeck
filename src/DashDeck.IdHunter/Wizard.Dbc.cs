@@ -161,11 +161,6 @@ internal sealed partial class Wizard
     /// <summary>Listen a few seconds to each bus and note which of the file's messages are there.</summary>
     private async Task CheckPresenceAsync(CanDatabase database, CancellationToken ct)
     {
-        if (!await ParkedAsync(ct).ConfigureAwait(false))
-        {
-            return;
-        }
-
         _heard = [];
         var known = database.Messages.Select(m => m.Id).ToHashSet();
 
@@ -230,11 +225,6 @@ internal sealed partial class Wizard
         if (message.CanFdOnly)
         {
             _io.WriteLine("CAN FD only — this adapter cannot hear it.");
-            return;
-        }
-
-        if (!await ParkedAsync(ct).ConfigureAwait(false))
-        {
             return;
         }
 

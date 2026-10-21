@@ -247,6 +247,25 @@ motorways already fall out of its text ramp. `--map-style` still wins, and then 
 only the marker. A style that will not parse is never handed to the renderer. Labels are Noto Sans
 whatever the theme's fonts say — **Q45**.
 
+**Buttons on the map, three bases, track up and range lines** (ADR-0071). The map's own
+functions are **drawn by the page** (nothing WPF draws can sit over a WebView2) and **decide
+nothing**: SEARCH, ROAD/SATELLITE/TERRAIN, NORTH UP/TRACK UP and the range button at the top right,
+RECENTRE low left after a pan, each press sent as `map:press:<name>` and parsed by name against
+`MapControl`; the view-model decides and answers with `window.dash.buttons(…)`. The choices are
+`MapChoices` in Core, survive a rebuild, and are saved (`mapBase`, `mapOrientation`, `mapRange`).
+All three bases come from `MapStyle.Build(palette, base)` so the theme's roads and names stay on
+each — satellite is **EOX Sentinel-2 cloudless 2020** (no key, non-commercial, 10 m), terrain is
+hill-shading from **AWS Terrain Tiles**. Track up turns to a trusted course (above 5 km/h) with the
+truck in the lower third. **Range lines** read `fuel.range` (asked for only while drawn): dashed
+rings at 80 km from empty (orange) and at empty (red), and on a route the stretch past those points
+dashed orange then red, measured along the route and refused off it — `RangeLines` and
+`Geo.Destination` in Core. Fixed colours, grey when stale. A rebuilt map is dressed again on
+`map:ready`, and the page carries its own lines across a restyle with `transformStyle`.
+
+**Typing while moving is the owner's switch** (ADR-0072): Settings ▸ Display ▸ MAP SEARCH ▸ TYPE
+WHILE MOVING (`searchWhileMoving`, off by default) lifts ADR-0065's 5 km/h gate entirely; read on
+the beat through `SearchGate.MayType(speed, whileMoving)`, and the refusal names the switch.
+
 **Address search, and the dash's own keyboard** (ADR-0065). SEARCH on the map region opens a
 full-screen search — it **covers** the map rather than overlaying it, because a WebView2 is a child
 window and WPF cannot draw a keyboard over one (ADR-0021), and five rows of keys do not fit the
@@ -347,7 +366,12 @@ through a checklist (`targets.json`) of things to find, three ways: **listen** (
 alternating states — door shut/open — while the bus is heard; `BroadcastRanker` keeps fields steady
 within each step and different between states), **follow** (sweep a module, watch its identifiers
 beside coolant or rpm while the person makes it change; `FollowRanker` by correlation, with a scaling
-hint) and **match** (numbers read off the cluster; `MatchRanker`/`MatchTally`). Each ends in a live
+hint) and **match** (numbers read off the cluster; `MatchRanker`/`MatchTally`). **M** on the menu
+matches a number named on the spot (ADR-0069) with open-ended readings, in any number of modules
+(a list, ALL, NONE) and on the bus at once (ADR-0070). Broadcasts are matched only on bytes that kept
+still during the listen (`BroadcastSnapshot`), and one table ranks every place. **The hunter no longer checks
+whether the truck is moving** — any step, any speed; each M reading's speed is recorded instead. The
+dash's own Settings ▸ Sensors sweeps still refuse while moving (ADR-0035), to keep the gauges live. Each ends in a live
 check and a row in `findings.csv` with the verdict, plus captures (which can hold the VIN — never in
 the repo). **Listening is new to the vehicle layer**: `IStreamingTransport.StreamAsync` carries the
 adapter's monitor (`STMA`/`ATMA`), and `CanMonitor` sets it up **silent (`ATCSM1`)**, headers on, CAN

@@ -96,6 +96,10 @@ public sealed partial class DisplaySettings : ObservableObject
     [ObservableProperty]
     private bool _allowClearCodes;
 
+    /// <summary>Whether a destination can be typed while moving (ADR-0072); off unless turned on.</summary>
+    [ObservableProperty]
+    private bool _searchWhileMoving;
+
     /// <summary>Whether playback gets out of the way of spoken instructions (Q14).</summary>
     [ObservableProperty]
     private bool _duckUnderInstructions = true;
@@ -127,6 +131,7 @@ public sealed partial class DisplaySettings : ObservableObject
         AdapterIdentity = stored.AdapterIdentity;
         FastRequests = stored.FastRequests;
         AllowClearCodes = stored.AllowClearCodes;
+        SearchWhileMoving = stored.SearchWhileMoving;
         DuckUnderInstructions = stored.DuckUnderInstructions;
         BrightnessEnabled = stored.BrightnessEnabled;
         DayBrightness = BrightnessPolicy.Clamp(stored.DayBrightness);
@@ -251,6 +256,14 @@ public sealed partial class DisplaySettings : ObservableObject
         if (_loaded)
         {
             SettingsStore.Update(stored => stored with { AdapterIdentity = value });
+        }
+    }
+
+    partial void OnSearchWhileMovingChanged(bool value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { SearchWhileMoving = value });
         }
     }
 

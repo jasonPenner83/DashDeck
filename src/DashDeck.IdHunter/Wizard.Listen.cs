@@ -14,7 +14,7 @@ internal sealed partial class Wizard
         _io.WriteLine($"{target.Name.ToUpperInvariant()} — listening to the bus while you do it.");
         _io.WriteLine($"Needs: {target.Needs}");
         _io.WriteLine($"You will do {target.Steps.Count} steps. After each, press Enter and hold still for {Hold(target)} seconds.");
-        if (!Proceed() || !await ParkedAsync(ct).ConfigureAwait(false))
+        if (!Proceed())
         {
             return;
         }
@@ -91,11 +91,6 @@ internal sealed partial class Wizard
             State = state,
             Do = state == 0 ? $"Undo it: '{name}' OFF / as it was." : $"Do it: '{name}'.",
         };
-
-        if (!await ParkedAsync(ct).ConfigureAwait(false))
-        {
-            return;
-        }
 
         await ListenOnAsync(target, [Step(0), Step(1), Step(0), Step(1), Step(0)], bus, ct).ConfigureAwait(false);
     }
@@ -204,11 +199,6 @@ internal sealed partial class Wizard
         if (stopped || phases.Count < 2)
         {
             _io.WriteLine("Stopped before the steps were done; nothing ranked. The frames are saved.");
-            return "stopped";
-        }
-
-        if (!await ParkedAsync(ct).ConfigureAwait(false))
-        {
             return "stopped";
         }
 

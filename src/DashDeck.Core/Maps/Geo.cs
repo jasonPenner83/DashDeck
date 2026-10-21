@@ -98,6 +98,38 @@ public static class Geo
         return Math.Sqrt((x * x) + (y * y));
     }
 
+    /// <summary>
+    /// The point a given distance away along a great circle that sets off on a bearing.
+    /// </summary>
+    /// <remarks>
+    /// What draws a range ring (ADR-0071): every bearing at the same distance. NaN for anything
+    /// that is not a number, like the rest of this class.
+    /// </remarks>
+    public static (double Latitude, double Longitude) Destination(
+        double latitude, double longitude, double bearingDegrees, double metres)
+    {
+        if (!AreFinite(latitude, longitude, bearingDegrees, metres))
+        {
+            return (double.NaN, double.NaN);
+        }
+
+        var angle = metres / EarthRadiusMetres;
+        var bearing = Radians(bearingDegrees);
+        var lat1 = Radians(latitude);
+        var lon1 = Radians(longitude);
+
+        var lat2 = Math.Asin(
+            (Math.Sin(lat1) * Math.Cos(angle)) + (Math.Cos(lat1) * Math.Sin(angle) * Math.Cos(bearing)));
+
+        var lon2 = lon1 + Math.Atan2(
+            Math.Sin(bearing) * Math.Sin(angle) * Math.Cos(lat1),
+            Math.Cos(angle) - (Math.Sin(lat1) * Math.Sin(lat2)));
+
+        var east = lon2 * 180 / Math.PI;
+
+        return (lat2 * 180 / Math.PI, ((east + 540) % 360) - 180);
+    }
+
     private static double Radians(double degrees) => degrees * Math.PI / 180;
 
     private static bool AreFinite(double a, double b, double c, double d) =>
