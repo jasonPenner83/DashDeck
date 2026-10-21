@@ -44,6 +44,9 @@ public sealed partial class MapViewModel : ObservableObject
 {
     private readonly ILocationSource? _location;
     private readonly IClock _clock;
+    private readonly IVehicleSignals? _signals;
+    private readonly Action<MapChoices>? _remember;
+    private ISignalSubscription? _rangeDemand;
 
     /// <param name="location">
     /// The running location source, or null when GPS is off. Shared with Settings' readout rather
@@ -60,15 +63,27 @@ public sealed partial class MapViewModel : ObservableObject
     /// not care about searching constructs this.
     /// </param>
     /// <param name="directions">Routing (ADR-0065's addendum), or null where there is none.</param>
+    /// <param name="choices">How the map was left: its base, which way is up, the range lines (ADR-0071).</param>
+    /// <param name="remember">Where a changed choice is saved, or null to keep it for the session.</param>
+    /// <param name="signals">
+    /// The truck's signals, for the distance to empty the range lines are drawn from, or null where
+    /// there is no truck — which draws no range lines rather than invented ones.
+    /// </param>
     public MapViewModel(
         ILocationSource? location = null,
         IClock? clock = null,
         string? styleUrl = null,
         MapSearchViewModel? search = null,
-        MapRouteViewModel? directions = null)
+        MapRouteViewModel? directions = null,
+        MapChoices? choices = null,
+        Action<MapChoices>? remember = null,
+        IVehicleSignals? signals = null)
     {
         _location = location;
         _clock = clock ?? new SystemClock();
+        _choices = choices ?? MapChoices.Default;
+        _remember = remember;
+        _signals = signals;
         StyleOverride = MapSource.IsAcceptableStyle(styleUrl) ? styleUrl!.Trim() : null;
         Search = search;
         Directions = directions;
@@ -80,8 +95,19 @@ public sealed partial class MapViewModel : ObservableObject
 
         if (Directions is not null)
         {
-            Directions.Found += found => Surface?.Route(found);
-            Directions.Cleared += () => Surface?.ClearRoute();
+            // A new route, or none, changes where the range lines cut it — so they are redrawn
+            // with it rather than at the next beat that happens to move the truck far enough.
+            Directions.Found += found =>
+            {
+                Surface?.Route(found);
+                DrawRange(force: true);
+            };
+
+            Directions.Cleared += () =>
+            {
+                Surface?.ClearRoute();
+                DrawRange(force: true);
+            };
         }
 
         Refresh();
@@ -154,6 +180,212 @@ public sealed partial class MapViewModel : ObservableObject
     /// <summary>Close the search and leave the map where it is.</summary>
     [RelayCommand]
     private void CloseSearch() => IsSearchOpen = false;
+
+    // ---- The buttons over the map (ADR-0071) ----
+
+    /// <summary>
+    /// What the map is drawn on, which way is up, and whether the range lines are on.
+    /// </summary>
+    /// <remarks>
+    /// Held here rather than in the page, like the camera, because the page is rebuilt on every
+    /// placement change (Q43) — and saved, so the map opens the way it was left.
+    /// </remarks>
+    public MapChoices Choices => _choices;
+
+    private MapChoices _choices;
+
+    /// <summary>
+    /// A button over the map was pressed.
+    /// </summary>
+    /// <remarks>
+    /// The buttons are drawn by the page, over its own canvas, because nothing WPF draws can sit
+    /// over a WebView2 (ADR-0021). So a press arrives over the bridge, and the decision about what
+    /// it does is made here, where it is tested.
+    /// </remarks>
+    private void Press(MapControl control)
+    {
+        switch (control)
+        {
+            case MapControl.Search:
+                OpenSearch();
+                return;
+
+            case MapControl.Recentre:
+                Recentre();
+                return;
+        }
+
+        var next = _choices.With(control);
+
+        if (next == _choices)
+        {
+            // Pressing the base the map is already on still answers, so the button's picker
+            // closes rather than looking ignored.
+            Surface?.Buttons(ButtonState);
+            return;
+        }
+
+        var rebase = next.Base != _choices.Base;
+        _choices = next;
+        _remember?.Invoke(next);
+        OnPropertyChanged(nameof(Choices));
+
+        if (rebase)
+        {
+            Restyle();
+        }
+
+        Demand();
+        Surface?.Buttons(ButtonState);
+        DrawRange(force: true);
+    }
+
+    /// <summary>What the buttons should show, now.</summary>
+    internal MapButtons ButtonState => new(_choices, IsSearchOffered, IsRecentreOffered, RangeCaption);
+
+    /// <summary>
+    /// What the range button says: the distance to empty, or why there is none.
+    /// </summary>
+    /// <remarks>
+    /// On the button, so the number the lines are drawn from is on screen beside them — a line
+    /// on a map with no number to say where it came from is a line nobody can argue with.
+    /// </remarks>
+    public string RangeCaption
+    {
+        get
+        {
+            if (!_choices.ShowRange)
+            {
+                return "OFF";
+            }
+
+            var range = RangeKm(out _);
+
+            return RangeLines.IsUsable(range)
+                ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{range:0} KM")
+                : "NO RANGE";
+        }
+    }
+
+    // ---- The range lines (ADR-0071) ----
+
+    /// <summary>The signal the range lines are drawn from.</summary>
+    public const string RangeSignal = "fuel.range";
+
+    /// <summary>How often the range is asked for while the lines are on. It changes by the kilometre.</summary>
+    private const double RangeRateHz = 0.2;
+
+    /// <summary>How far the truck moves before the rings are redrawn around it, in metres.</summary>
+    /// <remarks>
+    /// The rings are hundreds of kilometres across, so moving them a few metres a second redraws a
+    /// picture nobody could tell from the last one. A quarter of a kilometre is still finer than
+    /// the line is wide at any zoom where the rings are on screen.
+    /// </remarks>
+    private const double RedrawMetres = 250;
+
+    private (double Latitude, double Longitude, double RangeKm, bool Live)? _rangeDrawn;
+
+    /// <summary>
+    /// The distance to empty in kilometres, or NaN when the truck has not said — or what it said
+    /// is no longer believed.
+    /// </summary>
+    private double RangeKm(out bool live)
+    {
+        live = false;
+
+        if (_signals is null)
+        {
+            return double.NaN;
+        }
+
+        var value = _signals.Current(RangeSignal);
+
+        if (value.Quality is SignalQuality.Unavailable || !double.IsFinite(value.Value))
+        {
+            return double.NaN;
+        }
+
+        live = value.IsUsable;
+
+        // A user's own catalog may have found it in miles; everything here is drawn in kilometres.
+        return value.Unit.Trim().Equals("mi", StringComparison.OrdinalIgnoreCase)
+            ? value.Value * 1.609344
+            : value.Value;
+    }
+
+    /// <summary>
+    /// Ask the truck for its range while there is a map on screen with the lines on, and stop
+    /// asking otherwise. One shared link (ADR-0004): nobody is owed a reading nobody is drawing.
+    /// </summary>
+    private void Demand()
+    {
+        // Only a signal the catalog defines: the arbiter has nothing to schedule for one it does not.
+        var wanted = Surface is not null && _choices.ShowRange
+            && _signals is not null && _signals.KnownSignals.Contains(RangeSignal);
+
+        if (wanted && _rangeDemand is null)
+        {
+            _rangeDemand = _signals!.Require(RangeSignal, SignalPriority.Low, RangeRateHz);
+        }
+        else if (!wanted && _rangeDemand is not null)
+        {
+            _rangeDemand.Dispose();
+            _rangeDemand = null;
+        }
+    }
+
+    /// <summary>
+    /// Draw the range lines, or rub them out — but only when something worth redrawing for has
+    /// changed, unless <paramref name="force"/>.
+    /// </summary>
+    private void DrawRange(bool force = false)
+    {
+        if (Surface is not { } surface || !IsReady)
+        {
+            return;
+        }
+
+        var range = RangeKm(out var live);
+        var at = _location?.Latest is { } fix && Drawable(fix) ? fix : (LocationFix?)null;
+        var drawable = _choices.ShowRange && RangeLines.IsUsable(range) && at is not null;
+
+        if (!drawable)
+        {
+            if (force || _rangeDrawn is not null)
+            {
+                surface.Range(RangeLines.RingsJson([]), RangeLines.RouteJson(null), live: true);
+                _rangeDrawn = null;
+                OnPropertyChanged(nameof(RangeCaption));
+                surface.Buttons(ButtonState);
+            }
+
+            return;
+        }
+
+        var (lat, lon) = (at!.Value.Latitude, at.Value.Longitude);
+
+        if (!force && _rangeDrawn is { } drawn
+            && drawn.Live == live
+            && Math.Abs(drawn.RangeKm - range) < 1
+            && Geo.FlatMetres(drawn.Latitude, drawn.Longitude, lat, lon) < RedrawMetres)
+        {
+            return;
+        }
+
+        var rings = RangeLines.Rings(lat, lon, range);
+        var cut = Directions?.Route is { } route ? RangeLines.AlongRoute(route, lat, lon, range) : null;
+
+        surface.Range(RangeLines.RingsJson(rings), RangeLines.RouteJson(cut), live);
+
+        var captionChanged = _rangeDrawn is not { } before || Math.Round(before.RangeKm) != Math.Round(range);
+        _rangeDrawn = (lat, lon, range, live);
+
+        if (captionChanged)
+        {
+            OnPropertyChanged(nameof(RangeCaption));
+            surface.Buttons(ButtonState);
+        }
+    }
 
     /// <summary>
     /// True while the turn list is covering the map.
@@ -286,9 +518,15 @@ public sealed partial class MapViewModel : ObservableObject
         _palette = palette;
         MarkerColour = palette.Marker;
 
+        Restyle();
+    }
+
+    /// <summary>Build the style for the palette and the base, and give it to a map already drawn.</summary>
+    private void Restyle()
+    {
         if (StyleOverride is null)
         {
-            var built = MapStyle.Build(palette);
+            var built = MapStyle.Build(_palette, _choices.Base);
 
             if (MapStyle.IsWellFormed(built))
             {
@@ -304,7 +542,7 @@ public sealed partial class MapViewModel : ObservableObject
             }
         }
 
-        Surface?.Restyle(StyleJson, palette);
+        Surface?.Restyle(StyleJson, _palette);
     }
 
     // ---- Where the map is drawn (ADR-0062) ----
@@ -402,12 +640,25 @@ public sealed partial class MapViewModel : ObservableObject
     internal void Attach(IMapSurface surface)
     {
         Surface = surface;
+        Demand();
+        Dress(surface);
+    }
+
+    /// <summary>
+    /// Give a map everything it should be showing besides the ground: which way it follows, the
+    /// palette, the pin, the route, the buttons and the range lines.
+    /// </summary>
+    /// <remarks>
+    /// Called on attach and again when the page reports itself ready, because a surface only
+    /// passes scripts on once its page exists — and a rebuilt map starts empty. Without the second
+    /// call, moving the map between placements would quietly lose the destination you had just
+    /// looked up, and the buttons would not be drawn at all.
+    /// </remarks>
+    private void Dress(IMapSurface surface)
+    {
         surface.Follow(IsFollowing);
         surface.Restyle(StyleJson, _palette);
 
-        // A rebuilt map starts empty, so anything that was on the old one goes back: the pin, its
-        // popup, and the route. Without this, moving the map between placements would quietly
-        // lose the destination you had just looked up.
         if (Destination is { } place)
         {
             surface.Destination(place.Camera, place);
@@ -418,7 +669,10 @@ public sealed partial class MapViewModel : ObservableObject
             surface.Route(route);
         }
 
+        surface.Buttons(ButtonState);
+        _rangeDrawn = null;
         Push();
+        DrawRange(force: true);
     }
 
     /// <summary>Let go of a surface that is going away — unless a newer one already replaced it.</summary>
@@ -428,6 +682,8 @@ public sealed partial class MapViewModel : ObservableObject
         {
             Surface = null;
             IsReady = false;
+            _rangeDrawn = null;
+            Demand();
         }
     }
 
@@ -470,6 +726,9 @@ public sealed partial class MapViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsRecentreOffered))]
     private bool _isFollowing = true;
+
+    /// <summary>RECENTRE is one of the buttons over the map, so it appears and goes with this.</summary>
+    partial void OnIsFollowingChanged(bool value) => Surface?.Buttons(ButtonState);
 
     /// <summary>True when the map has been panned away and can be put back on the vehicle.</summary>
     public bool IsRecentreOffered => !IsFollowing;
@@ -521,8 +780,16 @@ public sealed partial class MapViewModel : ObservableObject
                 IsReady = true;
 
                 // The page opened on whatever camera it was given; anything learned since — a
-                // first fix that arrived while it was loading — goes in now.
-                Push();
+                // first fix that arrived while it was loading, a pin, a route — goes in now.
+                if (Surface is { } surface)
+                {
+                    Dress(surface);
+                }
+
+                break;
+
+            case MapSignal.Pressed when message.Control is { } control:
+                Press(control);
                 break;
 
             case MapSignal.Failed:
@@ -641,6 +908,7 @@ public sealed partial class MapViewModel : ObservableObject
         }
 
         Push();
+        DrawRange();
     }
 
     /// <summary>Hand the current fix to the map, if there is a map and anything to draw.</summary>
@@ -687,5 +955,7 @@ public sealed partial class MapViewModel : ObservableObject
         + (Camera is { } c ? $" · {c.Describe()}" : string.Empty)
         + (StyleOverride is { } url ? $" · style: {url}" : string.Empty)
         + (StyleNote is { } note ? $" · style: {note}" : string.Empty)
+        + $" · {_choices.Describe()}"
+        + (_choices.ShowRange ? $" · range: {RangeCaption.ToLowerInvariant()}" : string.Empty)
         + $" · {PositionText}";
 }

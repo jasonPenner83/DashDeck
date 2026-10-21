@@ -169,6 +169,25 @@ public sealed record UserSettings
     /// <summary>The level DashDeck last left the backlight at, beside <see cref="BacklightOriginal"/>.</summary>
     [JsonPropertyName("backlightSet")]
     public int? BacklightSet { get; init; }
+
+    /// <summary>What the map draws under its roads: <c>Road</c>, <c>Satellite</c> or <c>Terrain</c> (ADR-0071).</summary>
+    [JsonPropertyName("mapBase")]
+    public string MapBase { get; init; } = "Road";
+
+    /// <summary>Which way is up on the map: <c>NorthUp</c> or <c>TrackUp</c> (ADR-0071).</summary>
+    [JsonPropertyName("mapOrientation")]
+    public string MapOrientation { get; init; } = "NorthUp";
+
+    /// <summary>
+    /// Whether a destination can be typed while the truck is moving (ADR-0072). Off by default,
+    /// which keeps ADR-0065's speed gate; the owner turns it on.
+    /// </summary>
+    [JsonPropertyName("searchWhileMoving")]
+    public bool SearchWhileMoving { get; init; }
+
+    /// <summary>Whether the map draws the range lines (ADR-0071).</summary>
+    [JsonPropertyName("mapRange")]
+    public bool MapRange { get; init; } = true;
 }
 
 /// <summary>

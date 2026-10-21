@@ -36,13 +36,18 @@ public static class SearchGate
     /// alternative — refusing to search whenever the speed is unknown — would lock out every desk
     /// and every parked truck with the phone off, which is where this will mostly be used.
     /// </remarks>
-    public static bool MayType(double? speedKmh) =>
-        speedKmh is not { } speed || !double.IsFinite(speed) || speed <= MaxSpeedKmh;
+    /// <param name="speedKmh">How fast the truck is going, or null when nothing says.</param>
+    /// <param name="whileMoving">
+    /// The owner's switch in Settings (ADR-0072): true lets a destination be typed at any speed.
+    /// Off unless turned on, so the gate is what a new dash does.
+    /// </param>
+    public static bool MayType(double? speedKmh, bool whileMoving = false) =>
+        whileMoving || speedKmh is not { } speed || !double.IsFinite(speed) || speed <= MaxSpeedKmh;
 
     /// <summary>Why not, in the words the dash will say, or null when it may.</summary>
-    public static string? WhyNot(double? speedKmh) => MayType(speedKmh)
+    public static string? WhyNot(double? speedKmh, bool whileMoving = false) => MayType(speedKmh, whileMoving)
         ? null
         : string.Create(
             CultureInfo.InvariantCulture,
-            $"Stop first — a destination cannot be typed at {speedKmh!.Value:0} km/h.");
+            $"Stop first — a destination cannot be typed at {speedKmh!.Value:0} km/h. Settings ▸ Display ▸ TYPE WHILE MOVING lifts this.");
 }

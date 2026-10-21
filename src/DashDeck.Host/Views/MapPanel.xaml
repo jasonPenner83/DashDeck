@@ -35,26 +35,13 @@
         <Grid DockPanel.Dock="Bottom" Margin="0,0,0,18"
               Visibility="{Binding IsOnStage, Converter={StaticResource NotBoolToVis}}">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                <!-- Only offered when the dash was built with a search, and only usable when
-                     stopped — the gate itself is inside, so the chip opens and explains rather
-                     than being dead (ADR-0058's rule, ADR-0065). -->
+                <!-- SEARCH and RECENTRE are on the map itself now, with the base, the
+                     orientation and the range lines (ADR-0071) — drawn by the page, because
+                     nothing here can sit over it (ADR-0021). What stays down here is what is
+                     about the map's place on the screen rather than the map. -->
                 <Button Style="{StaticResource OptionChipButton}"
-                        Content="SEARCH"
-                        Command="{Binding OpenSearchCommand}"
-                        Visibility="{Binding IsSearchOffered, Converter={StaticResource BoolToVis}}" />
-
-                <Button Style="{StaticResource OptionChipButton}"
-                        Margin="12,0,0,0"
                         Content="TO THE STAGE"
                         Command="{Binding SendToStageCommand}" />
-
-                <!-- Only after a pan has taken the map off the vehicle. A permanent RECENTRE
-                     would be a control that does nothing most of the time. -->
-                <Button Style="{StaticResource OptionChipButton}"
-                        Margin="12,0,0,0"
-                        Content="RECENTRE"
-                        Command="{Binding RecentreCommand}"
-                        Visibility="{Binding IsRecentreOffered, Converter={StaticResource BoolToVis}}" />
 
                 <!-- Offered only when it failed, which on this connection means the signal came
                      and went rather than anything being wrong with the dash. -->

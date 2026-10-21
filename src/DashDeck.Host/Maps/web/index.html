@@ -128,10 +128,79 @@
     font: 11px/1.5 "IBM Plex Mono", Consolas, monospace; color: #4A453E;
   }
   #waiting.gone { display: none; }
+
+  /*
+    The buttons over the map (ADR-0071). Drawn by the page because nothing WPF draws can sit over
+    a WebView2 (ADR-0021) - the same reason the popup and the loading word are here. Each is a
+    thumb-sized target in the theme's colours; a press is sent to the dash, which decides what it
+    does and tells the page how to draw the buttons back. The page holds no choice of its own.
+  */
+  #controls {
+    position: absolute; top: 14px; right: 14px;
+    display: flex; flex-direction: column; gap: 10px; align-items: flex-end;
+  }
+  #controls.gone, .gone { display: none !important; }
+  .ctl {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 68px; height: 68px; padding: 0;
+    background: var(--surface, #191816); color: var(--ink, #F4F1EB);
+    border: 1px solid var(--line, #3A3630); border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+    font: 600 10px/1.2 "IBM Plex Mono", Consolas, monospace; letter-spacing: 0.04em;
+    text-transform: uppercase; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  .ctl svg { width: 28px; height: 28px; margin-bottom: 3px; stroke: currentColor; fill: none;
+             stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .ctl.on { border-color: var(--marker, #FF7A1A); color: var(--marker, #FF7A1A); }
+  .ctl:active { transform: scale(0.96); }
+  #compass svg { transition: transform 0.3s ease-out; }
+
+  /* The base picker opens beside its button rather than under it, so it never runs off a
+     bottom-third map. */
+  #bases { position: relative; }
+  #picker {
+    position: absolute; right: 78px; top: 0;
+    display: flex; gap: 8px;
+  }
+  #picker .ctl { width: 96px; }
+
+  /* RECENTRE sits low and to the left, away from the column, where the thumb lands after a
+     pan - and clear of the attribution, which is a licence obligation and is not to be covered. */
+  #recentre {
+    position: absolute; left: 14px; bottom: 48px;
+    width: auto; height: 52px; padding: 0 18px; flex-direction: row; gap: 8px;
+    font-size: 13px;
+  }
+  #recentre svg { margin: 0; width: 22px; height: 22px; }
 </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="controls" class="gone">
+  <button class="ctl" id="search" data-press="search" aria-label="Search">
+    <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>Search
+  </button>
+  <div id="bases">
+    <button class="ctl" id="base" aria-label="Map type">
+      <svg viewBox="0 0 24 24"><path d="M12 3 2 8l10 5 10-5-10-5Z"/><path d="m2 13 10 5 10-5"/></svg><span id="base-name">Road</span>
+    </button>
+    <div id="picker" class="gone">
+      <button class="ctl" data-press="road" data-base="road">Road</button>
+      <button class="ctl" data-press="satellite" data-base="satellite">Satellite</button>
+      <button class="ctl" data-press="terrain" data-base="terrain">Terrain</button>
+    </div>
+  </div>
+  <button class="ctl" id="orientation" data-press="orientation" aria-label="North up or track up">
+    <svg id="compass" viewBox="0 0 24 24"><path d="M12 2 7 13h10L12 2Z" fill="currentColor"/><path d="M7 13l5 9 5-9"/></svg><span id="orientation-name">North up</span>
+  </button>
+  <button class="ctl" id="range" data-press="range" aria-label="Range lines">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke-dasharray="3 2.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor"/></svg><span id="range-text">Range</span>
+  </button>
+</div>
+<button class="ctl gone" id="recentre" data-press="recentre">
+  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>Recentre
+</button>
 <div id="waiting">Loading the map<small id="waiting-detail">fetching tiles</small></div>
 
 <script type="module">
@@ -156,6 +225,17 @@ let element = null;
 let destination = null;
 let popup = null;
 let following = true;
+
+/* What the dash last said about the buttons (ADR-0071). The page draws them and decides nothing:
+   a press goes to the dash and the answer comes back here. */
+let buttons = { mapBase: "road", trackUp: false, rangeOn: true, range: "", search: false, recentre: false };
+
+/* The lines the page draws over the style, kept so they survive a restyle - a theme change at
+   dusk, or a new base - which replaces the whole style and everything added to it. */
+let routeLine = null;
+let rangeRings = { type: "FeatureCollection", features: [] };
+let rangeRoute = { type: "FeatureCollection", features: [] };
+let rangeLive = true;
 
 /* Reported once, whatever went wrong, because every failure here looks the same on screen:
    a dark rectangle. Almost always it is no signal. */
@@ -212,10 +292,160 @@ try {
     fadeDuration: 0,
   });
 
+  /* Rotation is the dash's to decide (north up or track up), never a two-finger twist by
+     accident on a rough road. */
+  map.touchZoomRotate.disableRotation();
+
   map.on("load", () => {
     document.getElementById("waiting").classList.add("gone");
+    document.getElementById("controls").classList.remove("gone");
+    overlay();
     say("map:ready");
   });
+
+  /* Every button says what it is by name; the dash's parser accepts only the names there are. */
+  for (const el of document.querySelectorAll("[data-press]")) {
+    el.addEventListener("click", event => {
+      event.stopPropagation();
+      document.getElementById("picker").classList.add("gone");
+      say("map:press:" + el.dataset.press);
+    });
+  }
+
+  document.getElementById("base").addEventListener("click", event => {
+    event.stopPropagation();
+    document.getElementById("picker").classList.toggle("gone");
+  });
+
+  /* The compass needle points at north whichever way the map is turned. */
+  map.on("rotate", () => {
+    document.getElementById("compass").style.transform = "rotate(" + (-map.getBearing()) + "deg)";
+  });
+
+  /* The fixed colours of the range lines. Not the theme's, like the dash's quality colours
+     (ADR-0013): "you are running low" and "you will not get there" must read the same on every
+     theme - and the default accent is itself orange, so the route they cut is drawn solid and
+     they are drawn dashed. */
+  const RANGE_LOW = "#FF8F1F";
+  const RANGE_EMPTY = "#E5544B";
+  const RANGE_STALE = "#6B665E";
+
+  const rangeColour = () => rangeLive
+    ? ["match", ["get", "level"], "low", RANGE_LOW, RANGE_EMPTY]
+    : RANGE_STALE;
+
+  const cssVar = (name, fallback) =>
+    getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+
+  /* The page's own layers, bottom to top. Each is rebuilt from what the page is holding, so a
+     style that replaced them all gets them back exactly. */
+  const ours = () => [
+    routeLine && { source: "route", data: routeLine, layer: {
+      id: "route-under", type: "line", source: "route",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": cssVar("--land", "#0D0C0B"),
+        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 7, 16, 20],
+      } } },
+    routeLine && { source: "route", data: routeLine, layer: {
+      id: "route-line", type: "line", source: "route",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": cssVar("--marker", "#FF7A1A"),
+        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 3.5, 16, 12],
+      } } },
+    /* A dark bed under the dashed stretches, so their gaps are gaps rather than the route
+       showing through - on the default orange accent, orange dashes over an orange route would
+       otherwise be no change at all. */
+    { source: "range-route", data: rangeRoute, layer: {
+      id: "range-route-under", type: "line", source: "range-route",
+      layout: { "line-cap": "round", "line-join": "round" },
+      paint: {
+        "line-color": cssVar("--land", "#0D0C0B"),
+        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 7, 16, 20],
+      } } },
+    { source: "range-route", data: rangeRoute, layer: {
+      id: "range-route", type: "line", source: "range-route",
+      layout: { "line-cap": "butt", "line-join": "round" },
+      paint: {
+        "line-color": rangeColour(),
+        "line-width": ["interpolate", ["linear"], ["zoom"], 6, 4, 16, 13],
+        "line-dasharray": [1.4, 1],
+      } } },
+    { source: "range-rings", data: rangeRings, layer: {
+      id: "range-rings", type: "line", source: "range-rings",
+      layout: { "line-join": "round" },
+      paint: {
+        "line-color": rangeColour(),
+        "line-width": ["interpolate", ["linear"], ["zoom"], 4, 2, 10, 3.5],
+        "line-dasharray": [3, 2],
+        "line-opacity": 0.9,
+      } } },
+    { source: "range-rings", data: rangeRings, layer: {
+      id: "range-labels", type: "symbol", source: "range-rings",
+      layout: {
+        "symbol-placement": "line",
+        "symbol-spacing": 420,
+        "text-field": ["get", "label"],
+        "text-font": ["Noto Sans Regular"],
+        "text-size": 13,
+        "text-letter-spacing": 0.08,
+        "text-keep-upright": true,
+      },
+      paint: {
+        "text-color": rangeColour(),
+        "text-halo-color": cssVar("--land", "#0D0C0B"),
+        "text-halo-width": 2,
+      } } },
+  ].filter(Boolean);
+
+  /* Put the page's layers on the map, or bring their data and colours up to date. */
+  function overlay() {
+    if (!map.isStyleLoaded()) { return; }
+
+    for (const { source, data, layer } of ours()) {
+      if (map.getSource(source)) {
+        map.getSource(source).setData(data);
+      } else {
+        map.addSource(source, { type: "geojson", data });
+      }
+
+      if (!map.getLayer(layer.id)) {
+        map.addLayer(layer);
+      } else {
+        for (const [name, value] of Object.entries(layer.paint)) {
+          map.setPaintProperty(layer.id, name, value);
+        }
+      }
+    }
+  }
+
+  /* Draw the buttons as the dash last described them. */
+  function drawButtons() {
+    const names = { road: "Road", satellite: "Satellite", terrain: "Terrain" };
+
+    document.getElementById("search").classList.toggle("gone", !buttons.search);
+    document.getElementById("base-name").textContent = names[buttons.mapBase] || "Road";
+    for (const el of document.querySelectorAll("[data-base]")) {
+      el.classList.toggle("on", el.dataset.base === buttons.mapBase);
+    }
+
+    const orientation = document.getElementById("orientation");
+    orientation.classList.toggle("on", !!buttons.trackUp);
+    document.getElementById("orientation-name").textContent = buttons.trackUp ? "Track up" : "North up";
+
+    const range = document.getElementById("range");
+    range.classList.toggle("on", !!buttons.rangeOn);
+    document.getElementById("range-text").textContent = buttons.range || "Range";
+
+    document.getElementById("recentre").classList.toggle("gone", !buttons.recentre);
+  }
+
+  /* Track up puts the truck in the lower third, so more of the road ahead is on screen than
+     behind; north up keeps it in the middle. */
+  const padding = () => buttons.trackUp
+    ? { top: Math.round(map.getContainer().clientHeight * 0.35), bottom: 0, left: 0, right: 0 }
+    : { top: 0, bottom: 0, left: 0, right: 0 };
 
   /* An error from the style or a tile. The style failing is fatal and worth saying; a single
      tile failing is not, and must not raise an alarm that covers a map you can still read. */
@@ -305,7 +535,19 @@ try {
 
       element.classList.toggle("stale", !live);
 
-      if (following) { map.easeTo({ center: [lon, lat], duration: 900 }); }
+      if (following) {
+        const view = { center: [lon, lat], duration: 900, padding: padding() };
+
+        /* Track up turns the map only on a course the dash trusts; below walking pace it passes
+           NaN, and the map holds the last direction actually travelled rather than spinning. */
+        if (!buttons.trackUp) {
+          view.bearing = 0;
+        } else if (Number.isFinite(course)) {
+          view.bearing = course;
+        }
+
+        map.easeTo(view);
+      }
     },
 
     /* Put the map back where it was. Used after a rebuild — moving between the dash's three
@@ -317,7 +559,30 @@ try {
 
     follow(on) {
       following = !!on;
-      if (following && marker) { map.easeTo({ center: marker.getLngLat(), duration: 600 }); }
+      if (following && marker) {
+        map.easeTo({ center: marker.getLngLat(), duration: 600, padding: padding() });
+      }
+    },
+
+    /* The buttons, as the dash says they are. North up turns the map back at once rather than
+       at the next fix, so the press is seen to do something. */
+    buttons(state) {
+      const wasTrackUp = buttons.trackUp;
+      buttons = Object.assign({}, buttons, state || {});
+      drawButtons();
+
+      if (wasTrackUp !== buttons.trackUp) {
+        map.easeTo({ bearing: buttons.trackUp ? map.getBearing() : 0, padding: padding(), duration: 500 });
+      }
+    },
+
+    /* The range lines: rings around the truck and the stretches of the route past them, as
+       GeoJSON the dash built. Replaces whatever was drawn. */
+    range(rings, route, live) {
+      rangeRings = rings && rings.type === "FeatureCollection" ? rings : { type: "FeatureCollection", features: [] };
+      rangeRoute = route && route.type === "FeatureCollection" ? route : { type: "FeatureCollection", features: [] };
+      rangeLive = !!live;
+      overlay();
     },
 
     /* A searched address: fly there, pin it, and open what is known about it. Only ever one pin -
@@ -351,29 +616,16 @@ try {
     route(coordinates) {
       if (!Array.isArray(coordinates) || coordinates.length < 2) { return; }
 
-      const line = { type: "Feature", geometry: { type: "LineString", coordinates } };
+      routeLine = { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates } };
 
-      if (map.getSource("route")) {
-        map.getSource("route").setData(line);
-      } else {
-        map.addSource("route", { type: "geojson", data: line });
-        map.addLayer({
-          id: "route-under", type: "line", source: "route",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: {
-            "line-color": getComputedStyle(document.documentElement).getPropertyValue("--land").trim() || "#0D0C0B",
-            "line-width": ["interpolate", ["linear"], ["zoom"], 6, 7, 16, 20],
-          },
-        });
-        map.addLayer({
-          id: "route-line", type: "line", source: "route",
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: {
-            "line-color": getComputedStyle(document.documentElement).getPropertyValue("--marker").trim() || "#FF7A1A",
-            "line-width": ["interpolate", ["linear"], ["zoom"], 6, 3.5, 16, 12],
-          },
-        });
+      /* Under the range lines, which are drawn over the stretch of it they cut. */
+      if (!map.getLayer("route-line") && map.getLayer("range-route")) {
+        for (const id of ["range-labels", "range-rings", "range-route", "range-route-under"]) {
+          if (map.getLayer(id)) { map.removeLayer(id); }
+        }
       }
+
+      overlay();
 
       /* The whole way, with room for the panel that is about to cover the bottom of it. */
       const bounds = coordinates.reduce(
@@ -384,6 +636,7 @@ try {
     },
 
     clearRoute() {
+      routeLine = null;
       for (const id of ["route-line", "route-under"]) {
         if (map.getLayer(id)) { map.removeLayer(id); }
       }
@@ -396,7 +649,19 @@ try {
        none of its own - which MapStyle deliberately does not (Q43). */
     restyle(style) {
       try {
-        map.setStyle(style);
+        /* The new style replaces everything, the page's own lines included - so they are carried
+           across into it, from what the page is holding rather than from the old style. */
+        map.setStyle(style, {
+          transformStyle: (previous, next) => {
+            const sources = Object.assign({}, next.sources);
+            const layers = next.layers.slice();
+            for (const { source, data, layer } of ours()) {
+              sources[source] = { type: "geojson", data };
+              layers.push(layer);
+            }
+            return Object.assign({}, next, { sources, layers });
+          },
+        });
       } catch (e) {
         fail(e);
       }

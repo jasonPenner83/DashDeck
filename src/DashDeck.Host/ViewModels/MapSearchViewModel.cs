@@ -47,17 +47,25 @@ public sealed partial class MapSearchViewModel : ObservableObject
     /// <param name="clock">Injected, for the rate limit.</param>
     /// <param name="where">Where the truck is, to bias the search. May return null.</param>
     /// <param name="speed">How fast it is going, for the gate. May return null when unknown.</param>
+    /// <param name="whileMoving">
+    /// The Settings switch that lifts the gate (ADR-0072), read every time rather than latched, so
+    /// turning it on unlocks the field at the next beat. Null is off.
+    /// </param>
     public MapSearchViewModel(
         Func<string, CancellationToken, Task<string>> fetch,
         IClock clock,
         Func<MapCamera?> where,
-        Func<double?> speed)
+        Func<double?> speed,
+        Func<bool>? whileMoving = null)
     {
         _fetch = fetch;
         _clock = clock;
         _where = where;
         _speed = speed;
+        _whileMoving = whileMoving ?? (() => false);
     }
+
+    private readonly Func<bool> _whileMoving;
 
     /// <summary>
     /// What has been typed.
@@ -121,10 +129,10 @@ public sealed partial class MapSearchViewModel : ObservableObject
     /// Read on the beat rather than latched, so stopping unlocks it without anything else
     /// happening, and pulling away locks it again.
     /// </remarks>
-    public bool MayType => SearchGate.MayType(_speed());
+    public bool MayType => SearchGate.MayType(_speed(), _whileMoving());
 
     /// <summary>Why not, when the truck is moving.</summary>
-    public string? Barred => SearchGate.WhyNot(_speed());
+    public string? Barred => SearchGate.WhyNot(_speed(), _whileMoving());
 
     /// <summary>True when the search button would do something.</summary>
     public bool CanSearch => !IsSearching && MayType && AddressQuery.IsSearchable(Query);
