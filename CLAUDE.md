@@ -383,6 +383,19 @@ of its messages the truck sends, then picked signals decoded live to confirm (AD
 is a lead, never committed** — the one found so far is for the 2021+ F-150 (P702) and unlicensed;
 only our own confirmed measurements reach the vehicle pack. Reference: [`docs/id-hunter.md`](docs/id-hunter.md).
 
+**Our own CAN database** (ADR-0073, stage 1 of 4): `DashDeck.Core.Dbc` reads and writes `.dbc` files
+losslessly — `DbcReader` (a tokenizer, one parser per statement; unread statements kept word for word
+in `DbcDocument.Verbatim`, a bad one reported and skipped), `DbcWriter` (Vector's order; reading what
+it writes gives the same database), `DbcBits` (the one bit decoder; the hunter's `CanDatabase` is now a
+view over the reader). **`DiagnosticAnswers`** is the convention for values DashDeck *asks* for: one
+message per module on its answer id (`7E0` → `7E8`), multiplexed by `Service` (byte 1, 41/62) then
+`Pid01` (byte 2) or `Did22` (bytes 2–3), each value hung by an `SG_MUL_VAL_` line; it also reads
+cantools' bare-`M` form and one-multiplexor hand-made files, and refuses (with a reason) what it cannot
+place. `Layout`/`ToDecodeSpec` bridge to the catalog's `DecodeSpec` and refuse what it cannot say. One
+file is one bus: the network attribute `DashDeckBus`, an ENUM **written as its index**. Files live in
+`%LOCALAPPDATA%\DashDeck\dbc\` and are never committed; tests invent everything. Next: catalog
+entries pointing into a database (stage 2), then the editors writing to it (stage 3).
+
 **The serial tap records FORScan** (ADR-0048): `src/DashDeck.SerialTap`, `SerialTap.exe` in
 `SerialTap\` beside the dash. Serial port monitors need filter drivers and kept failing, so the tap
 **holds the adapter's COM port itself and offers it on TCP** (`127.0.0.1:35000`); FORScan connects as
