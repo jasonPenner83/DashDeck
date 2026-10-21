@@ -1827,6 +1827,19 @@ cluster shows; once it is in your catalog the lines draw on the next launch. **E
 on the button to match the cluster's DTE, and **expect** the rings to be drawn grey if the adapter
 stops answering — a stale range is never drawn as a live one.
 
+### Typing an address while moving (ADR-0072)
+
+1. **With the switch OFF (the default), drive above walking pace and tap SEARCH on the map.**
+   **Expect** the field greyed out and *Stop first — a destination cannot be typed at N km/h.
+   Settings ▸ Display ▸ TYPE WHILE MOVING lifts this.*
+2. **Settings ▸ Display ▸ MAP SEARCH ▸ TYPE WHILE MOVING — ON.** Back to the map and SEARCH.
+   **Expect** the field to take typing and SEARCH to find the address, moving. No restart.
+3. **Turn it OFF again while the search is open and moving.** **Expect** the field to lock within a
+   second.
+4. **Close and reopen the dash.** **Expect** the switch where you left it.
+
+At a desk, `--gps synthetic` moves at 60 km/h, so all four work without the truck.
+
 ## Screen brightness (ADR-0068)
 
 **Added 2026-10-18, and never run on the Surface.** The rules are tested; whether Windows lets

@@ -354,7 +354,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             Maps.AddressLookup.FetchAsync,
             clock,
             () => map?.Camera,
-            () => map?.SpeedKmh);
+            () => map?.SpeedKmh,
+            () => Display.SearchWhileMoving);
 
         // Directions start from where the truck is now rather than from where the map is looking:
         // a route from the corner you panned to would be a route from nowhere you have been.

@@ -262,6 +262,10 @@ dashed orange then red, measured along the route and refused off it — `RangeLi
 `Geo.Destination` in Core. Fixed colours, grey when stale. A rebuilt map is dressed again on
 `map:ready`, and the page carries its own lines across a restyle with `transformStyle`.
 
+**Typing while moving is the owner's switch** (ADR-0072): Settings ▸ Display ▸ MAP SEARCH ▸ TYPE
+WHILE MOVING (`searchWhileMoving`, off by default) lifts ADR-0065's 5 km/h gate entirely; read on
+the beat through `SearchGate.MayType(speed, whileMoving)`, and the refusal names the switch.
+
 **Address search, and the dash's own keyboard** (ADR-0065). SEARCH on the map region opens a
 full-screen search — it **covers** the map rather than overlaying it, because a WebView2 is a child
 window and WPF cannot draw a keyboard over one (ADR-0021), and five rows of keys do not fit the
