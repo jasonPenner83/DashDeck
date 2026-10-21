@@ -143,7 +143,7 @@ internal sealed partial class Wizard
 
             if (_database.Skipped > 0)
             {
-                summary += string.Create(CultureInfo.InvariantCulture, $"; {_database.Skipped} signal lines it could not read");
+                summary += string.Create(CultureInfo.InvariantCulture, $"; {_database.Skipped} statements it could not read");
             }
 
             _io.WriteLine(summary + ".");

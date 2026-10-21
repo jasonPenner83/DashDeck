@@ -864,6 +864,24 @@ The guide itself: [id-hunter](id-hunter.md).
 - any warning on the cluster. Listening is silent, so there should be none.
 
 
+## The ID hunter's D reads files properly (ADR-0073)
+
+D now reads a database through DashDeck's own DBC reader instead of a line-by-line match. Nothing
+about using it changes; this checks that the same file still loads the same, or better.
+
+**You need:** the laptop with the hunter, the same `.dbcx` you used for ADR-0045's walkthrough in
+`%LOCALAPPDATA%\DashDeck\dbc\`. The truck is not needed for steps 1–2; `--simulate` is enough.
+
+1. Start the hunter (`IdHunter --simulate` at a desk) and choose **D**, then Enter to take the file.
+   **Expect:** *VehicleCAN.dbcx: 329 messages, 2141 signals*, the same counts as before. If it now
+   says *N statements it could not read*, tell me N — it used to count only signal lines.
+2. Search for `door`. **Expect:** `3B3 … DrStatDrv_B_Actl` and its neighbours, as before.
+3. In the truck, engine running, repeat ADR-0045's step 4 for the driver's door. **Expect:**
+   *Closed* / *Ajar* following the door, exactly as before.
+
+**A failure looks like:** fewer messages or signals than before, a door that no longer shows its
+*Ajar* text, or the hunter stopping on the file.
+
 ## The serial tap — recording FORScan (ADR-0048)
 
 **You need:**

@@ -1,5 +1,5 @@
 using System.Globalization;
-using System.Text.RegularExpressions;
+using DashDeck.Core.Dbc;
 
 namespace DashDeck.Core.Discovery.Hunt;
 
@@ -18,54 +18,7 @@ public sealed record CanSignal(string Name, int StartBit, int Length, bool BigEn
     public IReadOnlyDictionary<long, string> Values { get; init; } = new Dictionary<long, string>();
 
     /// <summary>The raw number in a frame's data, or null when the frame is too short for it.</summary>
-    public long? Raw(byte[] data)
-    {
-        if (Length is < 1 or > 64)
-        {
-            return null;
-        }
-
-        ulong value = 0;
-
-        if (BigEndian)
-        {
-            // Motorola: the start bit is the most significant, and the bits run down within a
-            // byte, then on to the most significant bit of the next byte.
-            var position = StartBit;
-            for (var i = 0; i < Length; i++)
-            {
-                var index = position / 8;
-                if (index >= data.Length)
-                {
-                    return null;
-                }
-
-                value = (value << 1) | (uint)((data[index] >> (position % 8)) & 1);
-                position = position % 8 == 0 ? position + 15 : position - 1;
-            }
-        }
-        else
-        {
-            for (var i = 0; i < Length; i++)
-            {
-                var position = StartBit + i;
-                var index = position / 8;
-                if (index >= data.Length)
-                {
-                    return null;
-                }
-
-                value |= (ulong)(uint)((data[index] >> (position % 8)) & 1) << i;
-            }
-        }
-
-        if (Signed && Length < 64 && (value & (1UL << (Length - 1))) != 0)
-        {
-            return (long)value - (1L << Length);
-        }
-
-        return (long)value;
-    }
+    public long? Raw(byte[] data) => DbcBits.Raw(data, StartBit, Length, BigEndian, Signed);
 
     /// <summary>The value in its unit, or null when the frame is too short.</summary>
     public double? Decode(byte[] data) => Raw(data) is { } raw ? (raw * Scale) + Offset : null;
@@ -105,22 +58,12 @@ public sealed record CanMessage(uint Id, string Name, int Length, string Sender,
 /// signals, so the ID hunter can check them against the truck (ADR-0044).
 /// </summary>
 /// <remarks>
-/// Only what checking needs is read: messages (<c>BO_</c>), signals (<c>SG_</c>) and value tables
-/// (<c>VAL_</c>). A file is the person's own and stays on their tablet: what it says is a lead, and
-/// only what the truck confirms is kept.
+/// Read by <see cref="DbcReader"/> (ADR-0073), and kept to what checking needs: messages, their
+/// signals and value tables. A file is the person's own and stays on their tablet: what it says is
+/// a lead, and only what the truck confirms is kept.
 /// </remarks>
 public sealed class CanDatabase
 {
-    private static readonly Regex Message = new(@"^BO_\s+(\d+)\s+(\w+)\s*:\s*(\d+)\s+(\S+)", RegexOptions.Compiled);
-
-    private static readonly Regex Signal = new(
-        @"^\s*SG_\s+(\w+)\s*(?:\w+\s*)?:\s*(\d+)\|(\d+)@([01])([+-])\s*\(\s*([^,\s]+)\s*,\s*([^)\s]+)\s*\)\s*\[[^\]]*\]\s*""([^""]*)""",
-        RegexOptions.Compiled);
-
-    private static readonly Regex ValueTable = new(@"^VAL_\s+(\d+)\s+(\w+)\s+(.*);", RegexOptions.Compiled);
-
-    private static readonly Regex ValueEntry = new(@"(-?\d+)\s+""([^""]*)""", RegexOptions.Compiled);
-
     private CanDatabase(IReadOnlyList<CanMessage> messages, int skipped)
     {
         Messages = messages;
@@ -129,77 +72,30 @@ public sealed class CanDatabase
 
     public IReadOnlyList<CanMessage> Messages { get; }
 
-    /// <summary>Signal lines that could not be read — counted, not fatal.</summary>
+    /// <summary>Statements that could not be read — counted, not fatal.</summary>
     public int Skipped { get; }
 
     public int SignalCount => Messages.Sum(m => m.Signals.Count);
 
-    public static CanDatabase Load(string path) => Parse(File.ReadAllText(path, System.Text.Encoding.Latin1));
+    public static CanDatabase Load(string path) => From(DbcReader.Load(path));
 
-    public static CanDatabase Parse(string text)
-    {
-        var messages = new List<(uint Id, string Name, int Length, string Sender, List<CanSignal> Signals)>();
-        var values = new Dictionary<(uint, string), Dictionary<long, string>>();
-        var skipped = 0;
+    public static CanDatabase Parse(string text) => From(DbcReader.Read(text));
 
-        foreach (var raw in text.Split('\n'))
-        {
-            var line = raw.TrimEnd('\r');
-
-            if (Message.Match(line) is { Success: true } m)
-            {
-                var id = uint.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
-                messages.Add((id & 0x1FFFFFFF, m.Groups[2].Value, int.Parse(m.Groups[3].Value, CultureInfo.InvariantCulture), m.Groups[4].Value, []));
-                continue;
-            }
-
-            if (line.TrimStart().StartsWith("SG_ ", StringComparison.Ordinal))
-            {
-                if (messages.Count > 0 && Signal.Match(line) is { Success: true } s &&
-                    double.TryParse(s.Groups[6].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var scale) &&
-                    double.TryParse(s.Groups[7].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var offset))
-                {
-                    messages[^1].Signals.Add(new CanSignal(
-                        s.Groups[1].Value,
-                        int.Parse(s.Groups[2].Value, CultureInfo.InvariantCulture),
-                        int.Parse(s.Groups[3].Value, CultureInfo.InvariantCulture),
-                        s.Groups[4].Value == "0",
-                        s.Groups[5].Value == "-",
-                        scale,
-                        offset,
-                        s.Groups[8].Value));
-                }
-                else
-                {
-                    skipped++;
-                }
-
-                continue;
-            }
-
-            if (ValueTable.Match(line) is { Success: true } v)
-            {
-                var table = new Dictionary<long, string>();
-                foreach (Match entry in ValueEntry.Matches(v.Groups[3].Value))
-                {
-                    table[long.Parse(entry.Groups[1].Value, CultureInfo.InvariantCulture)] = entry.Groups[2].Value;
-                }
-
-                values[(uint.Parse(v.Groups[1].Value, CultureInfo.InvariantCulture) & 0x1FFFFFFF, v.Groups[2].Value)] = table;
-            }
-        }
-
-        return new CanDatabase(
-            [
-                .. messages.Select(m => new CanMessage(
-                    m.Id,
-                    m.Name,
-                    m.Length,
-                    m.Sender,
-                    [.. m.Signals.Select(s => values.TryGetValue((m.Id, s.Name), out var t) ? s with { Values = t } : s)])),
-            ],
-            skipped);
-    }
+    private static CanDatabase From(DbcReadResult read) => new(
+        [
+            .. read.Document.Messages.Select(m => new CanMessage(
+                m.Id,
+                m.Name,
+                m.Length,
+                m.Sender,
+                [
+                    .. m.Signals.Select(s => new CanSignal(s.Name, s.StartBit, s.Length, s.BigEndian, s.Signed, s.Scale, s.Offset, s.Unit)
+                    {
+                        Values = s.Values.GroupBy(v => v.Raw).ToDictionary(g => g.Key, g => g.Last().Text),
+                    }),
+                ])),
+        ],
+        read.Problems.Count);
 
     /// <summary>
     /// Signals whose name, or whose message's name, contains any of the words — case aside. Words
