@@ -20,6 +20,9 @@ public enum MapSignal
 
     /// <summary>Directions were asked for, from the popup on a searched place.</summary>
     Directions,
+
+    /// <summary>One of the buttons drawn over the map was pressed (ADR-0071).</summary>
+    Pressed,
 }
 
 /// <summary>
@@ -34,7 +37,12 @@ public enum MapSignal
 /// <param name="Signal">What happened.</param>
 /// <param name="Camera">Where the map is looking, for <see cref="MapSignal.Camera"/>.</param>
 /// <param name="Detail">The reason, for <see cref="MapSignal.Failed"/>.</param>
-public readonly record struct MapMessage(MapSignal Signal, MapCamera? Camera = null, string? Detail = null)
+/// <param name="Control">Which button, for <see cref="MapSignal.Pressed"/>.</param>
+public readonly record struct MapMessage(
+    MapSignal Signal,
+    MapCamera? Camera = null,
+    string? Detail = null,
+    MapControl? Control = null)
 {
     /// <summary>Every message the page sends carries this, so nothing else on the channel is read as one.</summary>
     public const string Prefix = "map:";
@@ -66,6 +74,23 @@ public readonly record struct MapMessage(MapSignal Signal, MapCamera? Camera = n
         if (body.Equals("directions", StringComparison.Ordinal))
         {
             message = new MapMessage(MapSignal.Directions);
+            return true;
+        }
+
+        if (body.StartsWith("press:", StringComparison.Ordinal))
+        {
+            // By name, and only the names there are. A number would survive a reordered enum on
+            // one side of the bridge and mean a different button on the other.
+            var name = body["press:".Length..];
+
+            if (!Enum.TryParse<MapControl>(name, ignoreCase: true, out var control)
+                || !Enum.IsDefined(control)
+                || !name.All(char.IsAsciiLetter))
+            {
+                return false;
+            }
+
+            message = new MapMessage(MapSignal.Pressed, Control: control);
             return true;
         }
 

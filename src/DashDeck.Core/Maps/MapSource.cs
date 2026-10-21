@@ -49,6 +49,45 @@ public static class MapSource
     public const string Attribution = "© OpenStreetMap contributors · OpenMapTiles · OpenFreeMap";
 
     /// <summary>
+    /// Imagery for the satellite map: EOX's Sentinel-2 cloudless mosaic, 2020 (ADR-0071).
+    /// </summary>
+    /// <remarks>
+    /// No key and no account, and the template is the one MapLibre's own satellite example uses.
+    /// The 2018–2021 mosaics are licensed for <b>non-commercial use with attribution</b>, which a
+    /// personal dash is. Ten metres a pixel: fields, rivers, yards and towns read; a house does not.
+    /// Served to zoom 14 and stretched past it, so close in it is soft rather than missing.
+    /// <para>
+    /// Not Esri's World Imagery, which is sharper and needs an ArcGIS Location Platform key to use
+    /// outside Esri's own software. That is a setting for later, if this is not enough.
+    /// </para>
+    /// </remarks>
+    public const string ImageryTemplate =
+        "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg";
+
+    /// <summary>The highest zoom the imagery is served at.</summary>
+    public const int ImageryMaxZoom = 14;
+
+    /// <summary>Who to credit for the imagery, in the words EOX asks for.</summary>
+    public const string ImageryAttribution =
+        "Sentinel-2 cloudless by EOX IT Services GmbH (contains modified Copernicus Sentinel data 2020)";
+
+    /// <summary>
+    /// Elevation for the terrain map: Terrain Tiles on AWS, in the Terrarium encoding (ADR-0071).
+    /// </summary>
+    /// <remarks>
+    /// An AWS open dataset — no key, no account, free to fetch — built by Mapzen from SRTM, GMTED,
+    /// USGS 3DEP, Natural Resources Canada's CDEM and others. Each tile is a PNG whose colours are
+    /// a height, which MapLibre shades into hills itself. Probed from the session that wrote this.
+    /// </remarks>
+    public const string TerrainTemplate = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
+
+    /// <summary>The highest zoom the elevation is served at.</summary>
+    public const int TerrainMaxZoom = 15;
+
+    /// <summary>Who to credit for the elevation.</summary>
+    public const string TerrainAttribution = "Terrain Tiles on AWS · Mapzen, SRTM, GMTED, 3DEP, CDEM and others";
+
+    /// <summary>
     /// The host name the map page is served under inside WebView2.
     /// </summary>
     /// <remarks>

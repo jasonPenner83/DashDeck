@@ -169,6 +169,18 @@ public sealed record UserSettings
     /// <summary>The level DashDeck last left the backlight at, beside <see cref="BacklightOriginal"/>.</summary>
     [JsonPropertyName("backlightSet")]
     public int? BacklightSet { get; init; }
+
+    /// <summary>What the map draws under its roads: <c>Road</c>, <c>Satellite</c> or <c>Terrain</c> (ADR-0071).</summary>
+    [JsonPropertyName("mapBase")]
+    public string MapBase { get; init; } = "Road";
+
+    /// <summary>Which way is up on the map: <c>NorthUp</c> or <c>TrackUp</c> (ADR-0071).</summary>
+    [JsonPropertyName("mapOrientation")]
+    public string MapOrientation { get; init; } = "NorthUp";
+
+    /// <summary>Whether the map draws the range lines (ADR-0071).</summary>
+    [JsonPropertyName("mapRange")]
+    public bool MapRange { get; init; } = true;
 }
 
 /// <summary>

@@ -363,7 +363,23 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             clock,
             () => map?.Here);
 
-        map = new MapViewModel(location, clock, mapStyle, search, directions);
+        // The buttons over the map (ADR-0071) open the way they were left, and the range lines read
+        // the truck's own distance to empty.
+        var saved = SettingsStore.Load();
+        map = new MapViewModel(
+            location,
+            clock,
+            mapStyle,
+            search,
+            directions,
+            DashDeck.Core.Maps.MapChoices.From(saved.MapBase, saved.MapOrientation, saved.MapRange),
+            chosen => SettingsStore.Update(stored => stored with
+            {
+                MapBase = chosen.Base.ToString(),
+                MapOrientation = chosen.Orientation.ToString(),
+                MapRange = chosen.ShowRange,
+            }),
+            vehicle.Signals);
         Map = map;
         Map.PlacementChanged += _ => OnMapMoved();
 

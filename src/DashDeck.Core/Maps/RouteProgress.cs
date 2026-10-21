@@ -51,6 +51,42 @@ public readonly record struct RouteProgress(
     /// </remarks>
     public static RouteProgress? Along(Route route, double latitude, double longitude)
     {
+        if (Locate(route, latitude, longitude) is not { } at)
+        {
+            return null;
+        }
+
+        var remaining = at.Total - at.Travelled;
+
+        // The duration is the router's, shared out by how much line is left. It is not a fresh
+        // estimate: this knows nothing about the traffic or the speed limits that produced it,
+        // so stretching the number it was given is the only honest thing to do with it.
+        var seconds = route.Seconds * (remaining / at.Total);
+
+        return new RouteProgress(remaining, seconds, at.OffRouteMetres);
+    }
+
+    /// <summary>Where a position falls on a route's line.</summary>
+    /// <param name="Segment">The segment the nearest point is on.</param>
+    /// <param name="Along">How far along that segment, 0 to 1.</param>
+    /// <param name="OffRouteMetres">How far the position is from that point.</param>
+    /// <param name="Lengths">Every segment's length, in metres.</param>
+    /// <param name="Total">The whole line's length.</param>
+    /// <param name="Travelled">How much of the line comes before the nearest point.</param>
+    internal readonly record struct Position(
+        int Segment,
+        double Along,
+        double OffRouteMetres,
+        double[] Lengths,
+        double Total,
+        double Travelled);
+
+    /// <summary>
+    /// The nearest point of the route's line to a position, or null when there is no line to find
+    /// it on. Shared with the range lines (ADR-0071), which cut the same line where fuel runs low.
+    /// </summary>
+    internal static Position? Locate(Route route, double latitude, double longitude)
+    {
         if (!route.HasShape || !double.IsFinite(latitude) || !double.IsFinite(longitude))
         {
             return null;
@@ -108,19 +144,14 @@ public readonly record struct RouteProgress(
             }
         }
 
-        var remaining = (1 - along) * lengths[segment];
+        var travelled = along * lengths[segment];
 
-        for (var i = segment + 1; i < lengths.Length; i++)
+        for (var i = 0; i < segment; i++)
         {
-            remaining += lengths[i];
+            travelled += lengths[i];
         }
 
-        // The duration is the router's, shared out by how much line is left. It is not a fresh
-        // estimate: this knows nothing about the traffic or the speed limits that produced it,
-        // so stretching the number it was given is the only honest thing to do with it.
-        var seconds = route.Seconds * (remaining / total);
-
-        return new RouteProgress(remaining, seconds, nearest);
+        return new Position(segment, along, nearest, lengths, total, travelled);
 
         // Metres from the position, east and north. The position is the origin, so the projected
         // point's own distance from the origin is the distance off the route.

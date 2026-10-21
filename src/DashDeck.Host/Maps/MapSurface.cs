@@ -50,7 +50,25 @@ public interface IMapSurface
 
     /// <summary>Rub out the route, the pin and the popup.</summary>
     void ClearRoute();
+
+    /// <summary>Draw the buttons over the map in this state (ADR-0071).</summary>
+    void Buttons(MapButtons buttons);
+
+    /// <summary>
+    /// Draw the range lines (ADR-0071), replacing any already drawn.
+    /// </summary>
+    /// <param name="ringsJson">The rings around the truck, as <see cref="RangeLines.RingsJson"/> gives them.</param>
+    /// <param name="routeJson">The route's low and beyond stretches, as <see cref="RangeLines.RouteJson"/> gives them.</param>
+    /// <param name="live">False for a stale range, which drains the lines' colour.</param>
+    void Range(string ringsJson, string routeJson, bool live);
 }
+
+/// <summary>What the buttons over the map show (ADR-0071).</summary>
+/// <param name="Choices">The base, the orientation and whether the range lines are on.</param>
+/// <param name="Search">Whether there is a search to offer.</param>
+/// <param name="Recentre">Whether the map has been panned off the truck.</param>
+/// <param name="Range">What the range button says: <c>412 KM</c>, <c>NO RANGE</c> or <c>OFF</c>.</param>
+public readonly record struct MapButtons(MapChoices Choices, bool Search, bool Recentre, string Range);
 
 /// <summary>
 /// The map itself: MapLibre GL JS in a WebView2, on tiles fetched as you drive (ADR-0063).
@@ -229,6 +247,28 @@ public sealed class MapSurface : IMapSurface, IDisposable
 
     /// <inheritdoc />
     public void ClearRoute() => Run("clearRoute", "window.dash.clearRoute()");
+
+    /// <inheritdoc />
+    public void Buttons(MapButtons buttons) => Run("buttons", $"window.dash.buttons({ButtonsJson(buttons)})");
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Both are GeoJSON built by <see cref="RangeLines"/> with <c>JsonSerializer</c>, so they go in
+    /// as expressions, the way the style does.
+    /// </remarks>
+    public void Range(string ringsJson, string routeJson, bool live) =>
+        Run("range", $"window.dash.range({ringsJson},{routeJson},{(live ? "true" : "false")})");
+
+    /// <summary>The buttons' state, by the names the page uses.</summary>
+    private static string ButtonsJson(MapButtons buttons) => JsonSerializer.Serialize(new
+    {
+        mapBase = buttons.Choices.Base.ToString().ToLowerInvariant(),
+        trackUp = buttons.Choices.Orientation == MapOrientation.TrackUp,
+        rangeOn = buttons.Choices.ShowRange,
+        range = buttons.Range,
+        search = buttons.Search,
+        recentre = buttons.Recentre,
+    });
 
     /// <summary>
     /// The place, as the page's popup wants it.
