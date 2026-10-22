@@ -211,6 +211,13 @@ public sealed record UserSettings
     /// </summary>
     [JsonPropertyName("androidGpu")]
     public string AndroidGpu { get; init; } = "auto";
+
+    /// <summary>
+    /// How big a screen Android draws (ADR-0075): <c>SHARP</c>, <c>BALANCED</c> or <c>FAST</c> — the
+    /// stage's own pixels, three quarters, or half, scaled up to fill. Chosen in the hold menu.
+    /// </summary>
+    [JsonPropertyName("androidPicture")]
+    public string AndroidPicture { get; init; } = "BALANCED";
 }
 
 /// <summary>

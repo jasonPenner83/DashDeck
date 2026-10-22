@@ -399,7 +399,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             new AndroidFeeds(
                 vehicle.Signals, () => _theme.IsNight, () => Display.FuelTankLitres, saved.AndroidMicrophone,
                 saved.AndroidGpu,
-                gpu => SettingsStore.Update(stored => stored with { AndroidGpu = gpu })));
+                gpu => SettingsStore.Update(stored => stored with { AndroidGpu = gpu }),
+                saved.AndroidPicture,
+                picture => SettingsStore.Update(stored => stored with { AndroidPicture = picture })));
         Android.PlacementChanged += _ => OnAndroidMoved();
         Android.FlavourChosen += () => AndroidTap();
 

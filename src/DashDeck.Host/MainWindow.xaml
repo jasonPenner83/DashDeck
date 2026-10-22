@@ -911,6 +911,15 @@
 
                         <Border Height="1" Margin="0,4,0,14" Background="{DynamicResource HairlineStrongBrush}" />
 
+                        <!-- How big a screen Android draws: sharper, or quicker. Restarts Android. -->
+                        <Button Style="{StaticResource MenuItemButton}" Margin="0,0,0,10" Command="{Binding NextPictureCommand}">
+                            <StackPanel>
+                                <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16"
+                                           Foreground="{DynamicResource TextMidBrush}" Text="{Binding PictureLabel}" />
+                                <TextBlock Margin="0,4,0,0" Style="{StaticResource MicroText}" Text="{Binding PictureDetail}" />
+                            </StackPanel>
+                        </Button>
+
                         <!-- How the emulator draws: on the GPU, or its own way (software on the Surface). Restarts Android. -->
                         <Button Style="{StaticResource MenuItemButton}" Margin="0,0,0,10" Command="{Binding SwitchGpuCommand}">
                             <StackPanel>

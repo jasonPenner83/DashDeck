@@ -24,8 +24,11 @@ namespace DashDeck.Host.ViewModels;
 /// <param name="Microphone">Let Android hear the tablet's microphone.</param>
 /// <param name="Gpu">The settings file's <c>androidGpu</c> (<see cref="EmulatorGpu.Choose"/>).</param>
 /// <param name="RememberGpu">Save a new <c>androidGpu</c>, from the hold menu's switch.</param>
+/// <param name="Picture">The settings file's <c>androidPicture</c> (<see cref="AndroidPicture"/>).</param>
+/// <param name="RememberPicture">Save a new <c>androidPicture</c>, from the hold menu.</param>
 public sealed record AndroidFeeds(
-    IVehicleSignals? Signals, Func<bool> IsNight, Func<double> TankLitres, bool Microphone, string Gpu = "auto", Action<string>? RememberGpu = null)
+    IVehicleSignals? Signals, Func<bool> IsNight, Func<double> TankLitres, bool Microphone, string Gpu = "auto", Action<string>? RememberGpu = null,
+    string Picture = "BALANCED", Action<string>? RememberPicture = null)
 {
     /// <summary>Nothing fed but the position: no signals, always day, no tank, no microphone.</summary>
     public static readonly AndroidFeeds None = new(null, () => false, () => 0, false, "emulator");
@@ -76,6 +79,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     private readonly IClock _clock;
     private readonly AndroidFeeds _feeds;
     private string _gpu;
+    private (string Name, double Scale) _pictureSize;
     private readonly List<ISignalSubscription> _required = [];
     private readonly Action<AndroidFlavour> _remember;
     private readonly Dispatcher _dispatcher;
@@ -107,6 +111,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         _clock = clock;
         _feeds = feeds;
         _gpu = feeds.Gpu;
+        _pictureSize = AndroidPicture.Parse(feeds.Picture);
         _flavour = flavour;
         _remember = remember;
         _dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
@@ -151,6 +156,26 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         _gpu = GpuSwitchLabel == "DRAW IN SOFTWARE" ? "emulator" : "auto";
         _feeds.RememberGpu?.Invoke(_gpu);
         OnPropertyChanged(nameof(GpuSwitchLabel));
+        _ = StopAsync(restart: true);
+    }
+
+    /// <summary>The hold menu's picture button: the size now, and what a tap changes it to.</summary>
+    public string PictureLabel => $"PICTURE: {_pictureSize.Name}";
+
+    public string PictureDetail => $"Tap for {AndroidPicture.Next(_pictureSize).Name} · restarts Android";
+
+    /// <summary>
+    /// The next picture size — sharper or quicker — saved, and Android restarted, since the emulator's
+    /// screen is set when it starts.
+    /// </summary>
+    [RelayCommand]
+    private void NextPicture()
+    {
+        IsMenuOpen = false;
+        _pictureSize = AndroidPicture.Next(_pictureSize);
+        _feeds.RememberPicture?.Invoke(_pictureSize.Name);
+        OnPropertyChanged(nameof(PictureLabel));
+        OnPropertyChanged(nameof(PictureDetail));
         _ = StopAsync(restart: true);
     }
 
@@ -494,7 +519,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
 
         // Started at the stage's own size, so on the stage nothing needs fitting, and full screen is
         // a fit inside it. An AVD started at another size is fitted just the same, only less sharply.
-        var session = new EmulatorSession(sdk, avd, skin: $"{StageWidth}x{StageHeight}") { Gpu = EmulatorGpu.Choose(_gpu) };
+        var session = new EmulatorSession(sdk, avd, skin: AndroidPicture.Skin(StageWidth, StageHeight, _pictureSize.Scale)) { Gpu = EmulatorGpu.Choose(_gpu) };
         _turned = null;
         _fitted = null;
         session.Changed += () => _dispatcher.BeginInvoke(() => OnSessionChanged(session));

@@ -50,6 +50,20 @@ public class EmulatorTuningTests
     }
 
     [Fact]
+    public void The_picture_size_sets_the_emulator_s_screen_and_goes_round()
+    {
+        Assert.Equal("1824x1272", AndroidPicture.Skin(1824, 1272, 1.0));
+        Assert.Equal("1368x954", AndroidPicture.Skin(1824, 1272, 0.75));
+        Assert.Equal("912x636", AndroidPicture.Skin(1824, 1272, 0.5));
+        Assert.Equal("320x320", AndroidPicture.Skin(400, 300, 0.5));   // never under what the emulator takes
+
+        Assert.Equal("BALANCED", AndroidPicture.Parse(null).Name);
+        Assert.Equal("FAST", AndroidPicture.Parse("fast").Name);
+        Assert.Equal("SHARP", AndroidPicture.Next(AndroidPicture.Parse("FAST")).Name);
+        Assert.Equal("BALANCED", AndroidPicture.Next(AndroidPicture.Parse("SHARP")).Name);
+    }
+
+    [Fact]
     public void A_rate_counts_only_the_last_window()
     {
         var rate = new RollingRate(TimeSpan.FromSeconds(2));

@@ -1468,6 +1468,9 @@ dragging, touch under 150 ms, and memory that leaves the dash comfortable.
     M drawn* on the grey line: the most in any second of the last fifteen, because the emulator sends
     a frame only when the picture changes and reads 0 on a still screen. Note both numbers. *Windows may throttle it* after them means the dash could not opt the emulator
     out of Windows' power throttling.
+    **PICTURE** in the hold menu goes round SHARP → BALANCED → FAST, restarting Android each time.
+    For each, scroll and read the frames. **Expect:** FAST the quickest and softest, SHARP the
+    slowest and crispest. Keep the one that feels best, and note its numbers.
 0b. **The key bar.** Full screen, a bar along the bottom with **Back**, **Home** and **Recent apps**
     (a square). Open Settings, go into a page, then:
     - tap **Back**. **Expect:** one page back;

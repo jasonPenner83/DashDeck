@@ -253,16 +253,17 @@ public static class EmulatorResources
     /// Memory and processor cores for the emulator, or null to leave the AVD's own. A 16 GB tablet
     /// gives Android 4 GB, where the AVDs made in Android Studio ask for 2 — and the AVDs on the
     /// Surface stalled with a launcher that stopped responding. An 8 GB one keeps the AVD's own, to
-    /// leave the dash and Windows room. Cores: all the logical processors but two, two to eight — the
-    /// two left for the dash and for the emulator's own drawing and frame threads, which run beside
-    /// Android's cores and are what the picture waits on.
+    /// leave the dash and Windows room. Cores: half the logical processors, two to eight. Six of the
+    /// Surface's eight was tried and was worse: it has four real cores, and the emulator's own threads
+    /// — translating Android's drawing, reading frames back — and the dash run beside Android's, so
+    /// with six for Android they fought for the rest (the processor at 85 %, the GPU idle).
     /// </summary>
     public static (int? MemoryMb, int? Cores) For(long totalMemoryBytes, int logicalProcessors)
     {
         const long GiB = 1L << 30;
 
         int? memory = totalMemoryBytes >= 14 * GiB ? 4096 : null;
-        int? cores = logicalProcessors >= 4 ? Math.Clamp(logicalProcessors - 2, 2, 8) : null;
+        int? cores = logicalProcessors >= 4 ? Math.Clamp(logicalProcessors / 2, 2, 8) : null;
 
         return (memory, cores);
     }

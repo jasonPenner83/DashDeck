@@ -311,8 +311,17 @@ The hold menu's line for the running flavour says whether it is working:
    after resuming from the snapshot.
 5. **Sluggishness: more of the tablet, and less work per frame.** The probe measured that copying
    frames out costs about as much as Android drawing them (half-size frames gave 40 % more). So:
-   - **cores:** all the Surface's logical processors but two (six of eight, `EmulatorResources`),
-     instead of half;
+   - **cores:** six of the Surface's eight threads were tried, and were worse. Measured on the
+     Surface: 16 frames a second from the emulator and 9 drawn by the dash while scrolling, the
+     processor over 85 % and the GPU under 10 %. The Surface has four real cores, and the emulator's
+     own threads (translating Android's drawing, reading frames back, packing them) and the dash run
+     beside Android's. So it is back to half (`EmulatorResources`);
+   - **a smaller screen to draw** (`AndroidPicture`, *PICTURE* in the hold menu): SHARP is the stage's
+     own pixels, BALANCED (the default) three quarters, FAST half. With the processor the limit, every
+     step per frame scales with the pixels: Android's drawing, the read-back, the packing, sending,
+     unpacking, converting and copying. The picture is scaled up to fill, so it is softer. Android's
+     units stay the dash's, because the fit's density follows the smaller screen. A change restarts
+     Android, and its first start is a cold boot;
    - **no copy of each frame:** the pixels are read straight out of the gRPC message. Each frame used
      to be copied into a new array of several megabytes, garbage that made the dash's collector work
      several times a second;

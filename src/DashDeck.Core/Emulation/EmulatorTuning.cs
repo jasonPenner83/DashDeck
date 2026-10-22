@@ -355,3 +355,38 @@ public static class AndroidSpeed
     public const string HalfAnimations =
         "settings put global window_animation_scale 0.5; settings put global transition_animation_scale 0.5; settings put global animator_duration_scale 0.5";
 }
+
+/// <summary>
+/// How big a screen Android draws, against the stage's own pixels (ADR-0075 addendum). On the Surface
+/// the processor is the limit — every frame is read back, packed, sent, unpacked, converted and copied
+/// — and all of it scales with the pixels. A smaller screen is scaled up to fill the space: softer,
+/// and quicker. Android's units stay the dash's (<see cref="AndroidFit"/>), so nothing gets smaller.
+/// </summary>
+public static class AndroidPicture
+{
+    /// <summary>The sizes, in order, with the hold menu's names for them.</summary>
+    public static readonly IReadOnlyList<(string Name, double Scale)> Sizes = [("SHARP", 1.0), ("BALANCED", 0.75), ("FAST", 0.5)];
+
+    /// <summary>A size from the settings file; BALANCED when it is not one.</summary>
+    public static (string Name, double Scale) Parse(string? saved) =>
+        Sizes.FirstOrDefault(s => string.Equals(s.Name, saved?.Trim(), StringComparison.OrdinalIgnoreCase)) is { Name: not null } size
+            ? size
+            : Sizes[1];
+
+    /// <summary>The size after this one, round again after FAST.</summary>
+    public static (string Name, double Scale) Next((string Name, double Scale) size)
+    {
+        var at = Sizes.ToList().FindIndex(s => s.Name == size.Name);
+        return Sizes[(at + 1) % Sizes.Count];
+    }
+
+    /// <summary>
+    /// The emulator's <c>-skin</c> for a size: the stage's own pixels scaled, even on both sides, and
+    /// never under the 320 the emulator takes.
+    /// </summary>
+    public static string Skin(int stageWidth, int stageHeight, double scale)
+    {
+        static int Side(int pixels, double scale) => Math.Max(320, (int)Math.Round(pixels * scale / 2) * 2);
+        return string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{Side(stageWidth, scale)}x{Side(stageHeight, scale)}");
+    }
+}
