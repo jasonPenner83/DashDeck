@@ -644,6 +644,29 @@ truck's audio. No dongle: the screen says why and looks again every 5 s; `--synt
 desk. **Android Auto always needs the phone**; Android Automotive is a separate experiment (Q26), and
 the Pi Zero 2 W stays giving SYNC 3 wireless Android Auto. Setup: [`docs/phone-projection.md`](docs/phone-projection.md).
 
+**Android on the dash** (ADR-0075, **proposed, built for trial**, Q26) is the **ANDROID** nav cell: tap
+for full screen (`IsAndroidFull`, all six bands), double tap for the stage (`AndroidStageOccupant`, the
+nav goes back to where it was), hold for a menu of **ANDROID** / **ANDROID AUTOMOTIVE** / STOP
+(`androidFlavour` saved). Gestures: `Shell/NavPress` feeding Core's `PressGesture`; placement
+`AndroidView`; AVDs `AndroidChoice.List/Pick` (read from the emulator's files). `AndroidViewModel`
+owns one `EmulatorSession` (`src/DashDeck.Emulator`: start or join an AVD, one at a time, boot, frames
+RGB888 → `WriteableBitmap` Bgr32 dropped not queued, touch as fractions → device pixels, `setGps` on the
+beat, `LetGoAsync` on exit so the snapshot saves). Started on first sight and kept running; frames only
+while a panel is attached. The gRPC client is tested against a fake emulator served in-process
+(`EmulatorClientTests`, `Grpc.AspNetCore.Server`). Not yet: Automotive vehicle data over ADB, audio.
+
+**The measuring that came first:** the Android Emulator started
+hidden by DashDeck (`-qt-hide-window`, gRPC on localhost with `-grpc-use-token`, port and token from the
+emulator's `pid_<pid>.ini`), frames from `streamScreenshot` drawn on the stage and touch sent back with
+`sendTouch`; both flavours as `android` launcher entries naming an AVD (`AvdInfo.Flavour` from the image's
+`tag.id`). **Measure first:** `src/DashDeck.AndroidProbe` (`AndroidProbe.exe` in `AndroidProbe\`) starts an
+AVD the same way and reports boot, fps idle and dragging, touch delay, memory, GPS and audio. Pure parts in
+`DashDeck.Core.Emulation` (`AndroidSdk`, `AvdInfo`, `EmulatorCommand`, `EmulatorDiscovery`, `FrameMeter`).
+The gRPC definition is vendored (`Protos/emulator_controller.proto`, Apache-2.0, unchanged); gRPC packages
+are the probe's only, not the dash's. DashDeck installs no SDK, image or driver (WHPX, never AEHD). No
+emulator runs in the cloud session (no KVM, Google's SDK host blocked) — a fake gRPC server in the
+scratchpad is how the probe's client was checked (not kept); the first real run is on the Surface.
+
 ## Things that are easy to get wrong here
 
 1. **The truck is not always attached.** The adapter is real now, but the tablet is carried in

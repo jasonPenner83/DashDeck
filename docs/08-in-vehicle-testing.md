@@ -1297,6 +1297,115 @@ more than 30 s; a picture that is stretched or tapped in the wrong place (send a
 stuttering or seconds late; the picture freezing (RECONNECT from the three-dot menu, and tell me
 when it happened).
 
+## Android on the stage — measuring it first (ADR-0075)
+
+Before any of this is built into the dash, find out whether the Surface can run Android as its own
+device fast enough. This is done at a desk, plugged in. The truck is not needed.
+
+**You need:**
+- the Surface, on mains power;
+- a dash build with `AndroidProbe\` in its folder (any release after this branch merges);
+- about 15 GB free for Android Studio and two system images.
+
+**Set up, once:**
+1. Turn on Windows' hypervisor platform: **Settings ▸ System ▸ Optional features ▸ More Windows
+   features**, tick **Windows Hypervisor Platform**, OK, restart. This is a Windows feature, not a
+   driver.
+2. Install [Android Studio](https://developer.android.com/studio). In **SDK Manager ▸ SDK Tools**,
+   make sure **Android Emulator** is installed. Do not install the *Android Emulator hypervisor
+   driver*: it is a driver, and the Windows feature does the same job.
+3. In **Device Manager**, make two virtual devices, both **x86_64**:
+   - **Automotive:** category *Automotive*, e.g. *Automotive (1408p landscape)*, with an image whose
+     name says **Automotive with Google Play**;
+   - **Regular:** category *Tablet*, e.g. *Pixel Tablet*, with a **Google Play** image.
+
+   - **Stage-shaped:** **New Hardware Profile** in the device list, category *Tablet*,
+     **1824 × 1272** at **320 dpi** (so Android's units match the dash's), with the same Google Play
+     image. Name it `DashDeck_Stage`. This is the one the tablet should be judged on: the stage is
+     1824 × 1272, and rendering 2560 × 1600 for it is work thrown away.
+
+   Start each once from Android Studio, let it finish booting, and close it. That makes the
+   quick-boot snapshot the probe will start from.
+4. Close Android Studio.
+
+**Measure:**
+1. Start DashDeck as usual and leave it running, so the numbers include the dash.
+2. Open a terminal in the dash's folder and run `AndroidProbe\AndroidProbe.exe`. **Expect:**
+   - the SDK found;
+   - the virtualisation check saying the hypervisor is usable (*WHPX*);
+   - both devices listed, one marked **Automotive** and one **regular**.
+3. Run `AndroidProbe\AndroidProbe.exe --stop-running` first. It shuts down any emulator Android
+   Studio left running, which would otherwise hold the AVD and the port.
+4. Run `AndroidProbe\AndroidProbe.exe --avd <the Automotive name>`. Nothing appears on screen; it
+   runs hidden, which is the point. **Expect, within a couple of minutes:**
+   - *Discovery file* with `grpc.port` and a hidden `grpc.token`;
+   - *Booted: N s*;
+   - *Frames … dragging: N fps*;
+   - *Touch to next frame: N ms*;
+   - *Emulator processes: N MB*;
+   - *Audio: …*.
+5. Run the same line again. The second run starts from the snapshot, so **boot time is the one that
+   counts**.
+6. Repeat steps 4 and 5 with `Pixel_Tablet` and `DashDeck_Stage`.
+7. Send me the reports from `%LOCALAPPDATA%\DashDeck\androidprobe\`. Each has a `.png` beside
+   it, the screen as the stage would show it. Look at it first: if it shows anything personal, leave
+   it out.
+
+**What decides it** (ADR-0075's table): boot under 15 s from the snapshot, 20 fps or more while
+dragging, touch under 150 ms, and memory that leaves the dash comfortable.
+
+**A failure looks like:**
+- *virtualisation* saying no hypervisor: step 1 did not take, or virtualisation is off in the
+  Surface's UEFI;
+- *gRPC REFUSED*: send the report, which shows the discovery file the emulator wrote;
+- *NOT BOOTED* or *THE EMULATOR EXITED*: send the report, which includes the emulator's own warnings;
+- the dash itself stuttering while the probe runs. Note when it did.
+
+## Android on the dash — the ANDROID cell (ADR-0075)
+
+**You need:**
+- the Surface, with this build;
+- Android Studio's emulator, and both AVDs from the probe's setup above (*Automotive with Google
+  Play* and *Pixel Tablet*);
+- Windows Hypervisor Platform on;
+- **scrcpy closed**, so its `adb` does not fight the SDK's;
+- parked, for the first try.
+
+1. Start DashDeck. **Expect:** a fifth cell on the nav, **ANDROID**, after MAPS.
+2. **Hold** ANDROID for about half a second. **Expect:** a menu over the nav, with:
+   - **ANDROID**, naming `Pixel_Tablet · 2560×1600`;
+   - **ANDROID AUTOMOTIVE**, naming the Automotive AVD;
+   - **STOP ANDROID**;
+   - a dot beside the one the cell opens now.
+3. Choose **ANDROID AUTOMOTIVE**. **Expect:**
+   - Android full screen, with the stage collapsed;
+   - *STARTING ANDROID AUTOMOTIVE* for a few seconds;
+   - then Automotive's home screen, about 10–20 s on a first start and a couple of seconds after
+     that.
+4. **Touch** it: open the app grid, scroll, open Settings. **Expect:** it follows your finger
+   straight away.
+5. **Tap DASH**, then **tap ANDROID** again. **Expect:** Android at once, with no restart. It kept
+   running.
+6. **Double-tap ANDROID.** **Expect:** Android on the stage, with the dash's console below it. It
+   still answers touch on the stage.
+7. **Tap ANDROID** once. **Expect:** back to full screen.
+8. With GPS on, open **Maps** inside Automotive. **Expect:** the truck's own position.
+9. **Hold** ANDROID and choose **ANDROID**. **Expect:**
+   - *STOPPING*, then *STARTING ANDROID*, then the tablet's home screen;
+   - letterboxed in the full-screen region, because a landscape tablet does not fill a portrait
+     region.
+10. **Hold** ANDROID, then **STOP ANDROID**. **Expect:** *ANDROID STOPPED*. Task Manager shows no
+    `qemu-system-x86_64`.
+11. Close DashDeck with Android running, then start it again and tap ANDROID. **Expect:** a quick
+    start, because the snapshot was saved on the way out.
+
+**A failure looks like:**
+- *NO ANDROID EMULATOR* when Android Studio is installed. Note where its SDK is.
+- *… DID NOT START*, with a reason. Send the reason.
+- Touches landing in the wrong place.
+- The dash stuttering while Android runs.
+- `qemu-system-x86_64` still running a minute after DashDeck closed.
+
 ## The audio delay and the video sync offset — parked 2026-10-15
 
 Both walkthroughs that were here are gone with the feature. The delay measurement, the

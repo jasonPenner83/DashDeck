@@ -458,7 +458,8 @@ public partial class App : Application
                     // stage and a map in the bottom third render as different regions, and
                     // which one is which is the whole question while it is being built.
                     var map = _shell.DescribeMap() is { } m ? $"{Environment.NewLine}map: {m}" : "";
-                    System.IO.File.WriteAllText(shotPath + ".txt", state + climate + console + map);
+                    var android = _shell.DescribeAndroid() is { } a ? $"{Environment.NewLine}android: {a}" : "";
+                    System.IO.File.WriteAllText(shotPath + ".txt", state + climate + console + map + android);
                 }
 
                 Shutdown();

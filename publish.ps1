@@ -126,6 +126,19 @@ dotnet publish src\DashDeck.IdMatcher\DashDeck.IdMatcher.csproj `
 
 if ($LASTEXITCODE -ne 0) { throw "ID matcher publish failed" }
 
+# The Android probe (ADR-0075): can this tablet run the Android Emulator as its own device on the
+# stage? A console program that starts an AVD hidden, measures it over gRPC, and writes a report.
+# It installs nothing: the SDK and the AVDs are the person's own, made with Android Studio.
+$androidProbe = Join-Path $Output 'AndroidProbe'
+dotnet publish src\DashDeck.AndroidProbe\DashDeck.AndroidProbe.csproj `
+    --configuration Release `
+    --runtime $Runtime `
+    --self-contained true `
+    --output $androidProbe `
+    --nologo
+
+if ($LASTEXITCODE -ne 0) { throw "Android probe publish failed" }
+
 $bytes = (Get-ChildItem $Output -Recurse -File | Measure-Object -Property Length -Sum).Sum
 
 Write-Output ""
@@ -135,6 +148,7 @@ Write-Output ("  {0,-22} {1}" -f 'catalog', 'included')
 Write-Output ("  {0,-22} {1}" -f 'libvlc', $(if (Test-Path (Join-Path $Output 'libvlc')) { 'included' } else { 'MISSING' }))
 Write-Output ("  {0,-22} {1}" -f 'id hunter', $(if (Test-Path (Join-Path $hunter 'IdHunter.exe')) { 'IdHunter\IdHunter.exe' } else { 'MISSING' }))
 Write-Output ("  {0,-22} {1}" -f 'id matcher', $(if (Test-Path (Join-Path $matcher 'IdMatcher.exe')) { 'IdMatcher\IdMatcher.exe' } else { 'MISSING' }))
+Write-Output ("  {0,-22} {1}" -f 'android probe', $(if (Test-Path (Join-Path $androidProbe 'AndroidProbe.exe')) { 'AndroidProbe\AndroidProbe.exe' } else { 'MISSING' }))
 Write-Output ("  {0,-22} {1}" -f 'serial tap', $(if (Test-Path (Join-Path $tap 'SerialTap.exe')) { 'SerialTap\SerialTap.exe' } else { 'MISSING' }))
 Write-Output ("  {0,-22} {1}" -f 'components', $(if ($componentCount -gt 0) { "$componentCount included" } else { 'none' }))
 

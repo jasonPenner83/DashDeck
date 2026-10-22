@@ -188,6 +188,13 @@ public sealed record UserSettings
     /// <summary>Whether the map draws the range lines (ADR-0071).</summary>
     [JsonPropertyName("mapRange")]
     public bool MapRange { get; init; } = true;
+
+    /// <summary>
+    /// Which Android the ANDROID cell opens: <c>Regular</c> or <c>Automotive</c> (ADR-0075). Chosen
+    /// by holding the cell.
+    /// </summary>
+    [JsonPropertyName("androidFlavour")]
+    public string AndroidFlavour { get; init; } = "Regular";
 }
 
 /// <summary>

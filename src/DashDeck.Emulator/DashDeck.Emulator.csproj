@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\DashDeck.Core\DashDeck.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    The Android Emulator, driven over its own gRPC interface (ADR-0075). The service definition is
+    the emulator's, vendored unchanged from google/android-emulator-webrtc (Apache-2.0). Both sides
+    are generated: the client is what the dash uses, the server base is what the tests stand a fake
+    emulator up with — so the two cannot drift.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.36.2" />
+    <PackageReference Include="Grpc.Net.Client" Version="2.84.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.84.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="Protos\emulator_controller.proto" GrpcServices="Both" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DashDeck.Tests" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DashDeck.Emulator</RootNamespace>
+  </PropertyGroup>
+
+</Project>

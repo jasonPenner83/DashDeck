@@ -17,6 +17,22 @@ again whenever a `PackageReference` is added.
 | .NET runtime (self-contained publish) | Everything | MIT |
 | [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) 6.12.0 — `src/DashDeck.Host/Map/web/lib/`, deployed as `map/lib/` | The map renderer (ADR-0063) | BSD-3-Clause — text in `map/lib/LICENSE-maplibre-gl.txt`, shipped beside it |
 
+### Android on the dash (ADR-0075)
+
+In the dash itself (`DashDeck.Emulator`, behind the ANDROID cell) and in `AndroidProbe\` beside it.
+
+| Package or file | Used by | License |
+|---|---|---|
+| [Grpc.Net.Client](https://github.com/grpc/grpc-dotnet) 2.84.0 | DashDeck.Emulator and AndroidProbe (gRPC to the Android Emulator) | Apache-2.0 |
+| [Google.Protobuf](https://github.com/protocolbuffers/protobuf) 3.36.2 | DashDeck.Emulator and AndroidProbe (gRPC messages) | BSD-3-Clause |
+| [Grpc.Tools](https://github.com/grpc/grpc) 2.84.0 | Build only (generates the client); not shipped | Apache-2.0 |
+| `emulator_controller.proto` — `src/DashDeck.Emulator/Protos/` and `src/DashDeck.AndroidProbe/Protos/`, vendored unchanged from [google/android-emulator-webrtc](https://github.com/google/android-emulator-webrtc) | The emulator's gRPC service definition | Apache-2.0 (The Android Open Source Project), header kept in the file |
+
+The Android SDK, the emulator and the system images are **not** shipped or downloaded by DashDeck:
+the person installs them with Android Studio, under Google's
+[Android SDK License Agreement](https://developer.android.com/studio/terms), whose terms for using
+the images to run Android rather than to develop apps are theirs to read (ADR-0075).
+
 ### Fonts
 
 | Font | Used by | License |
@@ -30,6 +46,7 @@ again whenever a `PackageReference` is added.
 | xunit, xunit.runner.visualstudio | Apache-2.0 |
 | Microsoft.NET.Test.Sdk | MIT |
 | coverlet.collector | MIT |
+| Grpc.AspNetCore.Server (a fake Android Emulator for the gRPC client's tests, ADR-0075) | Apache-2.0 |
 
 ## Services called at runtime
 
