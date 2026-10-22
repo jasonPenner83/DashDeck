@@ -250,3 +250,164 @@ What changed, and why:
 
 What is still open is unchanged: Automotive's vehicle data over ADB (the two-ADB clash first),
 audio, and shared-memory frames (`MMAP`) if the tablet's frame rate is still the limit.
+
+## Addendum — 2026-10-22: feeding Android the truck, the night, the microphone and the internet; less sluggish
+
+The owner asked what else Android should be handed besides GPS. Its internet comes from the
+Surface's connection, and its time from the Surface's clock, with nothing to do. Three things were
+missing, most important first.
+
+1. **The truck's motion, for Automotive's driving restrictions.** Android Automotive limits what can
+   be done on screen while the car moves: video, the keyboard, long lists. It decides "moving" from
+   speed and gear. Never told either, it believes it is parked for ever, so nothing was limited at
+   100 km/h. Now, once a beat, `CarFeed` turns the dash's signals into what Android should believe,
+   and the commands that tell it, sending only what changed:
+   - speed from `vehicle.speed`, or the GPS ground speed when that is not live;
+   - gear from `transmission.gearSelector` when the truck gives one;
+   - parking brake (`warning.parkingBrake`), fuel level in litres of the tank set in Settings
+     (`fuel.levelPercent`), and engine speed (`engine.rpm`);
+   - night (below).
+
+   **Gear is worked out until the truck says it**, and the guess errs towards restricted:
+   - moving is Drive;
+   - stopped with the engine running is still Drive, because idling at a light is not parked;
+   - stopped with the engine off, or with the parking brake on, is Park;
+   - the truck gone silent (the ignition off) while the GPS says it is still is Park;
+   - with no speed at all nothing is said, and Android keeps what it was told last.
+
+   Only live readings are used, so a stale speed is never passed on as the truck's.
+
+   It goes in over the SDK's ADB, the way the fit does:
+   - written into the vehicle HAL's own store (`dumpsys …IVehicle/default --set`), so the value
+     holds;
+   - or, on images that refuse that, as the car service's injected events
+     (`cmd car_service inject-vhal-event`).
+
+   Which one works is asked once per start. The signals are required from the arbiter while
+   Automotive runs, so they are polled even when no gauge shows them. **This writes to the emulator,
+   never to the truck.**
+2. **Night.** The dash's own answer (`ThemeService.IsNight`: the headlights, or the sun) goes to
+   both flavours:
+   - Automotive's `NIGHT_MODE` property;
+   - a tablet's dark theme (`cmd uimode night`).
+3. **The microphone.** The emulator gives Android silence unless host input is allowed. The dash now
+   allows it at start (`setMicrophoneState`, what Android Studio's switch does), so "Hey Google" and
+   voice typing hear the cab. Windows must let desktop apps use the microphone. It is a
+   settings-file switch, `androidMicrophone`, on unless turned off.
+
+The hold menu's line for the running flavour says whether it is working:
+- *car data live · 62 km/h · DRIVE*, or *car data refused (…)*;
+- *mic on* or *mic off*.
+
+4. **Internet that resolves.** On the Surface the tablet said *AndroidWifi · Connected / No internet
+   access*. The emulator shares the Surface's connection, but on Windows it can hand Android the DNS
+   servers of a virtual adapter, such as the hypervisor's own switch, which answers nothing. The dash
+   now passes `-dns-server` (`EmulatorNetwork.DnsServers`):
+   - up to two of the Surface's own, from the adapters with a gateway;
+   - then `1.1.1.1` and `8.8.8.8`, so names still resolve when the truck moves from the house's Wi-Fi
+     to the phone's hotspot while Android runs (the emulator's DNS is fixed at start).
+
+   If Android still says no internet, the next suspects are a VPN on the Surface, and Android's clock
+   after resuming from the snapshot.
+5. **Sluggishness: more of the tablet, and less work per frame.** The probe measured that copying
+   frames out costs about as much as Android drawing them (half-size frames gave 40 % more). So:
+   - **cores:** six of the Surface's eight threads were tried, and were worse. Measured on the
+     Surface: 16 frames a second from the emulator and 9 drawn by the dash while scrolling, the
+     processor over 85 % and the GPU under 10 %. The Surface has four real cores, and the emulator's
+     own threads (translating Android's drawing, reading frames back, packing them) and the dash run
+     beside Android's. So it is back to half (`EmulatorResources`);
+   - **a smaller screen to draw** (`AndroidPicture`, *PICTURE* in the hold menu): SHARP is the stage's
+     own pixels, BALANCED (the default) three quarters, FAST half. With the processor the limit, every
+     step per frame scales with the pixels: Android's drawing, the read-back, the packing, sending,
+     unpacking, converting and copying. The picture is scaled up to fill, so it is softer. Android's
+     units stay the dash's, because the fit's density follows the smaller screen. A change restarts
+     Android, and its first start is a cold boot;
+   - **no copy of each frame:** the pixels are read straight out of the gRPC message. Each frame used
+     to be copied into a new array of several megabytes, garbage that made the dash's collector work
+     several times a second;
+   - **four pixels at a time:** RGB to the bitmap's BGRX with one SIMD shuffle per four pixels;
+   - **how it draws, shown, and the GPU asked for:** the emulator's own words about its GPU mode go
+     in the hold menu (`EmulatorGpu.Renderer`). On the Surface it said **`sw`**: left to itself, the
+     emulator drew Android in software, on the same processor running Android. That is most of the
+     sluggishness, and the probe's 10 fps for the tablet. It does not trust the Intel Iris Plus
+     driver, whose Vulkan is older than it wants. So the dash now **asks for `-gpu host`**, the
+     tablet's GPU through its OpenGL driver. If the emulator will not start that way, it starts
+     again with the emulator's own choice (`EmulatorGpu.Choose`; `androidGpu`: `auto` is that,
+     `emulator` leaves it to the emulator, or name a mode). Once asked for the GPU, the emulator printed
+     nothing the menu recognised, so what draws is now read from the running emulator's own configuration
+     (`getStatus`: the resolved `hw.gpu.mode`, with the cores and memory Android really has) and,
+     when Android answers, from SurfaceFlinger's `GLES` line, which names the GPU behind the
+     emulator's translator (`EmulatorGpu.FromConfig`, `FromGles`);
+   - **on the GPU, Android composes its own picture.** With `-gpu host` the tablet came out squashed:
+     its picture sat in a strip about 57 % as wide as the region, stretched 18 % taller and cut at
+     top and bottom. In software, the fit was right. On the GPU the emulator composes Android's
+     layers itself (`HostComposition`), and that composition ignores the screen Android was told
+     to use. So on the GPU the emulator starts with `-feature -HostComposition`
+     (`EmulatorGpu.Features`): Android composes on the GPU through the translator, and the emulator
+     shows what it drew. If that is not enough, the fallback is to drop `wm size` on the GPU and
+     fit by rotation and the skin's shape alone;
+   - **a switch in the hold menu,** *DRAW IN SOFTWARE* / *DRAW WITH THE GPU*, saves `androidGpu`
+     and restarts Android, so the two can be compared without the settings file. In software,
+     System UI and the launcher can trip Android's *isn't responding* watchdog: everything is
+     drawn on the processor, and each fit makes them lay themselves out again;
+   - **not background work to Windows.** Hidden, the emulator has no window on screen, and Windows 11
+     treats such a process as background: it may throttle it (EcoQoS) and ignore the timer resolution
+     it asks for, coarsening its timing to 16 ms. The dash opts the emulator's processes out of both
+     with `SetProcessInformation(ProcessPowerThrottling)` (`WindowsThrottling`): documented, per
+     process, no driver or registry, gone when the process ends;
+   - **Android's animations at half length** (`AndroidSpeed`, its own developer setting), so a
+     screen drawn at a modest rate still answers a tap promptly;
+   - **frames a second in the hold menu:** received from the emulator and drawn by the dash, to
+     show which side is the limit before anything bigger is tried. If the emulator sends few, that
+     is Android or the GPU, and the lever is a smaller screen to draw (a sharpness setting). If it
+     sends many and the dash draws few, that is the copy, and the lever is shared-memory frames;
+   - memory stays at 4 GB: Android was not short of it, and the dash and Windows need the rest.
+
+   The change in cores makes the next start a cold boot, as the memory change did. Not done, because
+   it cannot be checked without a real emulator: frames through shared memory (`ImageTransport`
+   `MMAP`), which would remove the gRPC copy altogether. It is next if this is not enough.
+
+6. **Android's own keys, on the dash.** The owner asked for on-screen Home and Back. The dash draws
+   its own key bar beside the picture, not Android's navigation: it works the same in either
+   flavour, whatever navigation Android is set to, and is sized for a finger in a moving truck.
+   - **Back, Home and Recent apps** for a tablet; **Back and Home** for Automotive, whose own bar
+     moves between apps (`AndroidKeys.For`).
+   - The keys are sent with `sendKey` by the names Android Studio's toolbar uses (`GoBack`, `GoHome`,
+     `AppSwitch`).
+   - The bar goes along the bottom of a tall panel (full screen) and down the right of a wide one
+     (the stage), the side the picture can best spare. The picture's own area, without the bar, is
+     what Android is fitted to, so Android's shape still matches.
+
+Still open: Android's sound ducking under directions, and steering-wheel keys.
+
+## Addendum — 2026-10-22: the emulator is retired; a real phone replaces it (ADR-0076)
+
+The addenda above took the emulator as far as it would go on the Surface Pro 7. They put Android on
+the GPU, turned host composition off, opted the emulator out of Windows' throttling, tuned the cores
+and made the screen smaller. Measured at the end, while scrolling: **16 frames a second from the
+emulator, 9 drawn, the processor over 85 %, the GPU under 10 %.** The tablet was both running
+Android and copying every frame out of it.
+
+The owner then tried this ADR's own named fallback, a real phone mirrored over ADB, with scrcpy and
+an old Pixel XL beside the dash. It was "way better", and was built into the dash
+([ADR-0076](ADR-0076-android-from-a-real-phone.md)). With that working, the owner asked for the
+emulator to go:
+
+- **Removed:** the emulator session, launcher and gRPC client, the vendored
+  `emulator_controller.proto` and the gRPC packages, the `AndroidProbe` tool (with the probe reports
+  that had been committed beside it), the ANDROID and ANDROID AUTOMOTIVE flavours, Automotive's car
+  data (`CarFeed`), the emulator's tuning (DNS, GPU mode, throttling, skins, cores), and its
+  walkthroughs.
+- **Kept:**
+  - the ANDROID nav cell (tap, double tap, hold) and its placements;
+  - the key bar;
+  - the region fit's principle (one dp a dash unit), now `AndroidFit` for a phone;
+  - the picture-size setting;
+  - the frame-rate readout.
+- **Lost with it:** Android Automotive. On real hardware Automotive with Google's apps is licensed
+  only to car makers (ADR-0057). That made the driving restrictions Automotive would have applied
+  from the truck's speed and gear the emulator's alone. A phone has no such lock; ADR-0076 says so.
+
+This ADR's decisions on the emulator are superseded. The record of how it was measured and tuned
+stays above, so it is not tried again without new reasons: a faster tablet, or an emulator that
+renders differently.

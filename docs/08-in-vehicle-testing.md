@@ -1297,138 +1297,85 @@ more than 30 s; a picture that is stretched or tapped in the wrong place (send a
 stuttering or seconds late; the picture freezing (RECONNECT from the three-dot menu, and tell me
 when it happened).
 
-## Android on the stage — measuring it first (ADR-0075)
+## The Android Emulator — removed 2026-10-22
 
-Before any of this is built into the dash, find out whether the Surface can run Android as its own
-device fast enough. This is done at a desk, plugged in. The truck is not needed.
+The three walkthroughs that were here are gone with the feature: the AndroidProbe measurements, the
+emulated ANDROID and ANDROID AUTOMOTIVE, and Automotive's car data. **Why, in one paragraph, so the
+next person does not rebuild it by accident.** The emulator ran on the Surface and was tuned as far
+as it would go: the GPU on, host composition off, Windows' throttling opted out of, the cores and the
+picture size tuned. Even then it measured 16 frames a second, 9 drawn, with the processor over 85 %
+and the GPU idle, because the tablet both ran Android and copied every frame. A real phone mirrored
+with scrcpy did the same job smoothly. ADR-0075 and its addenda keep the numbers; ADR-0076 is what
+replaced it.
 
-**You need:**
-- the Surface, on mains power;
-- a dash build with `AndroidProbe\` in its folder (any release after this branch merges);
-- about 15 GB free for Android Studio and two system images.
-
-**Set up, once:**
-1. Turn on Windows' hypervisor platform: **Settings ▸ System ▸ Optional features ▸ More Windows
-   features**, tick **Windows Hypervisor Platform**, OK, restart. This is a Windows feature, not a
-   driver.
-2. Install [Android Studio](https://developer.android.com/studio). In **SDK Manager ▸ SDK Tools**,
-   make sure **Android Emulator** is installed. Do not install the *Android Emulator hypervisor
-   driver*: it is a driver, and the Windows feature does the same job.
-3. In **Device Manager**, make two virtual devices, both **x86_64**:
-   - **Automotive:** category *Automotive*, e.g. *Automotive (1408p landscape)*, with an image whose
-     name says **Automotive with Google Play**;
-   - **Regular:** category *Tablet*, e.g. *Pixel Tablet*, with a **Google Play** image.
-
-   - **Stage-shaped:** **New Hardware Profile** in the device list, category *Tablet*,
-     **1824 × 1272** at **320 dpi** (so Android's units match the dash's), with the same Google Play
-     image. Name it `DashDeck_Stage`. This is the one the tablet should be judged on: the stage is
-     1824 × 1272, and rendering 2560 × 1600 for it is work thrown away.
-
-   Start each once from Android Studio, let it finish booting, and close it. That makes the
-   quick-boot snapshot the probe will start from.
-4. Close Android Studio.
-
-**Measure:**
-1. Start DashDeck as usual and leave it running, so the numbers include the dash.
-2. Open a terminal in the dash's folder and run `AndroidProbe\AndroidProbe.exe`. **Expect:**
-   - the SDK found;
-   - the virtualisation check saying the hypervisor is usable (*WHPX*);
-   - both devices listed, one marked **Automotive** and one **regular**.
-3. Run `AndroidProbe\AndroidProbe.exe --stop-running` first. It shuts down any emulator Android
-   Studio left running, which would otherwise hold the AVD and the port.
-4. Run `AndroidProbe\AndroidProbe.exe --avd <the Automotive name>`. Nothing appears on screen; it
-   runs hidden, which is the point. **Expect, within a couple of minutes:**
-   - *Discovery file* with `grpc.port` and a hidden `grpc.token`;
-   - *Booted: N s*;
-   - *Frames … dragging: N fps*;
-   - *Touch to next frame: N ms*;
-   - *Emulator processes: N MB*;
-   - *Audio: …*.
-5. Run the same line again. The second run starts from the snapshot, so **boot time is the one that
-   counts**.
-6. Repeat steps 4 and 5 with `Pixel_Tablet` and `DashDeck_Stage`.
-7. Send me the reports from `%LOCALAPPDATA%\DashDeck\androidprobe\`. Each has a `.png` beside
-   it, the screen as the stage would show it. Look at it first: if it shows anything personal, leave
-   it out.
-
-**What decides it** (ADR-0075's table): boot under 15 s from the snapshot, 20 fps or more while
-dragging, touch under 150 ms, and memory that leaves the dash comfortable.
-
-**A failure looks like:**
-- *virtualisation* saying no hypervisor: step 1 did not take, or virtualisation is off in the
-  Surface's UEFI;
-- *gRPC REFUSED*: send the report, which shows the discovery file the emulator wrote;
-- *NOT BOOTED* or *THE EMULATOR EXITED*: send the report, which includes the emulator's own warnings;
-- the dash itself stuttering while the probe runs. Note when it did.
-
-## Android on the dash — the ANDROID cell (ADR-0075)
+## Android on the dash — a real phone, mirrored (ADR-0076)
 
 **You need:**
-- the Surface, with this build;
-- Android Studio's emulator, and both AVDs from the probe's setup above (*Automotive with Google
-  Play* and *Pixel Tablet*);
-- Windows Hypervisor Platform on;
-- **scrcpy closed**, so its `adb` does not fight the SDK's;
-- parked, for the first try.
+- the Surface with this build, and scrcpy installed (`winget install Genymobile.scrcpy`, or its zip
+  unzipped somewhere: Downloads is fine);
+- the phone with **USB debugging** on (Settings ▸ About phone ▸ tap Build number 7 times, then
+  Settings ▸ System ▸ Developer options ▸ USB debugging), and a USB cable for the first time;
+- the phone **unlocked** the first time, to tap **Allow** on its prompt (tick *Always allow from this
+  computer*);
+- **no other scrcpy window running**: the dash runs scrcpy's server itself.
 
-1. Start DashDeck. **Expect:** a fifth cell on the nav, **ANDROID**, after MAPS.
-2. **Hold** ANDROID for about half a second. **Expect:** a menu over the nav, with:
-   - **ANDROID**, naming `Pixel_Tablet · 2560×1600`;
-   - **ANDROID AUTOMOTIVE**, naming the Automotive AVD;
-   - **STOP ANDROID**;
-   - a dot beside the one the cell opens now.
-3. Choose **ANDROID AUTOMOTIVE**. **Expect:**
-   - Android full screen, with the stage collapsed, **filling the whole region with no black bars**
-     (after a moment: Android re-lays itself out once it is told the region's shape);
-   - *STARTING ANDROID AUTOMOTIVE* for a few seconds;
-   - then Automotive's home screen, about 10–20 s on a first start and a couple of seconds after
-     that.
-4. **Touch** it: open the app grid, scroll, open Settings. **Expect:** it follows your finger
-   straight away.
-5. **Tap DASH**, then **tap ANDROID** again. **Expect:** Android at once, with no restart. It kept
-   running.
-6. **Double-tap ANDROID.** **Expect:** Android on the stage, with the dash's console below it. It
-   still answers touch on the stage.
-7. **Tap ANDROID** once. **Expect:** back to full screen.
-8. With GPS on, open **Maps** inside Automotive. **Expect:** the truck's own position.
-9. **Hold** ANDROID and choose **ANDROID**. **Expect:**
-   - *STOPPING*, then *STARTING ANDROID*, then the tablet's home screen;
-   - the **first** start after updating takes longer (a cold boot): Android now gets 4 GB and four
-     cores on the 16 GB Surface, and the old snapshot was saved with 2 GB;
-   - the tablet **upright**, filling the tall full-screen region edge to edge, with **no black bars**
-     at the sides.
-     If the picture turns but Android's own screen stays sideways, Android's **auto-rotate** is off:
-     swipe down from the top inside Android and turn it on.
-10. **Touch the upright tablet.** Tap an icon near the **top-left corner**, then one near the
-    **bottom-right**. **Expect:** each opens the icon under your finger. Drag a list up and down.
-    **Expect:** it follows without the stalls and jumps of the first build. A touch that lands
-    mirrored, or a quarter-turn away, is the rotation mapping. Note which corner you touched and
-    what opened.
-11. **Double-tap ANDROID.** **Expect:** on the stage the tablet turns **on its side** and fills the
-    wide stage edge to edge, and touch still lands under your finger. Icons and text are the **same
-    size** as they were full screen; there is just more of them across. Tap ANDROID again: upright
-    once more.
-12. Try the same with **ANDROID AUTOMOTIVE**. **Expect:** it never turns, but it fills both: full
-    screen as a tall layout and on the stage as a wide one. Touch the corners in each.
-    Full screen is a little softer than the stage. That is expected, because it is drawn from fewer
-    pixels than it covers.
-13. **Hold** ANDROID, then **STOP ANDROID**. **Expect:** *ANDROID STOPPED*. Task Manager shows no
-    `qemu-system-x86_64`.
-14. Close DashDeck with Android running, then start it again and tap ANDROID. **Expect:** a quick
-    start, because the snapshot was saved on the way out.
+### By cable
+
+1. Plug the phone in. Start DashDeck. **Hold** ANDROID. **Expect:** the menu, *ANDROID ON THE DASH*,
+   with:
+   - **ANDROID PHONE**, and under it after a second *Pixel 8 · connected by USB*. *tap Allow on the
+     phone* means the prompt is waiting; *No phone* means ADB cannot see it;
+   - **CONNECT WIRELESSLY**;
+   - **PICTURE: BALANCED**;
+   - **STOP ANDROID**.
+2. Tap **ANDROID PHONE**. **Expect:**
+   - *STARTING ANDROID PHONE*, then the phone's home screen in the dash, full screen and filling it;
+   - the phone's own screen goes dark (it is mirrored, not off);
+   - for a moment the phone lays itself out again, as a tablet the shape of the region.
+3. Scroll, open apps, type. **Expect:** smooth, following your finger. Hold ANDROID and note *busiest
+   second: N frames* on the phone's line after a scroll.
+4. Tap **Back**, **Home** and the square on the key bar. **Expect:** each does what it says.
+5. Double-tap ANDROID. **Expect:** on the stage the phone lays itself out wide and fills the stage
+   beside the key bar.
+6. **PICTURE** goes round SHARP → BALANCED → FAST, restarting the mirror. **Expect:** SHARP the
+   crispest, FAST the lightest on the tablet.
+7. At night (or Settings ▸ DISPLAY), **expect** the phone's dark theme.
+
+### Wirelessly — at home, then in the truck
+
+8. With the phone plugged in and mirrored, hold ANDROID and tap **CONNECT WIRELESSLY**. **Expect:**
+   - the mirror restarts (ADB on the phone restarts to listen on the network);
+   - the phone's line then says *connected by USB* (cable first while both work);
+   - CONNECT WIRELESSLY says *Remembered at 192.168.x.x:5555*.
+9. **Unplug the phone.** **Expect:** the picture stops, *ANDROID PHONE STOPPED … trying again in ten
+   seconds*, then the phone again, now *connected over Wi-Fi*. Everything above still works.
+10. **In the truck:** turn on the phone's hotspot and join it from the Surface. Tap ANDROID.
+    **Expect:** the phone found over the hotspot (the tablet's gateway is the phone) and mirrored, with
+    no cable.
+11. Walk the phone out of Wi-Fi range, then back. **Expect:** the picture stops; the phone's own
+    screen comes back to its normal size within about fifteen seconds (the watchdog on the phone);
+    and the mirror returns by itself when it is back in range, while ANDROID is showing.
+12. **Restart the phone**, then tap ANDROID. **Expect:** *not found … over the network*. That is
+    expected: ADB over the network does not survive a restart. Plug in once and tap CONNECT
+    WIRELESSLY again.
+
+### Giving the phone back
+
+13. Hold ANDROID ▸ **STOP ANDROID**. **Expect:**
+    - the phone's own screen back on, at its own size and density, laid out as a phone again;
+    - `adb shell wm size` says *Physical size* with no *Override size*.
+14. Start it again, then close DashDeck. **Expect:** the same.
 
 **A failure looks like:**
-- *NO ANDROID EMULATOR* when Android Studio is installed. Note where its SDK is.
-- *… DID NOT START*, with a reason. Send the reason.
-- Touches landing in the wrong place, or only after a turn. Note the placement and the corner.
-- The tablet staying sideways full screen, or turning back and forth.
-- Black bars still beside the picture. That means Android could not be told the region's shape over
-  ADB, most likely because scrcpy's `adb` is running beside the SDK's. Close scrcpy and wait 15 s;
-  it is tried again. If the bars stay, note it.
-- To give an AVD back to Android Studio as it was: `adb shell wm size reset` and
-  `adb shell wm density reset`.
-- The dash stuttering while Android runs.
-- `qemu-system-x86_64` still running a minute after DashDeck closed.
+- *SCRCPY NOT FOUND* with scrcpy installed: put its folder in the settings file as
+  `"androidScrcpy": "C:\\path\\to\\scrcpy-win64-vX"`.
+- *ANDROID PHONE STOPPED* with *scrcpy's server stopped: …*. Send the reason. A version mismatch means
+  two scrcpy installs.
+- CONNECT WIRELESSLY saying *Not connected: …*. Send the reason. The phone and the tablet must be on
+  the same network, or the tablet on the phone's hotspot.
+- The phone left at the odd size more than a minute after the mirror dropped:
+  `adb shell wm size reset` and `adb shell wm density reset`, and note how the mirror ended.
+- The picture frozen, black or blocky. Note the phone's line.
 
 ## The audio delay and the video sync offset — parked 2026-10-15
 

@@ -644,34 +644,27 @@ truck's audio. No dongle: the screen says why and looks again every 5 s; `--synt
 desk. **Android Auto always needs the phone**; Android Automotive is a separate experiment (Q26), and
 the Pi Zero 2 W stays giving SYNC 3 wireless Android Auto. Setup: [`docs/phone-projection.md`](docs/phone-projection.md).
 
-**Android on the dash** (ADR-0075, **proposed, built for trial**, Q26) is the **ANDROID** nav cell: tap
-for full screen (`IsAndroidFull`, all six bands), double tap for the stage (`AndroidStageOccupant`, the
-nav goes back to where it was), hold for a menu of **ANDROID** / **ANDROID AUTOMOTIVE** / STOP
-(`androidFlavour` saved). Gestures: `Shell/NavPress` feeding Core's `PressGesture`; placement
-`AndroidView`; AVDs `AndroidChoice.List/Pick` (read from the emulator's files). `AndroidViewModel`
-owns one `EmulatorSession` (`src/DashDeck.Emulator`: start or join an AVD, one at a time, boot, frames
-RGB888 → `WriteableBitmap` Bgr32 dropped not queued, touch as fractions → device pixels on one ordered
-`streamInputEvent` stream, `setGps` on the beat, `LetGoAsync` on exit so the snapshot saves). Frames are
-asked at the panel's own pixel size (`AndroidPanel` → `Resize`); a regular tablet is turned to the
-region's shape (`AndroidChoice.TurnFor`, `setPhysicalModel` ROTATION; frames carry `QuarterTurns` and
-touch is turned back by `ToDevice`), Automotive never; `EmulatorResources` gives `-memory 4096 -cores 4`
-on a 16 GB tablet. The emulator starts at the stage's size (`-skin 1824x1272`); any other region shape
-is an `AndroidFit` — `wm size`/`wm density` over the SDK's ADB (`Emulator/Adb`, `AdbAnswers.Done`),
-frames cropped to it, touch through `ToFrame`, one dp = one dash unit (ADR-0075 addendum). Started on first sight and kept running; frames only
-while a panel is attached. The gRPC client is tested against a fake emulator served in-process
-(`EmulatorClientTests`, `Grpc.AspNetCore.Server`). Not yet: Automotive vehicle data over ADB, audio.
-
-**The measuring that came first:** the Android Emulator started
-hidden by DashDeck (`-qt-hide-window`, gRPC on localhost with `-grpc-use-token`, port and token from the
-emulator's `pid_<pid>.ini`), frames from `streamScreenshot` drawn on the stage and touch sent back with
-`sendTouch`; both flavours as `android` launcher entries naming an AVD (`AvdInfo.Flavour` from the image's
-`tag.id`). **Measure first:** `src/DashDeck.AndroidProbe` (`AndroidProbe.exe` in `AndroidProbe\`) starts an
-AVD the same way and reports boot, fps idle and dragging, touch delay, memory, GPS and audio. Pure parts in
-`DashDeck.Core.Emulation` (`AndroidSdk`, `AvdInfo`, `EmulatorCommand`, `EmulatorDiscovery`, `FrameMeter`).
-The gRPC definition is vendored (`Protos/emulator_controller.proto`, Apache-2.0, unchanged); gRPC packages
-are the probe's only, not the dash's. DashDeck installs no SDK, image or driver (WHPX, never AEHD). No
-emulator runs in the cloud session (no KVM, Google's SDK host blocked) — a fake gRPC server in the
-scratchpad is how the probe's client was checked (not kept); the first real run is on the Surface.
+**Android on the dash** (ADR-0076, **proposed**; ADR-0075's emulator **removed** — measured at 16 frames in /
+9 drawn / CPU 85 % on the Surface, don't rebuild it without new reasons) is the **ANDROID** nav cell mirroring a
+**real phone** with the owner's own **scrcpy** (never shipped): tap for full screen (`IsAndroidFull`), double
+tap for the stage (`AndroidStageOccupant`), hold for the menu — ANDROID PHONE (connect), CONNECT WIRELESSLY,
+PICTURE (SHARP/BALANCED/FAST = 1920/1440/960 long side, `androidPicture`), STOP. Gestures `Shell/NavPress` +
+Core's `PressGesture`; placement `AndroidView`. `src/DashDeck.Phone`: `ScrcpyInstall.Find` (setting
+`androidScrcpy`, PATH, winget/scoop/choco, unzipped folders; version from `scrcpy --version`), `PhoneSession`
+(push `scrcpy-server`, forward tunnel, server started with the **installed version** — the protocol is
+internal and version-specific: check `doc/develop.md` at that tag before touching it; video socket opens with a
+dummy byte, then control), `PhoneFinder` (wireless). Core `DashDeck.Core.Phone`: `ScrcpyVideo` (<4.0: size once,
+then from each SPS via `H264Sps`; ≥4.0: session packets), `ScrcpyControl` (touch/key/display power/reset bytes,
+same in all versions, checked against scrcpy's tests), `AdbDevice`, `AndroidFit` (region shape, one dp = one
+dash unit, `wm size`/`wm density`, no turn, no crop — scrcpy mirrors the logical display), `PhoneShell` (night
+via `cmd uimode`, put-back, the **watchdog** left on the phone that resets wm size if the mirror ends
+unannounced — bracketed pgrep pattern, `setsid`), `AndroidPicture`, `RollingRate`. Video decoded by ADR-0057's
+`ProjectionVideo` (LibVLC); dropped while hidden, `Reset` asked when shown. **Wireless** = `adb tcpip 5555`
+switched on once by cable, address remembered (`androidPhoneAddress`), and the tablet's gateways tried (on the
+phone's hotspot the gateway is the phone); not Android 11 Wireless debugging (off while the phone is the
+hotspot); forgotten when the phone restarts. One ADB: scrcpy's. A dropped mirror is retried every 10 s while
+shown. No audio yet (scrcpy forwards from Android 11 — next, with ducking); no driving lock on a phone. Checked
+in the cloud only against a fake adb + fake scrcpy server in the scratchpad (not kept).
 
 ## Things that are easy to get wrong here
 

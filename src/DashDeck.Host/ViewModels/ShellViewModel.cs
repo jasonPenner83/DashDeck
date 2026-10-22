@@ -387,17 +387,21 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Map = map;
         Map.PlacementChanged += _ => OnMapMoved();
 
-        // Android on the dash (ADR-0075): the ANDROID cell's emulator, in the flavour last chosen.
+        // Android on the dash (ADR-0075, ADR-0076): the ANDROID cell, a real phone mirrored with scrcpy.
         // Built with the map, before anything touches the stage, for the same reason: handing it to
         // the stage goes through SetStage, and AfterStageChange reconciles its placement.
         Shell.StartupTrace.Phase("shell: android");
         Android = new AndroidViewModel(
-            location,
-            DashDeck.Core.Emulation.AndroidChoice.Parse(saved.AndroidFlavour),
-            flavour => SettingsStore.Update(stored => stored with { AndroidFlavour = flavour.ToString() }),
-            clock);
+            clock,
+            new AndroidFeeds(
+                () => _theme.IsNight,
+                saved.AndroidPicture,
+                picture => SettingsStore.Update(stored => stored with { AndroidPicture = picture }),
+                string.IsNullOrWhiteSpace(saved.AndroidScrcpy) ? null : saved.AndroidScrcpy,
+                saved.AndroidPhoneAddress,
+                address => SettingsStore.Update(stored => stored with { AndroidPhoneAddress = address })));
         Android.PlacementChanged += _ => OnAndroidMoved();
-        Android.FlavourChosen += () => AndroidTap();
+        Android.ShowRequested += () => AndroidTap();
 
         // The map is drawn by a browser that has never heard of the theme's resources, so it is
         // handed the palette instead — once now, and again whenever one is applied (ADR-0064).
@@ -702,7 +706,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         IsMapsActive && Map.IsOnStage && !IsCardEditorOpen && !IsComponentDetailOpen;
 
     /// <summary>
-    /// Android on the dash (ADR-0075): full screen from the nav's ANDROID cell, or on the stage.
+    /// Android on the dash (ADR-0075, ADR-0076): a phone, full screen from the nav's ANDROID cell, or on the stage.
     /// </summary>
     public AndroidViewModel Android { get; }
 
@@ -758,7 +762,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         }
     }
 
-    /// <summary>A hold: the menu of flavours — Android or Android Automotive.</summary>
+    /// <summary>A hold: the phone's menu — how it is reached, its picture size, stop.</summary>
     [RelayCommand]
     private void AndroidHold() => Android.OpenMenu();
 

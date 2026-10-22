@@ -190,11 +190,25 @@ public sealed record UserSettings
     public bool MapRange { get; init; } = true;
 
     /// <summary>
-    /// Which Android the ANDROID cell opens: <c>Regular</c> or <c>Automotive</c> (ADR-0075). Chosen
-    /// by holding the cell.
+    /// How big a picture the phone sends (ADR-0076): <c>SHARP</c>, <c>BALANCED</c> or <c>FAST</c> —
+    /// 1920 on the long side, three quarters, or half, scaled to fill. Chosen in the hold menu.
     /// </summary>
-    [JsonPropertyName("androidFlavour")]
-    public string AndroidFlavour { get; init; } = "Regular";
+    [JsonPropertyName("androidPicture")]
+    public string AndroidPicture { get; init; } = "BALANCED";
+
+    /// <summary>
+    /// Where scrcpy is, for the ANDROID cell's phone (ADR-0076), when it is not found by itself — on <c>PATH</c>,
+    /// from winget, scoop or Chocolatey, or unzipped into Downloads. Empty to look by itself.
+    /// </summary>
+    [JsonPropertyName("androidScrcpy")]
+    public string AndroidScrcpy { get; init; } = "";
+
+    /// <summary>
+    /// Where the phone answered over the network (<c>192.168.1.23:5555</c>), remembered when it was
+    /// switched to wireless from the hold menu (ADR-0076). Empty until then.
+    /// </summary>
+    [JsonPropertyName("androidPhoneAddress")]
+    public string AndroidPhoneAddress { get; init; } = "";
 }
 
 /// <summary>
