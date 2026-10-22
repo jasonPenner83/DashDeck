@@ -52,9 +52,11 @@ public class AndroidStageTests
         [Path.Combine(AvdHome, "Broken.ini")] = "path=/missing.avd\n",
     };
 
+    // Folders compared as full paths: on Windows, Path.Combine("/avd", "Car.ini") is "/avd\Car.ini",
+    // whose folder comes back as "\avd" — the same folder, spelled differently.
     private static IReadOnlyList<AvdInfo> List() => AndroidChoice.List(
         AvdHome,
-        folder => Files.Keys.Where(k => Path.GetDirectoryName(k) == folder),
+        folder => Files.Keys.Where(k => Path.GetFullPath(Path.GetDirectoryName(k)!) == Path.GetFullPath(folder)),
         path => Files.GetValueOrDefault(path));
 
     [Fact]
