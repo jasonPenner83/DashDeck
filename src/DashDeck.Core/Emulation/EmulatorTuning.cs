@@ -135,6 +135,25 @@ public static partial class EmulatorGpu
     }
 
     /// <summary>
+    /// How the running emulator draws, from its own configuration (<c>getStatus</c>'s platform
+    /// config): <c>hw.gpu.mode</c> as it resolved it — <c>host</c>, or a software mode marked slow —
+    /// or null when it does not say.
+    /// </summary>
+    public static string? FromConfig(IReadOnlyDictionary<string, string> config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+
+        if (config.GetValueOrDefault("hw.gpu.enabled") is "no" or "false")
+        {
+            return "no GPU (software — slow)";
+        }
+
+        return config.GetValueOrDefault("hw.gpu.mode") is { Length: > 0 } mode
+            ? IsSoftware(mode) ? mode + " (software — slow)" : mode
+            : null;
+    }
+
+    /// <summary>
     /// The shell command that asks Android what draws it: SurfaceFlinger's <c>GLES:</c> line, which
     /// names the GPU behind the emulator's translator — however the emulator was started, and even
     /// when it said nothing about it.

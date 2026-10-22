@@ -69,6 +69,15 @@ public class EmulatorTuningTests
     }
 
     [Fact]
+    public void How_the_running_emulator_draws_is_read_from_its_own_configuration()
+    {
+        Assert.Equal("host", EmulatorGpu.FromConfig(new Dictionary<string, string> { ["hw.gpu.enabled"] = "yes", ["hw.gpu.mode"] = "host" }));
+        Assert.Equal("swiftshader_indirect (software — slow)", EmulatorGpu.FromConfig(new Dictionary<string, string> { ["hw.gpu.mode"] = "swiftshader_indirect" }));
+        Assert.Equal("no GPU (software — slow)", EmulatorGpu.FromConfig(new Dictionary<string, string> { ["hw.gpu.enabled"] = "no", ["hw.gpu.mode"] = "host" }));
+        Assert.Null(EmulatorGpu.FromConfig(new Dictionary<string, string>()));
+    }
+
+    [Fact]
     public void What_draws_android_is_read_from_android_itself()
     {
         Assert.Equal(

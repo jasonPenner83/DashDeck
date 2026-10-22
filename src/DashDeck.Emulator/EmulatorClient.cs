@@ -20,6 +20,19 @@ namespace DashDeck.Emulator;
 /// </param>
 public readonly record struct EmulatorFrame(ReadOnlyMemory<byte> Rgb, int Width, int Height, uint Sequence, int QuarterTurns = 0);
 
+/// <summary>What the running emulator says it is (ADR-0075 addendum).</summary>
+/// <param name="Config">Its hardware settings as it resolved them — <c>hw.gpu.mode</c> and the rest.</param>
+/// <param name="Cores">The processor cores Android has.</param>
+/// <param name="RamBytes">The memory Android has.</param>
+/// <param name="Hypervisor">What runs it: <c>Whpx</c> on Windows.</param>
+public sealed record EmulatorMachine(IReadOnlyDictionary<string, string> Config, int Cores, long RamBytes, string Hypervisor)
+{
+    /// <summary>One line for the hold menu: <c>6 cores · 4 GB</c>.</summary>
+    public string Describe() => Cores > 0
+        ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{Cores} cores · {RamBytes / (1024.0 * 1024 * 1024):0.#} GB")
+        : "";
+}
+
 /// <summary>The emulator refused a call: the token was missing or wrong (ADR-0075).</summary>
 public sealed class EmulatorRefusedException(string message) : Exception(message);
 
@@ -254,6 +267,40 @@ public sealed class EmulatorClient : IDisposable
         }
         catch (RpcException)
         {
+        }
+    }
+
+    /// <summary>
+    /// The running emulator's own configuration: its hardware settings as it resolved them (the GPU
+    /// mode among them), and the processor cores and memory Android really has. Null when it would
+    /// not say.
+    /// </summary>
+    public async Task<EmulatorMachine?> MachineAsync(CancellationToken ct)
+    {
+        try
+        {
+            var status = await _client.getStatusAsync(new Empty(), _headers, DateTime.UtcNow.AddSeconds(5), ct).ConfigureAwait(false);
+
+            var config = new Dictionary<string, string>(status.PlatformConfig);
+
+            // The older list, kept by the emulator beside the map that replaced it: read only for what
+            // the map does not have.
+#pragma warning disable CS0612
+            foreach (var entry in status.HardwareConfig?.Entry ?? [])
+#pragma warning restore CS0612
+            {
+                config.TryAdd(entry.Key, entry.Value);
+            }
+
+            return new EmulatorMachine(
+                config,
+                status.VmConfig?.NumberOfCpuCores ?? 0,
+                status.VmConfig?.RamSizeBytes ?? 0,
+                status.VmConfig?.HypervisorType.ToString() ?? "");
+        }
+        catch (RpcException)
+        {
+            return null;
         }
     }
 

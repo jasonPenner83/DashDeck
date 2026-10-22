@@ -86,7 +86,16 @@ public sealed class EmulatorSession : IAsyncDisposable
     /// What draws Android: as Android itself says (<see cref="ReadRendererAsync"/>), else as the
     /// emulator said when it started, else null.
     /// </summary>
-    public string? Renderer => GuestRenderer ?? (_output is { } output ? EmulatorGpu.Renderer(output()) : null);
+    public string? Renderer =>
+        GuestRenderer
+        ?? (Machine is { } machine ? EmulatorGpu.FromConfig(machine.Config) : null)
+        ?? (_output is { } output ? EmulatorGpu.Renderer(output()) : null);
+
+    /// <summary>What the running emulator says it is — GPU mode, cores, memory — or null before it is running.</summary>
+    public EmulatorMachine? Machine { get; private set; }
+
+    /// <summary>What came back when Android was asked what draws it and did not say, or null.</summary>
+    public string? RendererProblem { get; private set; }
 
     /// <summary>What Android said draws it (<see cref="EmulatorGpu.FromGles"/>), or null until it has.</summary>
     public string? GuestRenderer { get; private set; }
@@ -185,6 +194,7 @@ public sealed class EmulatorSession : IAsyncDisposable
             }
 
             (DeviceWidth, DeviceHeight) = await _client.ScreenSizeAsync(ct).ConfigureAwait(false);
+            Machine = await _client.MachineAsync(ct).ConfigureAwait(false);
             BootTime = watch.Elapsed;
             Set(EmulatorState.Running, $"{Avd.Name} running ({DeviceWidth}×{DeviceHeight}, ready in {watch.Elapsed.TotalSeconds:0.0} s)");
         }
@@ -376,6 +386,11 @@ public sealed class EmulatorSession : IAsyncDisposable
             var (_, output) = await Adb.RunAsync(AndroidSdk.AdbPath(_sdk), ["-s", serial, "shell", EmulatorGpu.GlesProbe], TimeSpan.FromSeconds(15), _lifetime)
                 .ConfigureAwait(false);
             GuestRenderer = EmulatorGpu.FromGles(output);
+            RendererProblem = GuestRenderer is null
+                ? output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() is { } first
+                    ? first.Length > 80 ? first[..80] + "…" : first
+                    : "no GLES line"
+                : null;
         }
         catch (OperationCanceledException)
         {

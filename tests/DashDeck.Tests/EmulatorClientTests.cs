@@ -186,6 +186,21 @@ public sealed class EmulatorClientTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_emulator_says_how_it_draws_and_what_android_has()
+    {
+        using var client = new EmulatorClient(_port, Token);
+
+        var machine = (await client.MachineAsync(CancellationToken.None))!;
+
+        Assert.Equal("host", machine.Config["hw.gpu.mode"]);
+        Assert.Equal("6 cores · 4 GB", machine.Describe());
+        Assert.Equal("host", Core.Emulation.EmulatorGpu.FromConfig(machine.Config));
+
+        using var refused = new EmulatorClient(_port, "wrong");
+        Assert.Null(await refused.MachineAsync(CancellationToken.None));
+    }
+
+    [Fact]
     public async Task The_microphone_is_let_through_and_shut_off_again()
     {
         using var client = new EmulatorClient(_port, Token);
@@ -290,7 +305,15 @@ public sealed class EmulatorClientTests : IAsyncLifetime
         {
             Authorise(context);
             StatusCalls++;
-            return Task.FromResult(new EmulatorStatus { Version = "fake", Booted = StatusCalls >= BootAfterCalls });
+            var status = new EmulatorStatus
+            {
+                Version = "fake",
+                Booted = StatusCalls >= BootAfterCalls,
+                VmConfig = new VmConfiguration { NumberOfCpuCores = 6, RamSizeBytes = 4L << 30, HypervisorType = VmConfiguration.Types.VmHypervisorType.Whpx },
+            };
+            status.PlatformConfig.Add("hw.gpu.mode", "host");
+            status.PlatformConfig.Add("hw.gpu.enabled", "yes");
+            return Task.FromResult(status);
         }
 
         public override Task<Image> getScreenshot(ImageFormat request, ServerCallContext context)

@@ -373,6 +373,17 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
             parts.Add($"asked for -gpu {mode}, not yet reported");
         }
 
+        // Android's own answer is the best one; when it has not given it, say what it gave instead.
+        if (session.GuestRenderer is null && session.RendererProblem is { } unanswered)
+        {
+            parts.Add($"Android said: {unanswered}");
+        }
+
+        if (session.Machine?.Describe() is { Length: > 0 } machine)
+        {
+            parts.Add(machine);
+        }
+
         if (session.GpuFellBack)
         {
             parts.Add("GPU refused, started the emulator's way");

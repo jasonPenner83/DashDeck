@@ -1446,11 +1446,14 @@ dragging, touch under 150 ms, and memory that leaves the dash comfortable.
    - open a web page or the Play Store. **Expect:** it loads;
    - first, if Android is already running from an earlier build, hold ANDROID and tap **STOP
      ANDROID**, so it starts again with the GPU (a running emulator is joined as it is);
-   - wait until Android's home screen is up, then hold ANDROID. **Expect:** *drawn by Intel(R)
-     Iris(R) Plus Graphics*, as Android itself reports it, where an earlier build said *drawn by sw*.
-     For the first few seconds it may say *asked for -gpu host, not yet reported*: close the menu
-     and hold again. *software — slow*, or *GPU refused, started the emulator's way*, means it is
-     still drawing without the GPU. Note the line;
+   - wait until Android's home screen is up, then hold ANDROID. **Expect:**
+     - *drawn by host*, from the emulator's own configuration, or *drawn by Intel(R) Iris(R) Plus
+       Graphics* once Android itself has answered. An earlier build said *drawn by sw*;
+     - *6 cores · 4 GB*: what Android really has.
+
+     *software — slow*, or *GPU refused, started the emulator's way*, means it is still drawing
+     without the GPU. *Android said: …* is what came back when Android was asked and did not answer.
+     Note the whole line;
    - a black or flickering picture, or Android stopping, means the GPU driver does not cope. Set
      `"androidGpu": "emulator"` in the settings file to go back, and note what you saw;
    - scroll a long list in Settings, and open and close apps. **Expect:** it is noticeably smoother
