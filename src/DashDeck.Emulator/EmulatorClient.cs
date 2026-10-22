@@ -292,15 +292,35 @@ public sealed class EmulatorClient : IDisposable
                 config.TryAdd(entry.Key, entry.Value);
             }
 
-            return new EmulatorMachine(
-                config,
-                status.VmConfig?.NumberOfCpuCores ?? 0,
-                status.VmConfig?.RamSizeBytes ?? 0,
-                status.VmConfig?.HypervisorType.ToString() ?? "");
+            // The virtual machine's own figures when it gives them; the hardware settings' otherwise.
+            var cores = status.VmConfig?.NumberOfCpuCores is > 0 and var c ? c
+                : int.TryParse(config.GetValueOrDefault("hw.cpu.ncore"), out var n) ? n : 0;
+            var ram = status.VmConfig?.RamSizeBytes is > 0 and var r ? r
+                : long.TryParse(config.GetValueOrDefault("hw.ramSize"), out var mb) ? mb * 1024 * 1024 : 0;
+
+            return new EmulatorMachine(config, cores, ram, status.VmConfig?.HypervisorType.ToString() ?? "");
         }
         catch (RpcException)
         {
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Press one of Android's own keys — back, home, recent apps — down and up. False when the
+    /// emulator would not.
+    /// </summary>
+    public async Task<bool> PressKeyAsync(string key)
+    {
+        try
+        {
+            await _client.sendKeyAsync(new KeyboardEvent { EventType = KeyboardEvent.Types.KeyEventType.Keypress, Key = key }, _headers)
+                .ConfigureAwait(false);
+            return true;
+        }
+        catch (RpcException)
+        {
+            return false;
         }
     }
 

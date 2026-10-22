@@ -401,6 +401,10 @@ public sealed class EmulatorSession : IAsyncDisposable
         }
     }
 
+    /// <summary>Press one of Android's own keys: back, home, or recent apps.</summary>
+    public Task<bool> PressAsync(AndroidKey key) =>
+        State == EmulatorState.Running && _client is { } client ? client.PressKeyAsync(AndroidKeys.Name(key)) : Task.FromResult(false);
+
     /// <summary>Let Android hear the tablet's microphone, or not.</summary>
     public Task<bool> SetMicrophoneAsync(bool hear) =>
         State == EmulatorState.Running && _client is { } client ? client.SetMicrophoneAsync(hear) : Task.FromResult(false);

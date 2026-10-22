@@ -33,7 +33,8 @@ public partial class AndroidPanel : UserControl
 
         Loaded += (_, _) => Attach(DataContext as AndroidViewModel);
         Unloaded += (_, _) => Attach(null);
-        SizeChanged += (_, _) => ReportSize();
+        SizeChanged += (_, _) => PlaceKeys();
+        ScreenHost.SizeChanged += (_, _) => ReportSize();
         DataContextChanged += (_, _) =>
         {
             if (IsLoaded)
@@ -43,38 +44,38 @@ public partial class AndroidPanel : UserControl
         };
 
         // Touch first and handled, so it is not also promoted to the mouse and sent twice; the mouse
-        // for the desk.
-        PreviewTouchDown += (_, e) =>
+        // for the desk. Only on the picture's own area: a press on the key bar is the bar's.
+        ScreenHost.PreviewTouchDown += (_, e) =>
         {
             Send(e.GetTouchPoint(Screen).Position, down: true);
             e.Handled = true;
         };
-        PreviewTouchMove += (_, e) =>
+        ScreenHost.PreviewTouchMove += (_, e) =>
         {
             Send(e.GetTouchPoint(Screen).Position, down: true);
             e.Handled = true;
         };
-        PreviewTouchUp += (_, e) =>
+        ScreenHost.PreviewTouchUp += (_, e) =>
         {
             Send(e.GetTouchPoint(Screen).Position, down: false);
             e.Handled = true;
         };
 
-        PreviewMouseLeftButtonDown += (_, e) =>
+        ScreenHost.PreviewMouseLeftButtonDown += (_, e) =>
         {
             if (e.StylusDevice is null)
             {
                 Send(e.GetPosition(Screen), down: true);
             }
         };
-        PreviewMouseMove += (_, e) =>
+        ScreenHost.PreviewMouseMove += (_, e) =>
         {
             if (e.StylusDevice is null && e.LeftButton is MouseButtonState.Pressed)
             {
                 Send(e.GetPosition(Screen), down: true);
             }
         };
-        PreviewMouseLeftButtonUp += (_, e) =>
+        ScreenHost.PreviewMouseLeftButtonUp += (_, e) =>
         {
             if (e.StylusDevice is null)
             {
@@ -96,15 +97,35 @@ public partial class AndroidPanel : UserControl
         _attached?.Attach();
     }
 
+    /// <summary>The picture's own area — the panel less the key bar — is what Android is fitted to.</summary>
     private void ReportSize()
     {
-        if (_attached is null || ActualWidth <= 0 || ActualHeight <= 0)
+        if (_attached is null || ScreenHost.ActualWidth <= 0 || ScreenHost.ActualHeight <= 0)
         {
             return;
         }
 
         var dpi = VisualTreeHelper.GetDpi(this);
-        _attached.Resize((int)Math.Round(ActualWidth * dpi.DpiScaleX), (int)Math.Round(ActualHeight * dpi.DpiScaleY), dpi.DpiScaleX);
+        _attached.Resize(
+            (int)Math.Round(ScreenHost.ActualWidth * dpi.DpiScaleX), (int)Math.Round(ScreenHost.ActualHeight * dpi.DpiScaleY), dpi.DpiScaleX);
+    }
+
+    /// <summary>
+    /// The key bar along the bottom of a tall panel, down the right of a wide one — the side the
+    /// picture can best spare.
+    /// </summary>
+    private void PlaceKeys()
+    {
+        const double bar = 64;
+        var wide = ActualWidth > ActualHeight;
+
+        Grid.SetRow(KeyBar, wide ? 0 : 1);
+        Grid.SetColumn(KeyBar, wide ? 1 : 0);
+        KeyRow.Height = new GridLength(wide ? 0 : bar);
+        KeyColumn.Width = new GridLength(wide ? bar : 0);
+        KeyBar.BorderThickness = wide ? new Thickness(1, 0, 0, 0) : new Thickness(0, 1, 0, 0);
+        KeyGrid.Rows = wide ? 0 : 1;
+        KeyGrid.Columns = wide ? 1 : 0;
     }
 
     private void Send(Point point, bool down)

@@ -673,7 +673,9 @@ drew in software on the Surface (`sw`), so the dash asks for `-gpu host` and fal
 choice if it will not start (`EmulatorGpu.Choose`; `androidGpu`: `auto` | `emulator` | a mode). What draws:
 Android's own `GLES` line (`dumpsys SurfaceFlinger | grep GLES` → `EmulatorGpu.FromGles`), else the running
 emulator's resolved `hw.gpu.mode` from `getStatus` platform config (`EmulatorClient.MachineAsync` →
-`EmulatorGpu.FromConfig`, with cores and RAM for the menu), else its start-up output. MMAP frames not done (untestable without an emulator). Started on first sight and kept running; frames only
+`EmulatorGpu.FromConfig`, with cores and RAM for the menu), else its start-up output. Keys: the panel draws its own bar (Back/Home/Recents, Automotive without
+Recents — `AndroidKeys.For`), bottom when tall and right when wide; `sendKey` with `GoBack`/`GoHome`/
+`AppSwitch`. Touch is taken only on `ScreenHost`, and `ScreenHost`'s size is what Android is fitted to. MMAP frames not done (untestable without an emulator). Started on first sight and kept running; frames only
 while a panel is attached. The gRPC client is tested against a fake emulator served in-process
 (`EmulatorClientTests`, `Grpc.AspNetCore.Server`). Not yet: Automotive vehicle data over ADB, audio.
 

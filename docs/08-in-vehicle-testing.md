@@ -1458,6 +1458,15 @@ dragging, touch under 150 ms, and memory that leaves the dash comfortable.
      `"androidGpu": "emulator"` in the settings file to go back, and note what you saw;
    - scroll a long list in Settings, and open and close apps. **Expect:** it is noticeably smoother
      than before. Note how it feels against the last build.
+0b. **The key bar.** Full screen, a bar along the bottom with **Back**, **Home** and **Recent apps**
+    (a square). Open Settings, go into a page, then:
+    - tap **Back**. **Expect:** one page back;
+    - tap **Home**. **Expect:** the home screen;
+    - tap the square. **Expect:** recent apps.
+
+    Double-tap ANDROID. **Expect:** on the stage the bar runs down the right side instead, and
+    Android still fills the rest with no black bars. With **ANDROID AUTOMOTIVE** only Back and Home
+    show.
 1. Hold ANDROID and choose **ANDROID AUTOMOTIVE**. Once it is running, hold ANDROID again.
    **Expect:**
    - under ANDROID AUTOMOTIVE, *car data live · 0 km/h*;

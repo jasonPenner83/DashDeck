@@ -335,4 +335,15 @@ The hold menu's line for the running flavour says whether it is working:
    it cannot be checked without a real emulator: frames through shared memory (`ImageTransport`
    `MMAP`), which would remove the gRPC copy altogether. It is next if this is not enough.
 
+6. **Android's own keys, on the dash.** The owner asked for on-screen Home and Back. The dash draws
+   its own key bar beside the picture, not Android's navigation: it works the same in either
+   flavour, whatever navigation Android is set to, and is sized for a finger in a moving truck.
+   - **Back, Home and Recent apps** for a tablet; **Back and Home** for Automotive, whose own bar
+     moves between apps (`AndroidKeys.For`).
+   - The keys are sent with `sendKey` by the names Android Studio's toolbar uses (`GoBack`, `GoHome`,
+     `AppSwitch`).
+   - The bar goes along the bottom of a tall panel (full screen) and down the right of a wide one
+     (the stage), the side the picture can best spare. The picture's own area, without the bar, is
+     what Android is fitted to, so Android's shape still matches.
+
 Still open: Android's sound ducking under directions, and steering-wheel keys.

@@ -158,7 +158,8 @@ public static partial class EmulatorGpu
     /// names the GPU behind the emulator's translator — however the emulator was started, and even
     /// when it said nothing about it.
     /// </summary>
-    public const string GlesProbe = "dumpsys SurfaceFlinger | grep -m 1 GLES";
+    /// <remarks>The colon matters: the dump has a <c>RE GLES</c> heading before the line itself.</remarks>
+    public const string GlesProbe = "dumpsys SurfaceFlinger | grep -m 1 'GLES:'";
 
     /// <summary>
     /// What draws Android, from <see cref="GlesProbe"/>'s answer — the GPU's own name, or the software

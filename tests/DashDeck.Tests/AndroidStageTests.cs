@@ -144,6 +144,14 @@ public class AndroidStageTests
         Assert.Equal((memoryMb, cores), EmulatorResources.For(memory, processors));
 
     [Fact]
+    public void Each_flavour_has_its_own_keys_by_the_emulator_s_names()
+    {
+        Assert.Equal([AndroidKey.Back, AndroidKey.Home, AndroidKey.Recents], AndroidKeys.For(AndroidFlavour.Regular));
+        Assert.Equal([AndroidKey.Back, AndroidKey.Home], AndroidKeys.For(AndroidFlavour.Automotive));
+        Assert.Equal(["GoBack", "GoHome", "AppSwitch"], new[] { AndroidKey.Back, AndroidKey.Home, AndroidKey.Recents }.Select(AndroidKeys.Name));
+    }
+
+    [Fact]
     public void Dns_and_the_gpu_mode_go_on_the_command_line_only_when_given()
     {
         var arguments = EmulatorCommand.Arguments("Tab", 8554, dnsServers: ["192.168.1.1", "1.1.1.1"], gpu: "host");

@@ -123,7 +123,15 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     public bool IsOnStage => View.IsOnStage;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRecents))]
     private AndroidFlavour _flavour;
+
+    /// <summary>True when the flavour has a recent-apps key (<see cref="AndroidKeys.For"/>).</summary>
+    public bool HasRecents => AndroidKeys.For(Flavour).Contains(AndroidKey.Recents);
+
+    /// <summary>One of Android's own keys, from the key bar beside its picture.</summary>
+    [RelayCommand]
+    private void Press(AndroidKey key) => _ = _session?.PressAsync(key);
 
     /// <summary>The emulated screen, or null before the first frame.</summary>
     [ObservableProperty]

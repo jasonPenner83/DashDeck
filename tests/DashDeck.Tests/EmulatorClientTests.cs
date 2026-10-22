@@ -201,6 +201,18 @@ public sealed class EmulatorClientTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Back_and_home_are_pressed_by_the_names_android_studio_uses()
+    {
+        using var client = new EmulatorClient(_port, Token);
+
+        Assert.True(await client.PressKeyAsync(Core.Emulation.AndroidKeys.Name(Core.Emulation.AndroidKey.Back)));
+        Assert.True(await client.PressKeyAsync(Core.Emulation.AndroidKeys.Name(Core.Emulation.AndroidKey.Home)));
+
+        Assert.Equal(["GoBack", "GoHome"], _fake.Keys);
+        Assert.All(_fake.KeyTypes, t => Assert.Equal(KeyboardEvent.Types.KeyEventType.Keypress, t));
+    }
+
+    [Fact]
     public async Task The_microphone_is_let_through_and_shut_off_again()
     {
         using var client = new EmulatorClient(_port, Token);
@@ -266,6 +278,18 @@ public sealed class EmulatorClientTests : IAsyncLifetime
         public PhysicalModelValue? Physical { get; private set; }
 
         public bool? Microphone { get; private set; }
+
+        public List<string> Keys { get; } = [];
+
+        public List<KeyboardEvent.Types.KeyEventType> KeyTypes { get; } = [];
+
+        public override Task<Empty> sendKey(KeyboardEvent request, ServerCallContext context)
+        {
+            Authorise(context);
+            Keys.Add(request.Key);
+            KeyTypes.Add(request.EventType);
+            return Task.FromResult(new Empty());
+        }
 
         /// <summary>The touches, once there are <paramref name="count"/> of them — they come on a stream, not at once.</summary>
         public async Task<List<(int X, int Y, int Pressure)>> TouchesWhen(int count)

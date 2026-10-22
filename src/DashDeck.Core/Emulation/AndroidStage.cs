@@ -216,6 +216,36 @@ public static class AndroidChoice
             : avd.Name;
 }
 
+/// <summary>Android's own keys, as the dash's key bar presses them (ADR-0075 addendum).</summary>
+public enum AndroidKey
+{
+    Back,
+    Home,
+    Recents,
+}
+
+/// <summary>What the emulator calls each key, and which flavour has it.</summary>
+public static class AndroidKeys
+{
+    /// <summary>
+    /// The emulator's name for a key — the W3C key value it translates, as Android Studio's own
+    /// toolbar sends them.
+    /// </summary>
+    public static string Name(AndroidKey key) => key switch
+    {
+        AndroidKey.Back => "GoBack",
+        AndroidKey.Home => "GoHome",
+        AndroidKey.Recents => "AppSwitch",
+        _ => throw new ArgumentOutOfRangeException(nameof(key)),
+    };
+
+    /// <summary>
+    /// The keys a flavour has: Automotive has no recent apps — its own bar is the way between them.
+    /// </summary>
+    public static IReadOnlyList<AndroidKey> For(AndroidFlavour flavour) =>
+        flavour == AndroidFlavour.Automotive ? [AndroidKey.Back, AndroidKey.Home] : [AndroidKey.Back, AndroidKey.Home, AndroidKey.Recents];
+}
+
 /// <summary>How much of the tablet to give the emulator (ADR-0075).</summary>
 public static class EmulatorResources
 {
