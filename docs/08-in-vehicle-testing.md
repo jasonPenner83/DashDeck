@@ -1297,6 +1297,63 @@ more than 30 s; a picture that is stretched or tapped in the wrong place (send a
 stuttering or seconds late; the picture freezing (RECONNECT from the three-dot menu, and tell me
 when it happened).
 
+## Android on the stage — measuring it first (ADR-0075)
+
+Before any of this is built into the dash, find out whether the Surface can run Android as its own
+device fast enough. This is done at a desk, plugged in. The truck is not needed.
+
+**You need:**
+- the Surface, on mains power;
+- a dash build with `AndroidProbe\` in its folder (any release after this branch merges);
+- about 15 GB free for Android Studio and two system images.
+
+**Set up, once:**
+1. Turn on Windows' hypervisor platform: **Settings ▸ System ▸ Optional features ▸ More Windows
+   features**, tick **Windows Hypervisor Platform**, OK, restart. This is a Windows feature, not a
+   driver.
+2. Install [Android Studio](https://developer.android.com/studio). In **SDK Manager ▸ SDK Tools**,
+   make sure **Android Emulator** is installed. Do not install the *Android Emulator hypervisor
+   driver*: it is a driver, and the Windows feature does the same job.
+3. In **Device Manager**, make two virtual devices, both **x86_64**:
+   - **Automotive:** category *Automotive*, e.g. *Automotive (1408p landscape)*, with an image whose
+     name says **Automotive with Google Play**;
+   - **Regular:** category *Tablet*, e.g. *Pixel Tablet*, with a **Google Play** image.
+
+   Start each once from Android Studio, let it finish booting, and close it. That makes the
+   quick-boot snapshot the probe will start from.
+4. Close Android Studio.
+
+**Measure:**
+1. Start DashDeck as usual and leave it running, so the numbers include the dash.
+2. Open a terminal in the dash's folder and run `AndroidProbe\AndroidProbe.exe`. **Expect:**
+   - the SDK found;
+   - the virtualisation check saying the hypervisor is usable (*WHPX*);
+   - both devices listed, one marked **Automotive** and one **regular**.
+3. Run `AndroidProbe\AndroidProbe.exe --avd <the Automotive name>`. Nothing appears on screen; it
+   runs hidden, which is the point. **Expect, within a couple of minutes:**
+   - *Discovery file* with `grpc.port` and a hidden `grpc.token`;
+   - *Booted: N s*;
+   - *Frames … dragging: N fps*;
+   - *Touch to next frame: N ms*;
+   - *Emulator processes: N MB*;
+   - *Audio: …*.
+4. Run the same line again. The second run starts from the snapshot, so **boot time is the one that
+   counts**.
+5. Repeat steps 3 and 4 with the regular device.
+6. Send me the four reports from `%LOCALAPPDATA%\DashDeck\androidprobe\`. Each has a `.png` beside
+   it, the screen as the stage would show it. Look at it first: if it shows anything personal, leave
+   it out.
+
+**What decides it** (ADR-0075's table): boot under 15 s from the snapshot, 20 fps or more while
+dragging, touch under 150 ms, and memory that leaves the dash comfortable.
+
+**A failure looks like:**
+- *virtualisation* saying no hypervisor: step 1 did not take, or virtualisation is off in the
+  Surface's UEFI;
+- *gRPC REFUSED*: send the report, which shows the discovery file the emulator wrote;
+- *NOT BOOTED* or *THE EMULATOR EXITED*: send the report, which includes the emulator's own warnings;
+- the dash itself stuttering while the probe runs. Note when it did.
+
 ## The audio delay and the video sync offset — parked 2026-10-15
 
 Both walkthroughs that were here are gone with the feature. The delay measurement, the
