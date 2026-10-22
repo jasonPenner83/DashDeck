@@ -156,7 +156,10 @@ public static class EmulatorCommand
     /// A screen size for this run only, <c>1824x1272</c> — the stage — or null for the AVD's own. How a
     /// tablet image is tried at the stage's size without making another AVD.
     /// </param>
-    public static IReadOnlyList<string> Arguments(string avd, int grpcPort, bool noWindow = false, string? skin = null)
+    /// <param name="memoryMb">Memory for the guest this run, or null for the AVD's own (<see cref="EmulatorResources"/>).</param>
+    /// <param name="cores">Processor cores for the guest this run, or null for the AVD's own.</param>
+    public static IReadOnlyList<string> Arguments(
+        string avd, int grpcPort, bool noWindow = false, string? skin = null, int? memoryMb = null, int? cores = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(avd);
         ArgumentOutOfRangeException.ThrowIfLessThan(grpcPort, 1024);
@@ -175,6 +178,8 @@ public static class EmulatorCommand
             "-grpc-use-token",
             "-no-boot-anim",
             .. skin is null ? Array.Empty<string>() : ["-skin", skin],
+            .. memoryMb is { } memory ? ["-memory", memory.ToString(CultureInfo.InvariantCulture)] : Array.Empty<string>(),
+            .. cores is { } count ? ["-cores", count.ToString(CultureInfo.InvariantCulture)] : Array.Empty<string>(),
         ];
     }
 
@@ -198,6 +203,17 @@ public static class AdbAnswers
         && (output.Contains("Starting: Intent", StringComparison.Ordinal)
             || output.Contains("Activity not started, intent has been delivered", StringComparison.Ordinal))
         && !output.Contains("Error:", StringComparison.Ordinal);
+
+    /// <summary>
+    /// True when a shell command such as <c>wm size</c> was done: it exited cleanly and ADB printed no
+    /// failure of its own — <c>adb.exe: device offline</c>, <c>error: device not found</c> — nor Android
+    /// an exception. Those commands print nothing when they work.
+    /// </summary>
+    public static bool Done(int exitCode, string output) =>
+        exitCode == 0
+        && !(output ?? "").Contains("adb.exe:", StringComparison.Ordinal)
+        && !(output ?? "").Contains("error:", StringComparison.OrdinalIgnoreCase)
+        && !(output ?? "").Contains("Exception", StringComparison.Ordinal);
 
     /// <summary>What <c>adb get-state</c> said: <c>device</c> when it can be used, or why not.</summary>
     public static string State(string output)

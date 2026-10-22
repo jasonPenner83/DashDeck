@@ -1378,7 +1378,8 @@ dragging, touch under 150 ms, and memory that leaves the dash comfortable.
    - **STOP ANDROID**;
    - a dot beside the one the cell opens now.
 3. Choose **ANDROID AUTOMOTIVE**. **Expect:**
-   - Android full screen, with the stage collapsed;
+   - Android full screen, with the stage collapsed, **filling the whole region with no black bars**
+     (after a moment: Android re-lays itself out once it is told the region's shape);
    - *STARTING ANDROID AUTOMOTIVE* for a few seconds;
    - then Automotive's home screen, about 10–20 s on a first start and a couple of seconds after
      that.
@@ -1392,17 +1393,40 @@ dragging, touch under 150 ms, and memory that leaves the dash comfortable.
 8. With GPS on, open **Maps** inside Automotive. **Expect:** the truck's own position.
 9. **Hold** ANDROID and choose **ANDROID**. **Expect:**
    - *STOPPING*, then *STARTING ANDROID*, then the tablet's home screen;
-   - letterboxed in the full-screen region, because a landscape tablet does not fill a portrait
-     region.
-10. **Hold** ANDROID, then **STOP ANDROID**. **Expect:** *ANDROID STOPPED*. Task Manager shows no
+   - the **first** start after updating takes longer (a cold boot): Android now gets 4 GB and four
+     cores on the 16 GB Surface, and the old snapshot was saved with 2 GB;
+   - the tablet **upright**, filling the tall full-screen region edge to edge, with **no black bars**
+     at the sides.
+     If the picture turns but Android's own screen stays sideways, Android's **auto-rotate** is off:
+     swipe down from the top inside Android and turn it on.
+10. **Touch the upright tablet.** Tap an icon near the **top-left corner**, then one near the
+    **bottom-right**. **Expect:** each opens the icon under your finger. Drag a list up and down.
+    **Expect:** it follows without the stalls and jumps of the first build. A touch that lands
+    mirrored, or a quarter-turn away, is the rotation mapping. Note which corner you touched and
+    what opened.
+11. **Double-tap ANDROID.** **Expect:** on the stage the tablet turns **on its side** and fills the
+    wide stage edge to edge, and touch still lands under your finger. Icons and text are the **same
+    size** as they were full screen; there is just more of them across. Tap ANDROID again: upright
+    once more.
+12. Try the same with **ANDROID AUTOMOTIVE**. **Expect:** it never turns, but it fills both: full
+    screen as a tall layout and on the stage as a wide one. Touch the corners in each.
+    Full screen is a little softer than the stage. That is expected, because it is drawn from fewer
+    pixels than it covers.
+13. **Hold** ANDROID, then **STOP ANDROID**. **Expect:** *ANDROID STOPPED*. Task Manager shows no
     `qemu-system-x86_64`.
-11. Close DashDeck with Android running, then start it again and tap ANDROID. **Expect:** a quick
+14. Close DashDeck with Android running, then start it again and tap ANDROID. **Expect:** a quick
     start, because the snapshot was saved on the way out.
 
 **A failure looks like:**
 - *NO ANDROID EMULATOR* when Android Studio is installed. Note where its SDK is.
 - *… DID NOT START*, with a reason. Send the reason.
-- Touches landing in the wrong place.
+- Touches landing in the wrong place, or only after a turn. Note the placement and the corner.
+- The tablet staying sideways full screen, or turning back and forth.
+- Black bars still beside the picture. That means Android could not be told the region's shape over
+  ADB, most likely because scrcpy's `adb` is running beside the SDK's. Close scrcpy and wait 15 s;
+  it is tried again. If the bars stay, note it.
+- To give an AVD back to Android Studio as it was: `adb shell wm size reset` and
+  `adb shell wm density reset`.
 - The dash stuttering while Android runs.
 - `qemu-system-x86_64` still running a minute after DashDeck closed.
 

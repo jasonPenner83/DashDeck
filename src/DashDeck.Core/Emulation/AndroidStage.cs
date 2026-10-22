@@ -151,14 +151,61 @@ public static class AndroidChoice
     /// the picture. The device's size is the emulator's, which is not the picture's: frames are asked
     /// for at the stage's size and scaled.
     /// </summary>
-    public static (int X, int Y)? ToDevice(double x, double y, int deviceWidth, int deviceHeight)
+    public static (int X, int Y)? ToDevice(double x, double y, int deviceWidth, int deviceHeight) =>
+        ToDevice(x, y, deviceWidth, deviceHeight, quarterTurns: 0);
+
+    /// <summary>
+    /// A point on a picture the emulator turned upright — after the device was rotated — in the
+    /// device's own, unturned pixels, which is what touch is given in. <paramref name="quarterTurns"/>
+    /// is the frame's own rotation (the emulator's <c>SkinRotation</c>, 0–3), and the mapping is the
+    /// one Android Studio's embedded emulator uses.
+    /// </summary>
+    /// <param name="deviceWidth">The device's width unturned — its native screen.</param>
+    public static (int X, int Y)? ToDevice(double x, double y, int deviceWidth, int deviceHeight, int quarterTurns)
     {
         if (deviceWidth <= 0 || deviceHeight <= 0 || double.IsNaN(x) || double.IsNaN(y) || x is < 0 or > 1 || y is < 0 or > 1)
         {
             return null;
         }
 
-        return ((int)Math.Min(deviceWidth - 1, Math.Round(x * deviceWidth)), (int)Math.Min(deviceHeight - 1, Math.Round(y * deviceHeight)));
+        var (u, v) = (((quarterTurns % 4) + 4) % 4) switch
+        {
+            1 => (1 - y, x),
+            2 => (1 - x, 1 - y),
+            3 => (y, 1 - x),
+            _ => (x, y),
+        };
+
+        return ((int)Math.Min(deviceWidth - 1, Math.Round(u * deviceWidth)), (int)Math.Min(deviceHeight - 1, Math.Round(v * deviceHeight)));
+    }
+
+    /// <summary>
+    /// How far to turn the device so it fills the region it is drawn in: 90° when the region's shape
+    /// is the other way round from the device's own screen, else 0 — or null when it is not to be
+    /// turned at all.
+    /// </summary>
+    /// <remarks>
+    /// Automotive is never turned: a car's screen does not rotate, its interface does not follow the
+    /// device's rotation, and the emulator would turn the picture of an interface that stayed put —
+    /// sideways. A region within a few percent of square is left as it is.
+    /// </remarks>
+    public static int? TurnFor(AndroidFlavour flavour, int deviceWidth, int deviceHeight, double regionWidth, double regionHeight)
+    {
+        if (flavour == AndroidFlavour.Automotive || deviceWidth <= 0 || deviceHeight <= 0 || !(regionWidth > 0) || !(regionHeight > 0))
+        {
+            return null;
+        }
+
+        var region = regionWidth / regionHeight;
+        if (Math.Abs(region - 1) < 0.05)
+        {
+            return null;
+        }
+
+        var deviceIsWide = deviceWidth >= deviceHeight;
+        var regionIsWide = region > 1;
+
+        return deviceIsWide == regionIsWide ? 0 : 90;
     }
 
     /// <summary>One line for the menu under a flavour: the AVD it would run, or why it cannot.</summary>
@@ -167,4 +214,24 @@ public static class AndroidChoice
         : avd.Width > 0
             ? string.Create(CultureInfo.InvariantCulture, $"{avd.Name} · {avd.Width}×{avd.Height}")
             : avd.Name;
+}
+
+/// <summary>How much of the tablet to give the emulator (ADR-0075).</summary>
+public static class EmulatorResources
+{
+    /// <summary>
+    /// Memory and processor cores for the emulator, or null to leave the AVD's own. A 16 GB tablet
+    /// gives Android 4 GB, where the AVDs made in Android Studio ask for 2 — and the AVDs on the
+    /// Surface stalled with a launcher that stopped responding. An 8 GB one keeps the AVD's own, to
+    /// leave the dash and Windows room. Cores: half the logical processors, two to four.
+    /// </summary>
+    public static (int? MemoryMb, int? Cores) For(long totalMemoryBytes, int logicalProcessors)
+    {
+        const long GiB = 1L << 30;
+
+        int? memory = totalMemoryBytes >= 14 * GiB ? 4096 : null;
+        int? cores = logicalProcessors >= 4 ? Math.Clamp(logicalProcessors / 2, 2, 4) : null;
+
+        return (memory, cores);
+    }
 }
