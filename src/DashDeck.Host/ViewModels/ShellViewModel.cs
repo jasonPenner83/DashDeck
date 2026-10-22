@@ -394,7 +394,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Android = new AndroidViewModel(
             location,
             DashDeck.Core.Emulation.AndroidChoice.Parse(saved.AndroidFlavour),
-            flavour => SettingsStore.Update(stored => stored with { AndroidFlavour = flavour.ToString() }));
+            flavour => SettingsStore.Update(stored => stored with { AndroidFlavour = flavour.ToString() }),
+            clock);
         Android.PlacementChanged += _ => OnAndroidMoved();
         Android.FlavourChosen += () => AndroidTap();
 

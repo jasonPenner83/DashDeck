@@ -5,6 +5,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DashDeck.Abstractions;
 using DashDeck.Core.Emulation;
 using DashDeck.Core.Location;
 using DashDeck.Emulator;
@@ -53,6 +54,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     private const int StageHeight = 1272;
 
     private readonly ILocationSource? _location;
+    private readonly IClock _clock;
     private readonly Action<AndroidFlavour> _remember;
     private readonly Dispatcher _dispatcher;
     private EmulatorSession? _session;
@@ -66,14 +68,16 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     private int? _turned;
     private double _dpiScale = 2;
     private AndroidFit? _fitted;
-    private DateTime _fitAgainAt = DateTime.MaxValue;
+    private DateTimeOffset _fitAgainAt = DateTimeOffset.MaxValue;
 
     /// <param name="location">The truck's GPS, handed to Android as its own; null when there is none.</param>
     /// <param name="flavour">Which Android the cell opens, as saved.</param>
     /// <param name="remember">Save a newly chosen flavour.</param>
-    public AndroidViewModel(ILocationSource? location, AndroidFlavour flavour, Action<AndroidFlavour> remember)
+    /// <param name="clock">For when to try a failed fit again.</param>
+    public AndroidViewModel(ILocationSource? location, AndroidFlavour flavour, Action<AndroidFlavour> remember, IClock clock)
     {
         _location = location;
+        _clock = clock;
         _flavour = flavour;
         _remember = remember;
         _dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
@@ -250,9 +254,9 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         }
 
         // A fit ADB could not make is tried again now and then, not every beat.
-        if (DateTime.UtcNow >= _fitAgainAt)
+        if (_clock.UtcNow >= _fitAgainAt)
         {
-            _fitAgainAt = DateTime.MaxValue;
+            _fitAgainAt = DateTimeOffset.MaxValue;
             _fitted = null;
             Shape();
         }
@@ -411,7 +415,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
 
         if (!made && ReferenceEquals(session, _session) && fit == _fitted && session.FitProblem is not null)
         {
-            _fitAgainAt = DateTime.UtcNow.AddSeconds(15);
+            _fitAgainAt = _clock.UtcNow.AddSeconds(15);
         }
     }
 
