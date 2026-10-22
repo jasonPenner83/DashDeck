@@ -123,7 +123,20 @@ had read that as Settings opening. Now success is Android's own *Starting: Inten
 is reconnected first, screenshots are kept after opening Settings and after dragging, and the same
 drag is measured again at half the frame size to tell copying frames out from Android drawing them.
 
-Next: the tablet again, and a tablet AVD shaped like the stage (1824×1272 at 320 dpi, which makes
+**Third round, the tablet at the stage's size** (`-skin 1824x1272`, warm): boot **1.3 s**, touch
+**22 ms**, **10.4 fps** dragging (69 MB/s of frames), **14.7 fps** with frames at half size, 2.7 GB,
+70 % of the processor. Halving the frame bought 40 %, so copying frames out costs something but
+Android drawing them is the limit — through OpenGL, because the Intel Iris Plus driver offers Vulkan
+1.3.215 and the emulator wants 1.3.240, and this chip's driver is Intel's legacy branch. Automotive's
+ADB stayed *offline* for the whole run, reconnected or not: the emulator ran two ADB programs (the
+SDK's and scrcpy's). That matters past the probe — ADB is how Automotive will be fed the truck's data.
+
+**Where it stands:** Automotive meets the bar — instant boot and touch, about 19 fps, about 1 GB.
+Regular Android works at 10–15 fps: fine for something that mostly sits still, poor for scrolling.
+Shared-memory frames (`ImageTransport` `MMAP`) and rendering below the stage's size are what is left
+to try for it.
+
+Earlier note: the tablet again, and a tablet AVD shaped like the stage (1824×1272 at 320 dpi, which makes
 Android's units the dash's own). Then the occupant is built for whichever passes.
 
 ## Consequences
