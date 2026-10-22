@@ -76,6 +76,9 @@ public class AndroidEmulatorTests
             EmulatorCommand.Arguments("Car", 8554));
 
         Assert.Contains("-no-window", EmulatorCommand.Arguments("Car", 8554, noWindow: true));
+        Assert.Equal(["-skin", "1824x1272"], EmulatorCommand.Arguments("Tab", 8554, skin: "1824x1272").TakeLast(2));
+        Assert.Throws<ArgumentException>(() => EmulatorCommand.Arguments("Tab", 8554, skin: "big"));
+        Assert.False(EmulatorCommand.IsSize("100x100"));
         Assert.Throws<ArgumentOutOfRangeException>(() => EmulatorCommand.Arguments("Car", 80));
         Assert.Throws<ArgumentException>(() => EmulatorCommand.Arguments(" ", 8554));
     }
@@ -168,6 +171,41 @@ public class AndroidEmulatorTests
             [Path.Combine("/run/user/1", "avd", "running"), Path.Combine("/tmp", "avd", "running"), Path.Combine("/home/me", ".android", "avd", "running")],
             folders);
         Assert.Equal(2, EmulatorDiscovery.Folders(_ => null, "/tmp", "/home/me").Count);
+    }
+
+    [Fact]
+    public void Settings_counts_as_opened_only_when_android_says_so()
+    {
+        Assert.True(AdbAnswers.Started("Starting: Intent { act=android.settings.SETTINGS }"));
+        Assert.True(AdbAnswers.Started("Starting: Intent { act=android.settings.SETTINGS }\nWarning: Activity not started, intent has been delivered to currently running top-most instance."));
+
+        // How it read as success on the Surface: ADB's own failure, without the word "error".
+        Assert.False(AdbAnswers.Started("adb.exe: device offline"));
+        Assert.False(AdbAnswers.Started("Starting: Intent { act=x }\nError: Activity not started, unable to resolve Intent"));
+        Assert.False(AdbAnswers.Started(""));
+    }
+
+    [Fact]
+    public void Adb_states_are_read_plainly()
+    {
+        Assert.Equal("device", AdbAnswers.State("device\r\n"));
+        Assert.Equal("device offline", AdbAnswers.State("adb.exe: device offline"));
+        Assert.Equal("device 'emulator-5554' not found", AdbAnswers.State("error: device 'emulator-5554' not found"));
+        Assert.Equal("no answer", AdbAnswers.State(""));
+    }
+
+    [Fact]
+    public void Two_adb_programs_in_the_emulator_s_output_are_both_named()
+    {
+        string[] output =
+        [
+            @"WARNING | adb command 'C:\Sdk\platform-tools\adb.exe -s emulator-5554 shell getprop sys.boot_completed ' failed: 'adb.exe: device offline'",
+            @"WARNING | adb command 'C:\scrcpy\adb.exe -s emulator-5554 shell getprop sys.boot_completed ' failed: 'adb.exe: device offline'",
+            @"WARNING | adb command 'C:\Sdk\platform-tools\adb.exe -s emulator-5554 shell ps' failed: 'adb.exe: device offline'",
+            "INFO | something else",
+        ];
+
+        Assert.Equal([@"C:\Sdk\platform-tools\adb.exe", @"C:\scrcpy\adb.exe"], AdbAnswers.Programs(output));
     }
 
     [Fact]

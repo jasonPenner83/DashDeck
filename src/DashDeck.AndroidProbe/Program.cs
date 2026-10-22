@@ -135,7 +135,7 @@ async Task<int> RunAsync()
     }
 
     var port = int.Parse(Value("--port") ?? "8554", CultureInfo.InvariantCulture);
-    var arguments = EmulatorCommand.Arguments(avd, port, noWindow: Flag("--no-window"));
+    var arguments = EmulatorCommand.Arguments(avd, port, noWindow: Flag("--no-window"), skin: Value("--skin"));
     Say("");
     Say($"Starting: emulator {string.Join(' ', arguments)}");
 
@@ -172,6 +172,14 @@ async Task<int> RunAsync()
                 .Any(word => l.Contains(word, StringComparison.OrdinalIgnoreCase))).Take(40))
             {
                 Say("  " + line);
+            }
+
+            if (AdbAnswers.Programs(output) is { Count: > 1 } programs)
+            {
+                Say("");
+                Say($"NOTE: the emulator ran {programs.Count} different ADB programs: {string.Join("; ", programs)}.");
+                Say("  Two of different versions restart each other's server, which leaves the device \"offline\". Use one:");
+                Say("  update the SDK's Platform-Tools to the same version, or keep the other one off the PATH while testing.");
             }
         }
 
@@ -424,20 +432,31 @@ async Task<int> ProbeAsync(Process? process, int port, string? token, int? vmPid
     // Automotive's home is one — changes nothing. So open something whose list a drag scrolls, in
     // either flavour: Settings.
     var scrolling = false;
-    if (adb is not null && adbSerial is not null)
+    var adbReady = adb is not null && adbSerial is not null && await AdbReadyAsync(adb, adbSerial).ConfigureAwait(false);
+
+    if (adbReady)
     {
-        var opened = await CaptureAsync(adb, $"-s {adbSerial} shell am start -a android.settings.SETTINGS").ConfigureAwait(false);
-        scrolling = !opened.Contains("Error", StringComparison.OrdinalIgnoreCase) && !opened.StartsWith('(');
-        Say(scrolling ? "Opened Settings, so the drag scrolls a list." : $"Could not open Settings ({FirstLine(opened)}); dragging on whatever is showing.");
+        // Success is Android's own "Starting: Intent", nothing less: on the Surface ADB answered
+        // "device offline", which once read as success because it does not say "error".
+        var opened = await CaptureAsync(adb!, $"-s {adbSerial} shell am start -a android.settings.SETTINGS").ConfigureAwait(false);
+        scrolling = AdbAnswers.Started(opened);
+        Say(scrolling ? "Opened Settings, so the drag scrolls a list." : $"Settings did NOT open — ADB said: {FirstLine(opened)}. Dragging on whatever is showing.");
         await Task.Delay(3000).ConfigureAwait(false);
     }
-    else
+    else if (adb is null || adbSerial is null)
     {
         Say("No SDK adb found, so nothing was opened to scroll; dragging on whatever is showing.");
     }
 
+    await SaveStillAsync(client, headers, width, height, "settings").ConfigureAwait(false);
+
     var dragging = await MeasureFramesAsync(client, headers, width, height, TimeSpan.FromSeconds(seconds), ct => DragAsync(client, headers, device, ct)).ConfigureAwait(false);
     var cpuAfter = EmulatorCpu(vmPid);
+    await SaveStillAsync(client, headers, width, height, "dragged").ConfigureAwait(false);
+
+    // The same drag with frames asked for at half the size: much faster means the cost is copying the
+    // frames out, which shared memory or a smaller frame fixes; the same means Android drawing them.
+    var half = await MeasureFramesAsync(client, headers, width / 2, height / 2, TimeSpan.FromSeconds(Math.Max(3, seconds / 2)), ct => DragAsync(client, headers, device, ct)).ConfigureAwait(false);
 
     Say("");
     Say($"Frames at {width}×{height} (RGB888 over gRPC):");
@@ -446,13 +465,19 @@ async Task<int> ProbeAsync(Process? process, int port, string? token, int? vmPid
         ? $"  dragging: NOT A MEASUREMENT — the screen hardly changed ({dragging.Meter.Count} frames), so there was nothing to send{(scrolling ? "" : "; nothing scrollable was open")}"
         : $"  dragging: {dragging.Meter.FramesPerSecond:0.0} fps, {dragging.Meter.MegabytesPerSecond:0.0} MB/s, longest gap {dragging.Meter.LongestGap.TotalMilliseconds:0} ms ({dragging.Meter.Count} frames)");
     Say($"  frame size: {dragging.Width}×{dragging.Height}");
+    Say(half.Meter.Count < 5
+        ? $"  dragging, half size: not a measurement ({half.Meter.Count} frames)"
+        : $"  dragging, half size ({half.Width}×{half.Height}): {half.Meter.FramesPerSecond:0.0} fps, {half.Meter.MegabytesPerSecond:0.0} MB/s, longest gap {half.Meter.LongestGap.TotalMilliseconds:0} ms");
 
     // ── How long a touch takes to show ───────────────────────────────────────
     var latency = await TouchLatencyAsync(client, headers, device, width, height).ConfigureAwait(false);
     Say($"Touch to next frame: {(latency is { } l ? $"{l.TotalMilliseconds:0} ms (median of 5)" : "no frame followed a touch — the touch moved nothing on screen, so this is not a measurement")}");
 
-    if (scrolling)
+    // Leave it as it was found — shade closed, home screen — so the snapshot saved on the way out is
+    // not one with a list half-scrolled or the notification shade pulled down.
+    if (adbReady)
     {
+        await CaptureAsync(adb!, $"-s {adbSerial} shell cmd statusbar collapse").ConfigureAwait(false);
         await CaptureAsync(adb!, $"-s {adbSerial} shell input keyevent 3").ConfigureAwait(false);
     }
 
@@ -492,6 +517,45 @@ async Task<int> ProbeAsync(Process? process, int port, string? token, int? vmPid
     Say("");
     Say($"Done in {started.Elapsed.TotalSeconds:0} s.");
     return 0;
+}
+
+// ADB online for this emulator, or a reason said. Asks it to reconnect when it is offline, and waits.
+async Task<bool> AdbReadyAsync(string adb, string serial)
+{
+    var watch = Stopwatch.StartNew();
+    var state = AdbAnswers.State(await CaptureAsync(adb, $"-s {serial} get-state").ConfigureAwait(false));
+
+    if (state != "device")
+    {
+        Say($"ADB says {serial} is '{state}'; asking it to reconnect.");
+        await CaptureAsync(adb, "reconnect offline").ConfigureAwait(false);
+
+        while (state != "device" && watch.Elapsed < TimeSpan.FromSeconds(30))
+        {
+            await Task.Delay(1000).ConfigureAwait(false);
+            state = AdbAnswers.State(await CaptureAsync(adb, $"-s {serial} get-state").ConfigureAwait(false));
+        }
+    }
+
+    Say(state == "device"
+        ? $"ADB: {serial} online{(watch.Elapsed.TotalSeconds > 1 ? $" after {watch.Elapsed.TotalSeconds:0} s" : "")}."
+        : $"ADB: {serial} still '{state}' after 30 s, so nothing can be opened to scroll.");
+    return state == "device";
+}
+
+async Task SaveStillAsync(EmulatorController.EmulatorControllerClient client, Metadata headers, int width, int height, string name)
+{
+    try
+    {
+        var still = await client.getScreenshotAsync(new ImageFormat { Format = ImageFormat.Types.ImgFormat.Png, Width = (uint)width, Height = (uint)height }, headers).ConfigureAwait(false);
+        var path = ReportPath(name + ".png");
+        await File.WriteAllBytesAsync(path, still.Image_.ToByteArray()).ConfigureAwait(false);
+        Say($"Screenshot ({name}): {Path.GetFileName(path)}");
+    }
+    catch (RpcException e)
+    {
+        Say($"Screenshot ({name}) failed: {e.StatusCode}");
+    }
 }
 
 async Task<(FrameMeter Meter, uint Width, uint Height)> MeasureFramesAsync(
@@ -797,6 +861,7 @@ void Usage()
           --port <n>            the gRPC port to ask for (8554)
           --width/--height <px> the frame size to ask for (1824×1272, the stage)
           --settle <s>          how long to let Android settle after booting (20)
+          --skin <WxH>          run the AVD at another screen size this once, e.g. 1824x1272 (the stage)
           --seconds <n>         how long to measure while dragging (10)
           --no-window           start with -no-window instead of -qt-hide-window
           --tap                 tap the middle of the screen once

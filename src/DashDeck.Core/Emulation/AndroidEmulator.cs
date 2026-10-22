@@ -152,11 +152,20 @@ public static class EmulatorCommand
     /// read it, and every call carries it.
     /// </para>
     /// </remarks>
-    public static IReadOnlyList<string> Arguments(string avd, int grpcPort, bool noWindow = false)
+    /// <param name="skin">
+    /// A screen size for this run only, <c>1824x1272</c> — the stage — or null for the AVD's own. How a
+    /// tablet image is tried at the stage's size without making another AVD.
+    /// </param>
+    public static IReadOnlyList<string> Arguments(string avd, int grpcPort, bool noWindow = false, string? skin = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(avd);
         ArgumentOutOfRangeException.ThrowIfLessThan(grpcPort, 1024);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(grpcPort, 65535);
+
+        if (skin is not null && !IsSize(skin))
+        {
+            throw new ArgumentException($"'{skin}' is not a size like 1824x1272", nameof(skin));
+        }
 
         return
         [
@@ -165,7 +174,68 @@ public static class EmulatorCommand
             "-grpc", grpcPort.ToString(CultureInfo.InvariantCulture),
             "-grpc-use-token",
             "-no-boot-anim",
+            .. skin is null ? Array.Empty<string>() : ["-skin", skin],
         ];
+    }
+
+    /// <summary>A screen size as the emulator takes one: <c>1824x1272</c>, each side 320–4096.</summary>
+    public static bool IsSize(string text) =>
+        text?.Split('x') is [var w, var h]
+        && int.TryParse(w, NumberStyles.None, CultureInfo.InvariantCulture, out var width) && width is >= 320 and <= 4096
+        && int.TryParse(h, NumberStyles.None, CultureInfo.InvariantCulture, out var height) && height is >= 320 and <= 4096;
+}
+
+/// <summary>Reading what ADB and the emulator say (ADR-0075).</summary>
+public static class AdbAnswers
+{
+    /// <summary>
+    /// True when <c>am start</c> really started the activity. ADB prints its own failures —
+    /// <c>adb.exe: device offline</c> — without the word "error", which is how a failure once read
+    /// as success on the Surface; so success is Android's own words, and nothing else is.
+    /// </summary>
+    public static bool Started(string output) =>
+        !string.IsNullOrEmpty(output)
+        && (output.Contains("Starting: Intent", StringComparison.Ordinal)
+            || output.Contains("Activity not started, intent has been delivered", StringComparison.Ordinal))
+        && !output.Contains("Error:", StringComparison.Ordinal);
+
+    /// <summary>What <c>adb get-state</c> said: <c>device</c> when it can be used, or why not.</summary>
+    public static string State(string output)
+    {
+        var line = (output ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? "";
+        return line.Length == 0 ? "no answer" : line.Replace("adb.exe: ", "", StringComparison.Ordinal).Replace("error: ", "", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The different ADB programs the emulator ran, from its own warnings — the SDK's, and any other on
+    /// the PATH. Two of different versions restart each other's server and leave the device offline.
+    /// </summary>
+    public static IReadOnlyList<string> Programs(IEnumerable<string> emulatorOutput)
+    {
+        ArgumentNullException.ThrowIfNull(emulatorOutput);
+
+        const string marker = "adb command '";
+        var programs = new List<string>();
+
+        foreach (var line in emulatorOutput)
+        {
+            var at = line.IndexOf(marker, StringComparison.Ordinal);
+            if (at < 0)
+            {
+                continue;
+            }
+
+            var rest = line[(at + marker.Length)..];
+            var end = rest.IndexOf(" -s ", StringComparison.Ordinal);
+            var program = (end > 0 ? rest[..end] : rest).Trim();
+
+            if (program.Length > 0 && !programs.Contains(program, StringComparer.OrdinalIgnoreCase))
+            {
+                programs.Add(program);
+            }
+        }
+
+        return programs;
     }
 }
 

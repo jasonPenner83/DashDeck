@@ -116,6 +116,13 @@ What the first runs taught the probe, now fixed:
   screen that did not move made a number meaningless;
 - frames are asked for at the stage's own size, 1824×1272.
 
+**Second round, settled:** the tablet's touch fell to **60 ms** and it booted in 2.2 s, but dragged at
+**4.6 fps** with 3.8 GB. Automotive moved nothing again: ADB answered *device offline* — the emulator
+had run two ADB programs, the SDK's and scrcpy's, which restart each other's server — and the probe
+had read that as Settings opening. Now success is Android's own *Starting: Intent*, an offline device
+is reconnected first, screenshots are kept after opening Settings and after dragging, and the same
+drag is measured again at half the frame size to tell copying frames out from Android drawing them.
+
 Next: the tablet again, and a tablet AVD shaped like the stage (1824×1272 at 320 dpi, which makes
 Android's units the dash's own). Then the occupant is built for whichever passes.
 
