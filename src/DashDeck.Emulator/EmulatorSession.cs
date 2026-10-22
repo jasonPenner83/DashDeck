@@ -39,8 +39,14 @@ public sealed class EmulatorSession : IAsyncDisposable
     private int? _pid;
     private EmulatorDiscovery? _discovery;
     private Task? _starting;
+    private volatile int _quarterTurns;
 
-    public EmulatorSession(string sdk, AvdInfo avd, string? skin = null, int port = 8554)
+    /// <param name="resources">
+    /// Memory and cores to start with; by default what this tablet can spare
+    /// (<see cref="EmulatorResources"/>). A change from the last start costs one cold boot, since the
+    /// quick-boot snapshot was saved with the old memory.
+    /// </param>
+    public EmulatorSession(string sdk, AvdInfo avd, string? skin = null, int port = 8554, (int? MemoryMb, int? Cores)? resources = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sdk);
         ArgumentNullException.ThrowIfNull(avd);
@@ -49,7 +55,11 @@ public sealed class EmulatorSession : IAsyncDisposable
         Avd = avd;
         _skin = skin;
         _port = port;
+        Resources = resources ?? EmulatorResources.For(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes, Environment.ProcessorCount);
     }
+
+    /// <summary>The memory and cores the emulator is started with; null for the AVD's own.</summary>
+    public (int? MemoryMb, int? Cores) Resources { get; }
 
     /// <summary>The AVD this session runs.</summary>
     public AvdInfo Avd { get; }
@@ -99,7 +109,8 @@ public sealed class EmulatorSession : IAsyncDisposable
             }
             else
             {
-                var launch = await EmulatorLauncher.StartAsync(_sdk, Avd.Name, _port, _skin, line => Set(EmulatorState.Starting, line), ct).ConfigureAwait(false);
+                var launch = await EmulatorLauncher.StartAsync(
+                    _sdk, Avd.Name, _port, _skin, line => Set(EmulatorState.Starting, line), ct, Resources.MemoryMb, Resources.Cores).ConfigureAwait(false);
                 if (launch.Failure is { } failure)
                 {
                     Set(EmulatorState.Failed, failure);
@@ -145,11 +156,31 @@ public sealed class EmulatorSession : IAsyncDisposable
             return;
         }
 
+        ArgumentNullException.ThrowIfNull(onFrame);
+
         using var both = CancellationTokenSource.CreateLinkedTokenSource(ct, _life.Token);
-        await client.StreamFramesAsync(width, height, onFrame, both.Token).ConfigureAwait(false);
+        await client.StreamFramesAsync(
+            width,
+            height,
+            frame =>
+            {
+                _quarterTurns = frame.QuarterTurns;
+                onFrame(frame);
+            },
+            both.Token).ConfigureAwait(false);
     }
 
-    /// <summary>A finger, as fractions of the picture as drawn. Off the picture, only a lift is sent.</summary>
+    /// <summary>
+    /// Turn the device: 0 its own way up, 90 a quarter turn (<see cref="AndroidChoice.TurnFor"/>).
+    /// Touch follows the frames, which say how they came, so nothing else changes here.
+    /// </summary>
+    public Task RotateAsync(int degrees) =>
+        State == EmulatorState.Running && _client is { } client ? client.RotateAsync(degrees) : Task.CompletedTask;
+
+    /// <summary>
+    /// A finger, as fractions of the picture as drawn — turned back by the last frame's rotation onto
+    /// the device's own screen. Off the picture, only a lift is sent.
+    /// </summary>
     public Task TouchAsync(double x, double y, bool down)
     {
         if (State != EmulatorState.Running || _client is not { } client)
@@ -157,7 +188,7 @@ public sealed class EmulatorSession : IAsyncDisposable
             return Task.CompletedTask;
         }
 
-        var at = AndroidChoice.ToDevice(Math.Clamp(x, 0, 1), Math.Clamp(y, 0, 1), DeviceWidth, DeviceHeight);
+        var at = AndroidChoice.ToDevice(Math.Clamp(x, 0, 1), Math.Clamp(y, 0, 1), DeviceWidth, DeviceHeight, _quarterTurns);
         var inside = x is >= 0 and <= 1 && y is >= 0 and <= 1;
 
         return at is { } point && (inside || !down) ? client.TouchAsync(point.X, point.Y, down) : Task.CompletedTask;

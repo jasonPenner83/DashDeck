@@ -53,8 +53,10 @@ public static class EmulatorLauncher
 
     /// <summary>
     /// Start an AVD hidden with gRPC and a token, and wait for it to say where its gRPC is.
+    /// <paramref name="memoryMb"/> and <paramref name="cores"/>, when given, override the AVD's own.
     /// </summary>
-    public static async Task<LaunchResult> StartAsync(string sdk, string avd, int port, string? skin, Action<string> say, CancellationToken ct)
+    public static async Task<LaunchResult> StartAsync(
+        string sdk, string avd, int port, string? skin, Action<string> say, CancellationToken ct, int? memoryMb = null, int? cores = null)
     {
         ArgumentNullException.ThrowIfNull(say);
 
@@ -66,7 +68,7 @@ public static class EmulatorLauncher
             CreateNoWindow = true,
         };
 
-        foreach (var argument in EmulatorCommand.Arguments(avd, port, skin: skin))
+        foreach (var argument in EmulatorCommand.Arguments(avd, port, skin: skin, memoryMb: memoryMb, cores: cores))
         {
             info.ArgumentList.Add(argument);
         }

@@ -94,6 +94,62 @@ public class AndroidStageTests
         Assert.StartsWith("No Automotive AVD", AndroidChoice.Describe(null, AndroidFlavour.Automotive), StringComparison.Ordinal);
     }
 
+    [Theory]
+    // A 2560×1600 tablet turned upright: the picture is 1600 wide and 2560 tall. Its top-left corner,
+    // a little in, is somewhere near one corner of the unturned screen — which one depends on the turn.
+    [InlineData(0, 0.1, 0.2, 256, 320)]
+    [InlineData(1, 0.1, 0.2, 2048, 160)]
+    [InlineData(2, 0.1, 0.2, 2304, 1280)]
+    [InlineData(3, 0.1, 0.2, 512, 1440)]
+    public void A_touch_on_a_turned_picture_lands_on_the_unturned_screen(int turns, double x, double y, int deviceX, int deviceY) =>
+        Assert.Equal((deviceX, deviceY), AndroidChoice.ToDevice(x, y, 2560, 1600, turns));
+
+    [Fact]
+    public void Turning_and_turning_back_lands_on_the_same_pixel()
+    {
+        // The middle is the middle whichever way up; a quarter turn and three quarters are mirror images.
+        foreach (var turns in new[] { 0, 1, 2, 3 })
+        {
+            Assert.Equal((1280, 800), AndroidChoice.ToDevice(0.5, 0.5, 2560, 1600, turns));
+        }
+
+        var quarter = AndroidChoice.ToDevice(0.25, 0.75, 2560, 1600, 1)!.Value;
+        var threeQuarters = AndroidChoice.ToDevice(0.75, 0.25, 2560, 1600, 3)!.Value;
+        Assert.Equal(quarter, threeQuarters);
+    }
+
+    [Fact]
+    public void A_regular_tablet_is_turned_to_the_shape_of_its_region_and_automotive_never_is()
+    {
+        // Full screen is tall (912 × 1170); the stage is wide (912 × 636).
+        Assert.Equal(90, AndroidChoice.TurnFor(AndroidFlavour.Regular, 2560, 1600, 912, 1170));
+        Assert.Equal(0, AndroidChoice.TurnFor(AndroidFlavour.Regular, 2560, 1600, 912, 636));
+
+        // A phone is tall to begin with.
+        Assert.Equal(0, AndroidChoice.TurnFor(AndroidFlavour.Regular, 1080, 2400, 912, 1170));
+        Assert.Equal(90, AndroidChoice.TurnFor(AndroidFlavour.Regular, 1080, 2400, 912, 636));
+
+        Assert.Null(AndroidChoice.TurnFor(AndroidFlavour.Automotive, 1408, 792, 912, 1170));
+        Assert.Null(AndroidChoice.TurnFor(AndroidFlavour.Regular, 0, 0, 912, 1170));     // size not known yet
+        Assert.Null(AndroidChoice.TurnFor(AndroidFlavour.Regular, 2560, 1600, 900, 910)); // square enough to leave
+    }
+
+    [Theory]
+    [InlineData(16L << 30, 8, 4096, 4)]   // the owner's Surface Pro 7
+    [InlineData(8L << 30, 8, null, 4)]
+    [InlineData(32L << 30, 16, 4096, 4)]
+    [InlineData(16L << 30, 4, 4096, 2)]
+    [InlineData(4L << 30, 2, null, null)]
+    public void The_emulator_is_given_what_the_tablet_can_spare(long memory, int processors, int? memoryMb, int? cores) =>
+        Assert.Equal((memoryMb, cores), EmulatorResources.For(memory, processors));
+
+    [Fact]
+    public void Memory_and_cores_go_on_the_command_line_only_when_given()
+    {
+        Assert.Equal(["-memory", "4096", "-cores", "4"], EmulatorCommand.Arguments("Tab", 8554, memoryMb: 4096, cores: 4).TakeLast(4));
+        Assert.DoesNotContain("-memory", EmulatorCommand.Arguments("Tab", 8554));
+    }
+
     [Fact]
     public void A_touch_on_the_picture_lands_on_the_device_s_own_pixels()
     {

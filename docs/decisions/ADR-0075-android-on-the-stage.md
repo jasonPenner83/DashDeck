@@ -184,3 +184,48 @@ in another probe, shaped differently from decision 2: **not launcher entries but
   scaling to the stage would be the emulator's, not ours. Drawing frames ourselves gives the same
   stage behaviour as Android Auto.
 - **WSA, Hyper-V Android images, Waydroid** — see the context.
+
+## Addendum — 2026-10-22: first use in the dash; faster touch, frames at the drawn size, a turning tablet
+
+**What the owner found with the ANDROID cell on the Surface:** both flavours load. Leaving and
+coming back is instant, double tap to the stage works, and the hold menu works. **Touch works but
+is slow**, and the regular tablet is hard to get around, letterboxed sideways in the tall
+full-screen region. Not yet tried: Maps inside Android, STOP ANDROID, and how the rest of the dash
+responds while Android runs. The Surface has **16 GB**, not the 8 GB this ADR assumed.
+
+What changed, and why:
+
+1. **Touch goes on one ordered stream** (`streamInputEvent`) instead of a `sendTouch` call for each
+   move. Separate calls can overtake one another, so a drag arrived with its moves out of order and
+   felt slow and jumpy. Now each move is queued and written to the one stream in order. If the
+   stream breaks, the touch in hand is sent by itself and the stream is reopened for the next one.
+2. **Frames are asked for at the size they are drawn.** Before, every frame was the stage's size
+   (1824×1272), whatever the view: shrunk on the stage, stretched full screen. The panel now reports
+   its size in screen pixels, and the stream restarts when that changes. The emulator fits the frame
+   inside the size asked for, never larger than the device's own screen.
+3. **A regular tablet turns to fit its region**, as Android Studio's rotate button does
+   (`setPhysicalModel` ROTATION, about the screen's axis):
+   - upright when full screen, which is tall (912×1170);
+   - on its side on the stage, which is wide (912×636).
+
+   `AndroidChoice.TurnFor` makes the choice:
+   - 90° when the region's shape is the other way round from the device's screen, else 0;
+   - nothing for a region within 5 % of square.
+
+   Each frame says how the emulator turned it (`SkinRotation`), and touch is turned back the same
+   way onto the device's unturned screen (`AndroidChoice.ToDevice`, using Android Studio's mapping).
+   **Automotive is never turned.** A car's screen does not rotate and its interface does not follow
+   the sensor, so turning it would only show a sideways picture of an interface that stayed put. A
+   tablet whose Android has auto-rotate off would do the same, which is why the walkthrough checks
+   for it.
+4. **The emulator gets more of a 16 GB tablet.** It is started with `-memory 4096` (the AVDs ask for
+   2 GB, and the tablet's launcher had stopped responding) and `-cores 4`. `EmulatorResources` sets
+   these:
+   - 4 GB from 14 GiB of memory up, otherwise the AVD's own;
+   - half the logical processors, from two to four.
+
+   The quick-boot snapshot was saved with the old memory, so the first start after this change is a
+   **cold boot**. Later starts are quick again.
+
+What is still open is unchanged: Automotive's vehicle data over ADB (the two-ADB clash first),
+audio, and shared-memory frames (`MMAP`) if the tablet's frame rate is still the limit.

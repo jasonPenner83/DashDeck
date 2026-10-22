@@ -1392,17 +1392,30 @@ dragging, touch under 150 ms, and memory that leaves the dash comfortable.
 8. With GPS on, open **Maps** inside Automotive. **Expect:** the truck's own position.
 9. **Hold** ANDROID and choose **ANDROID**. **Expect:**
    - *STOPPING*, then *STARTING ANDROID*, then the tablet's home screen;
-   - letterboxed in the full-screen region, because a landscape tablet does not fill a portrait
-     region.
-10. **Hold** ANDROID, then **STOP ANDROID**. **Expect:** *ANDROID STOPPED*. Task Manager shows no
+   - the **first** start after updating takes longer (a cold boot): Android now gets 4 GB and four
+     cores on the 16 GB Surface, and the old snapshot was saved with 2 GB;
+   - the tablet **upright**, filling the tall full-screen region rather than letterboxed on its side.
+     If the picture turns but Android's own screen stays sideways, Android's **auto-rotate** is off:
+     swipe down from the top inside Android and turn it on.
+10. **Touch the upright tablet.** Tap an icon near the **top-left corner**, then one near the
+    **bottom-right**. **Expect:** each opens the icon under your finger. Drag a list up and down.
+    **Expect:** it follows without the stalls and jumps of the first build. A touch that lands
+    mirrored, or a quarter-turn away, is the rotation mapping. Note which corner you touched and
+    what opened.
+11. **Double-tap ANDROID.** **Expect:** on the stage the tablet turns **on its side** to fill the
+    wide stage, and touch still lands under your finger. Tap ANDROID again: upright once more.
+12. Try the same with **ANDROID AUTOMOTIVE**. **Expect:** it never turns; it stays landscape,
+    letterboxed full screen and filling the stage.
+13. **Hold** ANDROID, then **STOP ANDROID**. **Expect:** *ANDROID STOPPED*. Task Manager shows no
     `qemu-system-x86_64`.
-11. Close DashDeck with Android running, then start it again and tap ANDROID. **Expect:** a quick
+14. Close DashDeck with Android running, then start it again and tap ANDROID. **Expect:** a quick
     start, because the snapshot was saved on the way out.
 
 **A failure looks like:**
 - *NO ANDROID EMULATOR* when Android Studio is installed. Note where its SDK is.
 - *… DID NOT START*, with a reason. Send the reason.
-- Touches landing in the wrong place.
+- Touches landing in the wrong place, or only after a turn. Note the placement and the corner.
+- The tablet staying sideways full screen, or turning back and forth.
 - The dash stuttering while Android runs.
 - `qemu-system-x86_64` still running a minute after DashDeck closed.
 

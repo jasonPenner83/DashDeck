@@ -89,6 +89,43 @@ public sealed class EmulatorClientTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_device_left_on_its_side_still_reports_its_own_screen()
+    {
+        using var client = new EmulatorClient(_port, Token);
+        _fake.Turn = Rotation.Types.SkinRotation.Landscape;   // the picture comes 792 wide, 1408 tall
+
+        Assert.Equal((1408, 792), await client.ScreenSizeAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Frames_say_how_the_emulator_turned_them()
+    {
+        using var client = new EmulatorClient(_port, Token);
+        using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        _fake.Turn = Rotation.Types.SkinRotation.ReverseLandscape;
+        var turns = -1;
+
+        await client.StreamFramesAsync(912, 636, frame =>
+        {
+            turns = frame.QuarterTurns;
+            cancel.Cancel();
+        }, cancel.Token);
+
+        Assert.Equal(3, turns);
+    }
+
+    [Fact]
+    public async Task Turning_the_device_is_a_rotation_about_the_screen_s_axis()
+    {
+        using var client = new EmulatorClient(_port, Token);
+
+        await client.RotateAsync(90);
+
+        Assert.Equal(PhysicalModelValue.Types.PhysicalType.Rotation, _fake.Physical!.Target);
+        Assert.Equal([0f, 0f, 90f], _fake.Physical.Value.Data);
+    }
+
+    [Fact]
     public async Task Frames_arrive_at_the_size_asked_until_cancelled()
     {
         using var client = new EmulatorClient(_port, Token);
@@ -118,7 +155,22 @@ public sealed class EmulatorClientTests : IAsyncLifetime
         await client.TouchAsync(110, 210, down: true);
         await client.TouchAsync(110, 210, down: false);
 
-        Assert.Equal([(100, 200, 1), (110, 210, 1), (110, 210, 0)], _fake.Touches);
+        Assert.Equal([(100, 200, 1), (110, 210, 1), (110, 210, 0)], await _fake.TouchesWhen(3));
+        Assert.Equal(0, _fake.SingleTouchCalls);   // all on the one stream
+    }
+
+    [Fact]
+    public async Task A_drag_arrives_in_the_order_it_was_made()
+    {
+        using var client = new EmulatorClient(_port, Token);
+        var drag = Enumerable.Range(0, 200).Select(i => (X: i, Y: 2 * i, Pressure: i < 199 ? 1 : 0)).ToList();
+
+        foreach (var (x, y, pressure) in drag)
+        {
+            await client.TouchAsync(x, y, down: pressure == 1);
+        }
+
+        Assert.Equal(drag, await _fake.TouchesWhen(drag.Count));
     }
 
     [Fact]
@@ -165,6 +217,34 @@ public sealed class EmulatorClientTests : IAsyncLifetime
 
         public List<(int X, int Y, int Pressure)> Touches { get; } = [];
 
+        public int SingleTouchCalls { get; private set; }
+
+        public Rotation.Types.SkinRotation Turn { get; set; }
+
+        public PhysicalModelValue? Physical { get; private set; }
+
+        /// <summary>The touches, once there are <paramref name="count"/> of them — they come on a stream, not at once.</summary>
+        public async Task<List<(int X, int Y, int Pressure)>> TouchesWhen(int count)
+        {
+            for (var waited = 0; waited < 5000; waited += 10)
+            {
+                lock (Touches)
+                {
+                    if (Touches.Count >= count)
+                    {
+                        return [.. Touches];
+                    }
+                }
+
+                await Task.Delay(10);
+            }
+
+            lock (Touches)
+            {
+                return [.. Touches];
+            }
+        }
+
         public GpsState? Gps { get; private set; }
 
         public VmRunState.Types.RunState? VmState { get; private set; }
@@ -187,7 +267,17 @@ public sealed class EmulatorClientTests : IAsyncLifetime
         public override Task<Image> getScreenshot(ImageFormat request, ServerCallContext context)
         {
             Authorise(context);
-            return Task.FromResult(new Image { Format = new ImageFormat { Format = request.Format, Width = 1408, Height = 792 } });
+            var sideways = (int)Turn % 2 == 1;
+            return Task.FromResult(new Image
+            {
+                Format = new ImageFormat
+                {
+                    Format = request.Format,
+                    Width = sideways ? 792u : 1408u,
+                    Height = sideways ? 1408u : 792u,
+                    Rotation = new Rotation { Rotation_ = Turn },
+                },
+            });
         }
 
         public override async Task streamScreenshot(ImageFormat request, IServerStreamWriter<Image> responseStream, ServerCallContext context)
@@ -199,7 +289,7 @@ public sealed class EmulatorClientTests : IAsyncLifetime
             {
                 await responseStream.WriteAsync(new Image
                 {
-                    Format = new ImageFormat { Format = request.Format, Width = request.Width, Height = request.Height },
+                    Format = new ImageFormat { Format = request.Format, Width = request.Width, Height = request.Height, Rotation = new Rotation { Rotation_ = Turn } },
                     Image_ = pixels,
                     Seq = seq,
                 });
@@ -218,11 +308,41 @@ public sealed class EmulatorClientTests : IAsyncLifetime
         public override Task<Empty> sendTouch(TouchEvent request, ServerCallContext context)
         {
             Authorise(context);
+            SingleTouchCalls++;
             lock (Touches)
             {
                 Touches.AddRange(request.Touches.Select(t => (t.X, t.Y, t.Pressure)));
             }
 
+            return Task.FromResult(new Empty());
+        }
+
+        public override async Task<Empty> streamInputEvent(IAsyncStreamReader<InputEvent> requestStream, ServerCallContext context)
+        {
+            Authorise(context);
+
+            try
+            {
+                await foreach (var input in requestStream.ReadAllAsync(context.CancellationToken))
+                {
+                    lock (Touches)
+                    {
+                        Touches.AddRange(input.TouchEvent.Touches.Select(t => (t.X, t.Y, t.Pressure)));
+                    }
+                }
+            }
+            catch (Exception e) when (e is OperationCanceledException or IOException)
+            {
+                // The client went; what it sent is kept.
+            }
+
+            return new Empty();
+        }
+
+        public override Task<Empty> setPhysicalModel(PhysicalModelValue request, ServerCallContext context)
+        {
+            Authorise(context);
+            Physical = request;
             return Task.FromResult(new Empty());
         }
 

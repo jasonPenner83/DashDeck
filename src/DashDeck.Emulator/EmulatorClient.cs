@@ -1,3 +1,4 @@
+using System.Threading.Channels;
 using Android.Emulation.Control;
 using DashDeck.Core.Location;
 using Google.Protobuf.WellKnownTypes;
@@ -7,7 +8,11 @@ using Grpc.Net.Client;
 namespace DashDeck.Emulator;
 
 /// <summary>One frame of the emulated screen: RGB, three bytes a pixel, rows top to bottom.</summary>
-public readonly record struct EmulatorFrame(byte[] Rgb, int Width, int Height, uint Sequence);
+/// <param name="QuarterTurns">
+/// How the emulator turned the picture upright (its <c>SkinRotation</c>, 0–3) — what a touch on it
+/// has to be turned back by (<c>AndroidChoice.ToDevice</c>).
+/// </param>
+public readonly record struct EmulatorFrame(byte[] Rgb, int Width, int Height, uint Sequence, int QuarterTurns = 0);
 
 /// <summary>The emulator refused a call: the token was missing or wrong (ADR-0075).</summary>
 public sealed class EmulatorRefusedException(string message) : Exception(message);
@@ -26,12 +31,21 @@ public sealed class EmulatorClient : IDisposable
     private readonly EmulatorController.EmulatorControllerClient _client;
     private readonly Metadata _headers;
 
+    // Touch goes through one ordered stream rather than a call each: separate calls can overtake one
+    // another, and a drag whose moves arrive out of order is a drag that lags and jumps — which is
+    // how it felt on the Surface.
+    private readonly Channel<TouchEvent> _touches = Channel.CreateUnbounded<TouchEvent>(new UnboundedChannelOptions { SingleReader = true });
+    private readonly CancellationTokenSource _closing = new();
+    private readonly CancellationToken _closed;
+    private Task? _touchPump;
+
     public EmulatorClient(int port, string? token)
     {
         Port = port;
         _channel = GrpcChannel.ForAddress($"http://127.0.0.1:{port}", new GrpcChannelOptions { MaxReceiveMessageSize = 64 * 1024 * 1024 });
         _client = new EmulatorController.EmulatorControllerClient(_channel);
         _headers = token is null ? new Metadata() : new Metadata { { "authorization", "Bearer " + token } };
+        _closed = _closing.Token;
     }
 
     public int Port { get; }
@@ -80,8 +94,34 @@ public sealed class EmulatorClient : IDisposable
     {
         var image = await _client.getScreenshotAsync(
             new ImageFormat { Format = ImageFormat.Types.ImgFormat.Rgb888 }, _headers, cancellationToken: ct).ConfigureAwait(false);
-        return ((int)image.Format.Width, (int)image.Format.Height);
+
+        // The picture comes turned upright; the screen touch is given in does not turn. A device that
+        // was left on its side — the snapshot keeps that — would otherwise report its sides swapped.
+        return QuarterTurns(image.Format) % 2 == 1
+            ? ((int)image.Format.Height, (int)image.Format.Width)
+            : ((int)image.Format.Width, (int)image.Format.Height);
     }
+
+    /// <summary>
+    /// Turn the device about its screen's axis, as Android Studio's rotate buttons do: 0 is its own
+    /// way up, 90 a quarter turn. Android follows if its auto-rotate is on; the frames say how they came.
+    /// </summary>
+    public async Task RotateAsync(int degrees)
+    {
+        var value = new ParameterValue();
+        value.Data.Add([0f, 0f, degrees]);
+
+        try
+        {
+            await _client.setPhysicalModelAsync(
+                new PhysicalModelValue { Target = PhysicalModelValue.Types.PhysicalType.Rotation, Value = value }, _headers).ConfigureAwait(false);
+        }
+        catch (RpcException)
+        {
+        }
+    }
+
+    private static int QuarterTurns(ImageFormat format) => (int)(format.Rotation?.Rotation_ ?? Rotation.Types.SkinRotation.Portrait);
 
     /// <summary>
     /// Frames as Android draws them, scaled to fit <paramref name="width"/>×<paramref name="height"/>,
@@ -102,7 +142,7 @@ public sealed class EmulatorClient : IDisposable
             {
                 if (image.Image_.Length > 0 && image.Format.Width > 0 && image.Format.Height > 0)
                 {
-                    onFrame(new EmulatorFrame(image.Image_.ToByteArray(), (int)image.Format.Width, (int)image.Format.Height, image.Seq));
+                    onFrame(new EmulatorFrame(image.Image_.ToByteArray(), (int)image.Format.Width, (int)image.Format.Height, image.Seq, QuarterTurns(image.Format)));
                 }
             }
         }
@@ -111,12 +151,72 @@ public sealed class EmulatorClient : IDisposable
         }
     }
 
-    /// <summary>A finger down, moved or lifted, in the device's own pixels.</summary>
-    public async Task TouchAsync(int x, int y, bool down, int finger = 1)
+    /// <summary>A finger down, moved or lifted, in the device's own pixels — queued, sent in order.</summary>
+    public Task TouchAsync(int x, int y, bool down, int finger = 1)
     {
         var touch = new TouchEvent();
         touch.Touches.Add(new Touch { X = x, Y = y, Identifier = finger, Pressure = down ? 1 : 0 });
 
+        _touches.Writer.TryWrite(touch);
+        _touchPump ??= Task.Run(PumpTouchesAsync);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// One <c>streamInputEvent</c> call carrying every touch in order. If the stream breaks, the touch
+    /// in hand goes by itself and a new stream is opened for the next.
+    /// </summary>
+    private async Task PumpTouchesAsync()
+    {
+        var reader = _touches.Reader;
+
+        while (!_closed.IsCancellationRequested)
+        {
+            AsyncClientStreamingCall<InputEvent, Empty>? call = null;
+
+            try
+            {
+                call = _client.streamInputEvent(_headers, cancellationToken: _closed);
+
+                while (await reader.WaitToReadAsync(_closed).ConfigureAwait(false))
+                {
+                    while (reader.TryRead(out var touch))
+                    {
+                        try
+                        {
+                            await call.RequestStream.WriteAsync(new InputEvent { TouchEvent = touch }).ConfigureAwait(false);
+                        }
+                        catch (Exception e) when (e is RpcException or InvalidOperationException)
+                        {
+                            await SendAloneAsync(touch).ConfigureAwait(false);
+                            throw;
+                        }
+                    }
+                }
+
+                return;
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (Exception e) when (e is RpcException or InvalidOperationException)
+            {
+                // Reopen on the next touch.
+                if (await Task.Delay(100, _closed).ContinueWith(t => t.IsCanceled, TaskScheduler.Default).ConfigureAwait(false))
+                {
+                    return;
+                }
+            }
+            finally
+            {
+                call?.Dispose();
+            }
+        }
+    }
+
+    private async Task SendAloneAsync(TouchEvent touch)
+    {
         try
         {
             await _client.sendTouchAsync(touch, _headers).ConfigureAwait(false);
@@ -168,7 +268,13 @@ public sealed class EmulatorClient : IDisposable
         }
     }
 
-    public void Dispose() => _channel.Dispose();
+    public void Dispose()
+    {
+        _touches.Writer.TryComplete();
+        _closing.Cancel();
+        _closing.Dispose();
+        _channel.Dispose();
+    }
 }
 
 /// <summary>Turning the emulator's RGB into what a WPF bitmap holds.</summary>

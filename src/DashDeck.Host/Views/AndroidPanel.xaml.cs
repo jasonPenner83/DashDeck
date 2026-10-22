@@ -1,5 +1,7 @@
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using DashDeck.Host.ViewModels;
 
 namespace DashDeck.Host.Views;
@@ -16,6 +18,10 @@ namespace DashDeck.Host.Views;
 /// (ADR-0057): the device's pixels are not the stage's. A touch beside a letterboxed picture goes
 /// nowhere, except a lift, so a drag that slides off the picture still ends on the device.
 /// </para>
+/// <para>
+/// The panel also says how big it is, in screen pixels, so frames are asked for at the size they are
+/// drawn and a tablet can be turned to the region's shape.
+/// </para>
 /// </remarks>
 public partial class AndroidPanel : UserControl
 {
@@ -27,6 +33,7 @@ public partial class AndroidPanel : UserControl
 
         Loaded += (_, _) => Attach(DataContext as AndroidViewModel);
         Unloaded += (_, _) => Attach(null);
+        SizeChanged += (_, _) => ReportSize();
         DataContextChanged += (_, _) =>
         {
             if (IsLoaded)
@@ -85,10 +92,22 @@ public partial class AndroidPanel : UserControl
 
         _attached?.Detach();
         _attached = model;
+        ReportSize();
         _attached?.Attach();
     }
 
-    private void Send(System.Windows.Point point, bool down)
+    private void ReportSize()
+    {
+        if (_attached is null || ActualWidth <= 0 || ActualHeight <= 0)
+        {
+            return;
+        }
+
+        var dpi = VisualTreeHelper.GetDpi(this);
+        _attached.Resize((int)Math.Round(ActualWidth * dpi.DpiScaleX), (int)Math.Round(ActualHeight * dpi.DpiScaleY));
+    }
+
+    private void Send(Point point, bool down)
     {
         if (_attached is not { IsPictureShowing: true } model || Screen.ActualWidth <= 0 || Screen.ActualHeight <= 0)
         {

@@ -156,7 +156,10 @@ public static class EmulatorCommand
     /// A screen size for this run only, <c>1824x1272</c> — the stage — or null for the AVD's own. How a
     /// tablet image is tried at the stage's size without making another AVD.
     /// </param>
-    public static IReadOnlyList<string> Arguments(string avd, int grpcPort, bool noWindow = false, string? skin = null)
+    /// <param name="memoryMb">Memory for the guest this run, or null for the AVD's own (<see cref="EmulatorResources"/>).</param>
+    /// <param name="cores">Processor cores for the guest this run, or null for the AVD's own.</param>
+    public static IReadOnlyList<string> Arguments(
+        string avd, int grpcPort, bool noWindow = false, string? skin = null, int? memoryMb = null, int? cores = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(avd);
         ArgumentOutOfRangeException.ThrowIfLessThan(grpcPort, 1024);
@@ -175,6 +178,8 @@ public static class EmulatorCommand
             "-grpc-use-token",
             "-no-boot-anim",
             .. skin is null ? Array.Empty<string>() : ["-skin", skin],
+            .. memoryMb is { } memory ? ["-memory", memory.ToString(CultureInfo.InvariantCulture)] : Array.Empty<string>(),
+            .. cores is { } count ? ["-cores", count.ToString(CultureInfo.InvariantCulture)] : Array.Empty<string>(),
         ];
     }
 

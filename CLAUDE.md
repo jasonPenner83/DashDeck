@@ -650,8 +650,12 @@ nav goes back to where it was), hold for a menu of **ANDROID** / **ANDROID AUTOM
 (`androidFlavour` saved). Gestures: `Shell/NavPress` feeding Core's `PressGesture`; placement
 `AndroidView`; AVDs `AndroidChoice.List/Pick` (read from the emulator's files). `AndroidViewModel`
 owns one `EmulatorSession` (`src/DashDeck.Emulator`: start or join an AVD, one at a time, boot, frames
-RGB888 → `WriteableBitmap` Bgr32 dropped not queued, touch as fractions → device pixels, `setGps` on the
-beat, `LetGoAsync` on exit so the snapshot saves). Started on first sight and kept running; frames only
+RGB888 → `WriteableBitmap` Bgr32 dropped not queued, touch as fractions → device pixels on one ordered
+`streamInputEvent` stream, `setGps` on the beat, `LetGoAsync` on exit so the snapshot saves). Frames are
+asked at the panel's own pixel size (`AndroidPanel` → `Resize`); a regular tablet is turned to the
+region's shape (`AndroidChoice.TurnFor`, `setPhysicalModel` ROTATION; frames carry `QuarterTurns` and
+touch is turned back by `ToDevice`), Automotive never; `EmulatorResources` gives `-memory 4096 -cores 4`
+on a 16 GB tablet (ADR-0075 addendum). Started on first sight and kept running; frames only
 while a panel is attached. The gRPC client is tested against a fake emulator served in-process
 (`EmulatorClientTests`, `Grpc.AspNetCore.Server`). Not yet: Automotive vehicle data over ADB, audio.
 

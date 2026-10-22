@@ -28,6 +28,13 @@ public sealed record AndroidMenuItem(AndroidFlavour Flavour, string Label, strin
 /// a view is showing, so a hidden Android costs memory and almost no processor. The hold menu's
 /// STOP gives the memory back.
 /// <para>
+/// <b>Frames at the size they are drawn.</b> The panel says its size in screen pixels and frames are
+/// asked for at that, so full screen is not a stage-sized picture stretched, nor the stage a
+/// full-screen one shrunk. And a regular tablet is <b>turned</b> to the region's shape — upright full
+/// screen, on its side on the stage — as Android Studio's rotate button does (<see cref="AndroidChoice.TurnFor"/>).
+/// Automotive is never turned.
+/// </para>
+/// <para>
 /// <b>Frames are dropped, never queued.</b> A frame arrives on a gRPC thread; if the UI has not drawn
 /// the last one yet, the new one is skipped rather than piled up behind it. A picture that falls
 /// behind is worse than one that skips.
@@ -35,9 +42,9 @@ public sealed record AndroidMenuItem(AndroidFlavour Flavour, string Label, strin
 /// </remarks>
 public sealed partial class AndroidViewModel : ObservableObject, IDisposable
 {
-    /// <summary>Frames are asked for at the stage's size in device pixels; full screen scales them.</summary>
-    private const int FrameWidth = 1824;
-    private const int FrameHeight = 1272;
+    /// <summary>Frames are asked for at the stage's size in screen pixels until a panel says its own.</summary>
+    private const int StageWidth = 1824;
+    private const int StageHeight = 1272;
 
     private readonly ILocationSource? _location;
     private readonly Action<AndroidFlavour> _remember;
@@ -48,6 +55,9 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     private byte[] _back = [];
     private int _drawing;
     private DateTimeOffset _lastFix;
+    private (int Width, int Height) _region = (StageWidth, StageHeight);
+    private (int Width, int Height) _streaming;
+    private int? _turned;
 
     /// <param name="location">The truck's GPS, handed to Android as its own; null when there is none.</param>
     /// <param name="flavour">Which Android the cell opens, as saved.</param>
@@ -183,6 +193,27 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// The showing panel's size in screen pixels. A new size turns the tablet if its shape changed,
+    /// and asks for frames at the new size.
+    /// </summary>
+    public void Resize(int width, int height)
+    {
+        if (width <= 0 || height <= 0 || (width, height) == _region)
+        {
+            return;
+        }
+
+        _region = (width, height);
+        Turn();
+
+        if (_frames is not null && _streaming != _region)
+        {
+            StopFrames();
+            StartFrames();
+        }
+    }
+
     /// <summary>A finger on the picture, as fractions of it as drawn.</summary>
     public void Touch(double x, double y, bool down) => _ = _session?.TouchAsync(x, y, down);
 
@@ -212,7 +243,8 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     /// <summary>One line for <c>--shot</c>.</summary>
     public string Describe() =>
         $"android {View.Placement.ToString().ToLowerInvariant()} · {(_session?.Describe() ?? $"{AndroidChoice.Label(Flavour).ToLowerInvariant()} · not started")}" +
-        (Picture is { } p ? $" · picture {p.PixelWidth}×{p.PixelHeight}" : "");
+        (Picture is { } p ? $" · picture {p.PixelWidth}×{p.PixelHeight}" : "") +
+        (_turned is { } turned ? $" · turned {turned}°" : "");
 
     private void Move(AndroidView next)
     {
@@ -249,6 +281,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         }
 
         var session = new EmulatorSession(sdk, avd);
+        _turned = null;
         session.Changed += () => _dispatcher.BeginInvoke(() => OnSessionChanged(session));
         _session = session;
         OnSessionChanged(session);
@@ -270,6 +303,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
                 break;
             case EmulatorState.Running:
                 Say(label, session.Detail);
+                Turn();
                 if (_shown > 0)
                 {
                     StartFrames();
@@ -295,13 +329,14 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         }
 
         var frames = new CancellationTokenSource();
+        var (width, height) = _streaming = _region;
         _frames = frames;
 
         _ = Task.Run(async () =>
         {
             try
             {
-                await session.StreamAsync(FrameWidth, FrameHeight, OnFrame, frames.Token).ConfigureAwait(false);
+                await session.StreamAsync(width, height, OnFrame, frames.Token).ConfigureAwait(false);
             }
             catch (Exception e) when (e is Grpc.Core.RpcException or OperationCanceledException or InvalidOperationException)
             {
@@ -318,6 +353,23 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
                 frames.Dispose();
             });
         });
+    }
+
+    /// <summary>
+    /// Turn a regular tablet to the shape of the region it is drawn in, once per change. The frames
+    /// then come turned and say so, and touch follows them, so nothing else needs telling.
+    /// </summary>
+    private void Turn()
+    {
+        if (_session is not { State: EmulatorState.Running } session
+            || AndroidChoice.TurnFor(session.Avd.Flavour, session.DeviceWidth, session.DeviceHeight, _region.Width, _region.Height) is not { } degrees
+            || degrees == _turned)
+        {
+            return;
+        }
+
+        _turned = degrees;
+        _ = session.RotateAsync(degrees);
     }
 
     private void StopFrames()
