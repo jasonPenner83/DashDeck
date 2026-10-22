@@ -1319,6 +1319,11 @@ device fast enough. This is done at a desk, plugged in. The truck is not needed.
      name says **Automotive with Google Play**;
    - **Regular:** category *Tablet*, e.g. *Pixel Tablet*, with a **Google Play** image.
 
+   - **Stage-shaped:** **New Hardware Profile** in the device list, category *Tablet*,
+     **1824 × 1272** at **320 dpi** (so Android's units match the dash's), with the same Google Play
+     image. Name it `DashDeck_Stage`. This is the one the tablet should be judged on: the stage is
+     1824 × 1272, and rendering 2560 × 1600 for it is work thrown away.
+
    Start each once from Android Studio, let it finish booting, and close it. That makes the
    quick-boot snapshot the probe will start from.
 4. Close Android Studio.
@@ -1329,7 +1334,9 @@ device fast enough. This is done at a desk, plugged in. The truck is not needed.
    - the SDK found;
    - the virtualisation check saying the hypervisor is usable (*WHPX*);
    - both devices listed, one marked **Automotive** and one **regular**.
-3. Run `AndroidProbe\AndroidProbe.exe --avd <the Automotive name>`. Nothing appears on screen; it
+3. Run `AndroidProbe\AndroidProbe.exe --stop-running` first. It shuts down any emulator Android
+   Studio left running, which would otherwise hold the AVD and the port.
+4. Run `AndroidProbe\AndroidProbe.exe --avd <the Automotive name>`. Nothing appears on screen; it
    runs hidden, which is the point. **Expect, within a couple of minutes:**
    - *Discovery file* with `grpc.port` and a hidden `grpc.token`;
    - *Booted: N s*;
@@ -1337,10 +1344,10 @@ device fast enough. This is done at a desk, plugged in. The truck is not needed.
    - *Touch to next frame: N ms*;
    - *Emulator processes: N MB*;
    - *Audio: …*.
-4. Run the same line again. The second run starts from the snapshot, so **boot time is the one that
+5. Run the same line again. The second run starts from the snapshot, so **boot time is the one that
    counts**.
-5. Repeat steps 3 and 4 with the regular device.
-6. Send me the four reports from `%LOCALAPPDATA%\DashDeck\androidprobe\`. Each has a `.png` beside
+6. Repeat steps 4 and 5 with `Pixel_Tablet` and `DashDeck_Stage`.
+7. Send me the reports from `%LOCALAPPDATA%\DashDeck\androidprobe\`. Each has a `.png` beside
    it, the screen as the stage would show it. Look at it first: if it shows anything personal, leave
    it out.
 

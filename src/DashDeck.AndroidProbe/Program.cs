@@ -80,7 +80,9 @@ async Task<int> RunAsync()
     {
         var attachPort = int.Parse(attach, CultureInfo.InvariantCulture);
         var known = running.FirstOrDefault(r => r.Discovery.GrpcPort == attachPort);
-        return await ProbeAsync(null, attachPort, Value("--token") ?? known.Discovery?.GrpcToken, known.Discovery is null ? null : known.Pid).ConfigureAwait(false);
+        var attachAdb = sdk is null ? null : AndroidSdk.AdbPath(sdk);
+        return await ProbeAsync(null, attachPort, Value("--token") ?? known.Discovery?.GrpcToken, known.Discovery is null ? null : known.Pid,
+            attachAdb is not null && File.Exists(attachAdb) ? attachAdb : null, known.Discovery?.AdbSerial).ConfigureAwait(false);
     }
 
     if (sdk is null)
@@ -158,7 +160,8 @@ async Task<int> RunAsync()
         found = await DiscoverAsync(output, launched, profile, process).ConfigureAwait(false);
 
         var code = found is { } f
-            ? await ProbeAsync(process, f.Discovery.GrpcPort!.Value, f.Discovery.GrpcToken, f.Pid).ConfigureAwait(false)
+            ? await ProbeAsync(process, f.Discovery.GrpcPort!.Value, f.Discovery.GrpcToken, f.Pid,
+                File.Exists(AndroidSdk.AdbPath(sdk)) ? AndroidSdk.AdbPath(sdk) : null, f.Discovery.AdbSerial).ConfigureAwait(false)
             : 1;
 
         Say("");
@@ -336,7 +339,7 @@ async Task<(EmulatorDiscovery Discovery, int? Pid)?> DiscoverAsync(List<string> 
     return null;
 }
 
-async Task<int> ProbeAsync(Process? process, int port, string? token, int? vmPid)
+async Task<int> ProbeAsync(Process? process, int port, string? token, int? vmPid, string? adb, string? adbSerial)
 {
     using var channel = GrpcChannel.ForAddress($"http://127.0.0.1:{port}", new GrpcChannelOptions { MaxReceiveMessageSize = 64 * 1024 * 1024 });
     var client = new EmulatorController.EmulatorControllerClient(channel);
@@ -394,7 +397,14 @@ async Task<int> ProbeAsync(Process? process, int port, string? token, int? vmPid
     }
 
     var width = int.Parse(Value("--width") ?? "1824", CultureInfo.InvariantCulture);
-    var height = int.Parse(Value("--height") ?? "1216", CultureInfo.InvariantCulture);
+    var height = int.Parse(Value("--height") ?? "1272", CultureInfo.InvariantCulture);
+
+    // "Booted" comes before the home screen has settled: on the Surface the tablet image was still
+    // saying "Pixel is starting…", and its launcher was not responding, while the first numbers were
+    // taken. Measuring that measures the start, not the device.
+    var settle = int.Parse(Value("--settle") ?? "20", CultureInfo.InvariantCulture);
+    Say($"Letting Android settle for {settle} s before measuring.");
+    await Task.Delay(TimeSpan.FromSeconds(settle)).ConfigureAwait(false);
 
     // ── A still, so the report shows what the stage would ─────────────────────
     var still = await client.getScreenshotAsync(new ImageFormat { Format = ImageFormat.Types.ImgFormat.Png, Width = (uint)width, Height = (uint)height }, headers).ConfigureAwait(false);
@@ -409,18 +419,42 @@ async Task<int> ProbeAsync(Process? process, int port, string? token, int? vmPid
 
     var cpuBefore = EmulatorCpu(vmPid);
     var idle = await MeasureFramesAsync(client, headers, width, height, TimeSpan.FromSeconds(Math.Max(3, seconds / 3)), null).ConfigureAwait(false);
+
+    // The emulator sends a frame only when the picture changes, and a drag on a still screen —
+    // Automotive's home is one — changes nothing. So open something whose list a drag scrolls, in
+    // either flavour: Settings.
+    var scrolling = false;
+    if (adb is not null && adbSerial is not null)
+    {
+        var opened = await CaptureAsync(adb, $"-s {adbSerial} shell am start -a android.settings.SETTINGS").ConfigureAwait(false);
+        scrolling = !opened.Contains("Error", StringComparison.OrdinalIgnoreCase) && !opened.StartsWith('(');
+        Say(scrolling ? "Opened Settings, so the drag scrolls a list." : $"Could not open Settings ({FirstLine(opened)}); dragging on whatever is showing.");
+        await Task.Delay(3000).ConfigureAwait(false);
+    }
+    else
+    {
+        Say("No SDK adb found, so nothing was opened to scroll; dragging on whatever is showing.");
+    }
+
     var dragging = await MeasureFramesAsync(client, headers, width, height, TimeSpan.FromSeconds(seconds), ct => DragAsync(client, headers, device, ct)).ConfigureAwait(false);
     var cpuAfter = EmulatorCpu(vmPid);
 
     Say("");
     Say($"Frames at {width}×{height} (RGB888 over gRPC):");
     Say($"  idle:     {idle.Meter.FramesPerSecond:0.0} fps, longest gap {idle.Meter.LongestGap.TotalMilliseconds:0} ms ({idle.Meter.Count} frames; an idle screen sends few — that is expected)");
-    Say($"  dragging: {dragging.Meter.FramesPerSecond:0.0} fps, {dragging.Meter.MegabytesPerSecond:0.0} MB/s, longest gap {dragging.Meter.LongestGap.TotalMilliseconds:0} ms ({dragging.Meter.Count} frames)");
+    Say(dragging.Meter.Count < 5
+        ? $"  dragging: NOT A MEASUREMENT — the screen hardly changed ({dragging.Meter.Count} frames), so there was nothing to send{(scrolling ? "" : "; nothing scrollable was open")}"
+        : $"  dragging: {dragging.Meter.FramesPerSecond:0.0} fps, {dragging.Meter.MegabytesPerSecond:0.0} MB/s, longest gap {dragging.Meter.LongestGap.TotalMilliseconds:0} ms ({dragging.Meter.Count} frames)");
     Say($"  frame size: {dragging.Width}×{dragging.Height}");
 
     // ── How long a touch takes to show ───────────────────────────────────────
     var latency = await TouchLatencyAsync(client, headers, device, width, height).ConfigureAwait(false);
-    Say($"Touch to next frame: {(latency is { } l ? $"{l.TotalMilliseconds:0} ms (median of 5)" : "no frame followed a touch")}");
+    Say($"Touch to next frame: {(latency is { } l ? $"{l.TotalMilliseconds:0} ms (median of 5)" : "no frame followed a touch — the touch moved nothing on screen, so this is not a measurement")}");
+
+    if (scrolling)
+    {
+        await CaptureAsync(adb!, $"-s {adbSerial} shell input keyevent 3").ConfigureAwait(false);
+    }
 
     if (Flag("--tap"))
     {
@@ -761,7 +795,8 @@ void Usage()
 
           --sdk <folder>        the Android SDK, if not in ANDROID_HOME or Android Studio's place
           --port <n>            the gRPC port to ask for (8554)
-          --width/--height <px> the frame size to ask for (1824×1216, about the stage)
+          --width/--height <px> the frame size to ask for (1824×1272, the stage)
+          --settle <s>          how long to let Android settle after booting (20)
           --seconds <n>         how long to measure while dragging (10)
           --no-window           start with -no-window instead of -qt-hide-window
           --tap                 tap the middle of the screen once

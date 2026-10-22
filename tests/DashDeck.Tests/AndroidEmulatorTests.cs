@@ -95,6 +95,7 @@ public class AndroidEmulatorTests
         Assert.Equal(8554, discovery.GrpcPort);
         Assert.Equal("abcdef123456", discovery.GrpcToken);
         Assert.Equal("Car", discovery.AvdName);
+        Assert.Equal("emulator-5554", discovery.AdbSerial);
 
         var lines = discovery.Redacted().ToList();
         Assert.Contains("grpc.token=<12 characters, hidden>", lines);
@@ -110,6 +111,8 @@ public class AndroidEmulatorTests
 
         Assert.Null(discovery.GrpcPort);
         Assert.Null(discovery.GrpcToken);
+        Assert.Equal("emulator-5554", discovery.AdbSerial);
+        Assert.Null(EmulatorDiscovery.Parse("grpc.port=8554").AdbSerial);
         Assert.Equal("pid_1234.ini", EmulatorDiscovery.FileName(1234));
     }
 

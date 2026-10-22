@@ -107,6 +107,10 @@ public static class AndroidSdk
         ];
     }
 
+    /// <summary>ADB inside an SDK folder — the SDK's own, not another on the PATH (scrcpy brings one).</summary>
+    public static string AdbPath(string sdk) =>
+        Path.Combine(sdk, "platform-tools", OperatingSystem.IsWindows() ? "adb.exe" : "adb");
+
     /// <summary>The emulator program inside an SDK folder.</summary>
     public static string EmulatorPath(string sdk) =>
         Path.Combine(sdk, "emulator", OperatingSystem.IsWindows() ? "emulator.exe" : "emulator");
@@ -184,6 +188,15 @@ public sealed record EmulatorDiscovery(IReadOnlyDictionary<string, string> Keys)
 
     /// <summary>The AVD it is running, or null.</summary>
     public string? AvdName => Keys.GetValueOrDefault("avd.name");
+
+    /// <summary>
+    /// The name ADB knows it by — <c>emulator-5554</c>, from its console port — or null. ADB is how
+    /// Automotive's vehicle data will be set (ADR-0075), and how the probe opens something to scroll.
+    /// </summary>
+    public string? AdbSerial =>
+        int.TryParse(Keys.GetValueOrDefault("port.serial"), NumberStyles.None, CultureInfo.InvariantCulture, out var port) && port > 0
+            ? string.Create(CultureInfo.InvariantCulture, $"emulator-{port}")
+            : null;
 
     public static EmulatorDiscovery Parse(string text) => new(KeyValues.Parse(text));
 

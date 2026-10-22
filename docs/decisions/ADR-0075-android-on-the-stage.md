@@ -89,6 +89,36 @@ What can run Android on a Surface Pro 7 (Intel, Windows 11):
 
    If it does not, the fallback is the real second device.
 
+## First measurements on the Surface (2026-10-22)
+
+Surface Pro 7 (Intel Iris Plus), emulator 37.2.12 on WHPX, with the dash running. The emulator wants
+Vulkan 1.3.240 and the Intel driver offers 1.3.215, so it renders through OpenGL.
+
+| | Automotive 1408×792 | Pixel Tablet 2560×1600 |
+|---|---|---|
+| boot from the quick-boot snapshot | **2.2–2.3 s** | 2.3 s (66 s the time the snapshot failed to load) |
+| frames while dragging | **19 fps** the one time the screen moved | 2–4 fps |
+| touch to the next frame | **22 ms** | 170–200 ms |
+| emulator memory | **1.4 GB** | 2.6–3.5 GB |
+| processor while measuring | 61 % | 72–74 % |
+
+**Automotive passes.** The tablet's numbers are not yet a fair test. The screenshots showed it
+measured while Android was still starting (*Pixel is starting…*, then *Pixel Launcher isn't
+responding*), and it renders 2560×1600 for a stage of 1824×1272. A second Automotive run read
+0 fps, but only because its home screen is still and a drag on it moves nothing; the emulator sends
+frames only when the picture changes.
+
+What the first runs taught the probe, now fixed:
+- the discovery file is named after the virtual machine's process, not `emulator.exe`;
+- emulators left running hold the AVD and the port, so the probe lists them and shuts them down
+  through gRPC (which saves the snapshot) rather than starting over them;
+- after "booted" it lets Android settle, opens Settings so a drag scrolls a list, and says when a
+  screen that did not move made a number meaningless;
+- frames are asked for at the stage's own size, 1824×1272.
+
+Next: the tablet again, and a tablet AVD shaped like the stage (1824×1272 at 320 dpi, which makes
+Android's units the dash's own). Then the occupant is built for whichever passes.
+
 ## Consequences
 
 - No hardware to buy, and the stage gets Android in two flavours chosen per launcher entry.
