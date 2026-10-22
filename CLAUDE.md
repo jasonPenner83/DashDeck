@@ -383,6 +383,19 @@ of its messages the truck sends, then picked signals decoded live to confirm (AD
 is a lead, never committed** — the one found so far is for the 2021+ F-150 (P702) and unlicensed;
 only our own confirmed measurements reach the vehicle pack. Reference: [`docs/id-hunter.md`](docs/id-hunter.md).
 
+**Our own CAN database** (ADR-0073, stage 1 of 4): `DashDeck.Core.Dbc` reads and writes `.dbc` files
+losslessly — `DbcReader` (a tokenizer, one parser per statement; unread statements kept word for word
+in `DbcDocument.Verbatim`, a bad one reported and skipped), `DbcWriter` (Vector's order; reading what
+it writes gives the same database), `DbcBits` (the one bit decoder; the hunter's `CanDatabase` is now a
+view over the reader). **`DiagnosticAnswers`** is the convention for values DashDeck *asks* for: one
+message per module on its answer id (`7E0` → `7E8`), multiplexed by `Service` (byte 1, 41/62) then
+`Pid01` (byte 2) or `Did22` (bytes 2–3), each value hung by an `SG_MUL_VAL_` line; it also reads
+cantools' bare-`M` form and one-multiplexor hand-made files, and refuses (with a reason) what it cannot
+place. `Layout`/`ToDecodeSpec` bridge to the catalog's `DecodeSpec` and refuse what it cannot say. One
+file is one bus: the network attribute `DashDeckBus`, an ENUM **written as its index**. Files live in
+`%LOCALAPPDATA%\DashDeck\dbc\` and are never committed; tests invent everything. Next: catalog
+entries pointing into a database (stage 2), then the editors writing to it (stage 3).
+
 **The serial tap records FORScan** (ADR-0048): `src/DashDeck.SerialTap`, `SerialTap.exe` in
 `SerialTap\` beside the dash. Serial port monitors need filter drivers and kept failing, so the tap
 **holds the adapter's COM port itself and offers it on TCP** (`127.0.0.1:35000`); FORScan connects as
@@ -630,6 +643,28 @@ window — and touch is mapped to the picture *as drawn*. PCM goes to **Windows'
 truck's audio. No dongle: the screen says why and looks again every 5 s; `--synthetic-dongle` at a
 desk. **Android Auto always needs the phone**; Android Automotive is a separate experiment (Q26), and
 the Pi Zero 2 W stays giving SYNC 3 wireless Android Auto. Setup: [`docs/phone-projection.md`](docs/phone-projection.md).
+
+**Android on the dash** (ADR-0076, **proposed**; ADR-0075's emulator **removed** — measured at 16 frames in /
+9 drawn / CPU 85 % on the Surface, don't rebuild it without new reasons) is the **ANDROID** nav cell mirroring a
+**real phone** with the owner's own **scrcpy** (never shipped): tap for full screen (`IsAndroidFull`), double
+tap for the stage (`AndroidStageOccupant`), hold for the menu — ANDROID PHONE (connect), CONNECT WIRELESSLY,
+PICTURE (SHARP/BALANCED/FAST = 1920/1440/960 long side, `androidPicture`), STOP. Gestures `Shell/NavPress` +
+Core's `PressGesture`; placement `AndroidView`. `src/DashDeck.Phone`: `ScrcpyInstall.Find` (setting
+`androidScrcpy`, PATH, winget/scoop/choco, unzipped folders; version from `scrcpy --version`), `PhoneSession`
+(push `scrcpy-server`, forward tunnel, server started with the **installed version** — the protocol is
+internal and version-specific: check `doc/develop.md` at that tag before touching it; video socket opens with a
+dummy byte, then control), `PhoneFinder` (wireless). Core `DashDeck.Core.Phone`: `ScrcpyVideo` (<4.0: size once,
+then from each SPS via `H264Sps`; ≥4.0: session packets), `ScrcpyControl` (touch/key/display power/reset bytes,
+same in all versions, checked against scrcpy's tests), `AdbDevice`, `AndroidFit` (region shape, one dp = one
+dash unit, `wm size`/`wm density`, no turn, no crop — scrcpy mirrors the logical display), `PhoneShell` (night
+via `cmd uimode`, put-back, the **watchdog** left on the phone that resets wm size if the mirror ends
+unannounced — bracketed pgrep pattern, `setsid`), `AndroidPicture`, `RollingRate`. Video decoded by ADR-0057's
+`ProjectionVideo` (LibVLC); dropped while hidden, `Reset` asked when shown. **Wireless** = `adb tcpip 5555`
+switched on once by cable, address remembered (`androidPhoneAddress`), and the tablet's gateways tried (on the
+phone's hotspot the gateway is the phone); not Android 11 Wireless debugging (off while the phone is the
+hotspot); forgotten when the phone restarts. One ADB: scrcpy's. A dropped mirror is retried every 10 s while
+shown. No audio yet (scrcpy forwards from Android 11 — next, with ducking); no driving lock on a phone. Checked
+in the cloud only against a fake adb + fake scrcpy server in the scratchpad (not kept).
 
 ## Things that are easy to get wrong here
 

@@ -4,6 +4,7 @@
         xmlns:conv="clr-namespace:DashDeck.Host.Converters"
         xmlns:views="clr-namespace:DashDeck.Host.Views"
         xmlns:warn="clr-namespace:DashDeck.Host.Warnings"
+        xmlns:shell="clr-namespace:DashDeck.Host.Shell"
         Title="DashDeck"
         WindowStyle="None"
         ResizeMode="NoResize"
@@ -497,6 +498,12 @@
                                 Content="{Binding MapContent}"
                                 Visibility="{Binding IsMapVisible, Converter={StaticResource BoolToVis}}" />
 
+                <!-- Android full screen (ADR-0075): all six bands, the stage collapsed behind it, as
+                     the map's full size is. Its other placement is the stage itself. -->
+                <ContentControl Grid.Row="1"
+                                Content="{Binding AndroidContent}"
+                                Visibility="{Binding IsAndroidVisible, Converter={StaticResource BoolToVis}}" />
+
                 <!-- Address search (ADR-0065), covering the map's own region: a WebView2 is a
                      child window, so a keyboard cannot be drawn over it (ADR-0021). Bound to the
                      map's view-model, which holds both the search and the way back. -->
@@ -684,6 +691,38 @@
                         </Button.Template>
                     </Button>
 
+                    <!-- ANDROID (ADR-0075). Three presses, so no Command: a tap opens it full screen,
+                         a double tap sends it to the stage, a hold offers Android or Android
+                         Automotive. Lit while it is the destination; on the stage, the stage shows it. -->
+                    <Button Cursor="Hand" Width="130"
+                            shell:NavPress.TapCommand="{Binding AndroidTapCommand}"
+                            shell:NavPress.DoubleTapCommand="{Binding AndroidDoubleTapCommand}"
+                            shell:NavPress.HoldCommand="{Binding AndroidHoldCommand}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Cell" Background="Transparent"
+                                        BorderBrush="Transparent" BorderThickness="0,3,0,0">
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <Path x:Name="Glyph" Data="M5,11 A7,7 0 0 1 19,11 Z M8,6 L6.5,3.5 M16,6 L17.5,3.5 M5,13 H19 V19 A2,2 0 0 1 17,21 H7 A2,2 0 0 1 5,19 Z"
+                                              Stroke="{DynamicResource NavTextBrush}" StrokeThickness="1.75"
+                                              Width="26" Height="26" Stretch="Uniform" HorizontalAlignment="Center" />
+                                        <TextBlock x:Name="Label" Margin="0,7,0,0" HorizontalAlignment="Center"
+                                                   FontFamily="{DynamicResource MonoFont}" FontSize="12"
+                                                   Foreground="{DynamicResource NavTextBrush}" Text="ANDROID" />
+                                    </StackPanel>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsAndroidActive}" Value="True">
+                                        <Setter TargetName="Cell" Property="Background" Value="{DynamicResource AccentWashBrush}" />
+                                        <Setter TargetName="Cell" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                        <Setter TargetName="Glyph" Property="Stroke" Value="{DynamicResource SelectedTextBrush}" />
+                                        <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource SelectedTextBrush}" />
+                                    </DataTrigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
                 </StackPanel>
             </Border>
 
@@ -813,6 +852,74 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!--
+                The ANDROID cell's hold menu (ADR-0076): the phone, how it is reached, how sharp its
+                picture is, and stop. Modal like the overflow menu, and drawn over Android's picture —
+                which is WPF's own, so nothing has to stand down. Anchored above the nav, where the
+                finger that held the cell already is.
+            -->
+            <Grid Grid.Row="0" Grid.RowSpan="3"
+                  DataContext="{Binding Android}"
+                  Visibility="{Binding IsMenuOpen, Converter={StaticResource BoolToVis}}">
+
+                <Button Background="#C0000000"
+                        BorderThickness="0"
+                        Command="{Binding CloseMenuCommand}">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}" />
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
+                <Border Width="520"
+                        HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                        Margin="0,0,0,124"
+                        Padding="18"
+                        CornerRadius="18"
+                        Background="{DynamicResource SurfaceBrush}"
+                        BorderBrush="{DynamicResource HairlineStrongBrush}"
+                        BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock Margin="4,0,0,12" Style="{StaticResource MicroText}" Text="ANDROID ON THE DASH" />
+
+                        <!-- The phone: what it is and how it is reached. A tap connects again. -->
+                        <Button Style="{StaticResource MenuItemButton}" Margin="0,0,0,10" Command="{Binding ConnectCommand}">
+                            <StackPanel>
+                                <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16" Text="ANDROID PHONE" />
+                                <TextBlock Margin="0,4,0,0" Style="{StaticResource MicroText}" TextWrapping="Wrap" Text="{Binding PhoneLine}" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Over Wi-Fi or the phone's hotspot, switched on once by cable. -->
+                        <Button Style="{StaticResource MenuItemButton}" Margin="0,0,0,10" Command="{Binding GoWirelessCommand}">
+                            <StackPanel>
+                                <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16"
+                                           Foreground="{DynamicResource TextMidBrush}" Text="CONNECT WIRELESSLY" />
+                                <TextBlock Margin="0,4,0,0" Style="{StaticResource MicroText}" TextWrapping="Wrap" Text="{Binding WirelessLine}" />
+                            </StackPanel>
+                        </Button>
+
+                        <Border Height="1" Margin="0,4,0,14" Background="{DynamicResource HairlineStrongBrush}" />
+
+                        <!-- How big a picture the phone sends: sharper, or quicker. Restarts the mirror. -->
+                        <Button Style="{StaticResource MenuItemButton}" Margin="0,0,0,10" Command="{Binding NextPictureCommand}">
+                            <StackPanel>
+                                <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16"
+                                           Foreground="{DynamicResource TextMidBrush}" Text="{Binding PictureLabel}" />
+                                <TextBlock Margin="0,4,0,0" Style="{StaticResource MicroText}" Text="{Binding PictureDetail}" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Gives the phone its own screen back. -->
+                        <Button Style="{StaticResource MenuItemButton}" Margin="0" Command="{Binding StopCommand}">
+                            <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16"
+                                       Foreground="{DynamicResource TextMidBrush}" Text="STOP ANDROID" />
                         </Button>
                     </StackPanel>
                 </Border>

@@ -864,6 +864,24 @@ The guide itself: [id-hunter](id-hunter.md).
 - any warning on the cluster. Listening is silent, so there should be none.
 
 
+## The ID hunter's D reads files properly (ADR-0073)
+
+D now reads a database through DashDeck's own DBC reader instead of a line-by-line match. Nothing
+about using it changes; this checks that the same file still loads the same, or better.
+
+**You need:** the laptop with the hunter, the same `.dbcx` you used for ADR-0045's walkthrough in
+`%LOCALAPPDATA%\DashDeck\dbc\`. The truck is not needed for steps 1–2; `--simulate` is enough.
+
+1. Start the hunter (`IdHunter --simulate` at a desk) and choose **D**, then Enter to take the file.
+   **Expect:** *VehicleCAN.dbcx: 329 messages, 2141 signals*, the same counts as before. If it now
+   says *N statements it could not read*, tell me N — it used to count only signal lines.
+2. Search for `door`. **Expect:** `3B3 … DrStatDrv_B_Actl` and its neighbours, as before.
+3. In the truck, engine running, repeat ADR-0045's step 4 for the driver's door. **Expect:**
+   *Closed* / *Ajar* following the door, exactly as before.
+
+**A failure looks like:** fewer messages or signals than before, a door that no longer shows its
+*Ajar* text, or the hunter stopping on the file.
+
 ## The serial tap — recording FORScan (ADR-0048)
 
 **You need:**
@@ -1279,6 +1297,86 @@ more than 30 s; a picture that is stretched or tapped in the wrong place (send a
 stuttering or seconds late; the picture freezing (RECONNECT from the three-dot menu, and tell me
 when it happened).
 
+## The Android Emulator — removed 2026-10-22
+
+The three walkthroughs that were here are gone with the feature: the AndroidProbe measurements, the
+emulated ANDROID and ANDROID AUTOMOTIVE, and Automotive's car data. **Why, in one paragraph, so the
+next person does not rebuild it by accident.** The emulator ran on the Surface and was tuned as far
+as it would go: the GPU on, host composition off, Windows' throttling opted out of, the cores and the
+picture size tuned. Even then it measured 16 frames a second, 9 drawn, with the processor over 85 %
+and the GPU idle, because the tablet both ran Android and copied every frame. A real phone mirrored
+with scrcpy did the same job smoothly. ADR-0075 and its addenda keep the numbers; ADR-0076 is what
+replaced it.
+
+## Android on the dash — a real phone, mirrored (ADR-0076)
+
+**You need:**
+- the Surface with this build, and scrcpy installed (`winget install Genymobile.scrcpy`, or its zip
+  unzipped somewhere: Downloads is fine);
+- the phone with **USB debugging** on (Settings ▸ About phone ▸ tap Build number 7 times, then
+  Settings ▸ System ▸ Developer options ▸ USB debugging), and a USB cable for the first time;
+- the phone **unlocked** the first time, to tap **Allow** on its prompt (tick *Always allow from this
+  computer*);
+- **no other scrcpy window running**: the dash runs scrcpy's server itself.
+
+### By cable
+
+1. Plug the phone in. Start DashDeck. **Hold** ANDROID. **Expect:** the menu, *ANDROID ON THE DASH*,
+   with:
+   - **ANDROID PHONE**, and under it after a second *Pixel 8 · connected by USB*. *tap Allow on the
+     phone* means the prompt is waiting; *No phone* means ADB cannot see it;
+   - **CONNECT WIRELESSLY**;
+   - **PICTURE: BALANCED**;
+   - **STOP ANDROID**.
+2. Tap **ANDROID PHONE**. **Expect:**
+   - *STARTING ANDROID PHONE*, then the phone's home screen in the dash, full screen and filling it;
+   - the phone's own screen goes dark (it is mirrored, not off);
+   - for a moment the phone lays itself out again, as a tablet the shape of the region.
+3. Scroll, open apps, type. **Expect:** smooth, following your finger. Hold ANDROID and note *busiest
+   second: N frames* on the phone's line after a scroll.
+4. Tap **Back**, **Home** and the square on the key bar. **Expect:** each does what it says.
+5. Double-tap ANDROID. **Expect:** on the stage the phone lays itself out wide and fills the stage
+   beside the key bar.
+6. **PICTURE** goes round SHARP → BALANCED → FAST, restarting the mirror. **Expect:** SHARP the
+   crispest, FAST the lightest on the tablet.
+7. At night (or Settings ▸ DISPLAY), **expect** the phone's dark theme.
+
+### Wirelessly — at home, then in the truck
+
+8. With the phone plugged in and mirrored, hold ANDROID and tap **CONNECT WIRELESSLY**. **Expect:**
+   - the mirror restarts (ADB on the phone restarts to listen on the network);
+   - the phone's line then says *connected by USB* (cable first while both work);
+   - CONNECT WIRELESSLY says *Remembered at 192.168.x.x:5555*.
+9. **Unplug the phone.** **Expect:** the picture stops, *ANDROID PHONE STOPPED … trying again in ten
+   seconds*, then the phone again, now *connected over Wi-Fi*. Everything above still works.
+10. **In the truck:** turn on the phone's hotspot and join it from the Surface. Tap ANDROID.
+    **Expect:** the phone found over the hotspot (the tablet's gateway is the phone) and mirrored, with
+    no cable.
+11. Walk the phone out of Wi-Fi range, then back. **Expect:** the picture stops; the phone's own
+    screen comes back to its normal size within about fifteen seconds (the watchdog on the phone);
+    and the mirror returns by itself when it is back in range, while ANDROID is showing.
+12. **Restart the phone**, then tap ANDROID. **Expect:** *not found … over the network*. That is
+    expected: ADB over the network does not survive a restart. Plug in once and tap CONNECT
+    WIRELESSLY again.
+
+### Giving the phone back
+
+13. Hold ANDROID ▸ **STOP ANDROID**. **Expect:**
+    - the phone's own screen back on, at its own size and density, laid out as a phone again;
+    - `adb shell wm size` says *Physical size* with no *Override size*.
+14. Start it again, then close DashDeck. **Expect:** the same.
+
+**A failure looks like:**
+- *SCRCPY NOT FOUND* with scrcpy installed: put its folder in the settings file as
+  `"androidScrcpy": "C:\\path\\to\\scrcpy-win64-vX"`.
+- *ANDROID PHONE STOPPED* with *scrcpy's server stopped: …*. Send the reason. A version mismatch means
+  two scrcpy installs.
+- CONNECT WIRELESSLY saying *Not connected: …*. Send the reason. The phone and the tablet must be on
+  the same network, or the tablet on the phone's hotspot.
+- The phone left at the odd size more than a minute after the mirror dropped:
+  `adb shell wm size reset` and `adb shell wm density reset`, and note how the mirror ended.
+- The picture frozen, black or blocky. Note the phone's line.
+
 ## The audio delay and the video sync offset — parked 2026-10-15
 
 Both walkthroughs that were here are gone with the feature. The delay measurement, the
@@ -1459,9 +1557,13 @@ and a single void sentence threw away a good position. A fix is now **built** fr
 
 ## Updating from the dash (ADR-0061, Q40)
 
+**Confirmed 2026-10-21:** v.0.10.1 → v.0.11.0 went all the way through on the Surface — it closed,
+swapped and came back by itself on the new version (ADR-0061's second addendum). The steps below
+stay as the check for any later change to the updater.
+
 **Do this once at a desk, on purpose, before you ever need it in a truck.** The check and the
 download are ordinary network code; the install replaces the folder the dash is running from, and
-that half has never run on Windows (Q40). Finding out whether it works while parked somewhere in
+until 2026-10-21 that half had never completed on Windows (Q40). Finding out whether it works while parked somewhere in
 the dark is the wrong way round.
 
 **You need:** a deploy folder (not a build folder — it will refuse), the internet, and a release
