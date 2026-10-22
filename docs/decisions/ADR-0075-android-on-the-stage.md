@@ -379,3 +379,35 @@ The hold menu's line for the running flavour says whether it is working:
      what Android is fitted to, so Android's shape still matches.
 
 Still open: Android's sound ducking under directions, and steering-wheel keys.
+
+## Addendum — 2026-10-22: the emulator is retired; a real phone replaces it (ADR-0076)
+
+The addenda above took the emulator as far as it would go on the Surface Pro 7. They put Android on
+the GPU, turned host composition off, opted the emulator out of Windows' throttling, tuned the cores
+and made the screen smaller. Measured at the end, while scrolling: **16 frames a second from the
+emulator, 9 drawn, the processor over 85 %, the GPU under 10 %.** The tablet was both running
+Android and copying every frame out of it.
+
+The owner then tried this ADR's own named fallback, a real phone mirrored over ADB, with scrcpy and
+an old Pixel XL beside the dash. It was "way better", and was built into the dash
+([ADR-0076](ADR-0076-android-from-a-real-phone.md)). With that working, the owner asked for the
+emulator to go:
+
+- **Removed:** the emulator session, launcher and gRPC client, the vendored
+  `emulator_controller.proto` and the gRPC packages, the `AndroidProbe` tool (with the probe reports
+  that had been committed beside it), the ANDROID and ANDROID AUTOMOTIVE flavours, Automotive's car
+  data (`CarFeed`), the emulator's tuning (DNS, GPU mode, throttling, skins, cores), and its
+  walkthroughs.
+- **Kept:**
+  - the ANDROID nav cell (tap, double tap, hold) and its placements;
+  - the key bar;
+  - the region fit's principle (one dp a dash unit), now `AndroidFit` for a phone;
+  - the picture-size setting;
+  - the frame-rate readout.
+- **Lost with it:** Android Automotive. On real hardware Automotive with Google's apps is licensed
+  only to car makers (ADR-0057). That made the driving restrictions Automotive would have applied
+  from the truck's speed and gear the emulator's alone. A phone has no such lock; ADR-0076 says so.
+
+This ADR's decisions on the emulator are superseded. The record of how it was measured and tuned
+stays above, so it is not tried again without new reasons: a faster tablet, or an emulator that
+renders differently.

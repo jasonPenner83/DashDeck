@@ -190,41 +190,25 @@ public sealed record UserSettings
     public bool MapRange { get; init; } = true;
 
     /// <summary>
-    /// Which Android the ANDROID cell opens: <c>Regular</c> or <c>Automotive</c> (ADR-0075). Chosen
-    /// by holding the cell.
-    /// </summary>
-    [JsonPropertyName("androidFlavour")]
-    public string AndroidFlavour { get; init; } = "Regular";
-
-    /// <summary>
-    /// Whether Android hears the tablet's microphone — for "Hey Google" and voice typing (ADR-0075).
-    /// The emulator gives it silence otherwise. A settings-file switch; on unless turned off.
-    /// </summary>
-    [JsonPropertyName("androidMicrophone")]
-    public bool AndroidMicrophone { get; init; } = true;
-
-    /// <summary>
-    /// How the emulator draws (ADR-0075): <c>auto</c> — the tablet's GPU, falling back to the
-    /// emulator's own choice if it will not start that way — <c>emulator</c> to leave it to the
-    /// emulator, or one of its <c>-gpu</c> modes (<c>host</c>, <c>angle_indirect</c>,
-    /// <c>swiftshader_indirect</c>) as it is. A settings-file switch.
-    /// </summary>
-    [JsonPropertyName("androidGpu")]
-    public string AndroidGpu { get; init; } = "auto";
-
-    /// <summary>
-    /// How big a screen Android draws (ADR-0075): <c>SHARP</c>, <c>BALANCED</c> or <c>FAST</c> — the
-    /// stage's own pixels, three quarters, or half, scaled up to fill. Chosen in the hold menu.
+    /// How big a picture the phone sends (ADR-0076): <c>SHARP</c>, <c>BALANCED</c> or <c>FAST</c> —
+    /// 1920 on the long side, three quarters, or half, scaled to fill. Chosen in the hold menu.
     /// </summary>
     [JsonPropertyName("androidPicture")]
     public string AndroidPicture { get; init; } = "BALANCED";
 
     /// <summary>
-    /// Where scrcpy is, for ANDROID PHONE (ADR-0076), when it is not found by itself — on <c>PATH</c>,
+    /// Where scrcpy is, for the ANDROID cell's phone (ADR-0076), when it is not found by itself — on <c>PATH</c>,
     /// from winget, scoop or Chocolatey, or unzipped into Downloads. Empty to look by itself.
     /// </summary>
     [JsonPropertyName("androidScrcpy")]
     public string AndroidScrcpy { get; init; } = "";
+
+    /// <summary>
+    /// Where the phone answered over the network (<c>192.168.1.23:5555</c>), remembered when it was
+    /// switched to wireless from the hold menu (ADR-0076). Empty until then.
+    /// </summary>
+    [JsonPropertyName("androidPhoneAddress")]
+    public string AndroidPhoneAddress { get; init; } = "";
 }
 
 /// <summary>

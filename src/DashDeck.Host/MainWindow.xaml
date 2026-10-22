@@ -858,9 +858,10 @@
             </Grid>
 
             <!--
-                The ANDROID cell's hold menu (ADR-0075): which Android it opens. Modal like the
-                overflow menu, and drawn over Android's picture — which is WPF's own, so nothing has
-                to stand down. Anchored above the nav, where the finger that held the cell already is.
+                The ANDROID cell's hold menu (ADR-0076): the phone, how it is reached, how sharp its
+                picture is, and stop. Modal like the overflow menu, and drawn over Android's picture —
+                which is WPF's own, so nothing has to stand down. Anchored above the nav, where the
+                finger that held the cell already is.
             -->
             <Grid Grid.Row="0" Grid.RowSpan="3"
                   DataContext="{Binding Android}"
@@ -887,31 +888,26 @@
                     <StackPanel>
                         <TextBlock Margin="4,0,0,12" Style="{StaticResource MicroText}" Text="ANDROID ON THE DASH" />
 
-                        <ItemsControl ItemsSource="{Binding MenuItems}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Button Style="{StaticResource MenuItemButton}"
-                                            IsEnabled="{Binding IsAvailable}"
-                                            Command="{Binding DataContext.ChooseCommand,
-                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                            CommandParameter="{Binding}">
-                                        <StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16" Text="{Binding Label}" />
-                                                <TextBlock Margin="12,0,0,0" FontFamily="{DynamicResource MonoFont}" FontSize="16"
-                                                           Foreground="{DynamicResource AccentBrush}" Text="●"
-                                                           Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVis}}" />
-                                            </StackPanel>
-                                            <TextBlock Margin="0,4,0,0" Style="{StaticResource MicroText}" TextWrapping="Wrap" Text="{Binding Detail}" />
-                                        </StackPanel>
-                                    </Button>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <!-- The phone: what it is and how it is reached. A tap connects again. -->
+                        <Button Style="{StaticResource MenuItemButton}" Margin="0,0,0,10" Command="{Binding ConnectCommand}">
+                            <StackPanel>
+                                <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16" Text="ANDROID PHONE" />
+                                <TextBlock Margin="0,4,0,0" Style="{StaticResource MicroText}" TextWrapping="Wrap" Text="{Binding PhoneLine}" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Over Wi-Fi or the phone's hotspot, switched on once by cable. -->
+                        <Button Style="{StaticResource MenuItemButton}" Margin="0,0,0,10" Command="{Binding GoWirelessCommand}">
+                            <StackPanel>
+                                <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16"
+                                           Foreground="{DynamicResource TextMidBrush}" Text="CONNECT WIRELESSLY" />
+                                <TextBlock Margin="0,4,0,0" Style="{StaticResource MicroText}" TextWrapping="Wrap" Text="{Binding WirelessLine}" />
+                            </StackPanel>
+                        </Button>
 
                         <Border Height="1" Margin="0,4,0,14" Background="{DynamicResource HairlineStrongBrush}" />
 
-                        <!-- How big a screen Android draws: sharper, or quicker. Restarts Android. -->
+                        <!-- How big a picture the phone sends: sharper, or quicker. Restarts the mirror. -->
                         <Button Style="{StaticResource MenuItemButton}" Margin="0,0,0,10" Command="{Binding NextPictureCommand}">
                             <StackPanel>
                                 <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16"
@@ -920,16 +916,7 @@
                             </StackPanel>
                         </Button>
 
-                        <!-- How the emulator draws: on the GPU, or its own way (software on the Surface). Restarts Android. -->
-                        <Button Style="{StaticResource MenuItemButton}" Margin="0,0,0,10" Command="{Binding SwitchGpuCommand}">
-                            <StackPanel>
-                                <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16"
-                                           Foreground="{DynamicResource TextMidBrush}" Text="{Binding GpuSwitchLabel}" />
-                                <TextBlock Margin="0,4,0,0" Style="{StaticResource MicroText}" Text="Restarts Android" />
-                            </StackPanel>
-                        </Button>
-
-                        <!-- Gives the memory back: the emulator holds one to three gigabytes while it runs. -->
+                        <!-- Gives the phone its own screen back. -->
                         <Button Style="{StaticResource MenuItemButton}" Margin="0" Command="{Binding StopCommand}">
                             <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16"
                                        Foreground="{DynamicResource TextMidBrush}" Text="STOP ANDROID" />

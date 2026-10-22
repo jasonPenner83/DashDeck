@@ -1,5 +1,5 @@
 using System.Buffers.Binary;
-using DashDeck.Core.Emulation;
+using DashDeck.Core.Phone;
 
 namespace DashDeck.Tests;
 
@@ -148,7 +148,7 @@ public class ScrcpyTests
 
         Assert.Equal(2, devices.Count);
         Assert.Equal(("HT6B0123456", "Pixel XL"), (phone.Serial, phone.Name));
-        Assert.Equal("Pixel XL · connected", AdbDevice.Describe(phone));
+        Assert.Equal("Pixel XL · connected by USB", AdbDevice.Describe(phone));
 
         Assert.Equal("Pixel XL · tap Allow on the phone", AdbDevice.Describe(AdbDevice.Pick(AdbDevice.Parse("HT6B0123456 unauthorized usb:1-1 model:Pixel_XL"))));
         Assert.Null(AdbDevice.Pick(AdbDevice.Parse("emulator-5554 device")));   // an emulator is not a phone
@@ -159,15 +159,16 @@ public class ScrcpyTests
     public void A_phone_is_told_the_region_s_shape_outright()
     {
         // Full screen beside the key bar, capped at 1920 on the long side; one dp a dash unit.
-        var full = AndroidFit.ForMirror(1824, 2212, 2, 1920)!;
-        Assert.Equal((1584, 1920, 278), (full.Width, full.Height, full.Density));
-        Assert.True(full.IsWhole);
+        Assert.Equal(new AndroidFit(1584, 1920, 278), AndroidFit.For(1824, 2212, 2, 1920));
+        Assert.Equal(new AndroidFit(1696, 1272, 320), AndroidFit.For(1696, 1272, 2, 1920));
 
-        var stage = AndroidFit.ForMirror(1696, 1272, 2, 1920)!;
-        Assert.Equal((1696, 1272, 320), (stage.Width, stage.Height, stage.Density));
+        // BALANCED: three quarters of SHARP's long side, and the density follows, so nothing shrinks.
+        Assert.Equal(new AndroidFit(1184, 1440, 208), AndroidFit.For(1824, 2212, 2, AndroidPicture.LongSide(AndroidPicture.Parse("BALANCED"))));
 
-        Assert.Null(AndroidChoice.TurnFor(AndroidFlavour.Phone, 1440, 2560, 1824, 636));   // never turned
-        Assert.Equal("ANDROID PHONE", AndroidChoice.Label(AndroidFlavour.Phone));
+        Assert.Null(AndroidFit.For(0, 2212, 2, 1920));
+        Assert.Equal(
+            [["-s", "HT6B", "shell", "wm", "size", "1584x1920"], ["-s", "HT6B", "shell", "wm", "density", "278"]],
+            new AndroidFit(1584, 1920, 278).AdbCommands("HT6B"));
     }
 
     private static async Task<List<ScrcpyItem>> Read(Stream stream, ScrcpyVersion version)

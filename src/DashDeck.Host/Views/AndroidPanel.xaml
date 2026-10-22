@@ -1,7 +1,7 @@
 <UserControl x:Class="DashDeck.Host.Views.AndroidPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:emu="clr-namespace:DashDeck.Core.Emulation;assembly=DashDeck.Core">
+             xmlns:emu="clr-namespace:DashDeck.Core.Phone;assembly=DashDeck.Core">
 
     <UserControl.Resources>
         <!-- The keys' glyphs, drawn on the nav's 24-unit grid. -->
@@ -90,7 +90,7 @@
             </StackPanel>
         </Grid>
 
-        <!-- Back, home, and recent apps where the flavour has them (AndroidKeys.For). -->
+        <!-- Back, home, and recent apps. -->
         <Border x:Name="KeyBar" Grid.Row="1" Background="{DynamicResource SurfaceBrush}"
                 BorderBrush="{DynamicResource HairlineBrush}" BorderThickness="0,1,0,0">
             <UniformGrid x:Name="KeyGrid" Rows="1">
@@ -102,8 +102,7 @@
                         Content="{StaticResource AndroidHomeGlyph}" />
                 <Button Style="{StaticResource AndroidKeyButton}" ToolTip="Recent apps"
                         CommandParameter="{x:Static emu:AndroidKey.Recents}" Command="{Binding PressCommand}"
-                        Content="{StaticResource AndroidRecentsGlyph}"
-                        Visibility="{Binding HasRecents, Converter={StaticResource BoolToVisToken}}" />
+                        Content="{StaticResource AndroidRecentsGlyph}" />
             </UniformGrid>
         </Border>
     </Grid>

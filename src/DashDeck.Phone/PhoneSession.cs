@@ -2,9 +2,20 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
-using DashDeck.Core.Emulation;
+using DashDeck.Core.Phone;
 
-namespace DashDeck.Emulator;
+namespace DashDeck.Phone;
+
+/// <summary>Where a phone's mirror is.</summary>
+public enum PhoneState
+{
+    Stopped,
+    Starting,
+    Connecting,
+    Running,
+    Stopping,
+    Failed,
+}
 
 /// <summary>
 /// A real phone on the stage, mirrored with the owner's scrcpy (ADR-0076): its screen as H.264 to the
@@ -12,8 +23,8 @@ namespace DashDeck.Emulator;
 /// </summary>
 /// <remarks>
 /// The phone does all of Android's drawing; the tablet only decodes video, which its GPU does in
-/// hardware. That is the whole point after the emulator (ADR-0075 addendum): the emulator kept the
-/// tablet's processor at 85 % and drew 9 frames a second.
+/// hardware. That is the whole point: the Android Emulator this replaced (ADR-0075) kept the tablet's
+/// processor at 85 % and drew 9 frames a second.
 /// <para>
 /// <b>Started as scrcpy's own client starts it:</b> the installed server pushed to the phone, a
 /// forward tunnel (the phone listens, so no firewall rule on the tablet), the server started with the
@@ -23,8 +34,9 @@ namespace DashDeck.Emulator;
 /// <para>
 /// <b>The phone is put back.</b> Its screen is told the region's size and density while it is
 /// mirrored (<c>wm size</c>, <c>wm density</c>), and both are reset when the session stops — also when
-/// the dash closes. Its own display is turned off while mirrored, and scrcpy's clean-up turns it back
-/// on. Unplugged mid-session, the size and density stay until the next start or a reset by hand.
+/// the dash closes. If the mirror ends any other way — the cable pulled, the Wi-Fi lost — a watchdog
+/// left on the phone puts them back (<see cref="PhoneShell.Watchdog"/>). Its own display is turned off
+/// while mirrored, and scrcpy's clean-up turns it back on.
 /// </para>
 /// </remarks>
 public sealed class PhoneSession : IAsyncDisposable
@@ -47,11 +59,10 @@ public sealed class PhoneSession : IAsyncDisposable
     private bool _fingerDown;
     private volatile bool _showing = true;
     private bool _fitMade;
-    private CarState? _carTold;
+    private bool? _nightTold;
     private Task? _starting;
 
-    /// <param name="adb">The <c>adb</c> to use — the SDK's when there is one, so the emulators and the
-    /// phone share one ADB server rather than two fighting (ADR-0075).</param>
+    /// <param name="adb">The <c>adb</c> to use — scrcpy's own, so the dash and scrcpy share one ADB server.</param>
     /// <param name="maxSide">The longest side the phone's video may have.</param>
     public PhoneSession(string adb, AdbDevice phone, ScrcpyInstall scrcpy, int maxSide = 1920)
     {
@@ -68,7 +79,7 @@ public sealed class PhoneSession : IAsyncDisposable
 
     public AdbDevice Phone { get; }
 
-    public EmulatorState State { get; private set; } = EmulatorState.Stopped;
+    public PhoneState State { get; private set; } = PhoneState.Stopped;
 
     /// <summary>What it is doing, or why it stopped, in one sentence.</summary>
     public string Detail { get; private set; } = "not started";
@@ -88,7 +99,7 @@ public sealed class PhoneSession : IAsyncDisposable
     public string? FitProblem { get; private set; }
 
     /// <summary>Why night mode could not be told, or null.</summary>
-    public string? CarProblem { get; private set; }
+    public string? NightProblem { get; private set; }
 
     /// <summary>Video packets received — the phone sends one per frame it draws.</summary>
     public long Packets { get; private set; }
@@ -129,10 +140,10 @@ public sealed class PhoneSession : IAsyncDisposable
 
         try
         {
-            Set(EmulatorState.Starting, $"putting scrcpy {Version}'s server on the {Phone.Name}");
+            Set(PhoneState.Starting, $"putting scrcpy {Version}'s server on the {Phone.Name}");
             if (await AdbAsync(["push", _scrcpy.ServerPath, ScrcpyServer.DevicePath], TimeSpan.FromSeconds(60)) is { } pushFailed)
             {
-                Set(EmulatorState.Failed, $"scrcpy's server could not be put on the phone: {pushFailed}");
+                Set(PhoneState.Failed, $"scrcpy's server could not be put on the phone: {pushFailed}");
                 return;
             }
 
@@ -140,36 +151,36 @@ public sealed class PhoneSession : IAsyncDisposable
             _port = FreePort();
             if (await AdbAsync(["forward", string.Create(CultureInfo.InvariantCulture, $"tcp:{_port}"), "localabstract:" + ScrcpyServer.SocketName(scid)], TimeSpan.FromSeconds(15)) is { } forwardFailed)
             {
-                Set(EmulatorState.Failed, $"the tunnel to the phone could not be made: {forwardFailed}");
+                Set(PhoneState.Failed, $"the tunnel to the phone could not be made: {forwardFailed}");
                 return;
             }
 
-            Set(EmulatorState.Starting, $"starting scrcpy {Version} on the {Phone.Name}");
+            Set(PhoneState.Starting, $"starting scrcpy {Version} on the {Phone.Name}");
             StartServer(scid);
 
             _videoSocket = await ConnectAsync(firstSocket: true, ct).ConfigureAwait(false);
             if (_videoSocket is null)
             {
                 var said = Said();
-                Set(EmulatorState.Failed, said is null ? "scrcpy's server did not answer on the phone" : $"scrcpy's server stopped: {said}");
+                Set(PhoneState.Failed, said is null ? "scrcpy's server did not answer on the phone" : $"scrcpy's server stopped: {said}");
                 return;
             }
 
             _controlSocket = await ConnectAsync(firstSocket: false, ct).ConfigureAwait(false);
             if (_controlSocket is null)
             {
-                Set(EmulatorState.Failed, "scrcpy's control channel did not open");
+                Set(PhoneState.Failed, "scrcpy's control channel did not open");
                 return;
             }
 
             _ = DrainAsync(_controlSocket, ct);
-            Set(EmulatorState.Booting, $"waiting for the {Phone.Name}'s picture");
+            Set(PhoneState.Connecting, $"waiting for the {Phone.Name}'s picture");
 
             await ReadVideoAsync(_videoSocket.GetStream(), ct).ConfigureAwait(false);
 
             if (!ct.IsCancellationRequested)
             {
-                Set(EmulatorState.Failed, "the phone stopped sending its screen — unplugged, or locked?");
+                Set(PhoneState.Failed, "the phone stopped sending its screen — unplugged, or locked?");
             }
         }
         catch (OperationCanceledException)
@@ -179,7 +190,7 @@ public sealed class PhoneSession : IAsyncDisposable
         {
             if (!ct.IsCancellationRequested)
             {
-                Set(EmulatorState.Failed, $"the phone's mirror stopped: {Said() ?? e.Message}");
+                Set(PhoneState.Failed, $"the phone's mirror stopped: {Said() ?? e.Message}");
             }
         }
     }
@@ -261,9 +272,9 @@ public sealed class PhoneSession : IAsyncDisposable
                     VideoWidth = size.Width;
                     VideoHeight = size.Height;
                     SizeChanged?.Invoke(size.Width, size.Height);
-                    if (State != EmulatorState.Running)
+                    if (State != PhoneState.Running)
                     {
-                        Set(EmulatorState.Running, $"{Phone.Name} mirrored with scrcpy {Version} ({size.Width}×{size.Height})");
+                        Set(PhoneState.Running, $"{Phone.Name} mirrored with scrcpy {Version} ({size.Width}×{size.Height})");
 
                         // Its own screen off: it is behind the dash, and it saves the battery and the heat.
                         await SendAsync(ScrcpyControl.DisplayPower(false)).ConfigureAwait(false);
@@ -304,7 +315,7 @@ public sealed class PhoneSession : IAsyncDisposable
     /// </summary>
     public Task TouchAsync(double x, double y, bool down)
     {
-        if (State != EmulatorState.Running || VideoWidth <= 0 || VideoHeight <= 0 || (!down && !_fingerDown))
+        if (State != PhoneState.Running || VideoWidth <= 0 || VideoHeight <= 0 || (!down && !_fingerDown))
         {
             return Task.CompletedTask;
         }
@@ -357,7 +368,7 @@ public sealed class PhoneSession : IAsyncDisposable
     {
         ArgumentNullException.ThrowIfNull(fit);
 
-        if (State != EmulatorState.Running)
+        if (State != PhoneState.Running)
         {
             return false;
         }
@@ -371,7 +382,13 @@ public sealed class PhoneSession : IAsyncDisposable
             }
         }
 
-        await AdbAsync(["shell", "cmd window set-ignore-orientation-request true"], TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+        await AdbAsync(["shell", PhoneShell.LetterboxApps], TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+
+        // Once per session: the watchdog that puts the screen back if the mirror ends unannounced.
+        if (!_fitMade)
+        {
+            await AdbAsync(["shell", PhoneShell.Watchdog], TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+        }
 
         _fitMade = true;
         Fit = fit;
@@ -379,28 +396,22 @@ public sealed class PhoneSession : IAsyncDisposable
         return true;
     }
 
-    /// <summary>Night, as the dash has it, as the phone's dark theme (<see cref="CarFeed"/>).</summary>
-    public async Task FeedAsync(CarState next)
+    /// <summary>Night, as the dash has it, as the phone's dark theme — told when it changes.</summary>
+    public async Task NightAsync(bool dark)
     {
-        if (State != EmulatorState.Running)
+        if (State != PhoneState.Running || _nightTold == dark)
         {
             return;
         }
 
-        var (commands, told) = CarFeed.Changes(_carTold, new CarState(Night: next.Night), AndroidFlavour.Phone, VhalRoute.Store);
-        if (commands.Count == 0)
+        if (await AdbAsync(["shell", PhoneShell.Night(dark)], TimeSpan.FromSeconds(15)) is { } failed)
         {
+            NightProblem = failed;
             return;
         }
 
-        if (await AdbAsync(["shell", string.Join("; ", commands)], TimeSpan.FromSeconds(15)) is { } failed)
-        {
-            CarProblem = failed;
-            return;
-        }
-
-        _carTold = told;
-        CarProblem = null;
+        _nightTold = dark;
+        NightProblem = null;
     }
 
     /// <summary>One line for <c>--shot</c> and the hold menu.</summary>
@@ -409,23 +420,23 @@ public sealed class PhoneSession : IAsyncDisposable
     /// <summary>Stop mirroring and put the phone back: its screen's own size and density, its display on.</summary>
     public async ValueTask DisposeAsync()
     {
-        if (State is EmulatorState.Stopped or EmulatorState.Stopping)
+        if (State is PhoneState.Stopped or PhoneState.Stopping)
         {
             return;
         }
 
-        Set(EmulatorState.Stopping, $"giving the {Phone.Name} its screen back");
+        Set(PhoneState.Stopping, $"giving the {Phone.Name} its screen back");
         await SendAsync(ScrcpyControl.DisplayPower(true)).ConfigureAwait(false);
         await _life.CancelAsync().ConfigureAwait(false);
         await PutBackAsync().ConfigureAwait(false);
         Close();
-        Set(EmulatorState.Stopped, "stopped");
+        Set(PhoneState.Stopped, "stopped");
     }
 
     /// <summary>For the dash closing: the same, bounded, since the dash has ten seconds to close.</summary>
     public async Task LetGoAsync()
     {
-        if (State is EmulatorState.Stopped)
+        if (State is PhoneState.Stopped)
         {
             return;
         }
@@ -434,14 +445,14 @@ public sealed class PhoneSession : IAsyncDisposable
         await _life.CancelAsync().ConfigureAwait(false);
         await PutBackAsync().WaitAsync(TimeSpan.FromSeconds(2)).ContinueWith(_ => { }, TaskScheduler.Default).ConfigureAwait(false);
         Close();
-        Set(EmulatorState.Stopped, "stopped");
+        Set(PhoneState.Stopped, "stopped");
     }
 
     private async Task PutBackAsync()
     {
         if (_fitMade)
         {
-            await AdbAsync(["shell", "wm size reset; wm density reset; cmd window set-ignore-orientation-request false"], TimeSpan.FromSeconds(10), ignoreLife: true)
+            await AdbAsync(["shell", PhoneShell.PutBack], TimeSpan.FromSeconds(10), ignoreLife: true)
                 .ConfigureAwait(false);
         }
 
@@ -530,7 +541,7 @@ public sealed class PhoneSession : IAsyncDisposable
         }
     }
 
-    private void Set(EmulatorState state, string detail)
+    private void Set(PhoneState state, string detail)
     {
         State = state;
         Detail = detail;

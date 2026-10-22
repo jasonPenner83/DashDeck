@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
-namespace DashDeck.Core.Emulation;
+namespace DashDeck.Core.Phone;
 
 /// <summary>
 /// The owner's installed scrcpy: its version, which its server must be started with exactly
@@ -435,8 +435,15 @@ public static class H264Sps
 /// <param name="Model">The model, e.g. <c>Pixel_XL</c>, or null.</param>
 public sealed record AdbDevice(string Serial, string State, string? Model)
 {
-    /// <summary>True for an emulator, which the ANDROID PHONE choice leaves to the emulator flavours.</summary>
+    /// <summary>True for an Android emulator, which is not a phone to mirror.</summary>
     public bool IsEmulator => Serial.StartsWith("emulator-", StringComparison.Ordinal);
+
+    /// <summary>
+    /// True when ADB reaches it over the network: <c>192.168.1.23:5555</c> after <c>adb tcpip</c>, or a
+    /// wireless-debugging pairing's own name.
+    /// </summary>
+    public bool IsWireless => Serial.Contains("._adb-tls-connect", StringComparison.Ordinal)
+        || (Serial.LastIndexOf(':') is > 0 and var colon && System.Net.IPAddress.TryParse(Serial[..colon], out _));
 
     /// <summary>Its model as people write it: <c>Pixel XL</c>.</summary>
     public string Name => Model?.Replace('_', ' ') ?? Serial;
@@ -454,20 +461,24 @@ public sealed record AdbDevice(string Serial, string State, string? Model)
                 p.Skip(2).FirstOrDefault(f => f.StartsWith("model:", StringComparison.Ordinal))?["model:".Length..])),
     ];
 
-    /// <summary>The phone to mirror: the first real device that has allowed the tablet, else the first real one.</summary>
+    /// <summary>
+    /// The phone to mirror: one that has allowed the tablet, by cable before Wi-Fi — the same phone
+    /// can be both at once — else the first one at all.
+    /// </summary>
     public static AdbDevice? Pick(IReadOnlyList<AdbDevice> devices)
     {
         ArgumentNullException.ThrowIfNull(devices);
 
         var phones = devices.Where(d => !d.IsEmulator).ToList();
-        return phones.FirstOrDefault(d => d.State == "device") ?? phones.FirstOrDefault();
+        return phones.Where(d => d.State == "device").OrderBy(d => d.IsWireless).FirstOrDefault() ?? phones.FirstOrDefault();
     }
 
     /// <summary>One line for the hold menu: the phone and whether it can be used, or how to make it so.</summary>
     public static string Describe(AdbDevice? phone) => phone switch
     {
         null => "No phone — plug one in by USB with USB debugging on",
-        { State: "device" } => $"{phone.Name} · connected",
+        { State: "device", IsWireless: true } => $"{phone.Name} · connected over Wi-Fi",
+        { State: "device" } => $"{phone.Name} · connected by USB",
         { State: "unauthorized" } => $"{phone.Name} · tap Allow on the phone",
         _ => $"{phone.Name} · {phone.State}",
     };

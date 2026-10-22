@@ -4,7 +4,7 @@
     <ProjectReference Include="..\DashDeck.Abstractions\DashDeck.Abstractions.csproj" />
     <ProjectReference Include="..\DashDeck.Abstractions.Wpf\DashDeck.Abstractions.Wpf.csproj" />
     <ProjectReference Include="..\DashDeck.Core\DashDeck.Core.csproj" />
-    <ProjectReference Include="..\DashDeck.Emulator\DashDeck.Emulator.csproj" />
+    <ProjectReference Include="..\DashDeck.Phone\DashDeck.Phone.csproj" />
     <ProjectReference Include="..\DashDeck.Simulator\DashDeck.Simulator.csproj" />
     <ProjectReference Include="..\DashDeck.Vehicle\DashDeck.Vehicle.csproj" />
   </ItemGroup>

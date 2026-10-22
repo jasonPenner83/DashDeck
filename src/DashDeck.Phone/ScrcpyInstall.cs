@@ -1,7 +1,7 @@
 using System.Diagnostics;
-using DashDeck.Core.Emulation;
+using DashDeck.Core.Phone;
 
-namespace DashDeck.Emulator;
+namespace DashDeck.Phone;
 
 /// <summary>
 /// The owner's scrcpy, found where it was installed (ADR-0076): its server, which the dash pushes to

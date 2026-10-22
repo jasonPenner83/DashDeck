@@ -1,10 +1,10 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using DashDeck.Core.Emulation;
+using DashDeck.Core.Phone;
 
-namespace DashDeck.Emulator;
+namespace DashDeck.Phone;
 
-/// <summary>Running the SDK's own <c>adb</c> for the few things gRPC cannot do (ADR-0075).</summary>
+/// <summary>Running <c>adb</c> (ADR-0076).</summary>
 public static class Adb
 {
     /// <summary>
