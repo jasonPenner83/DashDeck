@@ -113,6 +113,7 @@ async Task<int> RunAsync()
         info.ArgumentList.Add(argument);
     }
 
+    var launched = DateTime.UtcNow.AddSeconds(-2);
     using var process = Process.Start(info) ?? throw new InvalidOperationException("the emulator did not start");
     var output = new List<string>();
     process.OutputDataReceived += (_, e) => Keep(output, e.Data);
@@ -122,14 +123,15 @@ async Task<int> RunAsync()
 
     try
     {
-        var discovery = await DiscoverAsync(process.Id, profile).ConfigureAwait(false);
+        var discovery = await DiscoverAsync(output, launched, profile).ConfigureAwait(false);
         var code = await ProbeAsync(process, discovery?.GrpcPort ?? port, discovery?.GrpcToken).ConfigureAwait(false);
 
         Say("");
         Say("What the emulator printed (warnings and errors, at most 40 lines):");
         lock (output)
         {
-            foreach (var line in output.Where(l => l.Contains("WARN", StringComparison.OrdinalIgnoreCase) || l.Contains("ERROR", StringComparison.OrdinalIgnoreCase) || l.Contains("grpc", StringComparison.OrdinalIgnoreCase)).Take(40))
+            foreach (var line in output.Where(l => new[] { "WARN", "ERROR", "FATAL", "grpc", "Advertising", "token", "jwk" }
+                .Any(word => l.Contains(word, StringComparison.OrdinalIgnoreCase))).Take(40))
             {
                 Say("  " + line);
             }
@@ -149,36 +151,51 @@ async Task<int> RunAsync()
     }
 }
 
-async Task<EmulatorDiscovery?> DiscoverAsync(int pid, string profile)
+async Task<EmulatorDiscovery?> DiscoverAsync(List<string> output, DateTime launched, string profile)
 {
     var folders = EmulatorDiscovery.Folders(Environment.GetEnvironmentVariable, Path.GetTempPath(), profile);
     var deadline = Stopwatch.StartNew();
 
-    while (deadline.Elapsed < TimeSpan.FromSeconds(60))
+    while (deadline.Elapsed < TimeSpan.FromSeconds(90))
     {
-        foreach (var folder in folders)
+        // First what the emulator says, then the newest file written since it started: the file is
+        // named after the virtual machine's process, not the launcher's, so its name is not ours to know.
+        string? advertised;
+        lock (output)
         {
-            var path = Path.Combine(folder, EmulatorDiscovery.FileName(pid));
-            if (File.Exists(path))
+            advertised = EmulatorDiscovery.AdvertisedPath(output);
+        }
+
+        var path = advertised is not null && File.Exists(advertised)
+            ? advertised
+            : EmulatorDiscovery.Newest(
+                folders.Where(Directory.Exists)
+                    .SelectMany(f => Directory.EnumerateFiles(f, "pid_*.ini"))
+                    .Select(f => (f, File.GetLastWriteTimeUtc(f))),
+                launched);
+
+        if (path is not null)
+        {
+            var discovery = EmulatorDiscovery.Parse(await File.ReadAllTextAsync(path).ConfigureAwait(false));
+
+            if (discovery.GrpcPort is not null)
             {
-                var discovery = EmulatorDiscovery.Parse(await File.ReadAllTextAsync(path).ConfigureAwait(false));
-                Say($"Discovery file after {deadline.Elapsed.TotalSeconds:0.0} s: {path}");
+                Say($"Discovery file after {deadline.Elapsed.TotalSeconds:0.0} s ({(path == advertised ? "where the emulator said" : "the newest since it started")}): {path}");
                 foreach (var line in discovery.Redacted())
                 {
                     Say("  " + line);
                 }
 
-                if (discovery.GrpcPort is not null)
-                {
-                    return discovery;
-                }
+                return discovery;
             }
         }
 
         await Task.Delay(500).ConfigureAwait(false);
     }
 
-    Say($"NO DISCOVERY FILE with a gRPC port in 60 s. Looked in: {string.Join(", ", folders)}. Trying the port asked for, without a token.");
+    Say($"NO DISCOVERY FILE with a gRPC port in 90 s. Looked in: {string.Join(", ", folders)}" +
+        $"{(folders.Any(Directory.Exists) ? "; files there: " + string.Join(", ", folders.Where(Directory.Exists).SelectMany(Directory.EnumerateFiles).Select(Path.GetFileName)) : "")}." +
+        " Trying the port asked for, without a token.");
     return null;
 }
 
@@ -552,16 +569,19 @@ void Say(string line)
     report.AppendLine(line);
 }
 
-string ReportPath(string extension) => Path.Combine(
-    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DashDeck", "androidprobe",
-    "probe-" + stamp + "." + extension);
+// The folder is made here, not when the report is saved: the screenshot is written beside it first.
+string ReportPath(string extension)
+{
+    var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DashDeck", "androidprobe");
+    Directory.CreateDirectory(folder);
+    return Path.Combine(folder, "probe-" + stamp + "." + extension);
+}
 
 void Save()
 {
     try
     {
         var path = ReportPath("txt");
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, report.ToString());
         Console.WriteLine($"Report: {path}");
     }

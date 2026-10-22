@@ -114,6 +114,39 @@ public class AndroidEmulatorTests
     }
 
     [Fact]
+    public void The_discovery_file_is_where_the_emulator_says_it_wrote_it()
+    {
+        string[] output =
+        [
+            "INFO         | Android emulator version 37.2.12.0",
+            @"INFO         | Advertising in: C:\Users\me\AppData\Local\Temp\avd\running\pid_4321.ini",
+            "INFO         | Boot completed",
+        ];
+
+        Assert.Equal(@"C:\Users\me\AppData\Local\Temp\avd\running\pid_4321.ini", EmulatorDiscovery.AdvertisedPath(output));
+        Assert.Null(EmulatorDiscovery.AdvertisedPath(["INFO | Advertising in: nowhere"]));
+        Assert.Null(EmulatorDiscovery.AdvertisedPath([]));
+    }
+
+    [Fact]
+    public void Without_being_told_the_newest_discovery_file_since_the_start_is_taken()
+    {
+        var start = new DateTime(2026, 10, 22, 12, 0, 0, DateTimeKind.Utc);
+
+        var newest = EmulatorDiscovery.Newest(
+            [
+                ("run/pid_100.ini", start.AddMinutes(-30)),   // a crashed emulator from before
+                ("run/pid_200.ini", start.AddSeconds(4)),
+                ("run/pid_300.ini", start.AddSeconds(9)),
+                ("run/notes.txt", start.AddSeconds(20)),
+            ],
+            start);
+
+        Assert.Equal("run/pid_300.ini", newest);
+        Assert.Null(EmulatorDiscovery.Newest([("run/pid_100.ini", start.AddMinutes(-30))], start));
+    }
+
+    [Fact]
     public void Discovery_files_are_looked_for_in_the_runtime_then_temp_then_profile_folders()
     {
         var folders = EmulatorDiscovery.Folders(k => k == "XDG_RUNTIME_DIR" ? "/run/user/1" : null, "/tmp", "/home/me");

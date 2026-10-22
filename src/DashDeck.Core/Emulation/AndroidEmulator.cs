@@ -213,7 +213,50 @@ public sealed record EmulatorDiscovery(IReadOnlyDictionary<string, string> Keys)
     }
 
     /// <summary>The discovery file's name for a process.</summary>
+    /// <remarks>
+    /// The process is the virtual machine, <c>qemu-system-x86_64</c>, not <c>emulator.exe</c>, which
+    /// only launches it — so the launcher's own id does not name the file. Found on the Surface.
+    /// </remarks>
     public static string FileName(int pid) => string.Create(CultureInfo.InvariantCulture, $"pid_{pid}.ini");
+
+    /// <summary>
+    /// Where the emulator says it wrote its discovery file — its own line <c>Advertising in: …</c> —
+    /// or null when it has not said yet. The most direct answer, so it is tried first.
+    /// </summary>
+    public static string? AdvertisedPath(IEnumerable<string> output)
+    {
+        ArgumentNullException.ThrowIfNull(output);
+
+        const string marker = "Advertising in:";
+
+        foreach (var line in output)
+        {
+            var at = line.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (at >= 0 && line[(at + marker.Length)..].Trim().Trim('"', '\'') is { Length: > 0 } path
+                && path.EndsWith(".ini", StringComparison.OrdinalIgnoreCase))
+            {
+                return path;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The newest discovery file written since the emulator was started, from those found — the
+    /// fallback when it does not say where it wrote one. Null when none is new enough.
+    /// </summary>
+    public static string? Newest(IEnumerable<(string Path, DateTime WrittenUtc)> files, DateTime sinceUtc)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+
+        return files
+            .Where(f => f.WrittenUtc >= sinceUtc && Path.GetFileName(f.Path).StartsWith("pid_", StringComparison.OrdinalIgnoreCase)
+                && f.Path.EndsWith(".ini", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(f => f.WrittenUtc)
+            .Select(f => f.Path)
+            .FirstOrDefault();
+    }
 
     private static bool IsSecret(string key) =>
         key.Contains("token", StringComparison.OrdinalIgnoreCase) || key.Contains("jwk", StringComparison.OrdinalIgnoreCase)
