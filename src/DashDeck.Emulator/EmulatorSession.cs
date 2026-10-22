@@ -88,8 +88,8 @@ public sealed class EmulatorSession : IAsyncDisposable
     /// </summary>
     public string? Renderer => _output is { } output ? EmulatorGpu.Renderer(output()) : null;
 
-    /// <summary>The emulator's <c>-gpu</c> mode; null for its own choice.</summary>
-    public string? Gpu { get; init; }
+    /// <summary>The emulator's <c>-gpu</c> mode to start with, and whether to fall back from it.</summary>
+    public GpuChoice Gpu { get; init; } = GpuChoice.Emulator;
 
     /// <summary>The memory and cores the emulator is started with; null for the AVD's own.</summary>
     public (int? MemoryMb, int? Cores) Resources { get; }
@@ -142,9 +142,20 @@ public sealed class EmulatorSession : IAsyncDisposable
             }
             else
             {
+                var dns = HostNetwork.DnsServers();
                 var launch = await EmulatorLauncher.StartAsync(
                     _sdk, Avd.Name, _port, _skin, line => Set(EmulatorState.Starting, line), ct, Resources.MemoryMb, Resources.Cores,
-                    HostNetwork.DnsServers(), Gpu).ConfigureAwait(false);
+                    dns, Gpu.Mode).ConfigureAwait(false);
+
+                // The host's GPU refused: start again the emulator's way, which at least draws.
+                if (launch.Failure is { } refused && Gpu is { FallBack: true, Mode: { } mode })
+                {
+                    Set(EmulatorState.Starting, $"the emulator would not draw with -gpu {mode} ({refused}); starting it its own way");
+                    launch = await EmulatorLauncher.StartAsync(
+                        _sdk, Avd.Name, _port, _skin, line => Set(EmulatorState.Starting, line), ct, Resources.MemoryMb, Resources.Cores,
+                        dns, null).ConfigureAwait(false);
+                }
+
                 if (launch.Failure is { } failure)
                 {
                     Set(EmulatorState.Failed, failure);

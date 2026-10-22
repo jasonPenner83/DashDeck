@@ -668,8 +668,9 @@ once a beat, `EmulatorSession.FeedAsync`; signals required while Automotive runs
 from the Surface's gateway adapters + 1.1.1.1/8.8.8.8 (`EmulatorNetwork`, `HostNetwork`) — the emulator
 otherwise picks a virtual adapter's DNS. Speed: cores = logical − 2 (2–8); frames are the gRPC message's
 own memory (`EmulatorFrame.Rgb` is `ReadOnlyMemory<byte>`, never copied); `FramePixels` shuffles four pixels
-per SIMD op; GPU mode from the emulator's output in the hold menu (`EmulatorGpu.Renderer`), `androidGpu`
-forces one. MMAP frames not done (untestable without an emulator). Started on first sight and kept running; frames only
+per SIMD op; GPU mode from the emulator's output in the hold menu (`EmulatorGpu.Renderer`). Left alone it
+drew in software on the Surface (`sw`), so the dash asks for `-gpu host` and falls back to the emulator's
+choice if it will not start (`EmulatorGpu.Choose`; `androidGpu`: `auto` | `emulator` | a mode). MMAP frames not done (untestable without an emulator). Started on first sight and kept running; frames only
 while a panel is attached. The gRPC client is tested against a fake emulator served in-process
 (`EmulatorClientTests`, `Grpc.AspNetCore.Server`). Not yet: Automotive vehicle data over ADB, audio.
 

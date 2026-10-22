@@ -398,7 +398,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             clock,
             new AndroidFeeds(
                 vehicle.Signals, () => _theme.IsNight, () => Display.FuelTankLitres, saved.AndroidMicrophone,
-                DashDeck.Core.Emulation.EmulatorGpu.Parse(saved.AndroidGpu)));
+                DashDeck.Core.Emulation.EmulatorGpu.Choose(saved.AndroidGpu)));
         Android.PlacementChanged += _ => OnAndroidMoved();
         Android.FlavourChosen += () => AndroidTap();
 

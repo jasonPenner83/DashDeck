@@ -24,13 +24,27 @@ public class EmulatorTuningTests
     }
 
     [Fact]
-    public void The_gpu_mode_is_one_the_emulator_takes_or_its_own_choice()
+    public void The_dash_asks_for_the_gpu_unless_told_otherwise()
     {
-        Assert.Equal("host", EmulatorGpu.Parse("Host"));
-        Assert.Null(EmulatorGpu.Parse("auto"));
-        Assert.Null(EmulatorGpu.Parse("turbo"));
-        Assert.Null(EmulatorGpu.Parse(null));
+        // The emulator chose software on the Surface, so by default the dash asks for the GPU — and
+        // falls back to the emulator's own choice if it will not start that way.
+        Assert.Equal(new GpuChoice("host", true), EmulatorGpu.Choose("auto"));
+        Assert.Equal(new GpuChoice("host", true), EmulatorGpu.Choose(null));
+        Assert.Equal(new GpuChoice("host", true), EmulatorGpu.Choose("turbo"));
+
+        Assert.Equal(GpuChoice.Emulator, EmulatorGpu.Choose("emulator"));
+        Assert.Equal(new GpuChoice("host", false), EmulatorGpu.Choose("Host"));
+        Assert.Equal(new GpuChoice("angle_indirect", false), EmulatorGpu.Choose("angle_indirect"));
     }
+
+    [Theory]
+    [InlineData("sw", true)]
+    [InlineData("swiftshader_indirect", true)]
+    [InlineData("swangle_indirect", true)]
+    [InlineData("host", false)]
+    [InlineData("angle_indirect", false)]
+    public void Software_is_known_by_any_of_its_names(string mode, bool software) =>
+        Assert.Equal(software, EmulatorGpu.IsSoftware(mode));
 
     [Fact]
     public void How_the_emulator_draws_is_read_from_what_it_printed()
@@ -47,6 +61,9 @@ public class EmulatorTuningTests
         Assert.Equal(
             "swiftshader_indirect (software — slow)",
             EmulatorGpu.Renderer(["WARNING | Your GPU is not supported; GPU emulation enabled using 'swiftshader_indirect' mode"]));
+
+        // What the Surface showed: the shortest name of all.
+        Assert.Equal("sw (software — slow)", EmulatorGpu.Renderer(["INFO    | GPU emulation enabled using 'sw' mode"]));
 
         Assert.Null(EmulatorGpu.Renderer(["INFO    | Advertising in: C:\\Users\\x\\AppData\\Local\\Temp\\avd\\running\\pid_1.ini"]));
     }

@@ -204,9 +204,10 @@ public sealed record UserSettings
     public bool AndroidMicrophone { get; init; } = true;
 
     /// <summary>
-    /// How the emulator draws (<c>-gpu</c>): <c>auto</c> — its own choice — or <c>host</c>,
-    /// <c>angle_indirect</c>, <c>swiftshader_indirect</c>. For when the hold menu shows it drawing in
-    /// software (ADR-0075). A settings-file switch.
+    /// How the emulator draws (ADR-0075): <c>auto</c> — the tablet's GPU, falling back to the
+    /// emulator's own choice if it will not start that way — <c>emulator</c> to leave it to the
+    /// emulator, or one of its <c>-gpu</c> modes (<c>host</c>, <c>angle_indirect</c>,
+    /// <c>swiftshader_indirect</c>) as it is. A settings-file switch.
     /// </summary>
     [JsonPropertyName("androidGpu")]
     public string AndroidGpu { get; init; } = "auto";

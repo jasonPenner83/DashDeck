@@ -22,8 +22,8 @@ namespace DashDeck.Host.ViewModels;
 /// <param name="IsNight">The dash's own answer — the headlights, or the sun.</param>
 /// <param name="TankLitres">The tank's size from the vehicle settings.</param>
 /// <param name="Microphone">Let Android hear the tablet's microphone.</param>
-/// <param name="Gpu">The emulator's <c>-gpu</c> mode; null for its own choice.</param>
-public sealed record AndroidFeeds(IVehicleSignals? Signals, Func<bool> IsNight, Func<double> TankLitres, bool Microphone, string? Gpu = null)
+/// <param name="Gpu">How the emulator is to draw (<see cref="EmulatorGpu.Choose"/>); null for its own choice.</param>
+public sealed record AndroidFeeds(IVehicleSignals? Signals, Func<bool> IsNight, Func<double> TankLitres, bool Microphone, GpuChoice? Gpu = null)
 {
     /// <summary>Nothing fed but the position: no signals, always day, no tank, no microphone.</summary>
     public static readonly AndroidFeeds None = new(null, () => false, () => 0, false);
@@ -409,7 +409,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
 
         // Started at the stage's own size, so on the stage nothing needs fitting, and full screen is
         // a fit inside it. An AVD started at another size is fitted just the same, only less sharply.
-        var session = new EmulatorSession(sdk, avd, skin: $"{StageWidth}x{StageHeight}") { Gpu = _feeds.Gpu };
+        var session = new EmulatorSession(sdk, avd, skin: $"{StageWidth}x{StageHeight}") { Gpu = _feeds.Gpu ?? GpuChoice.Emulator };
         _turned = null;
         _fitted = null;
         session.Changed += () => _dispatcher.BeginInvoke(() => OnSessionChanged(session));

@@ -317,9 +317,14 @@ The hold menu's line for the running flavour says whether it is working:
      to be copied into a new array of several megabytes, garbage that made the dash's collector work
      several times a second;
    - **four pixels at a time:** RGB to the bitmap's BGRX with one SIMD shuffle per four pixels;
-   - **how it draws, shown:** the emulator's own words about its GPU mode go in the hold menu
-     (`EmulatorGpu.Renderer`), for example *drawn by host · Intel(R) Iris(R) Plus Graphics*. If it
-     says *software*, set `androidGpu` to `host` in the settings file;
+   - **how it draws, shown, and the GPU asked for:** the emulator's own words about its GPU mode go
+     in the hold menu (`EmulatorGpu.Renderer`). On the Surface it said **`sw`**: left to itself, the
+     emulator drew Android in software, on the same processor running Android. That is most of the
+     sluggishness, and the probe's 10 fps for the tablet. It does not trust the Intel Iris Plus
+     driver, whose Vulkan is older than it wants. So the dash now **asks for `-gpu host`**, the
+     tablet's GPU through its OpenGL driver. If the emulator will not start that way, it starts
+     again with the emulator's own choice (`EmulatorGpu.Choose`; `androidGpu`: `auto` is that,
+     `emulator` leaves it to the emulator, or name a mode);
    - memory stays at 4 GB: Android was not short of it, and the dash and Windows need the rest.
 
    The change in cores makes the next start a cold boot, as the memory change did. Not done, because
