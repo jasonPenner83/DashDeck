@@ -1464,8 +1464,9 @@ dragging, touch under 150 ms, and memory that leaves the dash comfortable.
     status bar at the top and the dock at the bottom, and to be quicker than in software. A
     squashed picture on the GPU is the failure: send the hold menu's line. In software, *System UI
     isn't responding* or *Pixel Launcher isn't responding* can appear. Tap **Wait**.
-    Hold ANDROID while scrolling a long list, and read *N frames/s in · M drawn* on the grey line.
-    Note both numbers. *Windows may throttle it* after them means the dash could not opt the emulator
+    Scroll a long list for a few seconds, then hold ANDROID and read *busiest second: N frames in ·
+    M drawn* on the grey line: the most in any second of the last fifteen, because the emulator sends
+    a frame only when the picture changes and reads 0 on a still screen. Note both numbers. *Windows may throttle it* after them means the dash could not opt the emulator
     out of Windows' power throttling.
 0b. **The key bar.** Full screen, a bar along the bottom with **Back**, **Home** and **Recent apps**
     (a square). Open Settings, go into a page, then:

@@ -62,6 +62,21 @@ public class EmulatorTuningTests
         Assert.Equal(0, rate.PerSecond(TimeSpan.FromSeconds(10)));   // stopped: it falls to nothing
     }
 
+    [Fact]
+    public void The_busiest_second_is_remembered_after_the_screen_stops()
+    {
+        var rate = new RollingRate(TimeSpan.FromSeconds(15));
+
+        // A second's scroll at 24 frames, then stillness — the menu is opened five seconds later.
+        for (var i = 0; i < 24; i++)
+        {
+            rate.Add(TimeSpan.FromMilliseconds(1000 + (i * 40)));
+        }
+
+        Assert.Equal(24, rate.BusiestSecond(TimeSpan.FromSeconds(7)));
+        Assert.Equal(0, rate.BusiestSecond(TimeSpan.FromSeconds(30)));   // and forgotten in time
+    }
+
     [Theory]
     [InlineData("sw", true)]
     [InlineData("swiftshader_indirect", true)]

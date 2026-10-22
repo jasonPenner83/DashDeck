@@ -95,10 +95,13 @@ public sealed class EmulatorSession : IAsyncDisposable
     public EmulatorMachine? Machine { get; private set; }
 
     private static readonly Stopwatch Clock = Stopwatch.StartNew();
-    private readonly RollingRate _received = new(TimeSpan.FromSeconds(2));
+    private readonly RollingRate _received = new(TimeSpan.FromSeconds(15));
 
-    /// <summary>Frames a second the emulator has sent lately — what Android draws, as it arrives.</summary>
-    public double FramesReceived => _received.PerSecond(Clock.Elapsed);
+    /// <summary>
+    /// The most frames the emulator sent in any second of the last fifteen — its rate while something
+    /// moved. It sends one only when the picture changes.
+    /// </summary>
+    public int FramesReceived => _received.BusiestSecond(Clock.Elapsed);
 
     /// <summary>True when Windows was told to run the emulator at full speed (<see cref="WindowsThrottling"/>).</summary>
     public bool AtFullSpeed { get; private set; }

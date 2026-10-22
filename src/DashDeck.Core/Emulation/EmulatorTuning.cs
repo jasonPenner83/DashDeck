@@ -307,6 +307,34 @@ public sealed class RollingRate(TimeSpan window)
         }
     }
 
+    /// <summary>
+    /// The most that happened in any one second of the window ending now — the frame rate while
+    /// something moved, which is what matters: the emulator sends a frame only when the picture
+    /// changes, so a still screen reads nothing, and the menu that shows this is opened with Android
+    /// standing still.
+    /// </summary>
+    public int BusiestSecond(TimeSpan now)
+    {
+        lock (_times)
+        {
+            Trim(now);
+
+            var times = _times.ToArray();
+            var busiest = 0;
+            for (int first = 0, last = 0; last < times.Length; last++)
+            {
+                while (times[last] - times[first] >= TimeSpan.FromSeconds(1))
+                {
+                    first++;
+                }
+
+                busiest = Math.Max(busiest, last - first + 1);
+            }
+
+            return busiest;
+        }
+    }
+
     private void Trim(TimeSpan now)
     {
         while (_times.Count > 0 && now - _times.Peek() > window)
