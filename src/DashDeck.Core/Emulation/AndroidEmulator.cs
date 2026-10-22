@@ -219,6 +219,17 @@ public sealed record EmulatorDiscovery(IReadOnlyDictionary<string, string> Keys)
     /// </remarks>
     public static string FileName(int pid) => string.Create(CultureInfo.InvariantCulture, $"pid_{pid}.ini");
 
+    /// <summary>The process a discovery file is for, from its name — <c>pid_8280.ini</c> is 8280 — or null.</summary>
+    public static int? PidOf(string path)
+    {
+        var name = Path.GetFileNameWithoutExtension(path ?? "");
+        return name.StartsWith("pid_", StringComparison.OrdinalIgnoreCase)
+            && Path.GetExtension(path ?? "").Equals(".ini", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(name[4..], NumberStyles.None, CultureInfo.InvariantCulture, out var pid) && pid > 0
+                ? pid
+                : null;
+    }
+
     /// <summary>
     /// Where the emulator says it wrote its discovery file — its own line <c>Advertising in: …</c> —
     /// or null when it has not said yet. The most direct answer, so it is tried first.

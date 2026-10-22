@@ -56,10 +56,31 @@ async Task<int> RunAsync()
     Say("AndroidProbe — Android on the stage (ADR-0075)");
     Say($"  looked for the SDK in: {string.Join(", ", candidates)}");
 
+    // What is running already. An emulator left running — by Android Studio, or by an earlier run
+    // that was stopped hard — holds its AVD and usually the gRPC port, and a second copy of the same
+    // AVD refuses to start. Found on the Surface: the probe was talking to the old one.
+    var running = Running(profile);
+    foreach (var (pid, path, other) in running)
+    {
+        Say($"  ALREADY RUNNING: {other.AvdName ?? "an AVD"} (process {pid}, gRPC port {other.GrpcPort?.ToString(CultureInfo.InvariantCulture) ?? "none"}) — {path}");
+    }
+
+    if (Flag("--stop-running"))
+    {
+        foreach (var (pid, _, other) in running)
+        {
+            await ShutdownAsync(other.GrpcPort, other.GrpcToken, pid, null).ConfigureAwait(false);
+        }
+
+        running = Running(profile);
+    }
+
     // An emulator already running — started by Android Studio, say — needs no SDK found here.
     if (Value("--attach") is { } attach)
     {
-        return await ProbeAsync(null, int.Parse(attach, CultureInfo.InvariantCulture), Value("--token")).ConfigureAwait(false);
+        var attachPort = int.Parse(attach, CultureInfo.InvariantCulture);
+        var known = running.FirstOrDefault(r => r.Discovery.GrpcPort == attachPort);
+        return await ProbeAsync(null, attachPort, Value("--token") ?? known.Discovery?.GrpcToken, known.Discovery is null ? null : known.Pid).ConfigureAwait(false);
     }
 
     if (sdk is null)
@@ -102,6 +123,15 @@ async Task<int> RunAsync()
         return 1;
     }
 
+    if (running.Count > 0)
+    {
+        Say("");
+        Say("An emulator is already running, so this one would not start cleanly or would not be the one measured.");
+        Say("  Run again with --stop-running to shut it down first (it saves its quick-boot snapshot),");
+        Say($"  or --attach {running[0].Discovery.GrpcPort?.ToString(CultureInfo.InvariantCulture) ?? "<port>"} to measure it as it is (no boot time).");
+        return 1;
+    }
+
     var port = int.Parse(Value("--port") ?? "8554", CultureInfo.InvariantCulture);
     var arguments = EmulatorCommand.Arguments(avd, port, noWindow: Flag("--no-window"));
     Say("");
@@ -121,10 +151,15 @@ async Task<int> RunAsync()
     process.BeginOutputReadLine();
     process.BeginErrorReadLine();
 
+    (EmulatorDiscovery Discovery, int? Pid)? found = null;
+
     try
     {
-        var discovery = await DiscoverAsync(output, launched, profile).ConfigureAwait(false);
-        var code = await ProbeAsync(process, discovery?.GrpcPort ?? port, discovery?.GrpcToken).ConfigureAwait(false);
+        found = await DiscoverAsync(output, launched, profile, process).ConfigureAwait(false);
+
+        var code = found is { } f
+            ? await ProbeAsync(process, f.Discovery.GrpcPort!.Value, f.Discovery.GrpcToken, f.Pid).ConfigureAwait(false)
+            : 1;
 
         Say("");
         Say("What the emulator printed (warnings and errors, at most 40 lines):");
@@ -141,17 +176,112 @@ async Task<int> RunAsync()
     }
     finally
     {
-        if (!Flag("--keep") && !process.HasExited)
+        if (!Flag("--keep"))
         {
-            Say("");
-            Say("Stopping the emulator.");
-            process.Kill(entireProcessTree: true);
-            await process.WaitForExitAsync().ConfigureAwait(false);
+            await ShutdownAsync(found?.Discovery.GrpcPort, found?.Discovery.GrpcToken, found?.Pid, process).ConfigureAwait(false);
         }
     }
 }
 
-async Task<EmulatorDiscovery?> DiscoverAsync(List<string> output, DateTime launched, string profile)
+// Emulators running now: discovery files whose process is alive and is an emulator.
+static List<(int Pid, string Path, EmulatorDiscovery Discovery)> Running(string profile)
+{
+    var running = new List<(int, string, EmulatorDiscovery)>();
+
+    foreach (var folder in EmulatorDiscovery.Folders(Environment.GetEnvironmentVariable, Path.GetTempPath(), profile).Where(Directory.Exists))
+    {
+        foreach (var path in Directory.EnumerateFiles(folder, "pid_*.ini"))
+        {
+            if (EmulatorDiscovery.PidOf(path) is { } pid && IsEmulator(pid))
+            {
+                try
+                {
+                    running.Add((pid, path, EmulatorDiscovery.Parse(File.ReadAllText(path))));
+                }
+                catch (IOException)
+                {
+                    // Being written or removed as we look; the next look will see it.
+                }
+            }
+        }
+    }
+
+    return running;
+}
+
+static bool IsEmulator(int pid)
+{
+    try
+    {
+        using var process = Process.GetProcessById(pid);
+        return !process.HasExited && (process.ProcessName.StartsWith("qemu-system", StringComparison.OrdinalIgnoreCase)
+            || process.ProcessName.StartsWith("emulator", StringComparison.OrdinalIgnoreCase));
+    }
+    catch (Exception e) when (e is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+    {
+        return false;
+    }
+}
+
+// Shut Android down the way closing the emulator does — through gRPC — so its quick-boot snapshot is
+// saved; only if it is still there after a minute, kill the virtual machine and the launcher.
+async Task ShutdownAsync(int? port, string? token, int? vmPid, Process? launcher)
+{
+    var watch = Stopwatch.StartNew();
+    var asked = false;
+
+    if (port is { } p)
+    {
+        try
+        {
+            using var channel = GrpcChannel.ForAddress($"http://127.0.0.1:{p}");
+            var client = new EmulatorController.EmulatorControllerClient(channel);
+            var headers = token is null ? new Metadata() : new Metadata { { "authorization", "Bearer " + token } };
+            await client.setVmStateAsync(new VmRunState { State = VmRunState.Types.RunState.Shutdown }, headers, DateTime.UtcNow.AddSeconds(10)).ConfigureAwait(false);
+            asked = true;
+        }
+        catch (RpcException e)
+        {
+            Say($"Shutting down over gRPC was refused ({e.StatusCode}); it will be stopped instead.");
+        }
+    }
+
+    bool Alive() => (vmPid is { } pid && IsEmulator(pid)) || launcher is { HasExited: false };
+
+    while (asked && Alive() && watch.Elapsed < TimeSpan.FromSeconds(60))
+    {
+        await Task.Delay(500).ConfigureAwait(false);
+    }
+
+    if (!Alive())
+    {
+        Say(asked
+            ? $"Shut down cleanly in {watch.Elapsed.TotalSeconds:0} s (the quick-boot snapshot is saved on the way out)."
+            : "The emulator had already stopped.");
+        return;
+    }
+
+    Say("Stopping the emulator by force (no snapshot saved).");
+    if (vmPid is { } vm)
+    {
+        try
+        {
+            using var process = Process.GetProcessById(vm);
+            process.Kill(entireProcessTree: true);
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+        }
+    }
+
+    if (launcher is { HasExited: false })
+    {
+        launcher.Kill(entireProcessTree: true);
+        await launcher.WaitForExitAsync().ConfigureAwait(false);
+    }
+}
+
+async Task<(EmulatorDiscovery Discovery, int? Pid)?> DiscoverAsync(List<string> output, DateTime launched, string profile, Process launcher)
 {
     var folders = EmulatorDiscovery.Folders(Environment.GetEnvironmentVariable, Path.GetTempPath(), profile);
     var deadline = Stopwatch.StartNew();
@@ -186,8 +316,15 @@ async Task<EmulatorDiscovery?> DiscoverAsync(List<string> output, DateTime launc
                     Say("  " + line);
                 }
 
-                return discovery;
+                return (discovery, EmulatorDiscovery.PidOf(path));
             }
+        }
+
+        // The launcher stays running while the emulator does; gone means it refused or failed.
+        if (launcher.HasExited)
+        {
+            Say($"THE EMULATOR EXITED (code {launcher.ExitCode}) after {deadline.Elapsed.TotalSeconds:0.0} s, before saying where its gRPC is. Its reasons are below.");
+            return null;
         }
 
         await Task.Delay(500).ConfigureAwait(false);
@@ -195,11 +332,11 @@ async Task<EmulatorDiscovery?> DiscoverAsync(List<string> output, DateTime launc
 
     Say($"NO DISCOVERY FILE with a gRPC port in 90 s. Looked in: {string.Join(", ", folders)}" +
         $"{(folders.Any(Directory.Exists) ? "; files there: " + string.Join(", ", folders.Where(Directory.Exists).SelectMany(Directory.EnumerateFiles).Select(Path.GetFileName)) : "")}." +
-        " Trying the port asked for, without a token.");
+        " It is not measured: whatever answers on the port may not be this emulator.");
     return null;
 }
 
-async Task<int> ProbeAsync(Process? process, int port, string? token)
+async Task<int> ProbeAsync(Process? process, int port, string? token, int? vmPid)
 {
     using var channel = GrpcChannel.ForAddress($"http://127.0.0.1:{port}", new GrpcChannelOptions { MaxReceiveMessageSize = 64 * 1024 * 1024 });
     var client = new EmulatorController.EmulatorControllerClient(channel);
@@ -270,10 +407,10 @@ async Task<int> ProbeAsync(Process? process, int port, string? token)
     var screen = (W: (int)still.Format.Width, H: (int)still.Format.Height);
     var device = (W: Config(status, "hw.lcd.width") ?? screen.W, H: Config(status, "hw.lcd.height") ?? screen.H);
 
-    var cpuBefore = EmulatorCpu();
+    var cpuBefore = EmulatorCpu(vmPid);
     var idle = await MeasureFramesAsync(client, headers, width, height, TimeSpan.FromSeconds(Math.Max(3, seconds / 3)), null).ConfigureAwait(false);
     var dragging = await MeasureFramesAsync(client, headers, width, height, TimeSpan.FromSeconds(seconds), ct => DragAsync(client, headers, device, ct)).ConfigureAwait(false);
-    var cpuAfter = EmulatorCpu();
+    var cpuAfter = EmulatorCpu(vmPid);
 
     Say("");
     Say($"Frames at {width}×{height} (RGB888 over gRPC):");
@@ -292,7 +429,7 @@ async Task<int> ProbeAsync(Process? process, int port, string? token)
     }
 
     // ── Resources ────────────────────────────────────────────────────────────
-    var (memoryMb, processes) = EmulatorMemory();
+    var (memoryMb, processes) = EmulatorMemory(vmPid);
     var cpu = cpuBefore is { } a && cpuAfter is { } b
         ? (b.Cpu - a.Cpu).TotalSeconds / Math.Max((b.At - a.At).TotalSeconds, 1e-9) / Environment.ProcessorCount * 100
         : (double?)null;
@@ -481,11 +618,11 @@ static int? Config(EmulatorStatus status, string key) =>
     (status.GuestConfig.TryGetValue(key, out var value) || status.PlatformConfig.TryGetValue(key, out value))
     && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) ? number : null;
 
-static (DateTime At, TimeSpan Cpu)? EmulatorCpu()
+static (DateTime At, TimeSpan Cpu)? EmulatorCpu(int? vmPid)
 {
     try
     {
-        var processes = EmulatorProcesses();
+        var processes = EmulatorProcesses(vmPid);
         return processes.Count == 0 ? null : (DateTime.UtcNow, processes.Aggregate(TimeSpan.Zero, (sum, p) => sum + p.TotalProcessorTime));
     }
     catch (Exception e) when (e is InvalidOperationException or System.ComponentModel.Win32Exception)
@@ -494,17 +631,31 @@ static (DateTime At, TimeSpan Cpu)? EmulatorCpu()
     }
 }
 
-static (double Mb, int Count) EmulatorMemory()
+static (double Mb, int Count) EmulatorMemory(int? vmPid)
 {
-    var processes = EmulatorProcesses();
+    var processes = EmulatorProcesses(vmPid);
     return (processes.Sum(p => p.WorkingSet64) / 1_048_576.0, processes.Count);
 }
 
 // The emulator program starts the virtual machine as a child, qemu-system-x86_64, which is where the
 // memory and processor time go; both are counted.
-static List<Process> EmulatorProcesses() =>
-    [.. Process.GetProcesses().Where(p => p.ProcessName.StartsWith("qemu-system", StringComparison.OrdinalIgnoreCase)
+static List<Process> EmulatorProcesses(int? vmPid)
+{
+    // The virtual machine itself when its discovery file named it; otherwise every emulator process.
+    if (vmPid is { } pid)
+    {
+        try
+        {
+            return [Process.GetProcessById(pid)];
+        }
+        catch (ArgumentException)
+        {
+        }
+    }
+
+    return [.. Process.GetProcesses().Where(p => p.ProcessName.StartsWith("qemu-system", StringComparison.OrdinalIgnoreCase)
         || p.ProcessName.Equals("emulator", StringComparison.OrdinalIgnoreCase))];
+}
 
 static AvdInfo? ReadAvd(string avdHome, string name)
 {
@@ -616,6 +767,7 @@ void Usage()
           --tap                 tap the middle of the screen once
           --gps <lat,lon>       set a GPS position and read it back
           --keep                leave the emulator running afterwards
+          --stop-running        shut down any emulator already running first (saves its snapshot)
 
         The report goes to %LOCALAPPDATA%\DashDeck\androidprobe\. Nothing is installed or changed.
         """);

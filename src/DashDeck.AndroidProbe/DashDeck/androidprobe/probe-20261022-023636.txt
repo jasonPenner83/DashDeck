@@ -1,0 +1,18 @@
+AndroidProbe — Android on the stage (ADR-0075)
+  looked for the SDK in: /tmp/claude-0/-home-user-VibeTuner/14d2797e-d7ae-54f7-a2e5-f9ee62a0b911/scratchpad/fakesdk2
+  SDK: /tmp/claude-0/-home-user-VibeTuner/14d2797e-d7ae-54f7-a2e5-f9ee62a0b911/scratchpad/fakesdk2
+  emulator: Android emulator version 0.0 (fake)
+  virtualisation (emulator -accel-check):
+    accel:
+    0
+    fake is usable.
+    accel
+  AVDs in /tmp/claude-0/-home-user-VibeTuner/14d2797e-d7ae-54f7-a2e5-f9ee62a0b911/scratchpad/fakehome/.android/avd: 
+    Car — Automotive, x86_64, 1408×792, RAM ? [android-automotive]
+
+Starting: emulator -avd Car -qt-hide-window -grpc 8554 -grpc-use-token -no-boot-anim
+THE EMULATOR EXITED (code 1) after 0.0 s, before saying where its gRPC is. Its reasons are below.
+
+What the emulator printed (warnings and errors, at most 40 lines):
+  FATAL        | Running multiple emulators with the same AVD is an experimental feature.
+The emulator had already stopped.

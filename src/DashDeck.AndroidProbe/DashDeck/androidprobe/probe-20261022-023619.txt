@@ -1,0 +1,16 @@
+AndroidProbe — Android on the stage (ADR-0075)
+  looked for the SDK in: /tmp/claude-0/-home-user-VibeTuner/14d2797e-d7ae-54f7-a2e5-f9ee62a0b911/scratchpad/fakesdk2
+  ALREADY RUNNING: Car (process 934, gRPC port 8599) — /tmp/claude-0/-home-user-VibeTuner/14d2797e-d7ae-54f7-a2e5-f9ee62a0b911/scratchpad/faketmp/avd/running/pid_934.ini
+  SDK: /tmp/claude-0/-home-user-VibeTuner/14d2797e-d7ae-54f7-a2e5-f9ee62a0b911/scratchpad/fakesdk2
+  emulator: Android emulator version 0.0 (fake)
+  virtualisation (emulator -accel-check):
+    accel:
+    0
+    fake is usable.
+    accel
+  AVDs in /tmp/claude-0/-home-user-VibeTuner/14d2797e-d7ae-54f7-a2e5-f9ee62a0b911/scratchpad/fakehome/.android/avd: 
+    Car — Automotive, x86_64, 1408×792, RAM ? [android-automotive]
+
+An emulator is already running, so this one would not start cleanly or would not be the one measured.
+  Run again with --stop-running to shut it down first (it saves its quick-boot snapshot),
+  or --attach 8599 to measure it as it is (no boot time).

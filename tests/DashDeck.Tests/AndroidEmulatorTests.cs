@@ -146,6 +146,16 @@ public class AndroidEmulatorTests
         Assert.Null(EmulatorDiscovery.Newest([("run/pid_100.ini", start.AddMinutes(-30))], start));
     }
 
+    [Theory]
+    [InlineData("C:/Temp/avd/running/pid_8280.ini", 8280)]
+    [InlineData("pid_10488.INI", 10488)]
+    [InlineData("pid_.ini", null)]
+    [InlineData("pid_12x.ini", null)]
+    [InlineData("pid_123.txt", null)]
+    [InlineData("other_123.ini", null)]
+    public void A_discovery_file_names_the_process_it_is_for(string path, int? pid) =>
+        Assert.Equal(pid, EmulatorDiscovery.PidOf(path));
+
     [Fact]
     public void Discovery_files_are_looked_for_in_the_runtime_then_temp_then_profile_folders()
     {
