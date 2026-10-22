@@ -401,7 +401,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 saved.AndroidGpu,
                 gpu => SettingsStore.Update(stored => stored with { AndroidGpu = gpu }),
                 saved.AndroidPicture,
-                picture => SettingsStore.Update(stored => stored with { AndroidPicture = picture })));
+                picture => SettingsStore.Update(stored => stored with { AndroidPicture = picture }),
+                string.IsNullOrWhiteSpace(saved.AndroidScrcpy) ? null : saved.AndroidScrcpy));
         Android.PlacementChanged += _ => OnAndroidMoved();
         Android.FlavourChosen += () => AndroidTap();
 

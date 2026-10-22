@@ -218,6 +218,13 @@ public sealed record UserSettings
     /// </summary>
     [JsonPropertyName("androidPicture")]
     public string AndroidPicture { get; init; } = "BALANCED";
+
+    /// <summary>
+    /// Where scrcpy is, for ANDROID PHONE (ADR-0076), when it is not found by itself — on <c>PATH</c>,
+    /// from winget, scoop or Chocolatey, or unzipped into Downloads. Empty to look by itself.
+    /// </summary>
+    [JsonPropertyName("androidScrcpy")]
+    public string AndroidScrcpy { get; init; } = "";
 }
 
 /// <summary>

@@ -1514,6 +1514,52 @@ dragging, touch under 150 ms, and memory that leaves the dash comfortable.
 - *No internet access* still. Note whether the Surface is on a VPN, and whether Android's clock
   matches the Surface's.
 
+## Android on the dash — a real phone, mirrored (ADR-0076)
+
+**You need:**
+- the Surface with this build, and scrcpy installed (`winget install Genymobile.scrcpy`, or its zip
+  unzipped somewhere: Downloads is fine);
+- a phone with **USB debugging** on (Settings ▸ About phone ▸ tap Build number 7 times, then Settings
+  ▸ System ▸ Developer options ▸ USB debugging) and a USB cable. The trial phone is the Pixel XL;
+- the phone **unlocked** the first time, to tap **Allow** on its prompt;
+- **no other scrcpy window running**: the dash runs scrcpy's server itself.
+
+1. Plug the phone in. Start DashDeck. **Hold** ANDROID. **Expect:**
+   - a third choice, **ANDROID PHONE**;
+   - under it, after a second, *Pixel XL · connected*;
+   - *tap Allow on the phone* if the prompt has not been answered: unlock the phone and tap
+     **Allow**;
+   - *No phone* if ADB does not see it.
+2. Tap **ANDROID PHONE**. **Expect:**
+   - *STARTING ANDROID PHONE*, *putting scrcpy …'s server on the Pixel XL*, then the phone's home
+     screen in the dash, full screen and filling it;
+   - the phone's own screen goes dark (it is mirrored, not off);
+   - for a moment Android re-lays itself out as a tablet, as it is told the region's shape.
+3. Scroll, open apps, type. **Expect:** it is smooth, much quicker than the emulator, and follows your
+   finger. Hold ANDROID and note *busiest second: N frames* on the grey line after a scroll.
+4. Tap **Back**, **Home** and the square on the key bar. **Expect:** each does what it says on the
+   phone.
+5. Double-tap ANDROID. **Expect:** on the stage, the phone re-lays itself out wide and fills the stage
+   beside the key bar.
+6. **PICTURE** in the hold menu (BALANCED by default) restarts the mirror sharper or quicker. Try
+   SHARP. The phone draws it either way; what changes is how much video the Surface decodes.
+7. At night (or Settings ▸ DISPLAY), **expect** the phone's dark theme.
+8. Hold ANDROID ▸ **STOP ANDROID**. **Expect:**
+   - the phone's own screen comes back on, at its own size and density, laid out as a phone again;
+   - `adb shell wm size` says *Physical size* with no *Override size*.
+9. Start it again, then close DashDeck. **Expect:** the same: the phone is given its screen back.
+
+**A failure looks like:**
+- *SCRCPY NOT FOUND* with scrcpy installed: put its folder in the settings file as
+  `"androidScrcpy": "C:\\path\\to\\scrcpy-win64-vX"`.
+- *ANDROID PHONE STOPPED* with *scrcpy's server stopped: …*. Send the reason. A version mismatch
+  means two scrcpy installs.
+- The picture frozen, black, or blocky. Note the grey line.
+- The phone left at the odd size after unplugging mid-session:
+  `adb shell wm size reset` and `adb shell wm density reset`.
+- The Pixel XL is Android 10, so its sound stays on the phone. Sound through the dash is the next
+  step, on the Pixel 8.
+
 ## The audio delay and the video sync offset — parked 2026-10-15
 
 Both walkthroughs that were here are gone with the feature. The delay measurement, the

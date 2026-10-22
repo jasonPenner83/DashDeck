@@ -10,6 +10,9 @@ public enum AndroidFlavour
 
     /// <summary>Android Automotive: the car OS, a driving UI, car-approved apps only.</summary>
     Automotive,
+
+    /// <summary>A real phone, plugged in and mirrored with scrcpy (ADR-0076) — not emulated at all.</summary>
+    Phone,
 }
 
 /// <summary>

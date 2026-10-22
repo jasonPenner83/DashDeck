@@ -93,8 +93,12 @@ public static class PressGesture
 public static class AndroidChoice
 {
     /// <summary>What the hold menu calls a flavour.</summary>
-    public static string Label(AndroidFlavour flavour) =>
-        flavour == AndroidFlavour.Automotive ? "ANDROID AUTOMOTIVE" : "ANDROID";
+    public static string Label(AndroidFlavour flavour) => flavour switch
+    {
+        AndroidFlavour.Automotive => "ANDROID AUTOMOTIVE",
+        AndroidFlavour.Phone => "ANDROID PHONE",
+        _ => "ANDROID",
+    };
 
     /// <summary>A flavour from its saved name, regular when the name is unknown.</summary>
     public static AndroidFlavour Parse(string? saved) =>
@@ -187,11 +191,12 @@ public static class AndroidChoice
     /// <remarks>
     /// Automotive is never turned: a car's screen does not rotate, its interface does not follow the
     /// device's rotation, and the emulator would turn the picture of an interface that stayed put —
-    /// sideways. A region within a few percent of square is left as it is.
+    /// sideways. A phone is not turned either: it is told the region's shape outright
+    /// (<see cref="AndroidFit.ForMirror"/>). A region within a few percent of square is left as it is.
     /// </remarks>
     public static int? TurnFor(AndroidFlavour flavour, int deviceWidth, int deviceHeight, double regionWidth, double regionHeight)
     {
-        if (flavour == AndroidFlavour.Automotive || deviceWidth <= 0 || deviceHeight <= 0 || !(regionWidth > 0) || !(regionHeight > 0))
+        if (flavour is AndroidFlavour.Automotive or AndroidFlavour.Phone || deviceWidth <= 0 || deviceHeight <= 0 || !(regionWidth > 0) || !(regionHeight > 0))
         {
             return null;
         }

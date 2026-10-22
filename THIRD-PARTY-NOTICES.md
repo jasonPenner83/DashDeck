@@ -33,6 +33,12 @@ the person installs them with Android Studio, under Google's
 [Android SDK License Agreement](https://developer.android.com/studio/terms), whose terms for using
 the images to run Android rather than to develop apps are theirs to read (ADR-0075).
 
+ANDROID PHONE (ADR-0076) uses the person's own install of
+[scrcpy](https://github.com/Genymobile/scrcpy) (Apache-2.0, Genymobile and Romain Vimont): DashDeck
+pushes that install's `scrcpy-server` to the phone and speaks its protocol, as scrcpy's own client
+does. **No part of scrcpy is shipped or downloaded by DashDeck.** The H.264 it sends is decoded by the
+LibVLC already listed above.
+
 ### Fonts
 
 | Font | Used by | License |

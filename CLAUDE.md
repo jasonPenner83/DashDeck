@@ -685,6 +685,14 @@ Recents — `AndroidKeys.For`), bottom when tall and right when wide; `sendKey` 
 while a panel is attached. The gRPC client is tested against a fake emulator served in-process
 (`EmulatorClientTests`, `Grpc.AspNetCore.Server`). Not yet: Automotive vehicle data over ADB, audio.
 
+**A real phone instead** (ADR-0076, proposed): ANDROID PHONE (`AndroidFlavour.Phone`) mirrors a phone with the
+owner's scrcpy — `ScrcpyInstall.Find` (setting `androidScrcpy`, PATH, winget/scoop/choco, unzipped folders),
+`PhoneSession` pushes `scrcpy-server`, forward tunnel, starts it with the installed version, reads video
+(`ScrcpyVideo`: <4.0 size once + SPS via `H264Sps`; ≥4.0 session packets), decodes with ADR-0057's
+`ProjectionVideo`, sends `ScrcpyControl` bytes (touch, keys, display power, reset). Fit `AndroidFit.ForMirror`
+(wm size/density, no turn, no crop), reset on stop/close. Night via uimode only. One ADB (SDK's first). No
+audio yet. The protocol is version-specific: check `doc/develop.md` at the installed tag before changing it.
+
 **The measuring that came first:** the Android Emulator started
 hidden by DashDeck (`-qt-hide-window`, gRPC on localhost with `-grpc-use-token`, port and token from the
 emulator's `pid_<pid>.ini`), frames from `streamScreenshot` drawn on the stage and touch sent back with

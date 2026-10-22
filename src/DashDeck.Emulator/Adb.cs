@@ -5,7 +5,7 @@ using DashDeck.Core.Emulation;
 namespace DashDeck.Emulator;
 
 /// <summary>Running the SDK's own <c>adb</c> for the few things gRPC cannot do (ADR-0075).</summary>
-internal static class Adb
+public static class Adb
 {
     /// <summary>
     /// Run it with these arguments, at most <paramref name="within"/>. Done or not

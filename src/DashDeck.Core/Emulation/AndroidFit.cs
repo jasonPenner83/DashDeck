@@ -79,6 +79,28 @@ public sealed record AndroidFit(int Width, int Height, int Density, double Uprig
             (double)height / uprightHeight);
     }
 
+    /// <summary>
+    /// The fit for a real phone mirrored with scrcpy (ADR-0076): the region's own shape, in pixels at
+    /// most <paramref name="maxSide"/> on the long side, with the density that makes one dp one of the
+    /// dash's units. No turning and no crop: scrcpy mirrors the screen Android was told it has, not
+    /// the panel's, so the picture is that size and that shape, edge to edge. Sides are multiples of
+    /// eight, as the phone's encoder wants them.
+    /// </summary>
+    public static AndroidFit? ForMirror(int regionWidth, int regionHeight, double dpiScale, int maxSide)
+    {
+        if (regionWidth <= 0 || regionHeight <= 0 || !(dpiScale > 0) || maxSide < 320)
+        {
+            return null;
+        }
+
+        var scale = Math.Min(1.0, (double)maxSide / Math.Max(regionWidth, regionHeight));
+        var width = Math.Max(8, (int)Math.Round(regionWidth * scale / 8) * 8);
+        var height = Math.Max(8, (int)Math.Round(regionHeight * scale / 8) * 8);
+        var density = Math.Clamp((int)Math.Round(BaselineDensity * dpiScale * width / regionWidth), 72, 640);
+
+        return new AndroidFit(width, height, density, (double)width / height, 0, 0, 1, 1);
+    }
+
     /// <summary>True when the picture is the whole frame, so there is nothing to crop.</summary>
     public bool IsWhole => Across > 0.999 && Down > 0.999;
 

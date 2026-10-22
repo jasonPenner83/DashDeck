@@ -10,6 +10,7 @@ using DashDeck.Abstractions;
 using DashDeck.Core.Emulation;
 using DashDeck.Core.Location;
 using DashDeck.Emulator;
+using DashDeck.Host.PhoneLink;
 
 namespace DashDeck.Host.ViewModels;
 
@@ -26,9 +27,10 @@ namespace DashDeck.Host.ViewModels;
 /// <param name="RememberGpu">Save a new <c>androidGpu</c>, from the hold menu's switch.</param>
 /// <param name="Picture">The settings file's <c>androidPicture</c> (<see cref="AndroidPicture"/>).</param>
 /// <param name="RememberPicture">Save a new <c>androidPicture</c>, from the hold menu.</param>
+/// <param name="ScrcpyFolder">The settings file's <c>androidScrcpy</c>: where scrcpy is, when it is not found by itself.</param>
 public sealed record AndroidFeeds(
     IVehicleSignals? Signals, Func<bool> IsNight, Func<double> TankLitres, bool Microphone, string Gpu = "auto", Action<string>? RememberGpu = null,
-    string Picture = "BALANCED", Action<string>? RememberPicture = null)
+    string Picture = "BALANCED", Action<string>? RememberPicture = null, string? ScrcpyFolder = null)
 {
     /// <summary>Nothing fed but the position: no signals, always day, no tank, no microphone.</summary>
     public static readonly AndroidFeeds None = new(null, () => false, () => 0, false, "emulator");
@@ -75,6 +77,9 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     private const int StageWidth = 1824;
     private const int StageHeight = 1272;
 
+    /// <summary>The longest side a phone's picture is drawn at, SHARP; BALANCED and FAST scale it.</summary>
+    private const int PhoneLongSide = 1920;
+
     private readonly ILocationSource? _location;
     private readonly IClock _clock;
     private readonly AndroidFeeds _feeds;
@@ -84,6 +89,14 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     private readonly Action<AndroidFlavour> _remember;
     private readonly Dispatcher _dispatcher;
     private EmulatorSession? _session;
+
+    // A real phone instead (ADR-0076): its mirror, its decoder, and what ADB last said of it.
+    private PhoneSession? _phone;
+    private ProjectionVideo? _video;
+    private AdbDevice? _lastPhone;
+    private bool _lookedForPhone;
+    private volatile ScrcpyInstall? _scrcpy;
+    private readonly RollingRate _phoneFrames = new(TimeSpan.FromSeconds(15));
     private CancellationTokenSource? _frames;
     private int _shown;
     private byte[] _back = [];
@@ -181,7 +194,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
 
     /// <summary>One of Android's own keys, from the key bar beside its picture.</summary>
     [RelayCommand]
-    private void Press(AndroidKey key) => _ = _session?.PressAsync(key);
+    private void Press(AndroidKey key) => _ = _phone is { } phone ? phone.PressAsync(key) : _session?.PressAsync(key);
 
     /// <summary>The emulated screen, or null before the first frame.</summary>
     [ObservableProperty]
@@ -202,7 +215,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     private IReadOnlyList<AndroidMenuItem> _menuItems = [];
 
     /// <summary>True once Android is drawing, so the panel shows the picture rather than words.</summary>
-    public bool IsPictureShowing => Picture is not null && _session?.State == EmulatorState.Running;
+    public bool IsPictureShowing => Picture is not null && (_session?.State == EmulatorState.Running || _phone?.State == EmulatorState.Running);
 
     /// <summary>A tap on the cell: full screen, and started if it is not.</summary>
     public void Tap()
@@ -221,8 +234,18 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     /// <summary>Taken off the stage by something else being put there: back to full screen, quietly.</summary>
     public void LeftTheStage() => Move(View.Tapped());
 
-    /// <summary>A hold: the menu of flavours, read fresh, so an AVD made a minute ago is in it.</summary>
+    /// <summary>
+    /// A hold: the menu of flavours, read fresh, so an AVD made a minute ago is in it — and the phone
+    /// looked for again in the background, since ADB can take a second or two to answer.
+    /// </summary>
     public void OpenMenu()
+    {
+        BuildMenu();
+        IsMenuOpen = true;
+        _ = LookForPhoneAsync();
+    }
+
+    private void BuildMenu()
     {
         var avds = ListAvds();
         MenuItems =
@@ -238,8 +261,49 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
 
                 return new AndroidMenuItem(f, AndroidChoice.Label(f), detail, f == Flavour, avd is not null);
             }),
+            new AndroidMenuItem(
+                AndroidFlavour.Phone,
+                AndroidChoice.Label(AndroidFlavour.Phone),
+                _phone is { State: EmulatorState.Running } phone ? PhoneStatus(phone)
+                    : _lookedForPhone ? AdbDevice.Describe(_lastPhone) : "Looking for a phone…",
+                Flavour == AndroidFlavour.Phone,
+                IsAvailable: true),
         ];
-        IsMenuOpen = true;
+    }
+
+    /// <summary>Ask ADB for the phone, off the UI thread, and show what it said if the menu is still open.</summary>
+    private async Task LookForPhoneAsync()
+    {
+        if (await Task.Run(Tools).ConfigureAwait(true) is not { Adb: { } adb })
+        {
+            _lookedForPhone = true;
+            _lastPhone = null;
+            return;
+        }
+
+        var (_, output) = await Task.Run(() => Adb.RunAsync(adb, ["devices", "-l"], TimeSpan.FromSeconds(10), CancellationToken.None)).ConfigureAwait(true);
+        _lastPhone = AdbDevice.Pick(AdbDevice.Parse(output));
+        _lookedForPhone = true;
+
+        if (IsMenuOpen)
+        {
+            BuildMenu();
+        }
+    }
+
+    /// <summary>
+    /// The <c>adb</c> and scrcpy the phone needs: the SDK's adb when Android Studio is installed — one
+    /// ADB server for the emulators and the phone, not two fighting (ADR-0075) — else scrcpy's own.
+    /// </summary>
+    private (string? Adb, ScrcpyInstall? Scrcpy) Tools()
+    {
+        // Found once and kept: looking runs scrcpy to ask its version. Looked for again until found.
+        var scrcpy = _scrcpy ??= ScrcpyInstall.Find(_feeds.ScrcpyFolder);
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var sdk = AndroidSdk.Find(AndroidSdk.Candidates(null, Environment.GetEnvironmentVariable, localAppData), File.Exists);
+        var sdkAdb = sdk is null ? null : AndroidSdk.AdbPath(sdk);
+
+        return (sdkAdb is not null && File.Exists(sdkAdb) ? sdkAdb : scrcpy?.AdbPath, scrcpy);
     }
 
     [RelayCommand]
@@ -281,6 +345,10 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         {
             EnsureStarted();
             StartFrames();
+            if (_phone is { } phone)
+            {
+                phone.Showing = true;
+            }
         }
     }
 
@@ -290,6 +358,10 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         if (_shown > 0 && --_shown == 0)
         {
             StopFrames();
+            if (_phone is { } phone)
+            {
+                phone.Showing = false;
+            }
         }
     }
 
@@ -316,7 +388,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>A finger on the picture, as fractions of it as drawn.</summary>
-    public void Touch(double x, double y, bool down) => _ = _session?.TouchAsync(x, y, down);
+    public void Touch(double x, double y, bool down) => _ = _phone is { } phone ? phone.TouchAsync(x, y, down) : _session?.TouchAsync(x, y, down);
 
     /// <summary>
     /// The shell's beat: hand Android the truck's newest position, and pick the frames back up if the
@@ -324,6 +396,20 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     /// </summary>
     public void Beat()
     {
+        if (_phone is { State: EmulatorState.Running } phone)
+        {
+            // A phone has its own GPS, microphone and clock; it is only told whether it is night.
+            _ = phone.FeedAsync(new CarState(Night: _feeds.IsNight()));
+            if (_clock.UtcNow >= _fitAgainAt)
+            {
+                _fitAgainAt = DateTimeOffset.MaxValue;
+                _fitted = null;
+                Shape();
+            }
+
+            return;
+        }
+
         if (_session is not { State: EmulatorState.Running } session)
         {
             return;
@@ -476,7 +562,8 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
 
     /// <summary>One line for <c>--shot</c>.</summary>
     public string Describe() =>
-        $"android {View.Placement.ToString().ToLowerInvariant()} · {(_session?.Describe() ?? $"{AndroidChoice.Label(Flavour).ToLowerInvariant()} · not started")}" +
+        $"android {View.Placement.ToString().ToLowerInvariant()} · {(_phone?.Describe() ?? _session?.Describe() ?? $"{AndroidChoice.Label(Flavour).ToLowerInvariant()} · not started")}" +
+        (_phone is { } mirrored ? $" · {PhoneStatus(mirrored)}" : "") +
         (Picture is { } p ? $" · picture {p.PixelWidth}×{p.PixelHeight}" : "") +
         (_turned is { } turned ? $" · turned {turned}°" : "") +
         (_session?.Fit is { } fit ? $" · fitted {fit.Describe()}" : "") +
@@ -496,8 +583,15 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
 
     private void EnsureStarted()
     {
-        if (_session is { State: not (EmulatorState.Failed or EmulatorState.Stopped) })
+        if (_session is { State: not (EmulatorState.Failed or EmulatorState.Stopped) }
+            || _phone is { State: not (EmulatorState.Failed or EmulatorState.Stopped) })
         {
+            return;
+        }
+
+        if (Flavour == AndroidFlavour.Phone)
+        {
+            _ = StartPhoneAsync();
             return;
         }
 
@@ -604,6 +698,19 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     /// </summary>
     private void Shape()
     {
+        // A phone is told the region's shape outright, no turning, at the picture size chosen.
+        if (_phone is { State: EmulatorState.Running } phone)
+        {
+            if (AndroidFit.ForMirror(_region.Width, _region.Height, _dpiScale, (int)Math.Round(PhoneLongSide * _pictureSize.Scale)) is { } mirror
+                && mirror != _fitted)
+            {
+                _fitted = mirror;
+                _ = FitPhoneAsync(phone, mirror);
+            }
+
+            return;
+        }
+
         if (_session is not { State: EmulatorState.Running } session)
         {
             return;
@@ -621,6 +728,16 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         {
             _fitted = fit;
             _ = FitAsync(session, fit);
+        }
+    }
+
+    private async Task FitPhoneAsync(PhoneSession phone, AndroidFit fit)
+    {
+        var made = await phone.FitAsync(fit).ConfigureAwait(true);
+
+        if (!made && ReferenceEquals(phone, _phone) && fit == _fitted && phone.FitProblem is not null)
+        {
+            _fitAgainAt = _clock.UtcNow.AddSeconds(15);
         }
     }
 
@@ -703,6 +820,15 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         _session = null;
         Picture = null;
 
+        if (_phone is { } phone)
+        {
+            _phone = null;
+            Say($"STOPPING {AndroidChoice.Label(AndroidFlavour.Phone)}", $"Giving the {phone.Phone.Name} its own screen back.");
+            await phone.DisposeAsync().ConfigureAwait(true);
+            _video?.Dispose();
+            _video = null;
+        }
+
         if (old is not null)
         {
             Say($"STOPPING {AndroidChoice.Label(old.Avd.Flavour)}", "Shutting down, so it starts quickly next time.");
@@ -724,6 +850,140 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     {
         Headline = headline;
         Detail = detail;
+    }
+
+    /// <summary>
+    /// Mirror the phone (ADR-0076): find scrcpy and ADB, find the phone, and start — or say plainly
+    /// which of the three is missing and what to do about it.
+    /// </summary>
+    private async Task StartPhoneAsync()
+    {
+        var label = AndroidChoice.Label(AndroidFlavour.Phone);
+        Say($"STARTING {label}", "Looking for scrcpy and the phone…");
+
+        var (adb, scrcpy) = await Task.Run(Tools).ConfigureAwait(true);
+        if (scrcpy is null)
+        {
+            Say("SCRCPY NOT FOUND",
+                "Install scrcpy (winget install Genymobile.scrcpy), or put its folder in the settings file as androidScrcpy, then tap ANDROID again (ADR-0076).");
+            return;
+        }
+
+        if (adb is null)
+        {
+            Say("NO ADB", $"scrcpy in {scrcpy.Folder} has no adb.exe beside it, and Android Studio's SDK was not found.");
+            return;
+        }
+
+        var (_, devices) = await Task.Run(() => Adb.RunAsync(adb, ["devices", "-l"], TimeSpan.FromSeconds(15), CancellationToken.None)).ConfigureAwait(true);
+        _lastPhone = AdbDevice.Pick(AdbDevice.Parse(devices));
+        _lookedForPhone = true;
+
+        if (_lastPhone is not { State: "device" } found)
+        {
+            Say(_lastPhone is null ? "NO PHONE" : $"{_lastPhone.Name.ToUpperInvariant()} NOT READY",
+                _lastPhone is { State: "unauthorized" }
+                    ? "Unlock the phone and tap Allow on its USB debugging prompt, then tap ANDROID again."
+                    : "Plug the phone in by USB with USB debugging on (Settings ▸ System ▸ Developer options), then tap ANDROID again.");
+            return;
+        }
+
+        if (Flavour != AndroidFlavour.Phone || _phone is not null)
+        {
+            return;
+        }
+
+        var video = new ProjectionVideo(_dispatcher);
+        video.PictureChanged += picture =>
+        {
+            if (ReferenceEquals(video, _video))
+            {
+                Picture = picture;
+                OnPropertyChanged(nameof(IsPictureShowing));
+            }
+        };
+
+        if (!video.Start())
+        {
+            Say("NO VIDEO DECODER", video.Problem ?? "LibVLC could not start.");
+            video.Dispose();
+            return;
+        }
+
+        var phone = new PhoneSession(adb, found, scrcpy, PhoneLongSide) { Showing = _shown > 0 };
+        phone.Video += h264 =>
+        {
+            _phoneFrames.Add(FrameClock.Elapsed);
+            video.Push(h264);
+        };
+        phone.Changed += () => _dispatcher.BeginInvoke(() => OnPhoneChanged(phone));
+
+        _video = video;
+        _phone = phone;
+        _fitted = null;
+        _ = phone.StartAsync();
+    }
+
+    private void OnPhoneChanged(PhoneSession phone)
+    {
+        if (!ReferenceEquals(phone, _phone))
+        {
+            return;
+        }
+
+        var label = AndroidChoice.Label(AndroidFlavour.Phone);
+        switch (phone.State)
+        {
+            case EmulatorState.Starting or EmulatorState.Booting:
+                Say($"STARTING {label}", phone.Detail);
+                break;
+            case EmulatorState.Running:
+                Say(label, phone.Detail);
+                Shape();
+                break;
+            case EmulatorState.Failed:
+                Say($"{label} STOPPED", phone.Detail);
+                break;
+            case EmulatorState.Stopping:
+                Say($"STOPPING {label}", phone.Detail);
+                break;
+        }
+
+        OnPropertyChanged(nameof(IsPictureShowing));
+    }
+
+    /// <summary>What the hold menu says of the mirrored phone: its picture, its frames, what it was told.</summary>
+    private string PhoneStatus(PhoneSession phone)
+    {
+        var parts = new List<string>
+        {
+            phone.Phone.Name,
+            $"scrcpy {phone.Version}",
+            string.Create(CultureInfo.InvariantCulture, $"picture {phone.VideoWidth}×{phone.VideoHeight}"),
+            string.Create(CultureInfo.InvariantCulture, $"busiest second: {_phoneFrames.BusiestSecond(FrameClock.Elapsed)} frames"),
+        };
+
+        if (phone.Fit is { } fit)
+        {
+            parts.Add($"told {fit.Describe()}");
+        }
+
+        if (phone.FitProblem is { } fitProblem)
+        {
+            parts.Add($"not fitted ({fitProblem})");
+        }
+
+        if (phone.CarProblem is { } nightProblem)
+        {
+            parts.Add($"night mode refused ({nightProblem})");
+        }
+
+        if (_video?.Problem is { } decoder)
+        {
+            parts.Add(decoder);
+        }
+
+        return string.Join(" · ", parts);
     }
 
     private static IReadOnlyList<AvdInfo> ListAvds()
@@ -754,6 +1014,14 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     {
         StopFrames();
         ReleaseRequired();
+
+        if (_phone is { } phone)
+        {
+            _phone = null;
+            Task.Run(phone.LetGoAsync).Wait(TimeSpan.FromSeconds(3));
+            _video?.Dispose();
+            _video = null;
+        }
 
         if (_session is { } session)
         {
