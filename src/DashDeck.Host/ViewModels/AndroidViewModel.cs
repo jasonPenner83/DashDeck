@@ -22,11 +22,13 @@ namespace DashDeck.Host.ViewModels;
 /// <param name="IsNight">The dash's own answer — the headlights, or the sun.</param>
 /// <param name="TankLitres">The tank's size from the vehicle settings.</param>
 /// <param name="Microphone">Let Android hear the tablet's microphone.</param>
-/// <param name="Gpu">How the emulator is to draw (<see cref="EmulatorGpu.Choose"/>); null for its own choice.</param>
-public sealed record AndroidFeeds(IVehicleSignals? Signals, Func<bool> IsNight, Func<double> TankLitres, bool Microphone, GpuChoice? Gpu = null)
+/// <param name="Gpu">The settings file's <c>androidGpu</c> (<see cref="EmulatorGpu.Choose"/>).</param>
+/// <param name="RememberGpu">Save a new <c>androidGpu</c>, from the hold menu's switch.</param>
+public sealed record AndroidFeeds(
+    IVehicleSignals? Signals, Func<bool> IsNight, Func<double> TankLitres, bool Microphone, string Gpu = "auto", Action<string>? RememberGpu = null)
 {
     /// <summary>Nothing fed but the position: no signals, always day, no tank, no microphone.</summary>
-    public static readonly AndroidFeeds None = new(null, () => false, () => 0, false);
+    public static readonly AndroidFeeds None = new(null, () => false, () => 0, false, "emulator");
 }
 
 /// <summary>One line of the ANDROID cell's hold menu.</summary>
@@ -73,6 +75,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     private readonly ILocationSource? _location;
     private readonly IClock _clock;
     private readonly AndroidFeeds _feeds;
+    private string _gpu;
     private readonly List<ISignalSubscription> _required = [];
     private readonly Action<AndroidFlavour> _remember;
     private readonly Dispatcher _dispatcher;
@@ -101,6 +104,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         _location = location;
         _clock = clock;
         _feeds = feeds;
+        _gpu = feeds.Gpu;
         _flavour = flavour;
         _remember = remember;
         _dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
@@ -128,6 +132,25 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
 
     /// <summary>True when the flavour has a recent-apps key (<see cref="AndroidKeys.For"/>).</summary>
     public bool HasRecents => AndroidKeys.For(Flavour).Contains(AndroidKey.Recents);
+
+    /// <summary>The hold menu's switch: what it would change to.</summary>
+    public string GpuSwitchLabel => EmulatorGpu.Choose(_gpu).Mode is { } mode && !EmulatorGpu.IsSoftware(mode)
+        ? "DRAW IN SOFTWARE"
+        : "DRAW WITH THE GPU";
+
+    /// <summary>
+    /// Switch between drawing on the tablet's GPU and the emulator's own choice — software on the
+    /// Surface — saved, and Android restarted, since the emulator draws one way for as long as it runs.
+    /// </summary>
+    [RelayCommand]
+    private void SwitchGpu()
+    {
+        IsMenuOpen = false;
+        _gpu = GpuSwitchLabel == "DRAW IN SOFTWARE" ? "emulator" : "auto";
+        _feeds.RememberGpu?.Invoke(_gpu);
+        OnPropertyChanged(nameof(GpuSwitchLabel));
+        _ = StopAsync(restart: true);
+    }
 
     /// <summary>One of Android's own keys, from the key bar beside its picture.</summary>
     [RelayCommand]
@@ -463,7 +486,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
 
         // Started at the stage's own size, so on the stage nothing needs fitting, and full screen is
         // a fit inside it. An AVD started at another size is fitted just the same, only less sharply.
-        var session = new EmulatorSession(sdk, avd, skin: $"{StageWidth}x{StageHeight}") { Gpu = _feeds.Gpu ?? GpuChoice.Emulator };
+        var session = new EmulatorSession(sdk, avd, skin: $"{StageWidth}x{StageHeight}") { Gpu = EmulatorGpu.Choose(_gpu) };
         _turned = null;
         _fitted = null;
         session.Changed += () => _dispatcher.BeginInvoke(() => OnSessionChanged(session));

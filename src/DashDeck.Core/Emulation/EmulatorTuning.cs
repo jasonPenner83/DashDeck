@@ -88,6 +88,16 @@ public static partial class EmulatorGpu
     }
 
     /// <summary>
+    /// The emulator features to change for a GPU mode. On the GPU the emulator composes Android's
+    /// layers itself (<c>HostComposition</c>), and on the Surface that composition ignored the screen
+    /// Android was told to use (<see cref="AndroidFit"/>): the picture came out in a narrow strip,
+    /// stretched and cut. Turned off, Android composes its own picture — still on the GPU, through
+    /// the emulator's translator — and the emulator shows it as Android drew it.
+    /// </summary>
+    public static IReadOnlyList<string> Features(string? mode) =>
+        mode is null || IsSoftware(mode) ? [] : ["-HostComposition"];
+
+    /// <summary>
     /// True for a mode that draws without the GPU. The emulator has several names for it —
     /// <c>swiftshader_indirect</c>, <c>swangle_indirect</c>, and lately just <c>sw</c>.
     /// </summary>

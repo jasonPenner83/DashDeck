@@ -37,6 +37,18 @@ public class EmulatorTuningTests
         Assert.Equal(new GpuChoice("angle_indirect", false), EmulatorGpu.Choose("angle_indirect"));
     }
 
+    [Fact]
+    public void On_the_gpu_android_composes_its_own_picture()
+    {
+        Assert.Equal(["-HostComposition"], EmulatorGpu.Features("host"));
+        Assert.Equal(["-HostComposition"], EmulatorGpu.Features("angle_indirect"));
+        Assert.Empty(EmulatorGpu.Features("swiftshader_indirect"));
+        Assert.Empty(EmulatorGpu.Features(null));
+
+        Assert.Equal(["-gpu", "host", "-feature", "-HostComposition"], EmulatorCommand.Arguments("Tab", 8554, gpu: "host", features: ["-HostComposition"]).TakeLast(4));
+        Assert.Throws<ArgumentException>(() => EmulatorCommand.Arguments("Tab", 8554, features: ["-Host Composition; rm"]));
+    }
+
     [Theory]
     [InlineData("sw", true)]
     [InlineData("swiftshader_indirect", true)]

@@ -329,6 +329,18 @@ The hold menu's line for the running flavour says whether it is working:
      (`getStatus`: the resolved `hw.gpu.mode`, with the cores and memory Android really has) and,
      when Android answers, from SurfaceFlinger's `GLES` line, which names the GPU behind the
      emulator's translator (`EmulatorGpu.FromConfig`, `FromGles`);
+   - **on the GPU, Android composes its own picture.** With `-gpu host` the tablet came out squashed:
+     its picture sat in a strip about 57 % as wide as the region, stretched 18 % taller and cut at
+     top and bottom. In software, the fit was right. On the GPU the emulator composes Android's
+     layers itself (`HostComposition`), and that composition ignores the screen Android was told
+     to use. So on the GPU the emulator starts with `-feature -HostComposition`
+     (`EmulatorGpu.Features`): Android composes on the GPU through the translator, and the emulator
+     shows what it drew. If that is not enough, the fallback is to drop `wm size` on the GPU and
+     fit by rotation and the skin's shape alone;
+   - **a switch in the hold menu,** *DRAW IN SOFTWARE* / *DRAW WITH THE GPU*, saves `androidGpu`
+     and restarts Android, so the two can be compared without the settings file. In software,
+     System UI and the launcher can trip Android's *isn't responding* watchdog: everything is
+     drawn on the processor, and each fit makes them lay themselves out again;
    - memory stays at 4 GB: Android was not short of it, and the dash and Windows need the rest.
 
    The change in cores makes the next start a cold boot, as the memory change did. Not done, because

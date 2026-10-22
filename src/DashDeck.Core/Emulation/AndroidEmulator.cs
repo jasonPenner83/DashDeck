@@ -160,7 +160,7 @@ public static class EmulatorCommand
     /// <param name="cores">Processor cores for the guest this run, or null for the AVD's own.</param>
     public static IReadOnlyList<string> Arguments(
         string avd, int grpcPort, bool noWindow = false, string? skin = null, int? memoryMb = null, int? cores = null,
-        IReadOnlyList<string>? dnsServers = null, string? gpu = null)
+        IReadOnlyList<string>? dnsServers = null, string? gpu = null, IReadOnlyList<string>? features = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(avd);
         ArgumentOutOfRangeException.ThrowIfLessThan(grpcPort, 1024);
@@ -182,6 +182,11 @@ public static class EmulatorCommand
             throw new ArgumentException($"'{gpu}' is not an emulator GPU mode", nameof(gpu));
         }
 
+        if (features?.FirstOrDefault(f => !IsFeature(f)) is { } bad)
+        {
+            throw new ArgumentException($"'{bad}' is not an emulator feature", nameof(features));
+        }
+
         return
         [
             "-avd", avd,
@@ -194,8 +199,13 @@ public static class EmulatorCommand
             .. cores is { } count ? ["-cores", count.ToString(CultureInfo.InvariantCulture)] : Array.Empty<string>(),
             .. dns is null ? Array.Empty<string>() : ["-dns-server", dns],
             .. gpu is null ? Array.Empty<string>() : ["-gpu", gpu],
+            .. (features ?? []).SelectMany(f => new[] { "-feature", f }),
         ];
     }
+
+    /// <summary>A feature as <c>-feature</c> takes one: a name, turned off with a leading minus.</summary>
+    private static bool IsFeature(string text) =>
+        text is { Length: > 1 } && text.TrimStart('-').Length > 0 && text.TrimStart('-').All(char.IsAsciiLetterOrDigit) && !text.StartsWith("--", StringComparison.Ordinal);
 
     /// <summary>A screen size as the emulator takes one: <c>1824x1272</c>, each side 320–4096.</summary>
     public static bool IsSize(string text) =>

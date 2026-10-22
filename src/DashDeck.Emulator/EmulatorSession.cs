@@ -166,7 +166,7 @@ public sealed class EmulatorSession : IAsyncDisposable
                 var dns = HostNetwork.DnsServers();
                 var launch = await EmulatorLauncher.StartAsync(
                     _sdk, Avd.Name, _port, _skin, line => Set(EmulatorState.Starting, line), ct, Resources.MemoryMb, Resources.Cores,
-                    dns, Gpu.Mode).ConfigureAwait(false);
+                    dns, Gpu.Mode, EmulatorGpu.Features(Gpu.Mode)).ConfigureAwait(false);
 
                 // The host's GPU refused: start again the emulator's way, which at least draws.
                 if (launch.Failure is { } refused && Gpu is { FallBack: true, Mode: { } mode })

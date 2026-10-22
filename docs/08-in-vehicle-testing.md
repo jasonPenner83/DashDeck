@@ -1458,6 +1458,12 @@ dragging, touch under 150 ms, and memory that leaves the dash comfortable.
      `"androidGpu": "emulator"` in the settings file to go back, and note what you saw;
    - scroll a long list in Settings, and open and close apps. **Expect:** it is noticeably smoother
      than before. Note how it feels against the last build.
+0a. **GPU or software.** Hold ANDROID. Above STOP ANDROID is **DRAW WITH THE GPU** (or **DRAW IN
+    SOFTWARE** when it already is). Tapping it restarts Android drawn the other way. On the GPU,
+    **expect** the picture to fill the space in the right proportions, with round icons round, the
+    status bar at the top and the dock at the bottom, and to be quicker than in software. A
+    squashed picture on the GPU is the failure: send the hold menu's line. In software, *System UI
+    isn't responding* or *Pixel Launcher isn't responding* can appear. Tap **Wait**.
 0b. **The key bar.** Full screen, a bar along the bottom with **Back**, **Home** and **Recent apps**
     (a square). Open Settings, go into a page, then:
     - tap **Back**. **Expect:** one page back;

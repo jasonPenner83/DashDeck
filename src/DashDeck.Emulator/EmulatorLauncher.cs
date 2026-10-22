@@ -59,7 +59,7 @@ public static class EmulatorLauncher
     /// </summary>
     public static async Task<LaunchResult> StartAsync(
         string sdk, string avd, int port, string? skin, Action<string> say, CancellationToken ct, int? memoryMb = null, int? cores = null,
-        IReadOnlyList<string>? dnsServers = null, string? gpu = null)
+        IReadOnlyList<string>? dnsServers = null, string? gpu = null, IReadOnlyList<string>? features = null)
     {
         ArgumentNullException.ThrowIfNull(say);
 
@@ -71,7 +71,7 @@ public static class EmulatorLauncher
             CreateNoWindow = true,
         };
 
-        foreach (var argument in EmulatorCommand.Arguments(avd, port, skin: skin, memoryMb: memoryMb, cores: cores, dnsServers: dnsServers, gpu: gpu))
+        foreach (var argument in EmulatorCommand.Arguments(avd, port, skin: skin, memoryMb: memoryMb, cores: cores, dnsServers: dnsServers, gpu: gpu, features: features))
         {
             info.ArgumentList.Add(argument);
         }
