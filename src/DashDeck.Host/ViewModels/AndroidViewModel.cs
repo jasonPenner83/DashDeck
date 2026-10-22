@@ -15,13 +15,15 @@ namespace DashDeck.Host.ViewModels;
 
 /// <summary>
 /// What the dash hands Android besides its picture and touch (ADR-0075 addendum): the truck's
-/// signals for Automotive's vehicle HAL, whether it is night, the tank's size, and the microphone.
+/// signals for Automotive's vehicle HAL, whether it is night, the tank's size, and the microphone —
+/// and how the emulator is to draw.
 /// </summary>
 /// <param name="Signals">The truck's signals; null when there are none.</param>
 /// <param name="IsNight">The dash's own answer — the headlights, or the sun.</param>
 /// <param name="TankLitres">The tank's size from the vehicle settings.</param>
 /// <param name="Microphone">Let Android hear the tablet's microphone.</param>
-public sealed record AndroidFeeds(IVehicleSignals? Signals, Func<bool> IsNight, Func<double> TankLitres, bool Microphone)
+/// <param name="Gpu">The emulator's <c>-gpu</c> mode; null for its own choice.</param>
+public sealed record AndroidFeeds(IVehicleSignals? Signals, Func<bool> IsNight, Func<double> TankLitres, bool Microphone, string? Gpu = null)
 {
     /// <summary>Nothing fed but the position: no signals, always day, no tank, no microphone.</summary>
     public static readonly AndroidFeeds None = new(null, () => false, () => 0, false);
@@ -354,6 +356,11 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
             parts.Add(on ? "mic on" : "mic off");
         }
 
+        if (session.Renderer is { } renderer)
+        {
+            parts.Add($"drawn by {renderer}");
+        }
+
         return parts.Count == 0 ? null : string.Join(" · ", parts);
     }
 
@@ -402,7 +409,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
 
         // Started at the stage's own size, so on the stage nothing needs fitting, and full screen is
         // a fit inside it. An AVD started at another size is fitted just the same, only less sharply.
-        var session = new EmulatorSession(sdk, avd, skin: $"{StageWidth}x{StageHeight}");
+        var session = new EmulatorSession(sdk, avd, skin: $"{StageWidth}x{StageHeight}") { Gpu = _feeds.Gpu };
         _turned = null;
         _fitted = null;
         session.Changed += () => _dispatcher.BeginInvoke(() => OnSessionChanged(session));
@@ -554,7 +561,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
             _back = new byte[size];
         }
 
-        FramePixels.RgbToBgr32(frame.Rgb, frame.Width, crop, _back);
+        FramePixels.RgbToBgr32(frame.Rgb.Span, frame.Width, crop, _back);
 
         _dispatcher.BeginInvoke(DispatcherPriority.Render, () =>
         {

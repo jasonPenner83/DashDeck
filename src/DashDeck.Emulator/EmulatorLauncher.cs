@@ -15,7 +15,8 @@ public sealed record RunningEmulator(int Pid, string Path, EmulatorDiscovery Dis
 /// <param name="Discovery">Its discovery file, with the gRPC port and token — null when it never wrote one.</param>
 /// <param name="Pid">The virtual machine's own process, from the discovery file's name.</param>
 /// <param name="Failure">Why it did not start, or null.</param>
-public sealed record LaunchResult(Process? Launcher, EmulatorDiscovery? Discovery, int? Pid, string? Failure);
+/// <param name="Output">What the emulator has printed so far — it keeps printing while it runs.</param>
+public sealed record LaunchResult(Process? Launcher, EmulatorDiscovery? Discovery, int? Pid, string? Failure, Func<IReadOnlyList<string>>? Output = null);
 
 /// <summary>
 /// Starting, finding and stopping emulators (ADR-0075) — everything the AndroidProbe learnt on the
@@ -53,10 +54,12 @@ public static class EmulatorLauncher
 
     /// <summary>
     /// Start an AVD hidden with gRPC and a token, and wait for it to say where its gRPC is.
-    /// <paramref name="memoryMb"/> and <paramref name="cores"/>, when given, override the AVD's own.
+    /// <paramref name="memoryMb"/> and <paramref name="cores"/>, when given, override the AVD's own;
+    /// <paramref name="dnsServers"/> and <paramref name="gpu"/> the emulator's own choices.
     /// </summary>
     public static async Task<LaunchResult> StartAsync(
-        string sdk, string avd, int port, string? skin, Action<string> say, CancellationToken ct, int? memoryMb = null, int? cores = null)
+        string sdk, string avd, int port, string? skin, Action<string> say, CancellationToken ct, int? memoryMb = null, int? cores = null,
+        IReadOnlyList<string>? dnsServers = null, string? gpu = null)
     {
         ArgumentNullException.ThrowIfNull(say);
 
@@ -68,7 +71,7 @@ public static class EmulatorLauncher
             CreateNoWindow = true,
         };
 
-        foreach (var argument in EmulatorCommand.Arguments(avd, port, skin: skin, memoryMb: memoryMb, cores: cores))
+        foreach (var argument in EmulatorCommand.Arguments(avd, port, skin: skin, memoryMb: memoryMb, cores: cores, dnsServers: dnsServers, gpu: gpu))
         {
             info.ArgumentList.Add(argument);
         }
@@ -115,7 +118,13 @@ public static class EmulatorLauncher
                 if (discovery.GrpcPort is not null)
                 {
                     say($"gRPC on port {discovery.GrpcPort}");
-                    return new LaunchResult(process, discovery, EmulatorDiscovery.PidOf(path), null);
+                    return new LaunchResult(process, discovery, EmulatorDiscovery.PidOf(path), null, () =>
+                    {
+                        lock (output)
+                        {
+                            return [.. output];
+                        }
+                    });
                 }
             }
 

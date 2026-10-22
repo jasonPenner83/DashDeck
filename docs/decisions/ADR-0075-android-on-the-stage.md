@@ -251,7 +251,7 @@ What changed, and why:
 What is still open is unchanged: Automotive's vehicle data over ADB (the two-ADB clash first),
 audio, and shared-memory frames (`MMAP`) if the tablet's frame rate is still the limit.
 
-## Addendum — 2026-10-22: feeding Android the truck, the night and the microphone
+## Addendum — 2026-10-22: feeding Android the truck, the night, the microphone and the internet; less sluggish
 
 The owner asked what else Android should be handed besides GPS. Its internet comes from the
 Surface's connection, and its time from the Surface's clock, with nothing to do. Three things were
@@ -298,5 +298,32 @@ missing, most important first.
 The hold menu's line for the running flavour says whether it is working:
 - *car data live · 62 km/h · DRIVE*, or *car data refused (…)*;
 - *mic on* or *mic off*.
+
+4. **Internet that resolves.** On the Surface the tablet said *AndroidWifi · Connected / No internet
+   access*. The emulator shares the Surface's connection, but on Windows it can hand Android the DNS
+   servers of a virtual adapter, such as the hypervisor's own switch, which answers nothing. The dash
+   now passes `-dns-server` (`EmulatorNetwork.DnsServers`):
+   - up to two of the Surface's own, from the adapters with a gateway;
+   - then `1.1.1.1` and `8.8.8.8`, so names still resolve when the truck moves from the house's Wi-Fi
+     to the phone's hotspot while Android runs (the emulator's DNS is fixed at start).
+
+   If Android still says no internet, the next suspects are a VPN on the Surface, and Android's clock
+   after resuming from the snapshot.
+5. **Sluggishness: more of the tablet, and less work per frame.** The probe measured that copying
+   frames out costs about as much as Android drawing them (half-size frames gave 40 % more). So:
+   - **cores:** all the Surface's logical processors but two (six of eight, `EmulatorResources`),
+     instead of half;
+   - **no copy of each frame:** the pixels are read straight out of the gRPC message. Each frame used
+     to be copied into a new array of several megabytes, garbage that made the dash's collector work
+     several times a second;
+   - **four pixels at a time:** RGB to the bitmap's BGRX with one SIMD shuffle per four pixels;
+   - **how it draws, shown:** the emulator's own words about its GPU mode go in the hold menu
+     (`EmulatorGpu.Renderer`), for example *drawn by host · Intel(R) Iris(R) Plus Graphics*. If it
+     says *software*, set `androidGpu` to `host` in the settings file;
+   - memory stays at 4 GB: Android was not short of it, and the dash and Windows need the rest.
+
+   The change in cores makes the next start a cold boot, as the memory change did. Not done, because
+   it cannot be checked without a real emulator: frames through shared memory (`ImageTransport`
+   `MMAP`), which would remove the gRPC copy altogether. It is next if this is not enough.
 
 Still open: Android's sound ducking under directions, and steering-wheel keys.

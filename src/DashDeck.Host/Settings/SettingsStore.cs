@@ -202,6 +202,14 @@ public sealed record UserSettings
     /// </summary>
     [JsonPropertyName("androidMicrophone")]
     public bool AndroidMicrophone { get; init; } = true;
+
+    /// <summary>
+    /// How the emulator draws (<c>-gpu</c>): <c>auto</c> — its own choice — or <c>host</c>,
+    /// <c>angle_indirect</c>, <c>swiftshader_indirect</c>. For when the hold menu shows it drawing in
+    /// software (ADR-0075). A settings-file switch.
+    /// </summary>
+    [JsonPropertyName("androidGpu")]
+    public string AndroidGpu { get; init; } = "auto";
 }
 
 /// <summary>

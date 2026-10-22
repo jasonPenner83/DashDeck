@@ -664,7 +664,12 @@ silent with GPS still = Park), `warning.parkingBrake`, `fuel.levelPercent` × ta
 vehicle-HAL commands for Automotive (`dumpsys …IVehicle/default --set`, else
 `cmd car_service inject-vhal-event`, probed once) or `cmd uimode night` for a tablet; only changes,
 once a beat, `EmulatorSession.FeedAsync`; signals required while Automotive runs. Mic via
-`setMicrophoneState` (`androidMicrophone`, default on). Status in the hold menu line. Started on first sight and kept running; frames only
+`setMicrophoneState` (`androidMicrophone`, default on). Status in the hold menu line. Internet: `-dns-server`
+from the Surface's gateway adapters + 1.1.1.1/8.8.8.8 (`EmulatorNetwork`, `HostNetwork`) — the emulator
+otherwise picks a virtual adapter's DNS. Speed: cores = logical − 2 (2–8); frames are the gRPC message's
+own memory (`EmulatorFrame.Rgb` is `ReadOnlyMemory<byte>`, never copied); `FramePixels` shuffles four pixels
+per SIMD op; GPU mode from the emulator's output in the hold menu (`EmulatorGpu.Renderer`), `androidGpu`
+forces one. MMAP frames not done (untestable without an emulator). Started on first sight and kept running; frames only
 while a panel is attached. The gRPC client is tested against a fake emulator served in-process
 (`EmulatorClientTests`, `Grpc.AspNetCore.Server`). Not yet: Automotive vehicle data over ADB, audio.
 

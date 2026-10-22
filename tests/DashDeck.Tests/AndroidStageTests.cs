@@ -135,13 +135,26 @@ public class AndroidStageTests
     }
 
     [Theory]
-    [InlineData(16L << 30, 8, 4096, 4)]   // the owner's Surface Pro 7
-    [InlineData(8L << 30, 8, null, 4)]
-    [InlineData(32L << 30, 16, 4096, 4)]
+    [InlineData(16L << 30, 8, 4096, 6)]   // the owner's Surface Pro 7: all but two of its eight threads
+    [InlineData(8L << 30, 8, null, 6)]
+    [InlineData(32L << 30, 16, 4096, 8)]
     [InlineData(16L << 30, 4, 4096, 2)]
     [InlineData(4L << 30, 2, null, null)]
     public void The_emulator_is_given_what_the_tablet_can_spare(long memory, int processors, int? memoryMb, int? cores) =>
         Assert.Equal((memoryMb, cores), EmulatorResources.For(memory, processors));
+
+    [Fact]
+    public void Dns_and_the_gpu_mode_go_on_the_command_line_only_when_given()
+    {
+        var arguments = EmulatorCommand.Arguments("Tab", 8554, dnsServers: ["192.168.1.1", "1.1.1.1"], gpu: "host");
+
+        Assert.Equal(["-dns-server", "192.168.1.1,1.1.1.1", "-gpu", "host"], arguments.TakeLast(4));
+        Assert.DoesNotContain("-dns-server", EmulatorCommand.Arguments("Tab", 8554));
+        Assert.DoesNotContain("-gpu", EmulatorCommand.Arguments("Tab", 8554));
+
+        Assert.Throws<ArgumentException>(() => EmulatorCommand.Arguments("Tab", 8554, dnsServers: ["not.an.address"]));
+        Assert.Throws<ArgumentException>(() => EmulatorCommand.Arguments("Tab", 8554, gpu: "fast"));
+    }
 
     [Fact]
     public void Memory_and_cores_go_on_the_command_line_only_when_given()

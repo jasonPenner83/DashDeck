@@ -1439,6 +1439,16 @@ dragging, touch under 150 ms, and memory that leaves the dash comfortable.
 - the adapter connected, the engine running, and somewhere to drive slowly.
 
 **At the desk, first**
+0. Start Android (either flavour). The first start after updating is a **cold boot**: it now gets six
+   cores. Then:
+   - swipe down from the top inside Android and open the Wi-Fi tile. **Expect:** *AndroidWifi ·
+     Connected*, with no *No internet access*;
+   - open a web page or the Play Store. **Expect:** it loads;
+   - hold ANDROID. **Expect:** *drawn by host · …* naming the Surface's Intel GPU. *software — slow*
+     means the emulator is drawing without the GPU: set `"androidGpu": "host"` in the settings file and
+     restart DashDeck;
+   - scroll a long list in Settings, and open and close apps. **Expect:** it is noticeably smoother
+     than before. Note how it feels against the last build.
 1. Hold ANDROID and choose **ANDROID AUTOMOTIVE**. Once it is running, hold ANDROID again.
    **Expect:**
    - under ANDROID AUTOMOTIVE, *car data live · 0 km/h*;
@@ -1470,6 +1480,8 @@ dragging, touch under 150 ms, and memory that leaves the dash comfortable.
 - *car data refused* with any reason, or *no car data yet* a minute after starting.
 - *mic off* when `androidMicrophone` is not set to `false`, or Android hearing nothing with *mic on*.
 - Night not following the dash.
+- *No internet access* still. Note whether the Surface is on a VPN, and whether Android's clock
+  matches the Surface's.
 
 ## The audio delay and the video sync offset — parked 2026-10-15
 

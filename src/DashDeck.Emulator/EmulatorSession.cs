@@ -40,6 +40,7 @@ public sealed class EmulatorSession : IAsyncDisposable
     private int? _pid;
     private EmulatorDiscovery? _discovery;
     private Task? _starting;
+    private Func<IReadOnlyList<string>>? _output;
     private volatile int _quarterTurns;
     private volatile AndroidFit? _fit;
     private AndroidFit? _wantedFit;
@@ -80,6 +81,15 @@ public sealed class EmulatorSession : IAsyncDisposable
 
     /// <summary>What Android was last told about the truck, or null before anything was.</summary>
     public CarState? CarTold => _carTold;
+
+    /// <summary>
+    /// How the emulator draws, as it said when it started — <c>host · Intel(R) Iris(R) Plus Graphics</c>,
+    /// or software — or null when it was joined rather than started, or has not said.
+    /// </summary>
+    public string? Renderer => _output is { } output ? EmulatorGpu.Renderer(output()) : null;
+
+    /// <summary>The emulator's <c>-gpu</c> mode; null for its own choice.</summary>
+    public string? Gpu { get; init; }
 
     /// <summary>The memory and cores the emulator is started with; null for the AVD's own.</summary>
     public (int? MemoryMb, int? Cores) Resources { get; }
@@ -133,7 +143,8 @@ public sealed class EmulatorSession : IAsyncDisposable
             else
             {
                 var launch = await EmulatorLauncher.StartAsync(
-                    _sdk, Avd.Name, _port, _skin, line => Set(EmulatorState.Starting, line), ct, Resources.MemoryMb, Resources.Cores).ConfigureAwait(false);
+                    _sdk, Avd.Name, _port, _skin, line => Set(EmulatorState.Starting, line), ct, Resources.MemoryMb, Resources.Cores,
+                    HostNetwork.DnsServers(), Gpu).ConfigureAwait(false);
                 if (launch.Failure is { } failure)
                 {
                     Set(EmulatorState.Failed, failure);
@@ -141,6 +152,7 @@ public sealed class EmulatorSession : IAsyncDisposable
                 }
 
                 _launcher = launch.Launcher;
+                _output = launch.Output;
                 _discovery = launch.Discovery;
                 _pid = launch.Pid;
                 Set(EmulatorState.Booting, $"booting {Avd.Name}");

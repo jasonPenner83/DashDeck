@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 using System.Threading.Channels;
 using Android.Emulation.Control;
 using DashDeck.Core.Location;
@@ -7,12 +9,16 @@ using Grpc.Net.Client;
 
 namespace DashDeck.Emulator;
 
-/// <summary>One frame of the emulated screen: RGB, three bytes a pixel, rows top to bottom.</summary>
+/// <summary>
+/// One frame of the emulated screen: RGB, three bytes a pixel, rows top to bottom. The pixels are the
+/// gRPC message's own, not a copy — a frame is megabytes, and a copy of each was garbage for the
+/// dash's collector to sweep several times a second.
+/// </summary>
 /// <param name="QuarterTurns">
 /// How the emulator turned the picture upright (its <c>SkinRotation</c>, 0–3) — what a touch on it
 /// has to be turned back by (<c>AndroidChoice.ToDevice</c>).
 /// </param>
-public readonly record struct EmulatorFrame(byte[] Rgb, int Width, int Height, uint Sequence, int QuarterTurns = 0);
+public readonly record struct EmulatorFrame(ReadOnlyMemory<byte> Rgb, int Width, int Height, uint Sequence, int QuarterTurns = 0);
 
 /// <summary>The emulator refused a call: the token was missing or wrong (ADR-0075).</summary>
 public sealed class EmulatorRefusedException(string message) : Exception(message);
@@ -142,7 +148,7 @@ public sealed class EmulatorClient : IDisposable
             {
                 if (image.Image_.Length > 0 && image.Format.Width > 0 && image.Format.Height > 0)
                 {
-                    onFrame(new EmulatorFrame(image.Image_.ToByteArray(), (int)image.Format.Width, (int)image.Format.Height, image.Seq, QuarterTurns(image.Format)));
+                    onFrame(new EmulatorFrame(image.Image_.Memory, (int)image.Format.Width, (int)image.Format.Height, image.Seq, QuarterTurns(image.Format)));
                 }
             }
         }
@@ -298,15 +304,33 @@ public sealed class EmulatorClient : IDisposable
 /// <summary>Turning the emulator's RGB into what a WPF bitmap holds.</summary>
 public static class FramePixels
 {
+    // Four pixels at a time: twelve bytes of RGB into sixteen of BGRX, the fourth of each zero.
+    private static readonly Vector128<byte> FourPixels = Vector128.Create((byte)2, 1, 0, 255, 5, 4, 3, 255, 8, 7, 6, 255, 11, 10, 9, 255);
+
     /// <summary>
-    /// RGB, three bytes a pixel, into BGRX, four — the layout of a <c>Bgr32</c> bitmap. The fourth
-    /// byte is left alone, since Bgr32 ignores it.
+    /// RGB, three bytes a pixel, into BGRX, four — the layout of a <c>Bgr32</c> bitmap, whose fourth
+    /// byte is ignored. Four pixels to an instruction where the processor can, which on the
+    /// Surface's frames is most of the work of drawing one.
     /// </summary>
     public static void RgbToBgr32(ReadOnlySpan<byte> rgb, Span<byte> bgrx)
     {
         var pixels = Math.Min(rgb.Length / 3, bgrx.Length / 4);
+        var i = 0;
 
-        for (int i = 0, from = 0, to = 0; i < pixels; i++, from += 3, to += 4)
+        if (Vector128.IsHardwareAccelerated)
+        {
+            ref var source = ref MemoryMarshal.GetReference(rgb);
+            ref var target = ref MemoryMarshal.GetReference(bgrx);
+
+            // Each step reads sixteen bytes for twelve, so it stops while sixteen are still there.
+            for (; i + 4 <= pixels && (i * 3) + 16 <= rgb.Length; i += 4)
+            {
+                Vector128.Shuffle(Vector128.LoadUnsafe(ref source, (nuint)(i * 3)), FourPixels)
+                    .StoreUnsafe(ref target, (nuint)(i * 4));
+            }
+        }
+
+        for (int from = i * 3, to = i * 4; i < pixels; i++, from += 3, to += 4)
         {
             bgrx[to] = rgb[from + 2];
             bgrx[to + 1] = rgb[from + 1];
