@@ -195,6 +195,13 @@ public sealed record UserSettings
     /// </summary>
     [JsonPropertyName("androidFlavour")]
     public string AndroidFlavour { get; init; } = "Regular";
+
+    /// <summary>
+    /// Whether Android hears the tablet's microphone — for "Hey Google" and voice typing (ADR-0075).
+    /// The emulator gives it silence otherwise. A settings-file switch; on unless turned off.
+    /// </summary>
+    [JsonPropertyName("androidMicrophone")]
+    public bool AndroidMicrophone { get; init; } = true;
 }
 
 /// <summary>

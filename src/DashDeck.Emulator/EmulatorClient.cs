@@ -252,6 +252,24 @@ public sealed class EmulatorClient : IDisposable
     }
 
     /// <summary>
+    /// Let Android hear the tablet's microphone, or give it silence — the emulator's own default.
+    /// What Android Studio's "virtual microphone uses host audio input" switch does. False when the
+    /// emulator would not.
+    /// </summary>
+    public async Task<bool> SetMicrophoneAsync(bool hear)
+    {
+        try
+        {
+            await _client.setMicrophoneStateAsync(new MicrophoneState { RealAudioEnabled = hear }, _headers).ConfigureAwait(false);
+            return true;
+        }
+        catch (RpcException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Shut Android down as closing the emulator does, so its quick-boot snapshot is saved. True when
     /// it was asked; whether it went is the launcher's to see.
     /// </summary>

@@ -250,3 +250,53 @@ What changed, and why:
 
 What is still open is unchanged: Automotive's vehicle data over ADB (the two-ADB clash first),
 audio, and shared-memory frames (`MMAP`) if the tablet's frame rate is still the limit.
+
+## Addendum — 2026-10-22: feeding Android the truck, the night and the microphone
+
+The owner asked what else Android should be handed besides GPS. Its internet comes from the
+Surface's connection, and its time from the Surface's clock, with nothing to do. Three things were
+missing, most important first.
+
+1. **The truck's motion, for Automotive's driving restrictions.** Android Automotive limits what can
+   be done on screen while the car moves: video, the keyboard, long lists. It decides "moving" from
+   speed and gear. Never told either, it believes it is parked for ever, so nothing was limited at
+   100 km/h. Now, once a beat, `CarFeed` turns the dash's signals into what Android should believe,
+   and the commands that tell it, sending only what changed:
+   - speed from `vehicle.speed`, or the GPS ground speed when that is not live;
+   - gear from `transmission.gearSelector` when the truck gives one;
+   - parking brake (`warning.parkingBrake`), fuel level in litres of the tank set in Settings
+     (`fuel.levelPercent`), and engine speed (`engine.rpm`);
+   - night (below).
+
+   **Gear is worked out until the truck says it**, and the guess errs towards restricted:
+   - moving is Drive;
+   - stopped with the engine running is still Drive, because idling at a light is not parked;
+   - stopped with the engine off, or with the parking brake on, is Park;
+   - the truck gone silent (the ignition off) while the GPS says it is still is Park;
+   - with no speed at all nothing is said, and Android keeps what it was told last.
+
+   Only live readings are used, so a stale speed is never passed on as the truck's.
+
+   It goes in over the SDK's ADB, the way the fit does:
+   - written into the vehicle HAL's own store (`dumpsys …IVehicle/default --set`), so the value
+     holds;
+   - or, on images that refuse that, as the car service's injected events
+     (`cmd car_service inject-vhal-event`).
+
+   Which one works is asked once per start. The signals are required from the arbiter while
+   Automotive runs, so they are polled even when no gauge shows them. **This writes to the emulator,
+   never to the truck.**
+2. **Night.** The dash's own answer (`ThemeService.IsNight`: the headlights, or the sun) goes to
+   both flavours:
+   - Automotive's `NIGHT_MODE` property;
+   - a tablet's dark theme (`cmd uimode night`).
+3. **The microphone.** The emulator gives Android silence unless host input is allowed. The dash now
+   allows it at start (`setMicrophoneState`, what Android Studio's switch does), so "Hey Google" and
+   voice typing hear the cab. Windows must let desktop apps use the microphone. It is a
+   settings-file switch, `androidMicrophone`, on unless turned off.
+
+The hold menu's line for the running flavour says whether it is working:
+- *car data live · 62 km/h · DRIVE*, or *car data refused (…)*;
+- *mic on* or *mic off*.
+
+Still open: Android's sound ducking under directions, and steering-wheel keys.

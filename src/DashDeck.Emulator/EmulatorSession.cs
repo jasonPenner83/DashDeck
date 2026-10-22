@@ -43,7 +43,10 @@ public sealed class EmulatorSession : IAsyncDisposable
     private volatile int _quarterTurns;
     private volatile AndroidFit? _fit;
     private AndroidFit? _wantedFit;
-    private readonly SemaphoreSlim _fitting = new(1, 1);
+    // One ADB command at a time, the fit's and the car feed's alike.
+    private readonly SemaphoreSlim _adb = new(1, 1);
+    private CarState? _carTold;
+    private VhalRoute? _route;
 
     /// <param name="resources">
     /// Memory and cores to start with; by default what this tablet can spare
@@ -71,6 +74,12 @@ public sealed class EmulatorSession : IAsyncDisposable
 
     /// <summary>Why the last fit could not be made, or null.</summary>
     public string? FitProblem { get; private set; }
+
+    /// <summary>Why the last car data was not taken, or null.</summary>
+    public string? CarProblem { get; private set; }
+
+    /// <summary>What Android was last told about the truck, or null before anything was.</summary>
+    public CarState? CarTold => _carTold;
 
     /// <summary>The memory and cores the emulator is started with; null for the AVD's own.</summary>
     public (int? MemoryMb, int? Cores) Resources { get; }
@@ -217,7 +226,7 @@ public sealed class EmulatorSession : IAsyncDisposable
 
         try
         {
-            await _fitting.WaitAsync(_lifetime).ConfigureAwait(false);
+            await _adb.WaitAsync(_lifetime).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -250,9 +259,75 @@ public sealed class EmulatorSession : IAsyncDisposable
         }
         finally
         {
-            _fitting.Release();
+            _adb.Release();
         }
     }
+
+    /// <summary>
+    /// Tell Android what has changed about the truck (<see cref="CarFeed"/>): Automotive through its
+    /// vehicle HAL, a tablet only whether it is night. One shell call for all of it. Skipped while
+    /// another ADB command runs — the next beat brings the newest state anyway.
+    /// </summary>
+    public async Task FeedAsync(CarState next)
+    {
+        ArgumentNullException.ThrowIfNull(next);
+
+        if (State != EmulatorState.Running || _discovery?.AdbSerial is not { } serial || !File.Exists(AndroidSdk.AdbPath(_sdk)))
+        {
+            return;
+        }
+
+        if (!await _adb.WaitAsync(0, _lifetime).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        try
+        {
+            var adb = AndroidSdk.AdbPath(_sdk);
+
+            // Which way into the vehicle HAL this image takes, asked once.
+            if (Avd.Flavour == AndroidFlavour.Automotive && _route is null)
+            {
+                var (_, answer) = await Adb.RunAsync(adb, ["-s", serial, "shell", CarFeed.StoreProbe], TimeSpan.FromSeconds(15), _lifetime).ConfigureAwait(false);
+                _route = CarFeed.StoreAnswers(answer) ? VhalRoute.Store : VhalRoute.Event;
+            }
+
+            var route = _route ?? VhalRoute.Store;
+            var (commands, told) = CarFeed.Changes(_carTold, next, Avd.Flavour, route);
+            if (commands.Count == 0)
+            {
+                return;
+            }
+
+            var (done, output) = await Adb.RunAsync(adb, ["-s", serial, "shell", string.Join("; ", commands)], TimeSpan.FromSeconds(15), _lifetime).ConfigureAwait(false);
+            if (done && !CarFeed.Refused(output))
+            {
+                _carTold = told;
+                CarProblem = null;
+                return;
+            }
+
+            CarProblem = $"{route.ToString().ToLowerInvariant()}: {AdbAnswers.State(output)}";
+
+            // The HAL's store refused: the car service's events are the other way in.
+            if (route == VhalRoute.Store && CarFeed.Refused(output))
+            {
+                _route = VhalRoute.Event;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            _adb.Release();
+        }
+    }
+
+    /// <summary>Let Android hear the tablet's microphone, or not.</summary>
+    public Task<bool> SetMicrophoneAsync(bool hear) =>
+        State == EmulatorState.Running && _client is { } client ? client.SetMicrophoneAsync(hear) : Task.FromResult(false);
 
     /// <summary>
     /// A just-booted device can read as offline for a moment, and the first command starts ADB's

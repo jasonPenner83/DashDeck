@@ -186,6 +186,21 @@ public sealed class EmulatorClientTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_microphone_is_let_through_and_shut_off_again()
+    {
+        using var client = new EmulatorClient(_port, Token);
+
+        Assert.True(await client.SetMicrophoneAsync(true));
+        Assert.True(_fake.Microphone);
+
+        Assert.True(await client.SetMicrophoneAsync(false));
+        Assert.False(_fake.Microphone);
+
+        using var refused = new EmulatorClient(_port, "wrong");
+        Assert.False(await refused.SetMicrophoneAsync(true));
+    }
+
+    [Fact]
     public async Task Shutting_down_asks_android_to_shut_down()
     {
         using var client = new EmulatorClient(_port, Token);
@@ -234,6 +249,8 @@ public sealed class EmulatorClientTests : IAsyncLifetime
         public Rotation.Types.SkinRotation Turn { get; set; }
 
         public PhysicalModelValue? Physical { get; private set; }
+
+        public bool? Microphone { get; private set; }
 
         /// <summary>The touches, once there are <paramref name="count"/> of them — they come on a stream, not at once.</summary>
         public async Task<List<(int X, int Y, int Pressure)>> TouchesWhen(int count)
@@ -349,6 +366,13 @@ public sealed class EmulatorClientTests : IAsyncLifetime
             }
 
             return new Empty();
+        }
+
+        public override Task<Empty> setMicrophoneState(MicrophoneState request, ServerCallContext context)
+        {
+            Authorise(context);
+            Microphone = request.RealAudioEnabled;
+            return Task.FromResult(new Empty());
         }
 
         public override Task<Empty> setPhysicalModel(PhysicalModelValue request, ServerCallContext context)

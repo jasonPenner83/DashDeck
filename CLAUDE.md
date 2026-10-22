@@ -657,7 +657,14 @@ region's shape (`AndroidChoice.TurnFor`, `setPhysicalModel` ROTATION; frames car
 touch is turned back by `ToDevice`), Automotive never; `EmulatorResources` gives `-memory 4096 -cores 4`
 on a 16 GB tablet. The emulator starts at the stage's size (`-skin 1824x1272`); any other region shape
 is an `AndroidFit` — `wm size`/`wm density` over the SDK's ADB (`Emulator/Adb`, `AdbAnswers.Done`),
-frames cropped to it, touch through `ToFrame`, one dp = one dash unit (ADR-0075 addendum). Started on first sight and kept running; frames only
+frames cropped to it, touch through `ToFrame`, one dp = one dash unit (ADR-0075 addendum). **Fed to Android**
+(second addendum): `CarFeed` (Core) turns `vehicle.speed` (GPS ground speed when not live),
+`transmission.gearSelector` (else worked out: moving or idling = Drive, engine off, parking brake, or truck
+silent with GPS still = Park), `warning.parkingBrake`, `fuel.levelPercent` × tank, `engine.rpm` and `IsNight` into
+vehicle-HAL commands for Automotive (`dumpsys …IVehicle/default --set`, else
+`cmd car_service inject-vhal-event`, probed once) or `cmd uimode night` for a tablet; only changes,
+once a beat, `EmulatorSession.FeedAsync`; signals required while Automotive runs. Mic via
+`setMicrophoneState` (`androidMicrophone`, default on). Status in the hold menu line. Started on first sight and kept running; frames only
 while a panel is attached. The gRPC client is tested against a fake emulator served in-process
 (`EmulatorClientTests`, `Grpc.AspNetCore.Server`). Not yet: Automotive vehicle data over ADB, audio.
 

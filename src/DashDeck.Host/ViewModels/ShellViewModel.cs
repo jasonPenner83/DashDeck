@@ -395,7 +395,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             location,
             DashDeck.Core.Emulation.AndroidChoice.Parse(saved.AndroidFlavour),
             flavour => SettingsStore.Update(stored => stored with { AndroidFlavour = flavour.ToString() }),
-            clock);
+            clock,
+            new AndroidFeeds(vehicle.Signals, () => _theme.IsNight, () => Display.FuelTankLitres, saved.AndroidMicrophone));
         Android.PlacementChanged += _ => OnAndroidMoved();
         Android.FlavourChosen += () => AndroidTap();
 

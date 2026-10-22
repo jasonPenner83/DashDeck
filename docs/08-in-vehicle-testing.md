@@ -1430,6 +1430,47 @@ dragging, touch under 150 ms, and memory that leaves the dash comfortable.
 - The dash stuttering while Android runs.
 - `qemu-system-x86_64` still running a minute after DashDeck closed.
 
+## Android on the dash — the truck, the night and the microphone (ADR-0075)
+
+**You need:**
+- the Surface with this build, and the ANDROID cell working (the section above);
+- **scrcpy closed**: everything here goes through the SDK's ADB;
+- Windows ▸ Settings ▸ Privacy & security ▸ Microphone: *Let desktop apps access your microphone* on;
+- the adapter connected, the engine running, and somewhere to drive slowly.
+
+**At the desk, first**
+1. Hold ANDROID and choose **ANDROID AUTOMOTIVE**. Once it is running, hold ANDROID again.
+   **Expect:**
+   - under ANDROID AUTOMOTIVE, *car data live · 0 km/h*;
+   - with the simulated truck, a speed and *DRIVE*;
+   - *mic on*.
+
+   *car data refused (…)* is a failure. Note the words in the brackets.
+2. Inside Automotive, start a video (any app with one). Parked, **expect** it to play.
+3. Tap the microphone in Automotive's search, or say "Hey Google". **Expect:** it hears you.
+4. Switch the dash to night (Settings ▸ DISPLAY, or cover the light sensor). **Expect:** Automotive
+   turns to its night look within a couple of seconds, and back by day.
+
+**In the truck**
+5. Engine running, parked. **Expect:** the hold menu says *0 km/h · DRIVE* (idling, not parked).
+   Turn the engine off, leaving the ignition on, and wait a few seconds. **Expect:** *PARK*. Turn the
+   ignition off as well: with GPS on, it stays *PARK*.
+6. Drive off slowly with the video from step 2 open. **Expect:**
+   - above about 3 km/h, Automotive stops the video and shows that it is not available while
+     driving;
+   - the keyboard and long lists are limited too.
+7. Stop. **Expect:** it stays limited while the engine runs (idling). With the engine off, it is
+   free again.
+8. Hold ANDROID while driving. **Expect:** the speed in the menu line follows the dash's own, within
+   a second or two.
+9. Choose **ANDROID** (the tablet) at night. **Expect:** its dark theme. By day, its light one.
+
+**A failure looks like:**
+- Video still playing while you drive. Note the hold menu's car-data line at that moment.
+- *car data refused* with any reason, or *no car data yet* a minute after starting.
+- *mic off* when `androidMicrophone` is not set to `false`, or Android hearing nothing with *mic on*.
+- Night not following the dash.
+
 ## The audio delay and the video sync offset — parked 2026-10-15
 
 Both walkthroughs that were here are gone with the feature. The delay measurement, the

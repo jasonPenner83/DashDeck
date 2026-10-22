@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Media;
@@ -11,6 +12,20 @@ using DashDeck.Core.Location;
 using DashDeck.Emulator;
 
 namespace DashDeck.Host.ViewModels;
+
+/// <summary>
+/// What the dash hands Android besides its picture and touch (ADR-0075 addendum): the truck's
+/// signals for Automotive's vehicle HAL, whether it is night, the tank's size, and the microphone.
+/// </summary>
+/// <param name="Signals">The truck's signals; null when there are none.</param>
+/// <param name="IsNight">The dash's own answer — the headlights, or the sun.</param>
+/// <param name="TankLitres">The tank's size from the vehicle settings.</param>
+/// <param name="Microphone">Let Android hear the tablet's microphone.</param>
+public sealed record AndroidFeeds(IVehicleSignals? Signals, Func<bool> IsNight, Func<double> TankLitres, bool Microphone)
+{
+    /// <summary>Nothing fed but the position: no signals, always day, no tank, no microphone.</summary>
+    public static readonly AndroidFeeds None = new(null, () => false, () => 0, false);
+}
 
 /// <summary>One line of the ANDROID cell's hold menu.</summary>
 /// <param name="Detail">The AVD it would run, or why there is none.</param>
@@ -55,6 +70,8 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
 
     private readonly ILocationSource? _location;
     private readonly IClock _clock;
+    private readonly AndroidFeeds _feeds;
+    private readonly List<ISignalSubscription> _required = [];
     private readonly Action<AndroidFlavour> _remember;
     private readonly Dispatcher _dispatcher;
     private EmulatorSession? _session;
@@ -67,6 +84,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     private (int Width, int Height) _streaming;
     private int? _turned;
     private double _dpiScale = 2;
+    private bool? _microphoneOn;
     private AndroidFit? _fitted;
     private DateTimeOffset _fitAgainAt = DateTimeOffset.MaxValue;
 
@@ -74,10 +92,12 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     /// <param name="flavour">Which Android the cell opens, as saved.</param>
     /// <param name="remember">Save a newly chosen flavour.</param>
     /// <param name="clock">For when to try a failed fit again.</param>
-    public AndroidViewModel(ILocationSource? location, AndroidFlavour flavour, Action<AndroidFlavour> remember, IClock clock)
+    /// <param name="feeds">What else Android is handed; <see cref="AndroidFeeds.None"/> for nothing.</param>
+    public AndroidViewModel(ILocationSource? location, AndroidFlavour flavour, Action<AndroidFlavour> remember, IClock clock, AndroidFeeds feeds)
     {
         _location = location;
         _clock = clock;
+        _feeds = feeds;
         _flavour = flavour;
         _remember = remember;
         _dispatcher = Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher;
@@ -149,7 +169,13 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
             .. new[] { AndroidFlavour.Regular, AndroidFlavour.Automotive }.Select(f =>
             {
                 var avd = AndroidChoice.Pick(avds, f);
-                return new AndroidMenuItem(f, AndroidChoice.Label(f), AndroidChoice.Describe(avd, f), f == Flavour, avd is not null);
+                var detail = AndroidChoice.Describe(avd, f);
+                if (f == Flavour && _session is { State: EmulatorState.Running } running && FeedStatus(running) is { } status)
+                {
+                    detail += " · " + status;
+                }
+
+                return new AndroidMenuItem(f, AndroidChoice.Label(f), detail, f == Flavour, avd is not null);
             }),
         ];
         IsMenuOpen = true;
@@ -248,6 +274,8 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
             _ = session.SetPositionAsync(fix);
         }
 
+        Feed(session);
+
         if (_shown > 0 && _frames is null)
         {
             StartFrames();
@@ -262,13 +290,81 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Tell Android about the truck (<see cref="CarFeed"/>): speed, gear, parking brake, fuel and
+    /// engine speed to Automotive, so its driving restrictions follow the truck; night to both.
+    /// Only what changed goes, and only once a beat.
+    /// </summary>
+    private void Feed(EmulatorSession session)
+    {
+        if (session.Avd.Flavour == AndroidFlavour.Automotive)
+        {
+            Require();
+        }
+
+        Func<string, SignalValue> read = _feeds.Signals is { } signals ? signals.Current : id => SignalValue.Missing(id);
+        _ = session.FeedAsync(CarFeed.From(read, _location?.Latest, _feeds.IsNight(), _feeds.TankLitres()));
+    }
+
+    /// <summary>
+    /// Ask for the signals the feed reads while Automotive runs, so they are polled even when no
+    /// gauge shows them. Only those this truck's catalog has.
+    /// </summary>
+    private void Require()
+    {
+        if (_required.Count > 0 || _feeds.Signals is not { } signals)
+        {
+            return;
+        }
+
+        foreach (var id in CarFeed.Signals.Where(signals.KnownSignals.Contains))
+        {
+            _required.Add(signals.Require(id, SignalPriority.Normal, id == CarFeed.Speed ? 2 : id == CarFeed.FuelLevel ? 0.1 : 1));
+        }
+    }
+
+    private void ReleaseRequired()
+    {
+        foreach (var required in _required)
+        {
+            required.Dispose();
+        }
+
+        _required.Clear();
+    }
+
+    /// <summary>What the hold menu says about the feed, for the flavour running now.</summary>
+    private string? FeedStatus(EmulatorSession session)
+    {
+        var parts = new List<string>();
+
+        if (session.Avd.Flavour == AndroidFlavour.Automotive)
+        {
+            parts.Add(session.CarProblem is { } problem ? $"car data refused ({problem})"
+                : session.CarTold is { SpeedKmh: { } speed, Gear: var gear } ? string.Create(CultureInfo.InvariantCulture, $"car data live · {speed:0} km/h{(gear is { } g ? $" · {g.ToString().ToUpperInvariant()}" : "")}")
+                : "no car data yet");
+        }
+        else if (session.CarProblem is { } problem)
+        {
+            parts.Add($"night mode refused ({problem})");
+        }
+
+        if (_microphoneOn is { } on)
+        {
+            parts.Add(on ? "mic on" : "mic off");
+        }
+
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
+    }
+
     /// <summary>One line for <c>--shot</c>.</summary>
     public string Describe() =>
         $"android {View.Placement.ToString().ToLowerInvariant()} · {(_session?.Describe() ?? $"{AndroidChoice.Label(Flavour).ToLowerInvariant()} · not started")}" +
         (Picture is { } p ? $" · picture {p.PixelWidth}×{p.PixelHeight}" : "") +
         (_turned is { } turned ? $" · turned {turned}°" : "") +
         (_session?.Fit is { } fit ? $" · fitted {fit.Describe()}" : "") +
-        (_session?.FitProblem is { } problem ? $" · not fitted ({problem})" : "");
+        (_session?.FitProblem is { } problem ? $" · not fitted ({problem})" : "") +
+        (_session is { } s && FeedStatus(s) is { } feed ? $" · {feed}" : "");
 
     private void Move(AndroidView next)
     {
@@ -331,6 +427,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
             case EmulatorState.Running:
                 Say(label, session.Detail);
                 Shape();
+                _ = HearAsync(session);
                 if (_shown > 0)
                 {
                     StartFrames();
@@ -409,6 +506,15 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         }
     }
 
+    private async Task HearAsync(EmulatorSession session)
+    {
+        var done = await session.SetMicrophoneAsync(_feeds.Microphone).ConfigureAwait(true);
+        if (ReferenceEquals(session, _session))
+        {
+            _microphoneOn = done ? _feeds.Microphone : null;
+        }
+    }
+
     private async Task FitAsync(EmulatorSession session, AndroidFit fit)
     {
         var made = await session.FitAsync(fit).ConfigureAwait(true);
@@ -472,6 +578,8 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     private async Task StopAsync(bool restart)
     {
         StopFrames();
+        ReleaseRequired();
+        _microphoneOn = null;
         var old = _session;
         _session = null;
         Picture = null;
@@ -526,6 +634,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         StopFrames();
+        ReleaseRequired();
 
         if (_session is { } session)
         {
