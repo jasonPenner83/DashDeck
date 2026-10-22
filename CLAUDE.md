@@ -670,7 +670,9 @@ otherwise picks a virtual adapter's DNS. Speed: cores = logical − 2 (2–8); f
 own memory (`EmulatorFrame.Rgb` is `ReadOnlyMemory<byte>`, never copied); `FramePixels` shuffles four pixels
 per SIMD op; GPU mode from the emulator's output in the hold menu (`EmulatorGpu.Renderer`). Left alone it
 drew in software on the Surface (`sw`), so the dash asks for `-gpu host` and falls back to the emulator's
-choice if it will not start (`EmulatorGpu.Choose`; `androidGpu`: `auto` | `emulator` | a mode). MMAP frames not done (untestable without an emulator). Started on first sight and kept running; frames only
+choice if it will not start (`EmulatorGpu.Choose`; `androidGpu`: `auto` | `emulator` | a mode). What draws
+is asked of Android itself (`dumpsys SurfaceFlinger | grep GLES` → `EmulatorGpu.FromGles`), the emulator's
+own output only as a fallback — it printed nothing recognisable once asked for the GPU. MMAP frames not done (untestable without an emulator). Started on first sight and kept running; frames only
 while a panel is attached. The gRPC client is tested against a fake emulator served in-process
 (`EmulatorClientTests`, `Grpc.AspNetCore.Server`). Not yet: Automotive vehicle data over ADB, audio.
 

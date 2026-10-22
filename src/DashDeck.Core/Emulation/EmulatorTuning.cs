@@ -134,6 +134,52 @@ public static partial class EmulatorGpu
         return IsSoftware(mode) ? said + " (software — slow)" : said;
     }
 
+    /// <summary>
+    /// The shell command that asks Android what draws it: SurfaceFlinger's <c>GLES:</c> line, which
+    /// names the GPU behind the emulator's translator — however the emulator was started, and even
+    /// when it said nothing about it.
+    /// </summary>
+    public const string GlesProbe = "dumpsys SurfaceFlinger | grep -m 1 GLES";
+
+    /// <summary>
+    /// What draws Android, from <see cref="GlesProbe"/>'s answer — the GPU's own name, or the software
+    /// renderer's marked as slow — or null when Android has not said yet.
+    /// </summary>
+    /// <example>
+    /// <c>GLES: Google (Intel), Android Emulator OpenGL ES Translator (Intel(R) Iris(R) Plus Graphics), OpenGL ES 3.0 (…)</c>
+    /// is <c>Intel(R) Iris(R) Plus Graphics</c>.
+    /// </example>
+    public static string? FromGles(string? output)
+    {
+        var line = (output ?? "").Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.StartsWith("GLES:", StringComparison.Ordinal));
+        if (line is null)
+        {
+            return null;
+        }
+
+        var said = line["GLES:".Length..].Trim();
+
+        // The translator names the GPU in brackets of its own, which hold brackets — Intel(R) — so
+        // they are counted, not matched.
+        const string translator = "Translator (";
+        var at = said.IndexOf(translator, StringComparison.Ordinal);
+        if (at >= 0)
+        {
+            var start = at + translator.Length;
+            var depth = 1;
+            var end = start;
+            for (; end < said.Length && depth > 0; end++)
+            {
+                depth += said[end] switch { '(' => 1, ')' => -1, _ => 0 };
+            }
+
+            said = said[start..(depth == 0 ? end - 1 : end)].Trim();
+        }
+
+        string[] software = ["SwiftShader", "llvmpipe", "lavapipe", "Software"];
+        return software.Any(s => said.Contains(s, StringComparison.OrdinalIgnoreCase)) ? said + " (software — slow)" : said;
+    }
+
     [GeneratedRegex(@"using '([a-z_]+)' mode", RegexOptions.IgnoreCase)]
     private static partial Regex ModeLine();
 

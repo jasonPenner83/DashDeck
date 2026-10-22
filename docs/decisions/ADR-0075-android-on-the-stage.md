@@ -324,7 +324,9 @@ The hold menu's line for the running flavour says whether it is working:
      driver, whose Vulkan is older than it wants. So the dash now **asks for `-gpu host`**, the
      tablet's GPU through its OpenGL driver. If the emulator will not start that way, it starts
      again with the emulator's own choice (`EmulatorGpu.Choose`; `androidGpu`: `auto` is that,
-     `emulator` leaves it to the emulator, or name a mode);
+     `emulator` leaves it to the emulator, or name a mode). Once asked for the GPU, the emulator printed
+     nothing the menu recognised, so what draws is now asked of Android itself: SurfaceFlinger's `GLES`
+     line names the GPU behind the emulator's translator (`EmulatorGpu.FromGles`);
    - memory stays at 4 GB: Android was not short of it, and the dash and Windows need the rest.
 
    The change in cores makes the next start a cold boot, as the memory change did. Not done, because

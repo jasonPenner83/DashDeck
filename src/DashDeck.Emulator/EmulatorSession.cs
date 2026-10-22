@@ -83,10 +83,16 @@ public sealed class EmulatorSession : IAsyncDisposable
     public CarState? CarTold => _carTold;
 
     /// <summary>
-    /// How the emulator draws, as it said when it started — <c>host · Intel(R) Iris(R) Plus Graphics</c>,
-    /// or software — or null when it was joined rather than started, or has not said.
+    /// What draws Android: as Android itself says (<see cref="ReadRendererAsync"/>), else as the
+    /// emulator said when it started, else null.
     /// </summary>
-    public string? Renderer => _output is { } output ? EmulatorGpu.Renderer(output()) : null;
+    public string? Renderer => GuestRenderer ?? (_output is { } output ? EmulatorGpu.Renderer(output()) : null);
+
+    /// <summary>What Android said draws it (<see cref="EmulatorGpu.FromGles"/>), or null until it has.</summary>
+    public string? GuestRenderer { get; private set; }
+
+    /// <summary>True when the GPU asked for was refused and the emulator was started its own way.</summary>
+    public bool GpuFellBack { get; private set; }
 
     /// <summary>The emulator's <c>-gpu</c> mode to start with, and whether to fall back from it.</summary>
     public GpuChoice Gpu { get; init; } = GpuChoice.Emulator;
@@ -154,6 +160,7 @@ public sealed class EmulatorSession : IAsyncDisposable
                     launch = await EmulatorLauncher.StartAsync(
                         _sdk, Avd.Name, _port, _skin, line => Set(EmulatorState.Starting, line), ct, Resources.MemoryMb, Resources.Cores,
                         dns, null).ConfigureAwait(false);
+                    GpuFellBack = true;
                 }
 
                 if (launch.Failure is { } failure)
@@ -338,6 +345,37 @@ public sealed class EmulatorSession : IAsyncDisposable
             {
                 _route = VhalRoute.Event;
             }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            _adb.Release();
+        }
+    }
+
+    /// <summary>
+    /// Ask Android what draws it, through ADB, until it says. Skipped while another ADB command runs.
+    /// </summary>
+    public async Task ReadRendererAsync()
+    {
+        if (GuestRenderer is not null || State != EmulatorState.Running || _discovery?.AdbSerial is not { } serial
+            || !File.Exists(AndroidSdk.AdbPath(_sdk)))
+        {
+            return;
+        }
+
+        if (!await _adb.WaitAsync(0, _lifetime).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        try
+        {
+            var (_, output) = await Adb.RunAsync(AndroidSdk.AdbPath(_sdk), ["-s", serial, "shell", EmulatorGpu.GlesProbe], TimeSpan.FromSeconds(15), _lifetime)
+                .ConfigureAwait(false);
+            GuestRenderer = EmulatorGpu.FromGles(output);
         }
         catch (OperationCanceledException)
         {

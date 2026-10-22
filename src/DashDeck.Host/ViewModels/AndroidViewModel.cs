@@ -87,6 +87,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     private int? _turned;
     private double _dpiScale = 2;
     private bool? _microphoneOn;
+    private DateTimeOffset _askRendererAt;
     private AndroidFit? _fitted;
     private DateTimeOffset _fitAgainAt = DateTimeOffset.MaxValue;
 
@@ -278,6 +279,13 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
 
         Feed(session);
 
+        // What draws Android, asked of Android itself every few seconds until it says.
+        if (session.GuestRenderer is null && _clock.UtcNow >= _askRendererAt)
+        {
+            _askRendererAt = _clock.UtcNow.AddSeconds(5);
+            _ = session.ReadRendererAsync();
+        }
+
         if (_shown > 0 && _frames is null)
         {
             StartFrames();
@@ -359,6 +367,15 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         if (session.Renderer is { } renderer)
         {
             parts.Add($"drawn by {renderer}");
+        }
+        else if (session.Gpu.Mode is { } mode && !session.GpuFellBack)
+        {
+            parts.Add($"asked for -gpu {mode}, not yet reported");
+        }
+
+        if (session.GpuFellBack)
+        {
+            parts.Add("GPU refused, started the emulator's way");
         }
 
         return parts.Count == 0 ? null : string.Join(" · ", parts);

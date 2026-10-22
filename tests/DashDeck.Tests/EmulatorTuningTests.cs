@@ -68,6 +68,32 @@ public class EmulatorTuningTests
         Assert.Null(EmulatorGpu.Renderer(["INFO    | Advertising in: C:\\Users\\x\\AppData\\Local\\Temp\\avd\\running\\pid_1.ini"]));
     }
 
+    [Fact]
+    public void What_draws_android_is_read_from_android_itself()
+    {
+        Assert.Equal(
+            "Intel(R) Iris(R) Plus Graphics",
+            EmulatorGpu.FromGles("GLES: Google (Intel), Android Emulator OpenGL ES Translator (Intel(R) Iris(R) Plus Graphics), OpenGL ES 3.0 (4.5.0 - Build 31.0.101.2111)\n"));
+
+        Assert.Equal(
+            "Google SwiftShader (software — slow)",
+            EmulatorGpu.FromGles("GLES: Google (Google Inc.), Android Emulator OpenGL ES Translator (Google SwiftShader), OpenGL ES 3.0 (OpenGL ES 3.0 SwiftShader 4.0.0.1)"));
+
+        // Through ANGLE on DirectX: still the GPU, named inside ANGLE's own brackets.
+        Assert.Equal(
+            "ANGLE (Intel, Intel(R) Iris(R) Plus Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)",
+            EmulatorGpu.FromGles("GLES: Google (Google Inc.), Android Emulator OpenGL ES Translator (ANGLE (Intel, Intel(R) Iris(R) Plus Graphics Direct3D11 vs_5_0 ps_5_0, D3D11)), OpenGL ES 3.0"));
+
+        // ANGLE on SwiftShader's Vulkan is software however it is dressed.
+        Assert.EndsWith(
+            "(software — slow)",
+            EmulatorGpu.FromGles("GLES: Google (Google Inc.), Android Emulator OpenGL ES Translator (ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver-5.0.0)), OpenGL ES 3.0"),
+            StringComparison.Ordinal);
+
+        Assert.Null(EmulatorGpu.FromGles(""));
+        Assert.Null(EmulatorGpu.FromGles("adb.exe: device offline"));
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(4)]
