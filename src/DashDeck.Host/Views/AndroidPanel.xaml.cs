@@ -104,7 +104,7 @@ public partial class AndroidPanel : UserControl
         }
 
         var dpi = VisualTreeHelper.GetDpi(this);
-        _attached.Resize((int)Math.Round(ActualWidth * dpi.DpiScaleX), (int)Math.Round(ActualHeight * dpi.DpiScaleY));
+        _attached.Resize((int)Math.Round(ActualWidth * dpi.DpiScaleX), (int)Math.Round(ActualHeight * dpi.DpiScaleY), dpi.DpiScaleX);
     }
 
     private void Send(Point point, bool down)

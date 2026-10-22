@@ -35,6 +35,12 @@ public sealed record AndroidMenuItem(AndroidFlavour Flavour, string Label, strin
 /// Automotive is never turned.
 /// </para>
 /// <para>
+/// <b>Android the region's own shape.</b> The emulator starts at the stage's size, so on the stage it
+/// fills it. For any other shape Android is told the region's (<see cref="AndroidFit"/>, through ADB)
+/// and draws that in the middle of its screen; the frames are cropped to it, so no bars are left. Its
+/// density keeps one dp the size of one of the dash's units in either placement.
+/// </para>
+/// <para>
 /// <b>Frames are dropped, never queued.</b> A frame arrives on a gRPC thread; if the UI has not drawn
 /// the last one yet, the new one is skipped rather than piled up behind it. A picture that falls
 /// behind is worse than one that skips.
@@ -58,6 +64,9 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     private (int Width, int Height) _region = (StageWidth, StageHeight);
     private (int Width, int Height) _streaming;
     private int? _turned;
+    private double _dpiScale = 2;
+    private AndroidFit? _fitted;
+    private DateTime _fitAgainAt = DateTime.MaxValue;
 
     /// <param name="location">The truck's GPS, handed to Android as its own; null when there is none.</param>
     /// <param name="flavour">Which Android the cell opens, as saved.</param>
@@ -197,15 +206,16 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     /// The showing panel's size in screen pixels. A new size turns the tablet if its shape changed,
     /// and asks for frames at the new size.
     /// </summary>
-    public void Resize(int width, int height)
+    public void Resize(int width, int height, double dpiScale)
     {
-        if (width <= 0 || height <= 0 || (width, height) == _region)
+        if (width <= 0 || height <= 0 || ((width, height) == _region && dpiScale == _dpiScale))
         {
             return;
         }
 
         _region = (width, height);
-        Turn();
+        _dpiScale = dpiScale > 0 ? dpiScale : _dpiScale;
+        Shape();
 
         if (_frames is not null && _streaming != _region)
         {
@@ -238,13 +248,23 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         {
             StartFrames();
         }
+
+        // A fit ADB could not make is tried again now and then, not every beat.
+        if (DateTime.UtcNow >= _fitAgainAt)
+        {
+            _fitAgainAt = DateTime.MaxValue;
+            _fitted = null;
+            Shape();
+        }
     }
 
     /// <summary>One line for <c>--shot</c>.</summary>
     public string Describe() =>
         $"android {View.Placement.ToString().ToLowerInvariant()} · {(_session?.Describe() ?? $"{AndroidChoice.Label(Flavour).ToLowerInvariant()} · not started")}" +
         (Picture is { } p ? $" · picture {p.PixelWidth}×{p.PixelHeight}" : "") +
-        (_turned is { } turned ? $" · turned {turned}°" : "");
+        (_turned is { } turned ? $" · turned {turned}°" : "") +
+        (_session?.Fit is { } fit ? $" · fitted {fit.Describe()}" : "") +
+        (_session?.FitProblem is { } problem ? $" · not fitted ({problem})" : "");
 
     private void Move(AndroidView next)
     {
@@ -280,8 +300,11 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var session = new EmulatorSession(sdk, avd);
+        // Started at the stage's own size, so on the stage nothing needs fitting, and full screen is
+        // a fit inside it. An AVD started at another size is fitted just the same, only less sharply.
+        var session = new EmulatorSession(sdk, avd, skin: $"{StageWidth}x{StageHeight}");
         _turned = null;
+        _fitted = null;
         session.Changed += () => _dispatcher.BeginInvoke(() => OnSessionChanged(session));
         _session = session;
         OnSessionChanged(session);
@@ -303,7 +326,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
                 break;
             case EmulatorState.Running:
                 Say(label, session.Detail);
-                Turn();
+                Shape();
                 if (_shown > 0)
                 {
                     StartFrames();
@@ -356,20 +379,40 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Turn a regular tablet to the shape of the region it is drawn in, once per change. The frames
-    /// then come turned and say so, and touch follows them, so nothing else needs telling.
+    /// Shape Android to the region it is drawn in, once per change: turn a regular tablet to the
+    /// region's way round — the frames then come turned and say so, and touch follows them — and
+    /// tell Android the region's shape, so the picture fills it.
     /// </summary>
-    private void Turn()
+    private void Shape()
     {
-        if (_session is not { State: EmulatorState.Running } session
-            || AndroidChoice.TurnFor(session.Avd.Flavour, session.DeviceWidth, session.DeviceHeight, _region.Width, _region.Height) is not { } degrees
-            || degrees == _turned)
+        if (_session is not { State: EmulatorState.Running } session)
         {
             return;
         }
 
-        _turned = degrees;
-        _ = session.RotateAsync(degrees);
+        if (AndroidChoice.TurnFor(session.Avd.Flavour, session.DeviceWidth, session.DeviceHeight, _region.Width, _region.Height) is { } degrees
+            && degrees != _turned)
+        {
+            _turned = degrees;
+            _ = session.RotateAsync(degrees);
+        }
+
+        if (AndroidFit.For(session.DeviceWidth, session.DeviceHeight, _turned == 90, _region.Width, _region.Height, _dpiScale) is { } fit
+            && fit != _fitted)
+        {
+            _fitted = fit;
+            _ = FitAsync(session, fit);
+        }
+    }
+
+    private async Task FitAsync(EmulatorSession session, AndroidFit fit)
+    {
+        var made = await session.FitAsync(fit).ConfigureAwait(true);
+
+        if (!made && ReferenceEquals(session, _session) && fit == _fitted && session.FitProblem is not null)
+        {
+            _fitAgainAt = DateTime.UtcNow.AddSeconds(15);
+        }
     }
 
     private void StopFrames()
@@ -386,25 +429,34 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var size = frame.Width * frame.Height * 4;
+        // Only the part Android drew the region's shape in, once it has been told one.
+        var crop = _session?.Fit is { IsWhole: false } fit ? fit.Crop(frame.Width, frame.Height) : (0, 0, frame.Width, frame.Height);
+        var (width, height) = (crop.Width, crop.Height);
+        if (width <= 0 || height <= 0)
+        {
+            Interlocked.Exchange(ref _drawing, 0);
+            return;
+        }
+
+        var size = width * height * 4;
         if (_back.Length != size)
         {
             _back = new byte[size];
         }
 
-        FramePixels.RgbToBgr32(frame.Rgb, _back);
+        FramePixels.RgbToBgr32(frame.Rgb, frame.Width, crop, _back);
 
         _dispatcher.BeginInvoke(DispatcherPriority.Render, () =>
         {
             try
             {
-                if (Picture is not { } picture || picture.PixelWidth != frame.Width || picture.PixelHeight != frame.Height)
+                if (Picture is not { } picture || picture.PixelWidth != width || picture.PixelHeight != height)
                 {
-                    picture = new WriteableBitmap(frame.Width, frame.Height, 96, 96, PixelFormats.Bgr32, null);
+                    picture = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgr32, null);
                     Picture = picture;
                 }
 
-                picture.WritePixels(new Int32Rect(0, 0, frame.Width, frame.Height), _back, frame.Width * 4, 0);
+                picture.WritePixels(new Int32Rect(0, 0, width, height), _back, width * 4, 0);
             }
             finally
             {

@@ -655,7 +655,9 @@ RGB888 → `WriteableBitmap` Bgr32 dropped not queued, touch as fractions → de
 asked at the panel's own pixel size (`AndroidPanel` → `Resize`); a regular tablet is turned to the
 region's shape (`AndroidChoice.TurnFor`, `setPhysicalModel` ROTATION; frames carry `QuarterTurns` and
 touch is turned back by `ToDevice`), Automotive never; `EmulatorResources` gives `-memory 4096 -cores 4`
-on a 16 GB tablet (ADR-0075 addendum). Started on first sight and kept running; frames only
+on a 16 GB tablet. The emulator starts at the stage's size (`-skin 1824x1272`); any other region shape
+is an `AndroidFit` — `wm size`/`wm density` over the SDK's ADB (`Emulator/Adb`, `AdbAnswers.Done`),
+frames cropped to it, touch through `ToFrame`, one dp = one dash unit (ADR-0075 addendum). Started on first sight and kept running; frames only
 while a panel is attached. The gRPC client is tested against a fake emulator served in-process
 (`EmulatorClientTests`, `Grpc.AspNetCore.Server`). Not yet: Automotive vehicle data over ADB, audio.
 

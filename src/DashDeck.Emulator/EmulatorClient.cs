@@ -295,4 +295,29 @@ public static class FramePixels
             bgrx[to + 2] = rgb[from];
         }
     }
+
+    /// <summary>
+    /// Only part of the frame — the picture Android drew in the middle of its screen
+    /// (<c>AndroidFit.Crop</c>) — into a bitmap that part's size.
+    /// </summary>
+    public static void RgbToBgr32(ReadOnlySpan<byte> rgb, int frameWidth, (int X, int Y, int Width, int Height) crop, Span<byte> bgrx)
+    {
+        if (frameWidth <= 0 || crop.Width <= 0 || crop.Height <= 0)
+        {
+            return;
+        }
+
+        for (var row = 0; row < crop.Height; row++)
+        {
+            var from = ((crop.Y + row) * frameWidth + crop.X) * 3;
+            var to = row * crop.Width * 4;
+
+            if (from + (crop.Width * 3) > rgb.Length || to + (crop.Width * 4) > bgrx.Length)
+            {
+                return;
+            }
+
+            RgbToBgr32(rgb.Slice(from, crop.Width * 3), bgrx.Slice(to, crop.Width * 4));
+        }
+    }
 }

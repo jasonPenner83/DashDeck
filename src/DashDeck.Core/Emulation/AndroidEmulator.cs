@@ -204,6 +204,17 @@ public static class AdbAnswers
             || output.Contains("Activity not started, intent has been delivered", StringComparison.Ordinal))
         && !output.Contains("Error:", StringComparison.Ordinal);
 
+    /// <summary>
+    /// True when a shell command such as <c>wm size</c> was done: it exited cleanly and ADB printed no
+    /// failure of its own — <c>adb.exe: device offline</c>, <c>error: device not found</c> — nor Android
+    /// an exception. Those commands print nothing when they work.
+    /// </summary>
+    public static bool Done(int exitCode, string output) =>
+        exitCode == 0
+        && !(output ?? "").Contains("adb.exe:", StringComparison.Ordinal)
+        && !(output ?? "").Contains("error:", StringComparison.OrdinalIgnoreCase)
+        && !(output ?? "").Contains("Exception", StringComparison.Ordinal);
+
     /// <summary>What <c>adb get-state</c> said: <c>device</c> when it can be used, or why not.</summary>
     public static string State(string output)
     {

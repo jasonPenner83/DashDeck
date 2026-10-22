@@ -174,6 +174,18 @@ public class AndroidEmulatorTests
     }
 
     [Fact]
+    public void A_wm_command_is_done_only_when_it_exits_cleanly_and_nothing_failed()
+    {
+        Assert.True(AdbAnswers.Done(0, ""));
+        Assert.True(AdbAnswers.Done(0, "* daemon not running; starting now at tcp:5037\n* daemon started successfully"));
+
+        Assert.False(AdbAnswers.Done(1, ""));
+        Assert.False(AdbAnswers.Done(0, "adb.exe: device offline"));
+        Assert.False(AdbAnswers.Done(0, "error: device 'emulator-5554' not found"));
+        Assert.False(AdbAnswers.Done(0, "java.lang.IllegalArgumentException: bad size"));
+    }
+
+    [Fact]
     public void Settings_counts_as_opened_only_when_android_says_so()
     {
         Assert.True(AdbAnswers.Started("Starting: Intent { act=android.settings.SETTINGS }"));

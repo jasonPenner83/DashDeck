@@ -34,12 +34,16 @@ public sealed class EmulatorSession : IAsyncDisposable
     private readonly string? _skin;
     private readonly int _port;
     private readonly CancellationTokenSource _life = new();
+    private readonly CancellationToken _lifetime;
     private EmulatorClient? _client;
     private Process? _launcher;
     private int? _pid;
     private EmulatorDiscovery? _discovery;
     private Task? _starting;
     private volatile int _quarterTurns;
+    private volatile AndroidFit? _fit;
+    private AndroidFit? _wantedFit;
+    private readonly SemaphoreSlim _fitting = new(1, 1);
 
     /// <param name="resources">
     /// Memory and cores to start with; by default what this tablet can spare
@@ -55,8 +59,18 @@ public sealed class EmulatorSession : IAsyncDisposable
         Avd = avd;
         _skin = skin;
         _port = port;
+        _lifetime = _life.Token;
         Resources = resources ?? EmulatorResources.For(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes, Environment.ProcessorCount);
     }
+
+    /// <summary>
+    /// What Android was last told its screen is (<see cref="FitAsync"/>), or null when it has not been:
+    /// frames are cropped to it and touch goes back through it.
+    /// </summary>
+    public AndroidFit? Fit => _fit;
+
+    /// <summary>Why the last fit could not be made, or null.</summary>
+    public string? FitProblem { get; private set; }
 
     /// <summary>The memory and cores the emulator is started with; null for the AVD's own.</summary>
     public (int? MemoryMb, int? Cores) Resources { get; }
@@ -178,8 +192,103 @@ public sealed class EmulatorSession : IAsyncDisposable
         State == EmulatorState.Running && _client is { } client ? client.RotateAsync(degrees) : Task.CompletedTask;
 
     /// <summary>
-    /// A finger, as fractions of the picture as drawn — turned back by the last frame's rotation onto
-    /// the device's own screen. Off the picture, only a lift is sent.
+    /// Tell Android the shape and density of the region it is drawn in (<c>wm size</c>,
+    /// <c>wm density</c> through the SDK's ADB). Only the newest of several asked for at once is
+    /// made. False when it could not be — ADB offline or missing — and <see cref="FitProblem"/> says
+    /// why; the picture is then shown whole, with its bars, as before.
+    /// </summary>
+    public async Task<bool> FitAsync(AndroidFit fit)
+    {
+        ArgumentNullException.ThrowIfNull(fit);
+
+        if (State != EmulatorState.Running || _discovery?.AdbSerial is not { } serial)
+        {
+            return false;
+        }
+
+        var adb = AndroidSdk.AdbPath(_sdk);
+        if (!File.Exists(adb))
+        {
+            FitProblem = "the SDK has no adb";
+            return false;
+        }
+
+        _wantedFit = fit;
+
+        try
+        {
+            await _fitting.WaitAsync(_lifetime).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
+
+        try
+        {
+            if (!ReferenceEquals(_wantedFit, fit))
+            {
+                return false;   // a newer one is waiting
+            }
+
+            if (fit == _fit)
+            {
+                return true;
+            }
+
+            foreach (var command in fit.AdbCommands(serial))
+            {
+                if (!await RunWithRetriesAsync(adb, command).ConfigureAwait(false))
+                {
+                    return false;
+                }
+            }
+
+            FitProblem = null;
+            _fit = fit;
+            return true;
+        }
+        finally
+        {
+            _fitting.Release();
+        }
+    }
+
+    /// <summary>
+    /// A just-booted device can read as offline for a moment, and the first command starts ADB's
+    /// server, so a failure is tried twice more before it counts.
+    /// </summary>
+    private async Task<bool> RunWithRetriesAsync(string adb, IReadOnlyList<string> command)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            var (done, output) = await Adb.RunAsync(adb, command, TimeSpan.FromSeconds(15), _lifetime).ConfigureAwait(false);
+            if (done)
+            {
+                return true;
+            }
+
+            if (attempt == 3 || _lifetime.IsCancellationRequested)
+            {
+                FitProblem = $"{string.Join(' ', command.Skip(3))}: {AdbAnswers.State(output)}";
+                return false;
+            }
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2), _lifetime).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// A finger, as fractions of the picture as drawn — through the fit onto the whole frame, then
+    /// turned back by the last frame's rotation onto the device's own screen. Off the picture, only a
+    /// lift is sent.
     /// </summary>
     public Task TouchAsync(double x, double y, bool down)
     {
@@ -188,7 +297,8 @@ public sealed class EmulatorSession : IAsyncDisposable
             return Task.CompletedTask;
         }
 
-        var at = AndroidChoice.ToDevice(Math.Clamp(x, 0, 1), Math.Clamp(y, 0, 1), DeviceWidth, DeviceHeight, _quarterTurns);
+        var (onFrameX, onFrameY) = _fit is { } fit ? fit.ToFrame(Math.Clamp(x, 0, 1), Math.Clamp(y, 0, 1)) : (Math.Clamp(x, 0, 1), Math.Clamp(y, 0, 1));
+        var at = AndroidChoice.ToDevice(onFrameX, onFrameY, DeviceWidth, DeviceHeight, _quarterTurns);
         var inside = x is >= 0 and <= 1 && y is >= 0 and <= 1;
 
         return at is { } point && (inside || !down) ? client.TouchAsync(point.X, point.Y, down) : Task.CompletedTask;

@@ -208,6 +208,18 @@ public sealed class EmulatorClientTests : IAsyncLifetime
         Assert.Equal([30, 20, 10, 0, 60, 50, 40, 0], bgrx);
     }
 
+    [Fact]
+    public void Only_the_cropped_part_of_a_frame_becomes_the_bitmap()
+    {
+        // A 3 × 2 frame whose pixels are numbered; the crop is its middle column.
+        byte[] rgb = [.. Enumerable.Range(0, 6).SelectMany(i => new[] { (byte)i, (byte)(i + 10), (byte)(i + 20) })];
+        var bgrx = new byte[8];
+
+        FramePixels.RgbToBgr32(rgb, 3, (1, 0, 1, 2), bgrx);
+
+        Assert.Equal([21, 11, 1, 0, 24, 14, 4, 0], bgrx);
+    }
+
     /// <summary>An emulator that answers as the real one does, and remembers what it was told.</summary>
     internal sealed class FakeEmulator : EmulatorController.EmulatorControllerBase
     {

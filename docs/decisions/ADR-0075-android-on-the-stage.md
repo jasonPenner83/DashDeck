@@ -185,7 +185,7 @@ in another probe, shaped differently from decision 2: **not launcher entries but
   stage behaviour as Android Auto.
 - **WSA, Hyper-V Android images, Waydroid** — see the context.
 
-## Addendum — 2026-10-22: first use in the dash; faster touch, frames at the drawn size, a turning tablet
+## Addendum — 2026-10-22: first use in the dash; faster touch, a turning tablet, filling the region
 
 **What the owner found with the ANDROID cell on the Surface:** both flavours load. Leaving and
 coming back is instant, double tap to the stage works, and the hold menu works. **Touch works but
@@ -226,6 +226,27 @@ What changed, and why:
 
    The quick-boot snapshot was saved with the old memory, so the first start after this change is a
    **cold boot**. Later starts are quick again.
+
+5. **Android takes the region's own shape, so there are no bars.** After rotation worked, the owner
+   saw black bars beside the tablet, and Automotive not filling its space. One screen cannot be
+   both shapes: full screen is 912×1170 (tall) and the stage 912×636 (wide), and no device turned
+   or not matches both. gRPC cannot resize the emulator's main screen (`setDisplayConfigurations`
+   leaves display 0 alone). Android itself can be told to use part of its screen, though:
+   - The emulator starts at **the stage's own size** (`-skin 1824x1272`), so on the stage it fills
+     it pixel for pixel. That costs one more cold boot, the first time.
+   - For any other shape, Android is told the region's shape through the SDK's ADB (`wm size`).
+     It draws that, centred, with black either side, and maps touch into it the same way. The frames
+     are cropped to that part (`AndroidFit.Crop`), and a touch on the crop goes back through it
+     (`AndroidFit.ToFrame`) before the rotation is undone.
+   - `wm density` makes one dp the size of one of the dash's units (160 × the display scale, scaled
+     by how much the picture is enlarged). Android then looks the same size in both placements, and
+     the stage is 912×636 dp, which is still a tablet layout.
+   - Full screen is drawn from fewer pixels than it covers: 1272×1632 for the turned tablet, 992×1272
+     for Automotive, enlarged 1.4× and 1.8×. It is softer than the stage, and no slower.
+   - If ADB cannot be reached (the two-ADB clash again), nothing is cropped and the bars are back,
+     tried again every 15 s; `--shot` says why. Android keeps the size and density it was told after
+     the dash closes. To give the AVD back to Android Studio as it was:
+     `adb shell wm size reset` and `adb shell wm density reset`.
 
 What is still open is unchanged: Automotive's vehicle data over ADB (the two-ADB clash first),
 audio, and shared-memory frames (`MMAP`) if the tablet's frame rate is still the limit.
