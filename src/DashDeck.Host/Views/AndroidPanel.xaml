@@ -1,0 +1,44 @@
+<UserControl x:Class="DashDeck.Host.Views.AndroidPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Background="Black">
+        <!--
+            Android's screen, from the emulator's frames, in WPF's own tree (ADR-0075) — not the
+            emulator's window — so the stage clips it and menus draw over it, as with Android Auto
+            (ADR-0057). Scaled uniformly and centred; touch is mapped to the picture as drawn.
+        -->
+        <Image x:Name="Screen"
+               Source="{Binding Picture}"
+               Stretch="Uniform"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               RenderOptions.BitmapScalingMode="Linear"
+               Visibility="{Binding IsPictureShowing, Converter={StaticResource BoolToVisToken}}" />
+
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="640"
+                    Visibility="{Binding IsPictureShowing, Converter={StaticResource NotBoolToVisToken}}">
+            <TextBlock HorizontalAlignment="Center"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       FontFamily="{DynamicResource UiFont}"
+                       FontSize="30"
+                       FontWeight="Bold"
+                       Foreground="{DynamicResource TextHighBrush}"
+                       Text="{Binding Headline}" />
+
+            <TextBlock HorizontalAlignment="Center"
+                       Margin="0,14,0,0"
+                       TextAlignment="Center"
+                       TextWrapping="Wrap"
+                       Style="{StaticResource StatusText}"
+                       Foreground="{DynamicResource TextMidBrush}"
+                       Text="{Binding Detail}" />
+
+            <TextBlock HorizontalAlignment="Center"
+                       Margin="0,22,0,0"
+                       Style="{StaticResource MicroText}"
+                       Text="Tap ANDROID for full screen · double tap for the stage · hold to choose" />
+        </StackPanel>
+    </Grid>
+</UserControl>

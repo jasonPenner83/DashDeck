@@ -1361,6 +1361,51 @@ dragging, touch under 150 ms, and memory that leaves the dash comfortable.
 - *NOT BOOTED* or *THE EMULATOR EXITED*: send the report, which includes the emulator's own warnings;
 - the dash itself stuttering while the probe runs. Note when it did.
 
+## Android on the dash — the ANDROID cell (ADR-0075)
+
+**You need:**
+- the Surface, with this build;
+- Android Studio's emulator, and both AVDs from the probe's setup above (*Automotive with Google
+  Play* and *Pixel Tablet*);
+- Windows Hypervisor Platform on;
+- **scrcpy closed**, so its `adb` does not fight the SDK's;
+- parked, for the first try.
+
+1. Start DashDeck. **Expect:** a fifth cell on the nav, **ANDROID**, after MAPS.
+2. **Hold** ANDROID for about half a second. **Expect:** a menu over the nav, with:
+   - **ANDROID**, naming `Pixel_Tablet · 2560×1600`;
+   - **ANDROID AUTOMOTIVE**, naming the Automotive AVD;
+   - **STOP ANDROID**;
+   - a dot beside the one the cell opens now.
+3. Choose **ANDROID AUTOMOTIVE**. **Expect:**
+   - Android full screen, with the stage collapsed;
+   - *STARTING ANDROID AUTOMOTIVE* for a few seconds;
+   - then Automotive's home screen, about 10–20 s on a first start and a couple of seconds after
+     that.
+4. **Touch** it: open the app grid, scroll, open Settings. **Expect:** it follows your finger
+   straight away.
+5. **Tap DASH**, then **tap ANDROID** again. **Expect:** Android at once, with no restart. It kept
+   running.
+6. **Double-tap ANDROID.** **Expect:** Android on the stage, with the dash's console below it. It
+   still answers touch on the stage.
+7. **Tap ANDROID** once. **Expect:** back to full screen.
+8. With GPS on, open **Maps** inside Automotive. **Expect:** the truck's own position.
+9. **Hold** ANDROID and choose **ANDROID**. **Expect:**
+   - *STOPPING*, then *STARTING ANDROID*, then the tablet's home screen;
+   - letterboxed in the full-screen region, because a landscape tablet does not fill a portrait
+     region.
+10. **Hold** ANDROID, then **STOP ANDROID**. **Expect:** *ANDROID STOPPED*. Task Manager shows no
+    `qemu-system-x86_64`.
+11. Close DashDeck with Android running, then start it again and tap ANDROID. **Expect:** a quick
+    start, because the snapshot was saved on the way out.
+
+**A failure looks like:**
+- *NO ANDROID EMULATOR* when Android Studio is installed. Note where its SDK is.
+- *… DID NOT START*, with a reason. Send the reason.
+- Touches landing in the wrong place.
+- The dash stuttering while Android runs.
+- `qemu-system-x86_64` still running a minute after DashDeck closed.
+
 ## The audio delay and the video sync offset — parked 2026-10-15
 
 Both walkthroughs that were here are gone with the feature. The delay measurement, the

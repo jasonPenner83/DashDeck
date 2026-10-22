@@ -12,6 +12,13 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+
+    <!-- A fake Android Emulator, served in-process, for the gRPC client (ADR-0075). -->
+    <PackageReference Include="Grpc.AspNetCore.Server" Version="2.84.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>
@@ -25,6 +32,7 @@
     <ProjectReference Include="..\..\src\DashDeck.Simulator\DashDeck.Simulator.csproj" />
     <ProjectReference Include="..\..\src\DashDeck.IdHunter\DashDeck.IdHunter.csproj" />
     <ProjectReference Include="..\..\src\DashDeck.SerialTap\DashDeck.SerialTap.csproj" />
+    <ProjectReference Include="..\..\src\DashDeck.Emulator\DashDeck.Emulator.csproj" />
   </ItemGroup>
 
 </Project>

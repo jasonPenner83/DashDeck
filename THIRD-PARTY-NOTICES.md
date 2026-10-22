@@ -17,16 +17,16 @@ again whenever a `PackageReference` is added.
 | .NET runtime (self-contained publish) | Everything | MIT |
 | [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) 6.12.0 — `src/DashDeck.Host/Map/web/lib/`, deployed as `map/lib/` | The map renderer (ADR-0063) | BSD-3-Clause — text in `map/lib/LICENSE-maplibre-gl.txt`, shipped beside it |
 
-### The Android probe (ADR-0075)
+### Android on the dash (ADR-0075)
 
-Shipped in `AndroidProbe\` beside the dash, not in the dash itself.
+In the dash itself (`DashDeck.Emulator`, behind the ANDROID cell) and in `AndroidProbe\` beside it.
 
 | Package or file | Used by | License |
 |---|---|---|
-| [Grpc.Net.Client](https://github.com/grpc/grpc-dotnet) 2.84.0 | AndroidProbe (gRPC to the Android Emulator) | Apache-2.0 |
-| [Google.Protobuf](https://github.com/protocolbuffers/protobuf) 3.36.2 | AndroidProbe (gRPC messages) | BSD-3-Clause |
+| [Grpc.Net.Client](https://github.com/grpc/grpc-dotnet) 2.84.0 | DashDeck.Emulator and AndroidProbe (gRPC to the Android Emulator) | Apache-2.0 |
+| [Google.Protobuf](https://github.com/protocolbuffers/protobuf) 3.36.2 | DashDeck.Emulator and AndroidProbe (gRPC messages) | BSD-3-Clause |
 | [Grpc.Tools](https://github.com/grpc/grpc) 2.84.0 | Build only (generates the client); not shipped | Apache-2.0 |
-| `emulator_controller.proto` — `src/DashDeck.AndroidProbe/Protos/`, vendored unchanged from [google/android-emulator-webrtc](https://github.com/google/android-emulator-webrtc) | The emulator's gRPC service definition | Apache-2.0 (The Android Open Source Project), header kept in the file |
+| `emulator_controller.proto` — `src/DashDeck.Emulator/Protos/` and `src/DashDeck.AndroidProbe/Protos/`, vendored unchanged from [google/android-emulator-webrtc](https://github.com/google/android-emulator-webrtc) | The emulator's gRPC service definition | Apache-2.0 (The Android Open Source Project), header kept in the file |
 
 The Android SDK, the emulator and the system images are **not** shipped or downloaded by DashDeck:
 the person installs them with Android Studio, under Google's
@@ -46,6 +46,7 @@ the images to run Android rather than to develop apps are theirs to read (ADR-00
 | xunit, xunit.runner.visualstudio | Apache-2.0 |
 | Microsoft.NET.Test.Sdk | MIT |
 | coverlet.collector | MIT |
+| Grpc.AspNetCore.Server (a fake Android Emulator for the gRPC client's tests, ADR-0075) | Apache-2.0 |
 
 ## Services called at runtime
 

@@ -644,7 +644,18 @@ truck's audio. No dongle: the screen says why and looks again every 5 s; `--synt
 desk. **Android Auto always needs the phone**; Android Automotive is a separate experiment (Q26), and
 the Pi Zero 2 W stays giving SYNC 3 wireless Android Auto. Setup: [`docs/phone-projection.md`](docs/phone-projection.md).
 
-**Android on the stage as its own device** (ADR-0075, **proposed**, Q26): the Android Emulator started
+**Android on the dash** (ADR-0075, **proposed, built for trial**, Q26) is the **ANDROID** nav cell: tap
+for full screen (`IsAndroidFull`, all six bands), double tap for the stage (`AndroidStageOccupant`, the
+nav goes back to where it was), hold for a menu of **ANDROID** / **ANDROID AUTOMOTIVE** / STOP
+(`androidFlavour` saved). Gestures: `Shell/NavPress` feeding Core's `PressGesture`; placement
+`AndroidView`; AVDs `AndroidChoice.List/Pick` (read from the emulator's files). `AndroidViewModel`
+owns one `EmulatorSession` (`src/DashDeck.Emulator`: start or join an AVD, one at a time, boot, frames
+RGB888 → `WriteableBitmap` Bgr32 dropped not queued, touch as fractions → device pixels, `setGps` on the
+beat, `LetGoAsync` on exit so the snapshot saves). Started on first sight and kept running; frames only
+while a panel is attached. The gRPC client is tested against a fake emulator served in-process
+(`EmulatorClientTests`, `Grpc.AspNetCore.Server`). Not yet: Automotive vehicle data over ADB, audio.
+
+**The measuring that came first:** the Android Emulator started
 hidden by DashDeck (`-qt-hide-window`, gRPC on localhost with `-grpc-use-token`, port and token from the
 emulator's `pid_<pid>.ini`), frames from `streamScreenshot` drawn on the stage and touch sent back with
 `sendTouch`; both flavours as `android` launcher entries naming an AVD (`AvdInfo.Flavour` from the image's

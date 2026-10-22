@@ -1,7 +1,7 @@
 # ADR-0075 — Android on the stage, as its own device
 
-**Status:** Proposed · 2026-10-22. To be accepted, or not, on the AndroidProbe's numbers from the
-Surface (below).
+**Status:** Proposed · 2026-10-22. Built into the dash for trial (the ANDROID cell, below); to be
+accepted after it has been used in the truck.
 **Answers:** Q26 (Android Automotive on the stage, with no phone?), which
 [ADR-0057](ADR-0057-android-auto-through-the-dongle.md) left as a separate experiment.
 **Builds on:** [ADR-0057](ADR-0057-android-auto-through-the-dongle.md) (a picture decoded into the
@@ -138,6 +138,33 @@ to try for it.
 
 Earlier note: the tablet again, and a tablet AVD shaped like the stage (1824×1272 at 320 dpi, which makes
 Android's units the dash's own). Then the occupant is built for whichever passes.
+
+## In the dash: the ANDROID cell (2026-10-22)
+
+The measurements were enough to try it for real, and the owner asked for it in the dash rather than
+in another probe, shaped differently from decision 2: **not launcher entries but a nav cell**.
+
+- **ANDROID**, a fifth cell on the nav strip. **Tap**: Android full screen, all six bands, the stage
+  collapsed behind it as the map's full size does — and started if it is not running. **Double tap**:
+  onto the stage, with the nav going back to where it was so the dash shows below. **Hold**: a menu
+  of the two flavours — **ANDROID** and **ANDROID AUTOMOTIVE** — each naming the AVD it would run, or
+  saying there is none, plus **STOP ANDROID**. The choice is saved (`androidFlavour`).
+- The rules are Core's and tested: `AndroidView` (full or stage; a tap brings it back off the stage),
+  `PressGesture` (a tap acted on at once — the first tap of a double tap opens it and the second sends
+  it on, so a single tap is never held back — and a hold acted on while still held, at 550 ms),
+  `AndroidChoice` (AVDs read from the emulator's own files, no process started; one per flavour,
+  x86_64 first; touch to device pixels). `NavPress` feeds the gesture times from touch and mouse.
+- `DashDeck.Emulator` holds the session: start an AVD hidden with a token, or join one of the same
+  AVD already running; shut down any other first (one at a time); wait for boot; read the device's
+  size from a full-size frame (its status does not carry it); stream frames at the stage's size;
+  touch; position; and stop. The gRPC client is tested against a fake emulator served in-process from
+  the same generated definition.
+- **Started on first sight, kept after.** Leaving ANDROID stops its frames, not Android: coming back
+  is instant. STOP gives the memory back. When the dash closes, Android is asked to shut down and
+  left to finish, so the snapshot is saved without holding the dash past its ten seconds.
+- Frames are dropped, never queued, when the UI is still drawing the last one.
+- **Not yet:** Automotive's vehicle data through ADB (the two-ADB clash has to be settled first),
+  audio, and rotating a phone-shaped Android to fill the portrait full-screen region.
 
 ## Consequences
 
