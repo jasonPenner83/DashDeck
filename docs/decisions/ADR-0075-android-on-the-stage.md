@@ -341,6 +341,17 @@ The hold menu's line for the running flavour says whether it is working:
      and restarts Android, so the two can be compared without the settings file. In software,
      System UI and the launcher can trip Android's *isn't responding* watchdog: everything is
      drawn on the processor, and each fit makes them lay themselves out again;
+   - **not background work to Windows.** Hidden, the emulator has no window on screen, and Windows 11
+     treats such a process as background: it may throttle it (EcoQoS) and ignore the timer resolution
+     it asks for, coarsening its timing to 16 ms. The dash opts the emulator's processes out of both
+     with `SetProcessInformation(ProcessPowerThrottling)` (`WindowsThrottling`): documented, per
+     process, no driver or registry, gone when the process ends;
+   - **Android's animations at half length** (`AndroidSpeed`, its own developer setting), so a
+     screen drawn at a modest rate still answers a tap promptly;
+   - **frames a second in the hold menu:** received from the emulator and drawn by the dash, to
+     show which side is the limit before anything bigger is tried. If the emulator sends few, that
+     is Android or the GPU, and the lever is a smaller screen to draw (a sharpness setting). If it
+     sends many and the dash draws few, that is the copy, and the lever is shared-memory frames;
    - memory stays at 4 GB: Android was not short of it, and the dash and Windows need the rest.
 
    The change in cores makes the next start a cold boot, as the memory change did. Not done, because

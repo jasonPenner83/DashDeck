@@ -49,6 +49,19 @@ public class EmulatorTuningTests
         Assert.Throws<ArgumentException>(() => EmulatorCommand.Arguments("Tab", 8554, features: ["-Host Composition; rm"]));
     }
 
+    [Fact]
+    public void A_rate_counts_only_the_last_window()
+    {
+        var rate = new RollingRate(TimeSpan.FromSeconds(2));
+        for (var ms = 0; ms < 3000; ms += 50)
+        {
+            rate.Add(TimeSpan.FromMilliseconds(ms));   // twenty a second, for three seconds
+        }
+
+        Assert.Equal(20, rate.PerSecond(TimeSpan.FromMilliseconds(2950)), 0);
+        Assert.Equal(0, rate.PerSecond(TimeSpan.FromSeconds(10)));   // stopped: it falls to nothing
+    }
+
     [Theory]
     [InlineData("sw", true)]
     [InlineData("swiftshader_indirect", true)]

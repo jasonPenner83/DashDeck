@@ -91,6 +91,8 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
     private double _dpiScale = 2;
     private bool? _microphoneOn;
     private DateTimeOffset _askRendererAt;
+    private static readonly System.Diagnostics.Stopwatch FrameClock = System.Diagnostics.Stopwatch.StartNew();
+    private readonly RollingRate _drawn = new(TimeSpan.FromSeconds(2));
     private AndroidFit? _fitted;
     private DateTimeOffset _fitAgainAt = DateTimeOffset.MaxValue;
 
@@ -415,6 +417,11 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
             parts.Add(machine);
         }
 
+        // How fast: frames the emulator sent, and frames drawn — which side is the limit.
+        parts.Add(string.Create(
+            CultureInfo.InvariantCulture,
+            $"{session.FramesReceived:0} frames/s in · {_drawn.PerSecond(FrameClock.Elapsed):0} drawn{(session.AtFullSpeed ? "" : " · Windows may throttle it")}"));
+
         // The geometry, for when the picture looks wrong: the device's own screen, how it was turned,
         // the frame the emulator sends, what Android was told, and what Android says it has.
         parts.Add(string.Create(CultureInfo.InvariantCulture, $"device {session.DeviceWidth}×{session.DeviceHeight} turned {_turned ?? 0}°"));
@@ -512,6 +519,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
                 Say(label, session.Detail);
                 Shape();
                 _ = HearAsync(session);
+                _ = session.QuickenAsync();
                 if (_shown > 0)
                 {
                     StartFrames();
@@ -651,6 +659,7 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
                 }
 
                 picture.WritePixels(new Int32Rect(0, 0, width, height), _back, width * 4, 0);
+                _drawn.Add(FrameClock.Elapsed);
             }
             finally
             {

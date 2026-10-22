@@ -94,6 +94,15 @@ public sealed class EmulatorSession : IAsyncDisposable
     /// <summary>What the running emulator says it is — GPU mode, cores, memory — or null before it is running.</summary>
     public EmulatorMachine? Machine { get; private set; }
 
+    private static readonly Stopwatch Clock = Stopwatch.StartNew();
+    private readonly RollingRate _received = new(TimeSpan.FromSeconds(2));
+
+    /// <summary>Frames a second the emulator has sent lately — what Android draws, as it arrives.</summary>
+    public double FramesReceived => _received.PerSecond(Clock.Elapsed);
+
+    /// <summary>True when Windows was told to run the emulator at full speed (<see cref="WindowsThrottling"/>).</summary>
+    public bool AtFullSpeed { get; private set; }
+
     /// <summary>The last frame's size and turn, as the emulator sent it — for when the picture looks wrong.</summary>
     public (int Width, int Height, int QuarterTurns)? LastFrame { get; private set; }
 
@@ -199,6 +208,13 @@ public sealed class EmulatorSession : IAsyncDisposable
                 return;
             }
 
+            // Hidden, the emulator looks like background work to Windows; it is not.
+            AtFullSpeed = _pid is { } vm && WindowsThrottling.KeepAtFullSpeed(vm);
+            if (_launcher is { HasExited: false } launcher)
+            {
+                WindowsThrottling.KeepAtFullSpeed(launcher.Id);
+            }
+
             (DeviceWidth, DeviceHeight) = await _client.ScreenSizeAsync(ct).ConfigureAwait(false);
             Machine = await _client.MachineAsync(ct).ConfigureAwait(false);
             BootTime = watch.Elapsed;
@@ -233,6 +249,7 @@ public sealed class EmulatorSession : IAsyncDisposable
             height,
             frame =>
             {
+                _received.Add(Clock.Elapsed);
                 _quarterTurns = frame.QuarterTurns;
                 LastFrame = (frame.Width, frame.Height, frame.QuarterTurns);
                 onFrame(frame);
@@ -413,6 +430,34 @@ public sealed class EmulatorSession : IAsyncDisposable
     /// <summary>Press one of Android's own keys: back, home, or recent apps.</summary>
     public Task<bool> PressAsync(AndroidKey key) =>
         State == EmulatorState.Running && _client is { } client ? client.PressKeyAsync(AndroidKeys.Name(key)) : Task.FromResult(false);
+
+    /// <summary>Android's animations at half length (<see cref="AndroidSpeed"/>), once it is running.</summary>
+    public async Task QuickenAsync()
+    {
+        if (State != EmulatorState.Running || _discovery?.AdbSerial is not { } serial || !File.Exists(AndroidSdk.AdbPath(_sdk)))
+        {
+            return;
+        }
+
+        try
+        {
+            await _adb.WaitAsync(_lifetime).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        try
+        {
+            await Adb.RunAsync(AndroidSdk.AdbPath(_sdk), ["-s", serial, "shell", AndroidSpeed.HalfAnimations], TimeSpan.FromSeconds(15), _lifetime)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _adb.Release();
+        }
+    }
 
     /// <summary>Let Android hear the tablet's microphone, or not.</summary>
     public Task<bool> SetMicrophoneAsync(bool hear) =>

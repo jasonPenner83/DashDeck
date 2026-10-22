@@ -278,3 +278,52 @@ public static partial class EmulatorGpu
     [GeneratedRegex(@"OpenGL Renderer=\[(?:Android Emulator OpenGL ES Translator \()?([^\]]+?)\)?\]", RegexOptions.IgnoreCase)]
     private static partial Regex RendererLine();
 }
+
+/// <summary>
+/// How many things happened a second, lately — frames received, frames drawn — over a short window
+/// that slides with the clock it is given. Safe to add to from one thread and read from another.
+/// </summary>
+public sealed class RollingRate(TimeSpan window)
+{
+    private readonly Queue<TimeSpan> _times = new();
+
+    /// <summary>Something happened at this moment (a monotonic clock's elapsed time).</summary>
+    public void Add(TimeSpan at)
+    {
+        lock (_times)
+        {
+            _times.Enqueue(at);
+            Trim(at);
+        }
+    }
+
+    /// <summary>How many a second over the window ending now.</summary>
+    public double PerSecond(TimeSpan now)
+    {
+        lock (_times)
+        {
+            Trim(now);
+            return _times.Count / window.TotalSeconds;
+        }
+    }
+
+    private void Trim(TimeSpan now)
+    {
+        while (_times.Count > 0 && now - _times.Peek() > window)
+        {
+            _times.Dequeue();
+        }
+    }
+}
+
+/// <summary>Android's own settings that make it feel quicker (ADR-0075 addendum).</summary>
+public static class AndroidSpeed
+{
+    /// <summary>
+    /// Android's three animation scales at half: windows, transitions and animators finish in half the
+    /// time, so a screen that draws at a modest rate still answers a tap promptly. Android's own
+    /// developer setting; <c>1</c> puts it back.
+    /// </summary>
+    public const string HalfAnimations =
+        "settings put global window_animation_scale 0.5; settings put global transition_animation_scale 0.5; settings put global animator_duration_scale 0.5";
+}

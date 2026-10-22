@@ -674,7 +674,9 @@ choice if it will not start (`EmulatorGpu.Choose`; `androidGpu`: `auto` | `emula
 Android's own `GLES` line (`dumpsys SurfaceFlinger | grep GLES` → `EmulatorGpu.FromGles`), else the running
 emulator's resolved `hw.gpu.mode` from `getStatus` platform config (`EmulatorClient.MachineAsync` →
 `EmulatorGpu.FromConfig`, with cores and RAM for the menu), else its start-up output. On the GPU the emulator gets `-feature -HostComposition`
-(`EmulatorGpu.Features`): host composition ignored `wm size` and squashed the picture. The hold menu
+(`EmulatorGpu.Features`): host composition ignored `wm size` and squashed the picture. Speed: `WindowsThrottling.KeepAtFullSpeed`
+(SetProcessInformation, power throttling and timer resolution off) on the VM and launcher processes;
+`AndroidSpeed.HalfAnimations` once running; hold menu shows `frames/s in · drawn` (`RollingRate`). The hold menu
 switches GPU/software (`SwitchGpuCommand`, saves `androidGpu`, restarts Android). Keys: the panel draws its own bar (Back/Home/Recents, Automotive without
 Recents — `AndroidKeys.For`), bottom when tall and right when wide; `sendKey` with `GoBack`/`GoHome`/
 `AppSwitch`. Touch is taken only on `ScreenHost`, and `ScreenHost`'s size is what Android is fitted to. MMAP frames not done (untestable without an emulator). Started on first sight and kept running; frames only
