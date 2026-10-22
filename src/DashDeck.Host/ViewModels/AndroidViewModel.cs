@@ -287,8 +287,8 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
 
         Feed(session);
 
-        // What draws Android, asked of Android itself every few seconds until it says.
-        if (session.GuestRenderer is null && _clock.UtcNow >= _askRendererAt)
+        // What draws Android and what it believes its screen is, asked of Android itself every few seconds.
+        if (_clock.UtcNow >= _askRendererAt)
         {
             _askRendererAt = _clock.UtcNow.AddSeconds(5);
             _ = session.ReadRendererAsync();
@@ -390,6 +390,24 @@ public sealed partial class AndroidViewModel : ObservableObject, IDisposable
         if (session.Machine?.Describe() is { Length: > 0 } machine)
         {
             parts.Add(machine);
+        }
+
+        // The geometry, for when the picture looks wrong: the device's own screen, how it was turned,
+        // the frame the emulator sends, what Android was told, and what Android says it has.
+        parts.Add(string.Create(CultureInfo.InvariantCulture, $"device {session.DeviceWidth}×{session.DeviceHeight} turned {_turned ?? 0}°"));
+        if (session.LastFrame is { } frame)
+        {
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"frame {frame.Width}×{frame.Height} q{frame.QuarterTurns}"));
+        }
+
+        if (session.Fit is { } fit)
+        {
+            parts.Add($"told {fit.Describe()}");
+        }
+
+        if (session.AndroidScreen is { } screen)
+        {
+            parts.Add($"Android: {screen}");
         }
 
         if (session.GpuFellBack)

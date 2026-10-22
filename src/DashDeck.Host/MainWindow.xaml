@@ -902,7 +902,7 @@
                                                            Foreground="{DynamicResource AccentBrush}" Text="●"
                                                            Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVis}}" />
                                             </StackPanel>
-                                            <TextBlock Margin="0,4,0,0" Style="{StaticResource MicroText}" Text="{Binding Detail}" />
+                                            <TextBlock Margin="0,4,0,0" Style="{StaticResource MicroText}" TextWrapping="Wrap" Text="{Binding Detail}" />
                                         </StackPanel>
                                     </Button>
                                 </DataTemplate>

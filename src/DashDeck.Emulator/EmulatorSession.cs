@@ -94,6 +94,12 @@ public sealed class EmulatorSession : IAsyncDisposable
     /// <summary>What the running emulator says it is — GPU mode, cores, memory — or null before it is running.</summary>
     public EmulatorMachine? Machine { get; private set; }
 
+    /// <summary>The last frame's size and turn, as the emulator sent it — for when the picture looks wrong.</summary>
+    public (int Width, int Height, int QuarterTurns)? LastFrame { get; private set; }
+
+    /// <summary>What Android last said of its screen (<see cref="EmulatorGpu.ScreenReport"/>), or null.</summary>
+    public string? AndroidScreen { get; private set; }
+
     /// <summary>What came back when Android was asked what draws it and did not say, or null.</summary>
     public string? RendererProblem { get; private set; }
 
@@ -228,6 +234,7 @@ public sealed class EmulatorSession : IAsyncDisposable
             frame =>
             {
                 _quarterTurns = frame.QuarterTurns;
+                LastFrame = (frame.Width, frame.Height, frame.QuarterTurns);
                 onFrame(frame);
             },
             both.Token).ConfigureAwait(false);
@@ -366,11 +373,12 @@ public sealed class EmulatorSession : IAsyncDisposable
     }
 
     /// <summary>
-    /// Ask Android what draws it, through ADB, until it says. Skipped while another ADB command runs.
+    /// Ask Android what draws it and what it believes its screen is, through ADB. Skipped while
+    /// another ADB command runs; asked again on later beats, so the screen it reports follows the fit.
     /// </summary>
     public async Task ReadRendererAsync()
     {
-        if (GuestRenderer is not null || State != EmulatorState.Running || _discovery?.AdbSerial is not { } serial
+        if (State != EmulatorState.Running || _discovery?.AdbSerial is not { } serial
             || !File.Exists(AndroidSdk.AdbPath(_sdk)))
         {
             return;
@@ -383,9 +391,10 @@ public sealed class EmulatorSession : IAsyncDisposable
 
         try
         {
-            var (_, output) = await Adb.RunAsync(AndroidSdk.AdbPath(_sdk), ["-s", serial, "shell", EmulatorGpu.GlesProbe], TimeSpan.FromSeconds(15), _lifetime)
+            var (_, output) = await Adb.RunAsync(AndroidSdk.AdbPath(_sdk), ["-s", serial, "shell", EmulatorGpu.AndroidProbe], TimeSpan.FromSeconds(15), _lifetime)
                 .ConfigureAwait(false);
-            GuestRenderer = EmulatorGpu.FromGles(output);
+            GuestRenderer = EmulatorGpu.FromGles(output) ?? GuestRenderer;
+            AndroidScreen = EmulatorGpu.ScreenReport(output) ?? AndroidScreen;
             RendererProblem = GuestRenderer is null
                 ? output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() is { } first
                     ? first.Length > 80 ? first[..80] + "…" : first

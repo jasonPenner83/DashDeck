@@ -78,6 +78,17 @@ public class EmulatorTuningTests
     }
 
     [Fact]
+    public void What_android_says_of_its_screen_is_one_line()
+    {
+        const string answer = "GLES: Google (Intel), Android Emulator OpenGL ES Translator (Intel(R) Iris(R) Plus Graphics), OpenGL ES 3.0\n"
+            + "Physical size: 1824x1272\nOverride size: 1543x1272\nPhysical density: 320\nOverride density: 223\n6\n";
+
+        Assert.Equal("screen 1824x1272 → 1543x1272 · 223 dpi · 6 cpus", EmulatorGpu.ScreenReport(answer));
+        Assert.Equal("screen 1824x1272 · 320 dpi", EmulatorGpu.ScreenReport("Physical size: 1824x1272\nPhysical density: 320\n"));
+        Assert.Null(EmulatorGpu.ScreenReport("adb.exe: device offline"));
+    }
+
+    [Fact]
     public void What_draws_android_is_read_from_android_itself()
     {
         Assert.Equal(

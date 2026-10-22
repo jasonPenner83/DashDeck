@@ -200,6 +200,67 @@ public static partial class EmulatorGpu
         return software.Any(s => said.Contains(s, StringComparison.OrdinalIgnoreCase)) ? said + " (software — slow)" : said;
     }
 
+    /// <summary>
+    /// The one shell command that asks Android what draws it and what it believes its screen is:
+    /// SurfaceFlinger's <c>GLES:</c> line, <c>wm size</c>, <c>wm density</c> and its processor count.
+    /// </summary>
+    public const string AndroidProbe = GlesProbe + "; wm size; wm density; nproc";
+
+    /// <summary>
+    /// What Android said of its screen in <see cref="AndroidProbe"/>'s answer, in one line —
+    /// <c>screen 1824x1272 → 1543x1272 · 223 dpi · 6 cpus</c> — or null when it said none of it.
+    /// For when the picture looks wrong: it tells the emulator's screen, what Android was told to use
+    /// of it, and how many processors Android really has.
+    /// </summary>
+    public static string? ScreenReport(string? output)
+    {
+        string? physical = null, forced = null, density = null, cpus = null;
+
+        foreach (var raw in (output ?? "").Split('\n'))
+        {
+            var line = raw.Trim();
+            if (line.StartsWith("Physical size:", StringComparison.Ordinal))
+            {
+                physical = line["Physical size:".Length..].Trim();
+            }
+            else if (line.StartsWith("Override size:", StringComparison.Ordinal))
+            {
+                forced = line["Override size:".Length..].Trim();
+            }
+            else if (line.StartsWith("Override density:", StringComparison.Ordinal) || (density is null && line.StartsWith("Physical density:", StringComparison.Ordinal)))
+            {
+                density = line[(line.IndexOf(':', StringComparison.Ordinal) + 1)..].Trim();
+            }
+            else if (line.Length is > 0 and <= 3 && line.All(char.IsAsciiDigit))
+            {
+                cpus = line;
+            }
+        }
+
+        if (physical is null && density is null && cpus is null)
+        {
+            return null;
+        }
+
+        var parts = new List<string>();
+        if (physical is not null)
+        {
+            parts.Add(forced is null ? $"screen {physical}" : $"screen {physical} → {forced}");
+        }
+
+        if (density is not null)
+        {
+            parts.Add($"{density} dpi");
+        }
+
+        if (cpus is not null)
+        {
+            parts.Add($"{cpus} cpus");
+        }
+
+        return string.Join(" · ", parts);
+    }
+
     [GeneratedRegex(@"using '([a-z_]+)' mode", RegexOptions.IgnoreCase)]
     private static partial Regex ModeLine();
 
