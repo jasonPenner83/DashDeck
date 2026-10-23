@@ -867,7 +867,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     {
         if (IsClimateActive && ClimateContent is null)
         {
-            ClimateContent = new StageLayoutView(_theme.ClimateLayouts, _vehicle.Signals, _clock, Sensors);
+            ClimateContent = new StageLayoutView(IsLandscape ? _theme.ClimateColumnLayouts : _theme.ClimateLayouts, _vehicle.Signals, _clock, Sensors);
         }
         else if (!IsClimateActive && ClimateContent is StageLayoutView climate)
         {
@@ -877,7 +877,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         if (IsDashActive && ConsoleContent is null)
         {
-            ConsoleContent = new StageLayoutView(_theme.ConsoleLayouts, _vehicle.Signals, _clock, Sensors);
+            ConsoleContent = new StageLayoutView(IsLandscape ? _theme.ConsoleColumnLayouts : _theme.ConsoleLayouts, _vehicle.Signals, _clock, Sensors);
         }
         else if (!IsDashActive && ConsoleContent is StageLayoutView console)
         {
@@ -1248,6 +1248,45 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public int WidgetBands => BandGrid.BandCount - StageBands;
 
     /// <summary>
+    /// The tablet is on its side (ADR-0077): the stage keeps its width and the region goes beside it
+    /// as a column. Set by the window from the screen's shape; nothing to choose.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DesignWidth))]
+    [NotifyPropertyChangedFor(nameof(DesignHeight))]
+    private bool _isLandscape;
+
+    /// <summary>The design surface's width: 912 upright, 1368 on its side.</summary>
+    public double DesignWidth => IsLandscape ? BandGrid.DesignHeight : BandGrid.DesignWidth;
+
+    /// <summary>The design surface's height: 1368 upright, 912 on its side.</summary>
+    public double DesignHeight => IsLandscape ? BandGrid.DesignWidth : BandGrid.DesignHeight;
+
+    /// <summary>
+    /// Turned: the cards re-pack to the shorter stage, and the console and climate panels are made
+    /// again from their column layouts — a 912-wide panel squeezed into a 456 column would be
+    /// half-size type.
+    /// </summary>
+    partial void OnIsLandscapeChanged(bool value)
+    {
+        SyncWidgetBands();
+
+        if (ClimateContent is StageLayoutView climate)
+        {
+            ClimateContent = null;
+            climate.Dispose();
+        }
+
+        if (ConsoleContent is StageLayoutView console)
+        {
+            ConsoleContent = null;
+            console.Dispose();
+        }
+
+        SyncPanels();
+    }
+
+    /// <summary>
     /// Tell the dashboard how much room it has.
     /// </summary>
     /// <remarks>
@@ -1258,10 +1297,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// </remarks>
     private void SyncWidgetBands()
     {
-        // The cards are on the stage (ADR-0041), whose picture does not change size.
+        // The cards are on the stage (ADR-0041), whose picture changes size only when the tablet
+        // turns: five rows upright, four on its side (ADR-0077).
         if (!IsCardEditorOpen)
         {
-            Dashboard.RegionHeight = BandGrid.StageOccupantHeight;
+            Dashboard.RegionHeight = BandGrid.StageOccupantHeightFor(IsLandscape);
         }
     }
 

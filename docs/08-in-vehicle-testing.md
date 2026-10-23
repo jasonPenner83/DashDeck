@@ -1998,6 +1998,40 @@ on to see whether the two fight.
 changing and then jumping back on its own with automatic brightness off. Send the box's line and
 whether automatic brightness was on.
 
+## The tablet on its side (ADR-0077)
+
+**Added 2026-10-23, and never run on the Surface.** The split and the shape rule are tested; how it
+looks and how quickly it follows a rotation is what only the tablet can say. All of it works at a desk.
+
+**You need:** the Surface with rotation lock **off** (Action Center ▸ Rotation lock). At a desk on a
+monitor, `--landscape` and `--portrait` force either shape.
+
+1. **Launch DashDeck upright.** **Expect** the dash exactly as before: stage on top, DASH's console
+   in the two bands below, nav along the bottom.
+2. **Turn the tablet on its side.** **Expect** within a second or two: the status strip and the nav
+   across the full width, the stage on the left at its full width, and the console as a **column on
+   the right** — speed at the top, engine and fuel down the left, range and economy down the right,
+   warning lights, gear and 4WD, the odometer at the foot. **No black bars.**
+   **A failure looks like:** the upright dash shrunk between black bars (the shape was not noticed),
+   or the dash flipping back and forth while you hold it at an angle.
+3. **CARDS on the stage.** **Expect** four rows of cards instead of five, the same size as upright.
+   Swipe between pages: **expect** them to turn as they do upright.
+4. **CLIMATE.** **Expect** the climate panel as a column: both temperatures across the top, the
+   seats beneath, the fan, airflow and cabin in the middle, the switches in two rows.
+5. **MAPS.** **Expect** the map in the column beside the stage. Press MAPS again for full size:
+   **expect** it across the whole width, the stage hidden behind it. Press once more to come back.
+6. **Settings.** **Expect** it across the whole width, the tab rail on the left with all ten tabs
+   showing (ABOUT at the bottom). Open **Settings ▸ Themes**, choose **Glass** for the console, go to
+   DASH: **expect** Modern's column, because Glass has no column yet. That is right for now.
+7. **Edit a card** (hold a card on CARDS). **Expect** the editor across the width, scrolling down to
+   reach its foot.
+8. **Android on the stage, then turn upright again.** **Expect** the phone's picture to re-fit to
+   the stage without restarting, and the console back across the two bands.
+9. **Video or the phone on the stage while you turn it.** **Expect** it to keep playing.
+
+**Tell me:** whether the column reads well from the driver's seat, and whether you would rather the
+stage were narrower to give the column more room.
+
 ## When the dash will not open
 
 Added 2026-10-15, after a launch hung with no window and no log, and then — because it was still

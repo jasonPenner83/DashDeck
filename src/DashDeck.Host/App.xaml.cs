@@ -383,6 +383,13 @@ public partial class App : Application
 
         Shell.StartupTrace.Phase("building the window");
         var window = new MainWindow { DataContext = _shell };
+
+        // --portrait or --landscape draws that shape whatever the screen is (ADR-0077): either can
+        // be reviewed, and --shot, on a desk monitor. Without them the dash follows the screen.
+        if (e.Args.Contains("--portrait") || e.Args.Contains("--landscape"))
+        {
+            window.ForcedLandscape = e.Args.Contains("--landscape");
+        }
         MainWindow = window;
         Shell.StartupTrace.Phase("showing the window");
         window.Show();
