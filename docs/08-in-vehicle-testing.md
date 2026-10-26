@@ -2000,8 +2000,8 @@ whether automatic brightness was on.
 
 ## The tablet on its side (ADR-0077)
 
-**Added 2026-10-23, and never run on the Surface.** The split and the shape rule are tested; how it
-looks and how quickly it follows a rotation is what only the tablet can say. All of it works at a desk.
+**Added 2026-10-23; tried on the Surface 2026-10-26 and looked good.** The split and the shape rule
+are tested; these steps are for checking it again after a change. All of it works at a desk.
 
 **You need:** the Surface with rotation lock **off** (Action Center ▸ Rotation lock). At a desk on a
 monitor, `--landscape` and `--portrait` force either shape.

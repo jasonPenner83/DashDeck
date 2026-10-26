@@ -666,7 +666,7 @@ hotspot); forgotten when the phone restarts. One ADB: scrcpy's. A dropped mirror
 shown. No audio yet (scrcpy forwards from Android 11 — next, with ducking); no driving lock on a phone. Checked
 in the cloud only against a fake adb + fake scrcpy server in the scratchpad (not kept).
 
-**Landscape** (ADR-0077, **proposed**, not yet seen on the Surface): on its side the surface is **1368 × 912**,
+**Landscape** (ADR-0077, accepted — tried on the Surface): on its side the surface is **1368 × 912**,
 drawn 1:1 — status 90 and nav 108 stretched across, a **714** body. The stage keeps its **912 width** (occupant
 912 × 570, cards four rows: `BandGrid.StageOccupantHeightFor`) and the region is a **456 × 714 column** beside
 it; full-screen views take the whole body. Split = Core `ScreenShape.Split`, arranged by `Shell/StageSplitPanel`

@@ -1,6 +1,6 @@
 # ADR-0077 — Landscape: the stage beside the dash
 
-**Status:** Proposed · 2026-10-23. Built and tested off the tablet; not yet seen on the Surface.
+**Status:** Accepted · 2026-10-26. Tried on the Surface by the owner, both ways up: "looks good".
 **Builds on:** [ADR-0018](ADR-0018-fixed-stage-and-overflow-menu.md) (the four-band stage),
 [ADR-0037](ADR-0037-stage-layouts.md), [ADR-0040](ADR-0040-climate-panel.md) and
 [ADR-0041](ADR-0041-console-dash.md) (layouts on a fixed canvas, scaled to their region).
@@ -19,7 +19,7 @@ The owner chose the arrangement and how it switches:
   nav along the bottom across the full width, the status strip on top.
 - **Automatically**, following the tablet, with no setting.
 
-## Decision (proposed)
+## Decision
 
 1. **On its side the design surface is 1368 × 912, drawn 1:1**, as upright is. The status strip
    (90) and the nav (108) keep their heights and stretch across. The body between them is **714**.
