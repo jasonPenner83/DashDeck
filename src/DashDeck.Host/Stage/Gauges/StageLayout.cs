@@ -71,6 +71,12 @@ public sealed record LayoutCanvas(string Name, double Width, double Height)
 
     /// <summary>The console: the two bands below the stage when DASH is chosen (ADR-0041).</summary>
     public static LayoutCanvas Console { get; } = new("console", 912, 390);
+
+    /// <summary>The console beside the stage, with the tablet on its side (ADR-0077).</summary>
+    public static LayoutCanvas ConsoleColumn { get; } = new("console column", 456, 714);
+
+    /// <summary>The climate panel beside the stage, with the tablet on its side (ADR-0077).</summary>
+    public static LayoutCanvas ClimateColumn { get; } = new("climate column", 456, 714);
 }
 
 /// <summary>A layout's own fonts (ADR-0042): either may be left out to keep the theme's.</summary>
@@ -836,6 +842,209 @@ public sealed record StageLayout
 
     /// <summary>The console layouts compiled in.</summary>
     public static IReadOnlyList<StageLayout> ConsoleBuiltIns { get; } = [BuiltInConsole];
+
+    /// <summary>
+    /// The console as a column beside the stage (ADR-0077), for the tablet on its side: Modern
+    /// re-placed down 456 × 714, every element and signal the same. A console column of yours called
+    /// <c>modern</c>, or one named like the console layout showing, replaces it.
+    /// </summary>
+    public static StageLayout BuiltInConsoleColumn { get; } =
+        Parse(BuiltInConsoleColumnJson, null, LayoutOrigin.BuiltIn, LayoutCanvas.ConsoleColumn) with { BuiltInSlug = ConsoleSlug };
+
+    /// <summary>The console column layouts compiled in.</summary>
+    public static IReadOnlyList<StageLayout> ConsoleColumnBuiltIns { get; } = [BuiltInConsoleColumn];
+
+    /// <summary>The climate panel as a column beside the stage (ADR-0077): Modern re-placed down 456 × 714.</summary>
+    public static StageLayout BuiltInClimateColumn { get; } =
+        Parse(BuiltInClimateColumnJson, null, LayoutOrigin.BuiltIn, LayoutCanvas.ClimateColumn) with { BuiltInSlug = ClimateSlug };
+
+    /// <summary>The climate column layouts compiled in.</summary>
+    public static IReadOnlyList<StageLayout> ClimateColumnBuiltIns { get; } = [BuiltInClimateColumn];
+
+    /// <summary>The console column as text, comments and all — what <c>console-column\examples\modern.json</c> holds.</summary>
+    internal const string BuiltInConsoleColumnJson = """
+    {
+      "name": "Modern",
+      "description": "Modern as a column beside the stage, for the tablet on its side: speed large at the top, engine and fuel down the left, range and economy down the right, then the warning lights, gear and 4WD, and the odometer at the foot.",
+      "author": "DashDeck",
+      // No background of its own: the theme's canvas, so it sits seamlessly below the stage. White
+      // and grey type from the theme's text colours, so it dims at night with the rest of the dash.
+      // Only what is lit — a switch, a heater, a warning — has a colour of its own.
+      // One family, two weights. Windows 11's Segoe UI Variable, or Segoe UI where it is not installed.
+      "fonts": { "ui": "Segoe UI Variable Display, Segoe UI", "mono": "Segoe UI Variable Text, Segoe UI" },
+      "elements": [
+        // ── Speed ── the one large thing on the screen, across the top of the column.
+        { "id": "speed", "style": "digital", "x": 68, "y": 20, "width": 320, "height": 206,
+          "label": "km/h", "format": "0", "min": 0, "max": 250,
+          "source": { "signal": "vehicle.speed", "rateHz": 4 },
+          "parts": { "align": "center", "labelPosition": "below", "labelGap": 0, "labelSize": 16, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 138, "valueWeight": "light", "valueColour": "@textHigh", "noData": "–" } },
+
+        // ── Engine and fuel ── a caption, then the number, down the left; space does the separating.
+        { "id": "rpm", "style": "digital", "x": 32, "y": 246, "width": 188, "height": 66,
+          "label": "RPM", "format": "#,0", "min": 0, "max": 7000,
+          "source": { "signal": "engine.rpm", "rateHz": 3 },
+          "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "noData": "–" } },
+        { "id": "coolant", "style": "digital", "x": 32, "y": 328, "width": 188, "height": 66,
+          "label": "ENGINE", "unit": "°C", "format": "0", "min": -40, "max": 150,
+          "source": { "signal": "engine.coolantTemp", "rateHz": 0.5 },
+          "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 16, "unitColour": "@textMid", "noData": "–" } },
+        { "id": "fuel", "style": "digital", "x": 32, "y": 410, "width": 188, "height": 66,
+          "label": "FUEL", "unit": "%", "format": "0", "min": 0, "max": 100,
+          "source": { "signal": "fuel.levelPercent", "rateHz": 0.2 },
+          "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 16, "unitColour": "@textMid", "noData": "–" } },
+
+        // ── Range and economy ── the same down the right, aligned right. Placeholders until the truck's own are found.
+        { "id": "range", "style": "digital", "x": 236, "y": 246, "width": 188, "height": 66,
+          "label": "RANGE", "unit": "km", "format": "0", "min": 0, "max": 2000,
+          "source": { "signal": "fuel.range", "rateHz": 0.5 },
+          "parts": { "align": "right", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 16, "unitColour": "@textMid", "noData": "–" } },
+        { "id": "economy", "style": "digital", "x": 236, "y": 328, "width": 188, "height": 66,
+          "label": "ECONOMY", "unit": "L/100km", "format": "0.0", "min": 0, "max": 99.9,
+          "source": { "signal": "fuel.economy", "rateHz": 1 },
+          "parts": { "align": "right", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 16, "unitColour": "@textMid", "noData": "–" } },
+        { "id": "outside", "style": "digital", "x": 236, "y": 410, "width": 188, "height": 66,
+          "label": "OUTSIDE", "unit": "°", "format": "0", "min": -50, "max": 60,
+          "source": { "signal": "ambient.airTemp", "rateHz": 0.1 },
+          "parts": { "align": "right", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "noData": "–" } },
+
+        // ── Warning lights ── almost invisible until one comes on; then it is the only colour here.
+        { "id": "checkEngine", "type": "warning", "x": 55, "y": 500, "width": 26, "height": 26,
+          "source": { "signal": "diagnostics.checkEngine", "rateHz": 0.2 }, "parts": { "icon": "checkEngine", "litColour": "#FFB000", "unlitColour": "#14FFFFFF" } },
+        { "id": "oil", "type": "warning", "x": 95, "y": 500, "width": 26, "height": 26,
+          "source": { "signal": "warning.oilPressure", "rateHz": 0.5 }, "parts": { "icon": "oil", "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "battery", "type": "warning", "x": 135, "y": 500, "width": 26, "height": 26,
+          "source": { "signal": "vehicle.controlModuleVoltage", "rateHz": 0.5 }, "parts": { "icon": "battery", "below": 11.8, "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "hot", "type": "warning", "x": 175, "y": 500, "width": 26, "height": 26,
+          "source": { "signal": "engine.coolantTemp", "rateHz": 0.5 }, "parts": { "icon": "coolant", "onAt": 112, "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "lowFuel", "type": "warning", "x": 215, "y": 500, "width": 26, "height": 26,
+          "source": { "signal": "fuel.levelPercent", "rateHz": 0.2 }, "parts": { "icon": "fuel", "below": 12, "litColour": "#FFB000", "unlitColour": "#14FFFFFF" } },
+        { "id": "seatbelt", "type": "warning", "x": 255, "y": 500, "width": 26, "height": 26,
+          "source": { "signal": "warning.seatbelt", "rateHz": 0.5 }, "parts": { "icon": "seatbelt", "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "door", "type": "warning", "x": 295, "y": 500, "width": 26, "height": 26,
+          "source": { "signal": "warning.doorAjar", "rateHz": 0.5 }, "parts": { "icon": "door", "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "brake", "type": "warning", "x": 335, "y": 500, "width": 26, "height": 26,
+          "source": { "signal": "warning.parkingBrake", "rateHz": 0.5 }, "parts": { "icon": "brake", "litColour": "#FF453A", "unlitColour": "#14FFFFFF" } },
+        { "id": "tyres", "type": "warning", "x": 375, "y": 500, "width": 26, "height": 26,
+          "source": { "signal": "warning.tirePressure", "rateHz": 0.2 }, "parts": { "icon": "tpms", "litColour": "#FFB000", "unlitColour": "#14FFFFFF" } },
+
+        // ── Gear and 4WD ── every state in a row, the current one lit (ADR-0056). Placeholders until
+        // their identifiers are found: a dimmed row with a dash on the truck, never a guessed gear.
+        { "id": "gear", "type": "selector", "x": 88, "y": 548, "width": 280, "height": 38,
+          "source": { "signal": "transmission.gearSelector", "rateHz": 1 },
+          "parts": { "align": "center", "fontSize": 24, "gap": 16, "valueWeight": "semibold", "unlitColour": "#33FFFFFF" } },
+        { "id": "fourWheelDrive", "type": "selector", "x": 88, "y": 592, "width": 280, "height": 30, "label": "4WD",
+          "source": { "signal": "drivetrain.4wdMode", "rateHz": 0.5 },
+          "parts": { "align": "center", "fontSize": 17, "gap": 12, "valueWeight": "semibold", "unlitColour": "#33FFFFFF",
+                     "labelSize": 11, "labelColour": "@textLow" } },
+
+        // ── Along the bottom ── small and quiet: the things you look for, not at.
+        { "id": "odometer", "style": "digital", "x": 32, "y": 638, "width": 200, "height": 56,
+          "label": "ODOMETER", "unit": "km", "format": "#,0", "min": 0, "max": 2000000,
+          "source": { "signal": "vehicle.odometer", "rateHz": 0.05 },
+          "parts": { "align": "left", "labelSize": 11, "labelWeight": "regular", "labelColour": "@textLow",
+                     "valueSize": 20, "valueWeight": "regular", "valueColour": "@textMid", "unitSize": 13, "unitColour": "@textLow", "noData": "–" } },
+        { "id": "codes", "style": "digital", "x": 236, "y": 638, "width": 188, "height": 56,
+          "label": "STORED CODES", "format": "0", "min": 0, "max": 127,
+          "source": { "signal": "diagnostics.dtcCount", "rateHz": 0.1 },
+          "parts": { "align": "right", "labelSize": 11, "labelWeight": "regular", "labelColour": "@textLow",
+                     "valueSize": 20, "valueWeight": "regular", "valueColour": "@textMid", "noData": "–" } }
+      ]
+    }
+    """;
+
+    /// <summary>The climate column as text, comments and all — what <c>climate-column\examples\modern.json</c> holds.</summary>
+    internal const string BuiltInClimateColumnJson = """
+    {
+      "name": "Modern",
+      "description": "Modern as a column beside the stage, for the tablet on its side: both temperatures across the top with the seats beneath, the fan, airflow and cabin in the middle, the switches in two rows below. Shows what the truck reports; changes nothing.",
+      "author": "DashDeck",
+      // No background of its own: the theme's canvas, so it sits seamlessly below the stage. White
+      // and grey type from the theme's text colours, so it dims at night with the rest of the dash.
+      // Only what is lit — a switch, a heater, a warning — has a colour of its own.
+      "fonts": { "ui": "Segoe UI Variable Display, Segoe UI", "mono": "Segoe UI Variable Text, Segoe UI" },
+      "elements": [
+        // ── Driver ── at the left edge, as upright; the passenger beside, so both sides still read left and right.
+        { "id": "driver", "style": "digital", "x": 32, "y": 24, "width": 188, "height": 108,
+          "label": "DRIVER", "unit": "°", "format": "0.0", "min": 10, "max": 35,
+          "source": { "signal": "hvac.driverSetTemp", "rateHz": 0.5 },
+          "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 62, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 34, "unitColour": "@textMid", "noData": "–" } },
+        // The seat heats (warm, HEAT 1–3) and cools (blue, COOL 1–3); the wheel heats.
+        { "id": "driverSeat", "type": "levels", "x": 32, "y": 148, "width": 150, "height": 40,
+          "label": "SEAT", "min": -3, "max": 3,
+          "source": { "signal": "seat.driver.climate", "rateHz": 0.2 },
+          "parts": { "steps": 3, "shape": "dots", "size": 12, "gap": 10, "litColour": "#FF8A3D", "negativeColour": "@accent", "unlitColour": "@hairlineStrong",
+                     "labelColour": "@textMid", "labelSize": 12, "labelWeight": "regular", "positiveText": "HEAT", "negativeText": "COOL" } },
+        { "id": "wheel", "type": "indicator", "x": 32, "y": 198, "width": 200, "height": 26, "label": "HEATED WHEEL",
+          "source": { "signal": "steeringWheel.heat", "rateHz": 0.2 },
+          "parts": { "style": "text", "align": "left", "fontSize": 13, "labelWeight": "regular", "litColour": "#FF8A3D", "unlitColour": "@textFaint" } },
+
+        // ── The middle ── the fan, where the air goes, and the cabin.
+        { "id": "fan", "type": "levels", "x": 108, "y": 250, "width": 240, "height": 46,
+          "label": "FAN", "min": 0, "max": 7,
+          "source": { "signal": "hvac.fanSpeed", "rateHz": 0.5 },
+          "parts": { "steps": 7, "shape": "dots", "size": 10, "gap": 12, "litColour": "@textHigh", "unlitColour": "@hairlineStrong",
+                     "labelColour": "@textMid", "labelSize": 12, "labelWeight": "regular" } },
+        // Airflow is one signal of bits: 1 face, 2 feet, 4 windshield.
+        { "id": "face", "type": "indicator", "x": 108, "y": 316, "width": 72, "height": 26, "label": "FACE",
+          "source": { "signal": "hvac.airflow", "rateHz": 0.5 },
+          "parts": { "bit": 0, "style": "text", "align": "left", "fontSize": 14, "labelWeight": "regular", "litColour": "@textHigh", "unlitColour": "@textFaint" } },
+        { "id": "feet", "type": "indicator", "x": 192, "y": 316, "width": 72, "height": 26, "label": "FEET",
+          "source": { "signal": "hvac.airflow", "rateHz": 0.5 },
+          "parts": { "bit": 1, "style": "text", "align": "center", "fontSize": 14, "labelWeight": "regular", "litColour": "@textHigh", "unlitColour": "@textFaint" } },
+        { "id": "glassAir", "type": "indicator", "x": 264, "y": 316, "width": 84, "height": 26, "label": "SCREEN",
+          "source": { "signal": "hvac.airflow", "rateHz": 0.5 },
+          "parts": { "bit": 2, "style": "text", "align": "right", "fontSize": 14, "labelWeight": "regular", "litColour": "@textHigh", "unlitColour": "@textFaint" } },
+        { "id": "cabin", "style": "digital", "x": 108, "y": 366, "width": 240, "height": 66,
+          "label": "CABIN", "unit": "°", "format": "0.0", "min": -40, "max": 80,
+          "source": { "signal": "hvac.cabinTemp", "rateHz": 0.5 },
+          "parts": { "align": "center", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 30, "valueWeight": "light", "valueColour": "@textMid", "noData": "–" } },
+
+        // ── Passenger ── at the right edge, mirrored.
+        { "id": "passenger", "style": "digital", "x": 236, "y": 24, "width": 188, "height": 108,
+          "label": "PASSENGER", "unit": "°", "format": "0.0", "min": 10, "max": 35,
+          "source": { "signal": "hvac.passengerSetTemp", "rateHz": 0.5 },
+          "parts": { "align": "right", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
+                     "valueSize": 62, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 34, "unitColour": "@textMid", "noData": "–" } },
+        { "id": "passengerSeat", "type": "levels", "x": 274, "y": 148, "width": 150, "height": 40,
+          "label": "SEAT", "min": -3, "max": 3,
+          "source": { "signal": "seat.passenger.climate", "rateHz": 0.2 },
+          "parts": { "steps": 3, "shape": "dots", "size": 12, "gap": 10, "litColour": "#FF8A3D", "negativeColour": "@accent", "unlitColour": "@hairlineStrong",
+                     "labelColour": "@textMid", "labelSize": 12, "labelWeight": "regular", "positiveText": "HEAT", "negativeText": "COOL" } },
+
+        // ── The switches ── words that light when on, grey when off, with a dash when not known. Two rows, to fit.
+        { "id": "auto", "type": "indicator", "x": 32, "y": 470, "width": 100, "height": 32, "label": "AUTO",
+          "source": { "signal": "hvac.auto", "rateHz": 0.5 },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "@accent", "unlitColour": "@textFaint" } },
+        { "id": "ac", "type": "indicator", "x": 142, "y": 470, "width": 100, "height": 32, "label": "A/C",
+          "source": { "signal": "hvac.airConditioning", "rateHz": 0.5 },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "@accent", "unlitColour": "@textFaint" } },
+        { "id": "recirc", "type": "indicator", "x": 252, "y": 470, "width": 120, "height": 32, "label": "RECIRC",
+          "source": { "signal": "hvac.recirculate", "rateHz": 0.5 },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "@accent", "unlitColour": "@textFaint" } },
+        { "id": "frontDefrost", "type": "indicator", "x": 32, "y": 516, "width": 130, "height": 32, "label": "DEFROST",
+          "source": { "signal": "hvac.frontDefrost", "rateHz": 0.5 },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "#FF8A3D", "unlitColour": "@textFaint" } },
+        { "id": "rearDefrost", "type": "indicator", "x": 172, "y": 516, "width": 110, "height": 32, "label": "REAR",
+          "source": { "signal": "hvac.rearDefrost", "rateHz": 0.5 },
+          "parts": { "style": "text", "align": "left", "fontSize": 16, "labelWeight": "regular", "litColour": "#FF8A3D", "unlitColour": "@textFaint" } },
+        // Outside air is a standard signal: it reads on the real truck today.
+        { "id": "outside", "style": "digital", "x": 244, "y": 630, "width": 180, "height": 60,
+          "label": "OUTSIDE", "unit": "°", "format": "0", "min": -50, "max": 60,
+          "source": { "signal": "ambient.airTemp", "rateHz": 0.1 },
+          "parts": { "align": "right", "labelSize": 11, "labelWeight": "regular", "labelColour": "@textLow",
+                     "valueSize": 22, "valueWeight": "regular", "valueColour": "@textMid", "noData": "–" } }
+      ]
+    }
+    """;
 
     /// <summary>The console layout as text, comments and all — what <c>console\examples\modern.json</c> holds.</summary>
     internal const string BuiltInConsoleJson = """
