@@ -356,6 +356,21 @@ Multi-state signals so far, all **placeholders** until paired: `drivetrain.4wdMo
 Mud/Rut Sand), `body.wipers` (Off Interval Low High) and `body.headlights` (Off Parking On Auto). A
 card on one shows the state's name.
 
+## On its side: the columns
+
+With the tablet on its side the console and the climate panel go in a **column beside the stage**
+(ADR-0077), on a canvas **456 wide and 714 tall**. A column is a layout of its own, in the same
+format: a 912-wide panel squeezed into 456 would be half-size type.
+
+There is nothing to choose. A column **follows its panel by file name**: with Glass chosen for the
+console, `console-column\glass.json` shows beside the stage. With no column of that name, the built-in
+Modern column does. Yours go in `%LOCALAPPDATA%\DashDeck\console-column\` and `climate-column\`, and
+each has an `examples\` folder with Modern's column to copy from.
+
+To give your own console a column: copy `console-column\examples\modern.json` up a folder, rename it
+to your console layout's file name, and move its elements to suit. RELOAD on the console reloads the
+column too. The stage is unchanged on its side: still 912 × 636, drawn a little smaller.
+
 ## Parts
 
 Every part has a default; set only what you change. These work on every style:

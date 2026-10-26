@@ -149,4 +149,28 @@ public static class BandGrid
     /// since the console took the two bands below (ADR-0041).
     /// </remarks>
     public const double StageOccupantHeight = 636;
+
+    // ---- Landscape (ADR-0077) ----
+
+    /// <summary>
+    /// The body in landscape: what is left of the 912 between the status strip and the nav, which
+    /// keep their portrait heights and stretch across the 1368.
+    /// </summary>
+    public const double LandscapeBodyHeight = DesignWidth - StatusStripHeight - NavigationHeight;
+
+    /// <summary>
+    /// The stage in landscape keeps its portrait width, so cards, the picker and every occupant
+    /// lay out exactly as they do upright; it loses only <see cref="LandscapeStageLoss"/> of height.
+    /// </summary>
+    public const double LandscapeStageWidth = DesignWidth;
+
+    /// <summary>The column beside the stage, where the console, climate and map go: 456 × 714.</summary>
+    public const double LandscapeColumnWidth = DesignHeight - DesignWidth;
+
+    /// <summary>How much shorter the stage is on its side: 780 upright, 714 turned.</summary>
+    public const double LandscapeStageLoss = (StageBands * BandHeight) - LandscapeBodyHeight;
+
+    /// <summary>The occupant's picture, upright or on its side: 912 × 636, or 912 × 570.</summary>
+    public static double StageOccupantHeightFor(bool landscape) =>
+        landscape ? StageOccupantHeight - LandscapeStageLoss : StageOccupantHeight;
 }

@@ -4,6 +4,7 @@
         xmlns:conv="clr-namespace:DashDeck.Host.Converters"
         xmlns:views="clr-namespace:DashDeck.Host.Views"
         xmlns:warn="clr-namespace:DashDeck.Host.Warnings"
+        xmlns:shell="clr-namespace:DashDeck.Host.Shell"
         Title="DashDeck"
         WindowStyle="None"
         ResizeMode="NoResize"
@@ -17,7 +18,6 @@
         <conv:QualityToBrushConverter x:Key="QualityBrush" />
         <conv:QualityToLabelConverter x:Key="QualityLabel" />
         <conv:QualityToValueBrushConverter x:Key="ValueBrush" />
-        <conv:BandsToGridLengthConverter x:Key="Bands" />
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <conv:BoolToBandLengthConverter x:Key="BandLength" />
     </Window.Resources>
@@ -25,15 +25,18 @@
     <!--
         The shell is authored at exactly the Pro 7's portrait size and scaled to whatever
         window it lands in. On the tablet, full-screen, that scale is 1:1 and the numbers in
-        B2 are literal. On a landscape dev screen it simply shrinks, which is a P0.5
-        convenience rather than the final arrangement.
+        B2 are literal. Turned on its side it is authored at the same size the other way round,
+        1368 × 912, with the stage at its upright width and the region beside it (ADR-0077), so
+        landscape is 1:1 as well rather than portrait shrunk between black bars.
     -->
     <Viewbox Stretch="Uniform">
-        <Grid x:Name="DesignSurface" Width="912" Height="1368" Background="{DynamicResource CanvasBrush}">
+        <!-- 912 × 1368 upright, 1368 × 912 on its side (ADR-0077): the shell follows the tablet. -->
+        <Grid x:Name="DesignSurface" Width="{Binding DesignWidth}" Height="{Binding DesignHeight}" Background="{DynamicResource CanvasBrush}">
             <Grid.RowDefinitions>
-                <!-- BandGrid is the authority: 90 + six 195 bands + 108 = 1368. -->
+                <!-- BandGrid is the authority: 90 + six 195 bands + 108 = 1368 upright, and
+                     90 + 714 + 108 = 912 on its side. -->
                 <RowDefinition Height="90" />
-                <RowDefinition Height="1170" />
+                <RowDefinition Height="*" />
                 <RowDefinition Height="108" />
             </Grid.RowDefinitions>
 
@@ -239,20 +242,25 @@
                 </DockPanel>
             </Border>
 
-            <!-- The six bands -->
-            <Grid Grid.Row="1">
-                <Grid.RowDefinitions>
-                    <!-- The stage takes what its occupant asked for; the widgets take the
-                         rest. Six bands, negotiated at runtime rather than hard-coded. -->
-                    <RowDefinition Height="{Binding StageBands, Converter={StaticResource Bands}}" />
-                    <RowDefinition Height="{Binding WidgetBands, Converter={StaticResource Bands}}" />
-                </Grid.RowDefinitions>
-
+            <!-- The body: the stage and the region. One above the other upright, side by side
+                 on its side (ADR-0077); with a full-screen view open the region has it all. -->
+            <shell:StageSplitPanel Grid.Row="1"
+                                   IsLandscape="{Binding IsLandscape}"
+                                   StageBands="{Binding StageBands}">
                 <!-- The stage. Its occupant's view when there is one, an honest empty state
                      when there is not (Q13). -->
-                <Border Grid.Row="0"
-                        BorderBrush="{DynamicResource HairlineBrush}"
-                        BorderThickness="0,0,0,1">
+                <Border BorderBrush="{DynamicResource HairlineBrush}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="BorderThickness" Value="0,0,0,1" />
+                            <Style.Triggers>
+                                <!-- Beside the region rather than above it: the hairline goes down its edge. -->
+                                <DataTrigger Binding="{Binding IsLandscape}" Value="True">
+                                    <Setter Property="BorderThickness" Value="0,0,1,0" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <Grid>
                         <Grid.RowDefinitions>
                             <!--
@@ -443,121 +451,122 @@
                     </Grid>
                 </Border>
 
-                <!-- Settings takes the whole lower region. The stage keeps running above
-                     it, which is the point of the stage being a layer (B2). -->
-                <ContentControl Grid.Row="1"
-                                Visibility="{Binding IsSettingsActive, Converter={StaticResource BoolToVis}}">
-                    <views:SettingsView DataContext="{Binding Settings}" />
-                </ContentControl>
+                <!-- The region: whatever the nav chose. Below the stage upright, beside it on its side. -->
+                <Grid ClipToBounds="True">
 
-                <!-- Editing a card is a full-screen view like any other (Q17): it takes all
-                     six bands and the stage keeps running underneath it. -->
-                <ContentControl Grid.Row="1"
-                                Visibility="{Binding IsCardEditorOpen, Converter={StaticResource BoolToVis}}">
-                    <views:CardEditorView DataContext="{Binding Dashboard.Editor}" />
-                </ContentControl>
+                    <!-- Settings takes the whole lower region. The stage keeps running above
+                         it, which is the point of the stage being a layer (B2). -->
+                    <ContentControl Visibility="{Binding IsSettingsActive, Converter={StaticResource BoolToVis}}">
+                        <views:SettingsView DataContext="{Binding Settings}" />
+                    </ContentControl>
 
-                <!-- A component's full-screen detail (ADR-0023), opened by tapping a component
-                     card. Same rule as the others: it covers the widget region, the stage runs
-                     underneath, and the back bar is the way out. The host draws this chrome; the
-                     component supplies only what sits below the bar. -->
-                <Grid Grid.Row="1"
-                      Background="{DynamicResource CanvasBrush}"
-                      Visibility="{Binding IsComponentDetailOpen, Converter={StaticResource BoolToVis}}">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
+                    <!-- Editing a card is a full-screen view like any other (Q17): it takes all
+                         six bands and the stage keeps running underneath it. Upright it fits; on
+                         its side (ADR-0077) the body is 714 tall, so it scrolls rather than losing
+                         its foot. -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
+                                  Visibility="{Binding IsCardEditorOpen, Converter={StaticResource BoolToVis}}">
+                        <views:CardEditorView DataContext="{Binding Dashboard.Editor}" />
+                    </ScrollViewer>
 
-                    <DockPanel Grid.Row="0" Margin="31,24,31,0">
-                        <Button DockPanel.Dock="Left"
+                    <!-- A component's full-screen detail (ADR-0023), opened by tapping a component
+                         card. Same rule as the others: it covers the widget region, the stage runs
+                         underneath, and the back bar is the way out. The host draws this chrome; the
+                         component supplies only what sits below the bar. -->
+                    <Grid Background="{DynamicResource CanvasBrush}"
+                          Visibility="{Binding IsComponentDetailOpen, Converter={StaticResource BoolToVis}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <DockPanel Grid.Row="0" Margin="31,24,31,0">
+                            <Button DockPanel.Dock="Left"
+                                    Style="{StaticResource OptionChipButton}"
+                                    Content="‹ BACK"
+                                    Command="{Binding Dashboard.CloseComponentDetailCommand}" />
+                            <TextBlock Margin="18,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Style="{StaticResource StatusText}"
+                                       Text="{Binding Dashboard.ComponentDetailTitle}" />
+                        </DockPanel>
+
+                        <ContentControl Grid.Row="1" Content="{Binding Dashboard.ComponentDetail}" />
+                    </Grid>
+
+                    <!-- The climate panel (ADR-0040): a layout file drawn where the cards are,
+                         made only while CLIMATE is chosen. Read only — it shows, never sets. -->
+                    <ContentControl Content="{Binding ClimateContent}"
+                                    Visibility="{Binding IsClimateVisible, Converter={StaticResource BoolToVis}}" />
+
+                    <!-- The map (ADR-0062). One ContentControl for both of its in-nav sizes: at
+                         full screen the stage takes nought bands and this fills all six, which is
+                         the whole arrangement. The third placement is the stage, and then this is
+                         collapsed and the notice below takes its place. -->
+                    <ContentControl Content="{Binding MapContent}"
+                                    Visibility="{Binding IsMapVisible, Converter={StaticResource BoolToVis}}" />
+
+                    <!-- Android full screen (ADR-0075): all six bands, the stage collapsed behind it, as
+                         the map's full size is. Its other placement is the stage itself. -->
+                    <ContentControl Content="{Binding AndroidContent}"
+                                    Visibility="{Binding IsAndroidVisible, Converter={StaticResource BoolToVis}}" />
+
+                    <!-- Address search (ADR-0065), covering the map's own region: a WebView2 is a
+                         child window, so a keyboard cannot be drawn over it (ADR-0021). Bound to the
+                         map's view-model, which holds both the search and the way back. -->
+                    <ContentControl Visibility="{Binding IsMapSearchVisible, Converter={StaticResource BoolToVis}}">
+                        <views:MapSearchPanel DataContext="{Binding Map}" />
+                    </ContentControl>
+
+                    <!-- The turn list for a route, covering the map for the same airspace reason. -->
+                    <ContentControl Visibility="{Binding IsMapStepsVisible, Converter={StaticResource BoolToVis}}">
+                        <views:MapStepsPanel DataContext="{Binding Map}" />
+                    </ContentControl>
+
+                    <!-- MAPS tapped while the map is on the stage. The nav's region has to answer
+                         for itself: the placeholder drawn twice would be a lie about where the map
+                         is, and an empty region reads as a destination that broke. -->
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Visibility="{Binding IsMapOnStageNoticeVisible, Converter={StaticResource BoolToVis}}">
+                        <TextBlock HorizontalAlignment="Center"
+                                   FontFamily="{DynamicResource UiFont}"
+                                   FontSize="24"
+                                   Foreground="{DynamicResource TextLowBrush}"
+                                   Text="The map is on the stage" />
+                        <Button Margin="0,18,0,0"
+                                HorizontalAlignment="Center"
                                 Style="{StaticResource OptionChipButton}"
-                                Content="‹ BACK"
-                                Command="{Binding Dashboard.CloseComponentDetailCommand}" />
-                        <TextBlock Margin="18,0,0,0"
-                                   VerticalAlignment="Center"
-                                   Style="{StaticResource StatusText}"
-                                   Text="{Binding Dashboard.ComponentDetailTitle}" />
-                    </DockPanel>
+                                Content="BRING IT BACK"
+                                Command="{Binding Map.BringBackCommand}" />
+                    </StackPanel>
 
-                    <ContentControl Grid.Row="1" Content="{Binding Dashboard.ComponentDetail}" />
+                    <!-- Drawn in the nav because the nav is the destination list (B3), but
+                         nothing is behind them yet. Saying so beats a blank region. -->
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Visibility="{Binding IsDestinationUnbuilt, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{Binding ActiveDestination}"
+                                   HorizontalAlignment="Center"
+                                   FontFamily="{DynamicResource UiFont}"
+                                   FontSize="24"
+                                   Foreground="{DynamicResource TextLowBrush}" />
+                        <TextBlock Margin="0,10,0,0"
+                                   HorizontalAlignment="Center"
+                                   Style="{StaticResource MicroText}"
+                                   Text="not built yet" />
+                    </StackPanel>
+
+                    <!-- The Stereo panel (Q14): DashDeck's own playback on the bottom third. The
+                         panel comes and goes with the destination; the player behind it does not,
+                         so leaving STEREO does not stop the music. -->
+                    <ContentControl Content="{Binding StereoContent}"
+                                    Visibility="{Binding IsStereoVisible, Converter={StaticResource BoolToVis}}" />
+
+                    <!-- The console (ADR-0041): a layout file drawn where the cards used to be, made only
+                         while DASH is chosen. The cards are on the stage now, behind CARDS. -->
+                    <ContentControl Content="{Binding ConsoleContent}"
+                                    Visibility="{Binding IsDashVisible, Converter={StaticResource BoolToVis}}" />
                 </Grid>
-
-                <!-- The climate panel (ADR-0040): a layout file drawn where the cards are,
-                     made only while CLIMATE is chosen. Read only — it shows, never sets. -->
-                <ContentControl Grid.Row="1"
-                                Content="{Binding ClimateContent}"
-                                Visibility="{Binding IsClimateVisible, Converter={StaticResource BoolToVis}}" />
-
-                <!-- The map (ADR-0062). One ContentControl for both of its in-nav sizes: at
-                     full screen the stage takes nought bands and this fills all six, which is
-                     the whole arrangement. The third placement is the stage, and then this is
-                     collapsed and the notice below takes its place. -->
-                <ContentControl Grid.Row="1"
-                                Content="{Binding MapContent}"
-                                Visibility="{Binding IsMapVisible, Converter={StaticResource BoolToVis}}" />
-
-                <!-- Address search (ADR-0065), covering the map's own region: a WebView2 is a
-                     child window, so a keyboard cannot be drawn over it (ADR-0021). Bound to the
-                     map's view-model, which holds both the search and the way back. -->
-                <ContentControl Grid.Row="1"
-                                Visibility="{Binding IsMapSearchVisible, Converter={StaticResource BoolToVis}}">
-                    <views:MapSearchPanel DataContext="{Binding Map}" />
-                </ContentControl>
-
-                <!-- The turn list for a route, covering the map for the same airspace reason. -->
-                <ContentControl Grid.Row="1"
-                                Visibility="{Binding IsMapStepsVisible, Converter={StaticResource BoolToVis}}">
-                    <views:MapStepsPanel DataContext="{Binding Map}" />
-                </ContentControl>
-
-                <!-- MAPS tapped while the map is on the stage. The nav's region has to answer
-                     for itself: the placeholder drawn twice would be a lie about where the map
-                     is, and an empty region reads as a destination that broke. -->
-                <StackPanel Grid.Row="1"
-                            VerticalAlignment="Center" HorizontalAlignment="Center"
-                            Visibility="{Binding IsMapOnStageNoticeVisible, Converter={StaticResource BoolToVis}}">
-                    <TextBlock HorizontalAlignment="Center"
-                               FontFamily="{DynamicResource UiFont}"
-                               FontSize="24"
-                               Foreground="{DynamicResource TextLowBrush}"
-                               Text="The map is on the stage" />
-                    <Button Margin="0,18,0,0"
-                            HorizontalAlignment="Center"
-                            Style="{StaticResource OptionChipButton}"
-                            Content="BRING IT BACK"
-                            Command="{Binding Map.BringBackCommand}" />
-                </StackPanel>
-
-                <!-- Drawn in the nav because the nav is the destination list (B3), but
-                     nothing is behind them yet. Saying so beats a blank region. -->
-                <StackPanel Grid.Row="1"
-                            VerticalAlignment="Center" HorizontalAlignment="Center"
-                            Visibility="{Binding IsDestinationUnbuilt, Converter={StaticResource BoolToVis}}">
-                    <TextBlock Text="{Binding ActiveDestination}"
-                               HorizontalAlignment="Center"
-                               FontFamily="{DynamicResource UiFont}"
-                               FontSize="24"
-                               Foreground="{DynamicResource TextLowBrush}" />
-                    <TextBlock Margin="0,10,0,0"
-                               HorizontalAlignment="Center"
-                               Style="{StaticResource MicroText}"
-                               Text="not built yet" />
-                </StackPanel>
-
-                <!-- The Stereo panel (Q14): DashDeck's own playback on the bottom third. The
-                     panel comes and goes with the destination; the player behind it does not,
-                     so leaving STEREO does not stop the music. -->
-                <ContentControl Grid.Row="1"
-                                Content="{Binding StereoContent}"
-                                Visibility="{Binding IsStereoVisible, Converter={StaticResource BoolToVis}}" />
-
-                <!-- The console (ADR-0041): a layout file drawn where the cards used to be, made only
-                     while DASH is chosen. The cards are on the stage now, behind CARDS. -->
-                <ContentControl Grid.Row="1"
-                                Content="{Binding ConsoleContent}"
-                                Visibility="{Binding IsDashVisible, Converter={StaticResource BoolToVis}}" />
-            </Grid>
+            </shell:StageSplitPanel>
 
             <!-- Navigation. Switches only what sits below the stage (B2/B3): the
                  stage keeps running, so choosing Settings does not stop the music. -->
@@ -674,6 +683,38 @@
                                 </Border>
                                 <ControlTemplate.Triggers>
                                     <DataTrigger Binding="{Binding IsMapsActive}" Value="True">
+                                        <Setter TargetName="Cell" Property="Background" Value="{DynamicResource AccentWashBrush}" />
+                                        <Setter TargetName="Cell" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                        <Setter TargetName="Glyph" Property="Stroke" Value="{DynamicResource SelectedTextBrush}" />
+                                        <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource SelectedTextBrush}" />
+                                    </DataTrigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- ANDROID (ADR-0075). Three presses, so no Command: a tap opens it full screen,
+                         a double tap sends it to the stage, a hold offers Android or Android
+                         Automotive. Lit while it is the destination; on the stage, the stage shows it. -->
+                    <Button Cursor="Hand" Width="130"
+                            shell:NavPress.TapCommand="{Binding AndroidTapCommand}"
+                            shell:NavPress.DoubleTapCommand="{Binding AndroidDoubleTapCommand}"
+                            shell:NavPress.HoldCommand="{Binding AndroidHoldCommand}">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="Cell" Background="Transparent"
+                                        BorderBrush="Transparent" BorderThickness="0,3,0,0">
+                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                        <Path x:Name="Glyph" Data="M5,11 A7,7 0 0 1 19,11 Z M8,6 L6.5,3.5 M16,6 L17.5,3.5 M5,13 H19 V19 A2,2 0 0 1 17,21 H7 A2,2 0 0 1 5,19 Z"
+                                              Stroke="{DynamicResource NavTextBrush}" StrokeThickness="1.75"
+                                              Width="26" Height="26" Stretch="Uniform" HorizontalAlignment="Center" />
+                                        <TextBlock x:Name="Label" Margin="0,7,0,0" HorizontalAlignment="Center"
+                                                   FontFamily="{DynamicResource MonoFont}" FontSize="12"
+                                                   Foreground="{DynamicResource NavTextBrush}" Text="ANDROID" />
+                                    </StackPanel>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsAndroidActive}" Value="True">
                                         <Setter TargetName="Cell" Property="Background" Value="{DynamicResource AccentWashBrush}" />
                                         <Setter TargetName="Cell" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                                         <Setter TargetName="Glyph" Property="Stroke" Value="{DynamicResource SelectedTextBrush}" />
@@ -813,6 +854,74 @@
                                     </Style>
                                 </TextBlock.Style>
                             </TextBlock>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!--
+                The ANDROID cell's hold menu (ADR-0076): the phone, how it is reached, how sharp its
+                picture is, and stop. Modal like the overflow menu, and drawn over Android's picture —
+                which is WPF's own, so nothing has to stand down. Anchored above the nav, where the
+                finger that held the cell already is.
+            -->
+            <Grid Grid.Row="0" Grid.RowSpan="3"
+                  DataContext="{Binding Android}"
+                  Visibility="{Binding IsMenuOpen, Converter={StaticResource BoolToVis}}">
+
+                <Button Background="#C0000000"
+                        BorderThickness="0"
+                        Command="{Binding CloseMenuCommand}">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}" />
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
+                <Border Width="520"
+                        HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                        Margin="0,0,0,124"
+                        Padding="18"
+                        CornerRadius="18"
+                        Background="{DynamicResource SurfaceBrush}"
+                        BorderBrush="{DynamicResource HairlineStrongBrush}"
+                        BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock Margin="4,0,0,12" Style="{StaticResource MicroText}" Text="ANDROID ON THE DASH" />
+
+                        <!-- The phone: what it is and how it is reached. A tap connects again. -->
+                        <Button Style="{StaticResource MenuItemButton}" Margin="0,0,0,10" Command="{Binding ConnectCommand}">
+                            <StackPanel>
+                                <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16" Text="ANDROID PHONE" />
+                                <TextBlock Margin="0,4,0,0" Style="{StaticResource MicroText}" TextWrapping="Wrap" Text="{Binding PhoneLine}" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Over Wi-Fi or the phone's hotspot, switched on once by cable. -->
+                        <Button Style="{StaticResource MenuItemButton}" Margin="0,0,0,10" Command="{Binding GoWirelessCommand}">
+                            <StackPanel>
+                                <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16"
+                                           Foreground="{DynamicResource TextMidBrush}" Text="CONNECT WIRELESSLY" />
+                                <TextBlock Margin="0,4,0,0" Style="{StaticResource MicroText}" TextWrapping="Wrap" Text="{Binding WirelessLine}" />
+                            </StackPanel>
+                        </Button>
+
+                        <Border Height="1" Margin="0,4,0,14" Background="{DynamicResource HairlineStrongBrush}" />
+
+                        <!-- How big a picture the phone sends: sharper, or quicker. Restarts the mirror. -->
+                        <Button Style="{StaticResource MenuItemButton}" Margin="0,0,0,10" Command="{Binding NextPictureCommand}">
+                            <StackPanel>
+                                <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16"
+                                           Foreground="{DynamicResource TextMidBrush}" Text="{Binding PictureLabel}" />
+                                <TextBlock Margin="0,4,0,0" Style="{StaticResource MicroText}" Text="{Binding PictureDetail}" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Gives the phone its own screen back. -->
+                        <Button Style="{StaticResource MenuItemButton}" Margin="0" Command="{Binding StopCommand}">
+                            <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="16"
+                                       Foreground="{DynamicResource TextMidBrush}" Text="STOP ANDROID" />
                         </Button>
                     </StackPanel>
                 </Border>

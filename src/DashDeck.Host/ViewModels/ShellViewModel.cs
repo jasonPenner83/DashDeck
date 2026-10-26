@@ -120,6 +120,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(IsMapVisible))]
     [NotifyPropertyChangedFor(nameof(IsMapSearchVisible))]
     [NotifyPropertyChangedFor(nameof(IsMapOnStageNoticeVisible))]
+    [NotifyPropertyChangedFor(nameof(IsAndroidActive))]
+    [NotifyPropertyChangedFor(nameof(IsAndroidFull))]
+    [NotifyPropertyChangedFor(nameof(IsAndroidVisible))]
     [NotifyPropertyChangedFor(nameof(IsSettingsActive))]
     [NotifyPropertyChangedFor(nameof(IsDestinationUnbuilt))]
     [NotifyPropertyChangedFor(nameof(StageBands))]
@@ -387,6 +390,22 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Map = map;
         Map.PlacementChanged += _ => OnMapMoved();
 
+        // Android on the dash (ADR-0075, ADR-0076): the ANDROID cell, a real phone mirrored with scrcpy.
+        // Built with the map, before anything touches the stage, for the same reason: handing it to
+        // the stage goes through SetStage, and AfterStageChange reconciles its placement.
+        Shell.StartupTrace.Phase("shell: android");
+        Android = new AndroidViewModel(
+            clock,
+            new AndroidFeeds(
+                () => _theme.IsNight,
+                saved.AndroidPicture,
+                picture => SettingsStore.Update(stored => stored with { AndroidPicture = picture }),
+                string.IsNullOrWhiteSpace(saved.AndroidScrcpy) ? null : saved.AndroidScrcpy,
+                saved.AndroidPhoneAddress,
+                address => SettingsStore.Update(stored => stored with { AndroidPhoneAddress = address })));
+        Android.PlacementChanged += _ => OnAndroidMoved();
+        Android.ShowRequested += () => AndroidTap();
+
         // The map is drawn by a browser that has never heard of the theme's resources, so it is
         // handed the palette instead — once now, and again whenever one is applied (ADR-0064).
         // A theme worn, an accent picked or dusk falling all restyle a map already on screen.
@@ -500,6 +519,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
                 OnPropertyChanged(nameof(IsMapVisible));
                 OnPropertyChanged(nameof(IsMapSearchVisible));
                 OnPropertyChanged(nameof(IsMapOnStageNoticeVisible));
+                OnPropertyChanged(nameof(IsAndroidVisible));
                 OnPropertyChanged(nameof(IsFullScreenOpen));
                 OnPropertyChanged(nameof(IsDashEditing));
                 OnPropertyChanged(nameof(IsNavVisible));
@@ -592,6 +612,8 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public bool IsClimateActive => ActiveDestination == "CLIMATE";
 
     public bool IsMapsActive => ActiveDestination == "MAPS";
+
+    public bool IsAndroidActive => ActiveDestination == "ANDROID";
 
     public bool IsSettingsActive => ActiveDestination == "SETTINGS";
 
@@ -686,6 +708,94 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public bool IsMapOnStageNoticeVisible =>
         IsMapsActive && Map.IsOnStage && !IsCardEditorOpen && !IsComponentDetailOpen;
 
+    /// <summary>
+    /// Android on the dash (ADR-0075, ADR-0076): a phone, full screen from the nav's ANDROID cell, or on the stage.
+    /// </summary>
+    public AndroidViewModel Android { get; }
+
+    /// <summary>Android's full-screen panel, or null whenever it is not the destination or is on the stage.</summary>
+    [ObservableProperty]
+    private FrameworkElement? _androidContent;
+
+    /// <summary>True when Android has taken all six bands.</summary>
+    public bool IsAndroidFull => IsAndroidActive && !Android.IsOnStage;
+
+    /// <summary>Whether Android is drawing full screen below the status strip.</summary>
+    public bool IsAndroidVisible => IsAndroidFull && !IsCardEditorOpen && !IsComponentDetailOpen;
+
+    /// <summary>Where the nav was before ANDROID, to go back to when Android is sent to the stage.</summary>
+    private string _beforeAndroid = "DASH";
+
+    private StageOptionViewModel? _androidStageOption;
+
+    /// <summary>Android as a stage option — not in the picker; reached by double-tapping its cell.</summary>
+    private StageOptionViewModel AndroidStageOption => _androidStageOption ??= new StageOptionViewModel(
+        new StageOption(
+            "ANDROID",
+            "Android, on the stage",
+            () => new AndroidStageOccupant(Android, AndroidTap)));
+
+    /// <summary>
+    /// A tap on ANDROID: open it full screen — from anywhere, including off the stage — and start it.
+    /// </summary>
+    [RelayCommand]
+    private void AndroidTap()
+    {
+        if (!IsAndroidActive)
+        {
+            _beforeAndroid = ActiveDestination is "SETTINGS" or "ANDROID" ? "DASH" : ActiveDestination;
+            ActiveDestination = "ANDROID";
+        }
+
+        Android.Tap();
+        SyncPanels();
+    }
+
+    /// <summary>
+    /// A double tap: Android onto the stage, and the nav back where it was, so the dash shows below it.
+    /// </summary>
+    [RelayCommand]
+    private void AndroidDoubleTap()
+    {
+        Android.DoubleTap();
+
+        if (IsAndroidActive)
+        {
+            ActiveDestination = _beforeAndroid;
+        }
+    }
+
+    /// <summary>A hold: the phone's menu — how it is reached, its picture size, stop.</summary>
+    [RelayCommand]
+    private void AndroidHold() => Android.OpenMenu();
+
+    /// <summary>Follow Android to wherever it has just moved — as <see cref="OnMapMoved"/> does for the map.</summary>
+    private void OnAndroidMoved()
+    {
+        if (Android.IsOnStage)
+        {
+            SetStage(AndroidStageOption);
+        }
+        else if (ReferenceEquals(_screenOption, AndroidStageOption))
+        {
+            DisposeScreen();
+            AfterStageChange();
+        }
+
+        SyncPanels();
+
+        OnPropertyChanged(nameof(IsAndroidFull));
+        OnPropertyChanged(nameof(IsAndroidVisible));
+        OnPropertyChanged(nameof(IsFullScreenOpen));
+        OnPropertyChanged(nameof(StageBands));
+        OnPropertyChanged(nameof(WidgetBands));
+        OnPropertyChanged(nameof(IsOccupantVisible));
+        OnPropertyChanged(nameof(IsSourceVisible));
+        OnPropertyChanged(nameof(StageRunningButHidden));
+        OnPropertyChanged(nameof(HiddenOccupantName));
+        SyncWidgetBands();
+    }
+
     private StageOptionViewModel? _mapStageOption;
 
     /// <summary>
@@ -760,7 +870,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     {
         if (IsClimateActive && ClimateContent is null)
         {
-            ClimateContent = new StageLayoutView(_theme.ClimateLayouts, _vehicle.Signals, _clock, Sensors);
+            ClimateContent = new StageLayoutView(IsLandscape ? _theme.ClimateColumnLayouts : _theme.ClimateLayouts, _vehicle.Signals, _clock, Sensors);
         }
         else if (!IsClimateActive && ClimateContent is StageLayoutView climate)
         {
@@ -770,7 +880,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         if (IsDashActive && ConsoleContent is null)
         {
-            ConsoleContent = new StageLayoutView(_theme.ConsoleLayouts, _vehicle.Signals, _clock, Sensors);
+            ConsoleContent = new StageLayoutView(IsLandscape ? _theme.ConsoleColumnLayouts : _theme.ConsoleLayouts, _vehicle.Signals, _clock, Sensors);
         }
         else if (!IsDashActive && ConsoleContent is StageLayoutView console)
         {
@@ -793,6 +903,17 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             MapContent = null;
             (map as IDisposable)?.Dispose();
         }
+
+        // Android full screen, whenever it is the destination and not on the stage. Dropping the
+        // panel stops its frames; the emulator itself keeps running (ADR-0075).
+        if (IsAndroidFull && AndroidContent is null)
+        {
+            AndroidContent = new Views.AndroidPanel { DataContext = Android };
+        }
+        else if (!IsAndroidFull && AndroidContent is not null)
+        {
+            AndroidContent = null;
+        }
     }
 
     /// <summary>What the console is showing, for <c>--shot</c>, or null when it is not open.</summary>
@@ -806,6 +927,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// nowhere. Worth having precisely because a placement is not visible in one picture.
     /// </summary>
     public string? DescribeMap() => IsMapsActive || Map.IsOnStage ? Map.Describe() : null;
+
+    /// <summary>What Android is doing and where, for <c>--shot</c> — or null when it is nowhere (ADR-0075).</summary>
+    public string? DescribeAndroid() => IsAndroidActive || Android.IsOnStage ? Android.Describe() : null;
 
     /// <summary>
     /// Switch what sits below the stage.
@@ -1017,7 +1141,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// bands, the stage keeps running underneath, and the nav stays on top so there is always
     /// a way back out.
     /// </remarks>
-    public bool IsFullScreenOpen => IsSettingsActive || IsCardEditorOpen || IsComponentDetailOpen || IsMapFull;
+    public bool IsFullScreenOpen => IsSettingsActive || IsCardEditorOpen || IsComponentDetailOpen || IsMapFull || IsAndroidFull;
 
     /// <summary>
     /// Whether the cards are showing.
@@ -1127,6 +1251,45 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     public int WidgetBands => BandGrid.BandCount - StageBands;
 
     /// <summary>
+    /// The tablet is on its side (ADR-0077): the stage keeps its width and the region goes beside it
+    /// as a column. Set by the window from the screen's shape; nothing to choose.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DesignWidth))]
+    [NotifyPropertyChangedFor(nameof(DesignHeight))]
+    private bool _isLandscape;
+
+    /// <summary>The design surface's width: 912 upright, 1368 on its side.</summary>
+    public double DesignWidth => IsLandscape ? BandGrid.DesignHeight : BandGrid.DesignWidth;
+
+    /// <summary>The design surface's height: 1368 upright, 912 on its side.</summary>
+    public double DesignHeight => IsLandscape ? BandGrid.DesignWidth : BandGrid.DesignHeight;
+
+    /// <summary>
+    /// Turned: the cards re-pack to the shorter stage, and the console and climate panels are made
+    /// again from their column layouts — a 912-wide panel squeezed into a 456 column would be
+    /// half-size type.
+    /// </summary>
+    partial void OnIsLandscapeChanged(bool value)
+    {
+        SyncWidgetBands();
+
+        if (ClimateContent is StageLayoutView climate)
+        {
+            ClimateContent = null;
+            climate.Dispose();
+        }
+
+        if (ConsoleContent is StageLayoutView console)
+        {
+            ConsoleContent = null;
+            console.Dispose();
+        }
+
+        SyncPanels();
+    }
+
+    /// <summary>
     /// Tell the dashboard how much room it has.
     /// </summary>
     /// <remarks>
@@ -1137,10 +1300,11 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     /// </remarks>
     private void SyncWidgetBands()
     {
-        // The cards are on the stage (ADR-0041), whose picture does not change size.
+        // The cards are on the stage (ADR-0041), whose picture changes size only when the tablet
+        // turns: five rows upright, four on its side (ADR-0077).
         if (!IsCardEditorOpen)
         {
-            Dashboard.RegionHeight = BandGrid.StageOccupantHeight;
+            Dashboard.RegionHeight = BandGrid.StageOccupantHeightFor(IsLandscape);
         }
     }
 
@@ -1399,6 +1563,13 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
             Map.BringBackCommand.Execute(null);
         }
 
+        // Android the same way: replaced on the stage, it goes back to full screen — quietly, without
+        // taking the nav there. It keeps running (ADR-0075).
+        if (Android.IsOnStage && !ReferenceEquals(_screenOption, AndroidStageOption))
+        {
+            Android.LeftTheStage();
+        }
+
         // A new occupant can claim a different number of bands, which changes how many rows of
         // cards fit and therefore how they page.
         SyncWidgetBands();
@@ -1494,6 +1665,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         (ConsoleContent as IDisposable)?.Dispose();
         (MapContent as IDisposable)?.Dispose();
 
+        // Android is asked to shut down and left to finish, so its snapshot is saved (ADR-0075).
+        Android.Dispose();
+
         // Last, so the backlight is given back once nothing else is left to wait on.
         _brightness.Dispose();
 
@@ -1508,6 +1682,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         // The warning lights look on the same beat (ADR-0055).
         Warnings.Refresh();
+
+        // Android gets the truck's newest position, and its frames picked back up if they dropped.
+        Android.Beat();
 
         // IClock, never DateTimeOffset.Now — the convention holds in the UI too, so a
         // replayed drive shows the time the drive happened rather than the time you watched it.

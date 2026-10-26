@@ -1385,6 +1385,86 @@ more than 30 s; a picture that is stretched or tapped in the wrong place (send a
 stuttering or seconds late; the picture freezing (RECONNECT from the three-dot menu, and tell me
 when it happened).
 
+## The Android Emulator — removed 2026-10-22
+
+The three walkthroughs that were here are gone with the feature: the AndroidProbe measurements, the
+emulated ANDROID and ANDROID AUTOMOTIVE, and Automotive's car data. **Why, in one paragraph, so the
+next person does not rebuild it by accident.** The emulator ran on the Surface and was tuned as far
+as it would go: the GPU on, host composition off, Windows' throttling opted out of, the cores and the
+picture size tuned. Even then it measured 16 frames a second, 9 drawn, with the processor over 85 %
+and the GPU idle, because the tablet both ran Android and copied every frame. A real phone mirrored
+with scrcpy did the same job smoothly. ADR-0075 and its addenda keep the numbers; ADR-0076 is what
+replaced it.
+
+## Android on the dash — a real phone, mirrored (ADR-0076)
+
+**You need:**
+- the Surface with this build, and scrcpy installed (`winget install Genymobile.scrcpy`, or its zip
+  unzipped somewhere: Downloads is fine);
+- the phone with **USB debugging** on (Settings ▸ About phone ▸ tap Build number 7 times, then
+  Settings ▸ System ▸ Developer options ▸ USB debugging), and a USB cable for the first time;
+- the phone **unlocked** the first time, to tap **Allow** on its prompt (tick *Always allow from this
+  computer*);
+- **no other scrcpy window running**: the dash runs scrcpy's server itself.
+
+### By cable
+
+1. Plug the phone in. Start DashDeck. **Hold** ANDROID. **Expect:** the menu, *ANDROID ON THE DASH*,
+   with:
+   - **ANDROID PHONE**, and under it after a second *Pixel 8 · connected by USB*. *tap Allow on the
+     phone* means the prompt is waiting; *No phone* means ADB cannot see it;
+   - **CONNECT WIRELESSLY**;
+   - **PICTURE: BALANCED**;
+   - **STOP ANDROID**.
+2. Tap **ANDROID PHONE**. **Expect:**
+   - *STARTING ANDROID PHONE*, then the phone's home screen in the dash, full screen and filling it;
+   - the phone's own screen goes dark (it is mirrored, not off);
+   - for a moment the phone lays itself out again, as a tablet the shape of the region.
+3. Scroll, open apps, type. **Expect:** smooth, following your finger. Hold ANDROID and note *busiest
+   second: N frames* on the phone's line after a scroll.
+4. Tap **Back**, **Home** and the square on the key bar. **Expect:** each does what it says.
+5. Double-tap ANDROID. **Expect:** on the stage the phone lays itself out wide and fills the stage
+   beside the key bar.
+6. **PICTURE** goes round SHARP → BALANCED → FAST, restarting the mirror. **Expect:** SHARP the
+   crispest, FAST the lightest on the tablet.
+7. At night (or Settings ▸ DISPLAY), **expect** the phone's dark theme.
+
+### Wirelessly — at home, then in the truck
+
+8. With the phone plugged in and mirrored, hold ANDROID and tap **CONNECT WIRELESSLY**. **Expect:**
+   - the mirror restarts (ADB on the phone restarts to listen on the network);
+   - the phone's line then says *connected by USB* (cable first while both work);
+   - CONNECT WIRELESSLY says *Remembered at 192.168.x.x:5555*.
+9. **Unplug the phone.** **Expect:** the picture stops, *ANDROID PHONE STOPPED … trying again in ten
+   seconds*, then the phone again, now *connected over Wi-Fi*. Everything above still works.
+10. **In the truck:** turn on the phone's hotspot and join it from the Surface. Tap ANDROID.
+    **Expect:** the phone found over the hotspot (the tablet's gateway is the phone) and mirrored, with
+    no cable.
+11. Walk the phone out of Wi-Fi range, then back. **Expect:** the picture stops; the phone's own
+    screen comes back to its normal size within about fifteen seconds (the watchdog on the phone);
+    and the mirror returns by itself when it is back in range, while ANDROID is showing.
+12. **Restart the phone**, then tap ANDROID. **Expect:** *not found … over the network*. That is
+    expected: ADB over the network does not survive a restart. Plug in once and tap CONNECT
+    WIRELESSLY again.
+
+### Giving the phone back
+
+13. Hold ANDROID ▸ **STOP ANDROID**. **Expect:**
+    - the phone's own screen back on, at its own size and density, laid out as a phone again;
+    - `adb shell wm size` says *Physical size* with no *Override size*.
+14. Start it again, then close DashDeck. **Expect:** the same.
+
+**A failure looks like:**
+- *SCRCPY NOT FOUND* with scrcpy installed: put its folder in the settings file as
+  `"androidScrcpy": "C:\\path\\to\\scrcpy-win64-vX"`.
+- *ANDROID PHONE STOPPED* with *scrcpy's server stopped: …*. Send the reason. A version mismatch means
+  two scrcpy installs.
+- CONNECT WIRELESSLY saying *Not connected: …*. Send the reason. The phone and the tablet must be on
+  the same network, or the tablet on the phone's hotspot.
+- The phone left at the odd size more than a minute after the mirror dropped:
+  `adb shell wm size reset` and `adb shell wm density reset`, and note how the mirror ended.
+- The picture frozen, black or blocky. Note the phone's line.
+
 ## The audio delay and the video sync offset — parked 2026-10-15
 
 Both walkthroughs that were here are gone with the feature. The delay measurement, the
@@ -2005,6 +2085,40 @@ on to see whether the two fight.
 **A failure looks like:** the box saying *Windows refused to set the backlight*, or the level
 changing and then jumping back on its own with automatic brightness off. Send the box's line and
 whether automatic brightness was on.
+
+## The tablet on its side (ADR-0077)
+
+**Added 2026-10-23; tried on the Surface 2026-10-26 and looked good.** The split and the shape rule
+are tested; these steps are for checking it again after a change. All of it works at a desk.
+
+**You need:** the Surface with rotation lock **off** (Action Center ▸ Rotation lock). At a desk on a
+monitor, `--landscape` and `--portrait` force either shape.
+
+1. **Launch DashDeck upright.** **Expect** the dash exactly as before: stage on top, DASH's console
+   in the two bands below, nav along the bottom.
+2. **Turn the tablet on its side.** **Expect** within a second or two: the status strip and the nav
+   across the full width, the stage on the left at its full width, and the console as a **column on
+   the right** — speed at the top, engine and fuel down the left, range and economy down the right,
+   warning lights, gear and 4WD, the odometer at the foot. **No black bars.**
+   **A failure looks like:** the upright dash shrunk between black bars (the shape was not noticed),
+   or the dash flipping back and forth while you hold it at an angle.
+3. **CARDS on the stage.** **Expect** four rows of cards instead of five, the same size as upright.
+   Swipe between pages: **expect** them to turn as they do upright.
+4. **CLIMATE.** **Expect** the climate panel as a column: both temperatures across the top, the
+   seats beneath, the fan, airflow and cabin in the middle, the switches in two rows.
+5. **MAPS.** **Expect** the map in the column beside the stage. Press MAPS again for full size:
+   **expect** it across the whole width, the stage hidden behind it. Press once more to come back.
+6. **Settings.** **Expect** it across the whole width, the tab rail on the left with all ten tabs
+   showing (ABOUT at the bottom). Open **Settings ▸ Themes**, choose **Glass** for the console, go to
+   DASH: **expect** Modern's column, because Glass has no column yet. That is right for now.
+7. **Edit a card** (hold a card on CARDS). **Expect** the editor across the width, scrolling down to
+   reach its foot.
+8. **Android on the stage, then turn upright again.** **Expect** the phone's picture to re-fit to
+   the stage without restarting, and the console back across the two bands.
+9. **Video or the phone on the stage while you turn it.** **Expect** it to keep playing.
+
+**Tell me:** whether the column reads well from the driver's seat, and whether you would rather the
+stage were narrower to give the column more room.
 
 ## When the dash will not open
 

@@ -70,6 +70,15 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
     /// <summary>Which console layout DASH shows: the theme's, or one chosen (ADR-0041).</summary>
     public Stage.Gauges.StageLayoutService ConsoleLayouts { get; }
 
+    /// <summary>
+    /// The console as a column beside the stage, with the tablet on its side (ADR-0077): the one
+    /// with the same name as the console showing, or the built-in Modern column.
+    /// </summary>
+    public Stage.Gauges.StageLayoutService ConsoleColumnLayouts { get; }
+
+    /// <summary>The climate panel as a column beside the stage (ADR-0077), following the climate panel.</summary>
+    public Stage.Gauges.StageLayoutService ClimateColumnLayouts { get; }
+
     partial void OnCurrentChanged(ThemeDefinition value)
     {
         Layouts?.ThemeChanged();
@@ -149,11 +158,20 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
             stored.ConsoleLayout,
             choice => SettingsStore.Update(s => s with { ConsoleLayout = choice }));
 
+        // On its side the console and climate panel are columns (ADR-0077), and a column is a layout
+        // of its own: a 912-wide panel squeezed into 456 would be half-size type. Each follows its
+        // panel by name — Glass beside Glass — so there is no second choice to make, and falls back
+        // to its built-in Modern column when that panel has no column of the same name.
+        ConsoleColumnLayouts = Column(ConsoleLayouts, "console-column", Stage.Gauges.LayoutCanvas.ConsoleColumn, Stage.Gauges.StageLayout.ConsoleColumnBuiltIns);
+        ClimateColumnLayouts = Column(ClimateLayouts, "climate-column", Stage.Gauges.LayoutCanvas.ClimateColumn, Stage.Gauges.StageLayout.ClimateColumnBuiltIns);
+
         // The shipped themes and layouts as files beside yours, to read and copy from.
         Library.WriteExamples();
         Layouts.Library.WriteExamples();
         ClimateLayouts.Library.WriteExamples();
         ConsoleLayouts.Library.WriteExamples();
+        ConsoleColumnLayouts.Library.WriteExamples();
+        ClimateColumnLayouts.Library.WriteExamples();
 
         // Re-checked on load, not just on entry. A stored colour was validated against the
         // quality palette of whatever build wrote it; if a later build moves one of those
@@ -168,6 +186,23 @@ public sealed partial class ThemeService : ObservableObject, ViewModels.IThemeHo
         _loaded = true;
 
         Apply();
+    }
+
+    /// <summary>
+    /// A column layout service that follows <paramref name="panel"/>: it shows the column with the
+    /// same file name as the panel's current layout, and is read again whenever the panel changes —
+    /// a new choice, a new theme, or RELOAD.
+    /// </summary>
+    private static Stage.Gauges.StageLayoutService Column(
+        Stage.Gauges.StageLayoutService panel, string folder, Stage.Gauges.LayoutCanvas canvas, IReadOnlyList<Stage.Gauges.StageLayout> builtIns)
+    {
+        var column = new Stage.Gauges.StageLayoutService(
+            new Stage.Gauges.StageLayoutLibrary(CatalogPath.FindFolder(folder), JsonFile.InLocalAppData(folder), canvas, builtIns),
+            () => panel.Current.Slug,
+            Stage.Gauges.StageLayoutService.FollowTheme);
+
+        panel.LayoutChanged += (_, _) => column.Reload();
+        return column;
     }
 
     /// <summary>

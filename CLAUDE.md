@@ -653,6 +653,39 @@ truck's audio. No dongle: the screen says why and looks again every 5 s; `--synt
 desk. **Android Auto always needs the phone**; Android Automotive is a separate experiment (Q26), and
 the Pi Zero 2 W stays giving SYNC 3 wireless Android Auto. Setup: [`docs/phone-projection.md`](docs/phone-projection.md).
 
+**Android on the dash** (ADR-0076, **proposed**; ADR-0075's emulator **removed** — measured at 16 frames in /
+9 drawn / CPU 85 % on the Surface, don't rebuild it without new reasons) is the **ANDROID** nav cell mirroring a
+**real phone** with the owner's own **scrcpy** (never shipped): tap for full screen (`IsAndroidFull`), double
+tap for the stage (`AndroidStageOccupant`), hold for the menu — ANDROID PHONE (connect), CONNECT WIRELESSLY,
+PICTURE (SHARP/BALANCED/FAST = 1920/1440/960 long side, `androidPicture`), STOP. Gestures `Shell/NavPress` +
+Core's `PressGesture`; placement `AndroidView`. `src/DashDeck.Phone`: `ScrcpyInstall.Find` (setting
+`androidScrcpy`, PATH, winget/scoop/choco, unzipped folders; version from `scrcpy --version`), `PhoneSession`
+(push `scrcpy-server`, forward tunnel, server started with the **installed version** — the protocol is
+internal and version-specific: check `doc/develop.md` at that tag before touching it; video socket opens with a
+dummy byte, then control), `PhoneFinder` (wireless). Core `DashDeck.Core.Phone`: `ScrcpyVideo` (<4.0: size once,
+then from each SPS via `H264Sps`; ≥4.0: session packets), `ScrcpyControl` (touch/key/display power/reset bytes,
+same in all versions, checked against scrcpy's tests), `AdbDevice`, `AndroidFit` (region shape, one dp = one
+dash unit, `wm size`/`wm density`, no turn, no crop — scrcpy mirrors the logical display), `PhoneShell` (night
+via `cmd uimode`, put-back, the **watchdog** left on the phone that resets wm size if the mirror ends
+unannounced — bracketed pgrep pattern, `setsid`), `AndroidPicture`, `RollingRate`. Video decoded by ADR-0057's
+`ProjectionVideo` (LibVLC); dropped while hidden, `Reset` asked when shown. **Wireless** = `adb tcpip 5555`
+switched on once by cable, address remembered (`androidPhoneAddress`), and the tablet's gateways tried (on the
+phone's hotspot the gateway is the phone); not Android 11 Wireless debugging (off while the phone is the
+hotspot); forgotten when the phone restarts. One ADB: scrcpy's. A dropped mirror is retried every 10 s while
+shown. No audio yet (scrcpy forwards from Android 11 — next, with ducking); no driving lock on a phone. Checked
+in the cloud only against a fake adb + fake scrcpy server in the scratchpad (not kept).
+
+**Landscape** (ADR-0077, accepted — tried on the Surface): on its side the surface is **1368 × 912**,
+drawn 1:1 — status 90 and nav 108 stretched across, a **714** body. The stage keeps its **912 width** (occupant
+912 × 570, cards four rows: `BandGrid.StageOccupantHeightFor`) and the region is a **456 × 714 column** beside
+it; full-screen views take the whole body. Split = Core `ScreenShape.Split`, arranged by `Shell/StageSplitPanel`
+(stage first child, region second); shape = `ScreenShape.IsLandscape` from the work area with 10 % hysteresis,
+set on `ShellViewModel.IsLandscape` by `MainWindow.ApplyShape`; `--portrait`/`--landscape` force it. Console and
+climate have **column layouts** (`LayoutCanvas.ConsoleColumn`/`ClimateColumn`, built-in Modern columns with the
+same elements re-placed — a test checks it), services `ThemeService.ConsoleColumnLayouts`/`ClimateColumnLayouts`
+that follow their panel **by slug** (no setting, no persist) and reload when it changes; turning rebuilds those
+panels, never the stage occupant. Glass/LCARS have no columns yet (fall back to Modern's). Upright is unchanged.
+
 ## Things that are easy to get wrong here
 
 1. **The truck is not always attached.** The adapter is real now, but the tablet is carried in
@@ -714,7 +747,8 @@ contract changes), and each component. Host `v1.4.0` serving `apiVersion 1.0` is
 
 - **Stack:** .NET 10, C#, WPF (ADR-0001). Custom design system over WPF's Fluent theme.
 - **Portrait-first.** Primary navigation lives in the bottom third — the only band
-  reachable from the driver's seat.
+  reachable from the driver's seat. Landscape (ADR-0077) must keep working too: anything new in
+  the region has to fit a 456 × 714 column as well as 912 × 390.
 - **Layering is strict.** Transport → adapter → catalog → arbiter → state bus → services →
   component host → shell. No layer reaches past its neighbour.
 - **`DashDeck.Abstractions` stays small, stable and dependency-free.** It is the only

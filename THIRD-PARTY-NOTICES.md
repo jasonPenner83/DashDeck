@@ -17,6 +17,14 @@ again whenever a `PackageReference` is added.
 | .NET runtime (self-contained publish) | Everything | MIT |
 | [MapLibre GL JS](https://github.com/maplibre/maplibre-gl-js) 6.12.0 — `src/DashDeck.Host/Map/web/lib/`, deployed as `map/lib/` | The map renderer (ADR-0063) | BSD-3-Clause — text in `map/lib/LICENSE-maplibre-gl.txt`, shipped beside it |
 
+### Android on the dash (ADR-0076)
+
+The ANDROID cell's phone uses the person's own install of
+[scrcpy](https://github.com/Genymobile/scrcpy) (Apache-2.0, Genymobile and Romain Vimont): DashDeck
+pushes that install's `scrcpy-server` to the phone and speaks its protocol, as scrcpy's own client
+does. **No part of scrcpy is shipped or downloaded by DashDeck.** The H.264 it sends is decoded by the
+LibVLC already listed above.
+
 ### Fonts
 
 | Font | Used by | License |

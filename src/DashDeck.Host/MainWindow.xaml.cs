@@ -3,6 +3,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
+using DashDeck.Core.Screen;
+using DashDeck.Host.ViewModels;
 using Microsoft.Win32;
 
 namespace DashDeck.Host;
@@ -17,7 +19,8 @@ namespace DashDeck.Host;
 /// <para>
 /// Sizing is left entirely to the window manager. The shell is authored at exactly the
 /// Pro 7's 912 × 1368 portrait size and a <c>Viewbox</c> fits that to whatever the window
-/// turns out to be — 1:1 on the tablet in portrait, letterboxed on a landscape dev screen.
+/// turns out to be — 1:1 on the tablet in portrait. On its side the surface turns too, to
+/// 1368 × 912 with the region beside the stage (ADR-0077), so landscape is 1:1 as well.
 /// Computing the size by hand was tried and removed: mixing <c>SystemParameters.WorkArea</c>
 /// with per-monitor DPI produced a window larger than the screen.
 /// </para>
@@ -28,6 +31,9 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         FillWorkArea();
+
+        // The view-model arrives after the constructor, so the shape is settled again then.
+        DataContextChanged += (_, _) => ApplyShape();
 
         // The tablet gets rotated — that is the entire point of a portrait dash carried in
         // and out of a truck. Rotating changes the work area but not the window, so without
@@ -57,6 +63,38 @@ public partial class MainWindow : Window
         Top = area.Top;
         Width = area.Width;
         Height = area.Height;
+
+        ApplyShape();
+    }
+
+    /// <summary>
+    /// The shape to draw whatever the screen is — <c>--portrait</c> or <c>--landscape</c>, so either
+    /// can be seen (and <c>--shot</c>) on a desk monitor. Null follows the screen.
+    /// </summary>
+    public bool? ForcedLandscape
+    {
+        get => _forcedLandscape;
+        set
+        {
+            _forcedLandscape = value;
+            ApplyShape();
+        }
+    }
+
+    private bool? _forcedLandscape;
+
+    /// <summary>
+    /// Upright or on its side, from the work area's shape (ADR-0077). Automatic, with nothing to
+    /// set: the tablet in the truck is upright and the tablet on the desk is often not, and the dash
+    /// should look right in both without a trip to Settings.
+    /// </summary>
+    private void ApplyShape()
+    {
+        if (DataContext is ShellViewModel shell)
+        {
+            var area = SystemParameters.WorkArea;
+            shell.IsLandscape = ForcedLandscape ?? ScreenShape.IsLandscape(area.Width, area.Height, shell.IsLandscape);
+        }
     }
 
     /// <summary>
@@ -79,7 +117,8 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Render the design surface to a PNG at its true 912 × 1368, whatever the window size.
+    /// Render the design surface to a PNG at its true size — 912 × 1368, or 1368 × 912 on its side —
+    /// whatever the window size.
     /// </summary>
     /// <remarks>
     /// A development affordance, not a product feature. Screen-grabbing the shell means
@@ -90,6 +129,8 @@ public partial class MainWindow : Window
     /// </remarks>
     public void SaveDesignSurface(string path)
     {
+        DesignSurface.UpdateLayout();
+
         var bitmap = new RenderTargetBitmap(
             (int)DesignSurface.Width,
             (int)DesignSurface.Height,

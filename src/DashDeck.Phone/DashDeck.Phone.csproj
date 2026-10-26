@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\DashDeck.Core\DashDeck.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    A real phone on the stage, mirrored with the owner's own scrcpy (ADR-0076): ADB, scrcpy's server
+    and its sockets. No packages: scrcpy's protocol is a handful of bytes, read and written here.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="DashDeck.Tests" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>DashDeck.Phone</RootNamespace>
+  </PropertyGroup>
+
+</Project>
