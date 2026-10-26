@@ -138,6 +138,16 @@ public sealed class StageLayoutLibrary
                 Write("README.txt", ClimateReadme);
                 Write("modern.json", ClimateHeader + StageLayout.BuiltInClimateJson + Environment.NewLine);
             }
+            else if (Canvas == LayoutCanvas.ConsoleColumn)
+            {
+                Write("README.txt", ColumnReadme("console", "console", "CONSOLE LAYOUT"));
+                Write("modern.json", ColumnHeader("console", "console-column") + StageLayout.BuiltInConsoleColumnJson + Environment.NewLine);
+            }
+            else if (Canvas == LayoutCanvas.ClimateColumn)
+            {
+                Write("README.txt", ColumnReadme("climate panel", "climate", "CLIMATE LAYOUT"));
+                Write("modern.json", ColumnHeader("climate panel", "climate-column") + StageLayout.BuiltInClimateColumnJson + Environment.NewLine);
+            }
             else
             {
                 Write("README.txt", ExamplesReadme);
@@ -197,6 +207,35 @@ public sealed class StageLayoutLibrary
         Warning lights for oil pressure, seatbelt, door, brake and tyres are placeholders until
         the truck's own are found: on the truck they stay dark with a grey dot. Check engine, low
         fuel, engine temperature and battery are real.
+
+        """;
+
+    private static string ColumnHeader(string panel, string folder) => $"""
+        // The built-in {panel} column, Modern, written out as a reference (ADR-0077): what shows
+        // beside the stage with the tablet on its side. DashDeck draws it from code, so this copy is
+        // only for reading — it is put back at the next launch. To make your own: copy it up one
+        // folder (into {folder}\). A column follows the {panel} by name: modern.json shows beside
+        // Modern, glass.json beside Glass, and Modern's column stands in for any that has none.
+        // The canvas is 456 × 714. Every field is explained in docs/writing-a-stage-layout.md.
+
+        """;
+
+    private static string ColumnReadme(string panel, string upright, string setting) => $"""
+        DashDeck {panel} column examples
+        ================================
+
+        With the tablet on its side the {panel} goes in a column beside the stage (ADR-0077),
+        drawn from a layout file like the upright one (docs/writing-a-stage-layout.md) on a
+        canvas 456 wide and 714 tall.
+
+          modern.json         the built-in Modern column
+
+        There is nothing to choose here: a column follows Settings > Themes > {setting} by file
+        name. Choose Glass there and a glass.json in this folder shows beside the stage; with no
+        column of that name, Modern's does. Copy one up a folder into  ...\DashDeck\{upright}-column\
+        and keep or change its name to match the {panel} layout it goes with.
+
+        These are NOT loaded from this folder, and they are rewritten every time DashDeck starts.
 
         """;
 
