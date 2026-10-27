@@ -87,6 +87,16 @@ public sealed class UserSignalStore
     }
 
     /// <summary>
+    /// Replace the whole file at once — for moving signals into a database (ADR-0078), where every
+    /// moved entry changes together or none does.
+    /// </summary>
+    public void ReplaceAll(IReadOnlyList<SignalDefinition> definitions)
+    {
+        ArgumentNullException.ThrowIfNull(definitions);
+        Write([.. definitions]);
+    }
+
+    /// <summary>
     /// Where the person's own CAN databases are for this file: <c>dbc\</c> beside it, which for the
     /// real file is <c>%LOCALAPPDATA%\DashDeck\dbc\</c> (ADR-0074).
     /// </summary>

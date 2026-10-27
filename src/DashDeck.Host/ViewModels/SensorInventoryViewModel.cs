@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using DashDeck.Abstractions;
 using DashDeck.Core;
 using DashDeck.Core.Catalog;
+using DashDeck.Core.Dbc;
 using DashDeck.Core.Discovery;
 using DashDeck.Host.Sensors;
 using DashDeck.Host.Settings;
@@ -205,6 +206,7 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
     private readonly UserSignalStore _store;
     private readonly SensorService? _sensors;
     private readonly Action? _restart;
+    private readonly IClock _clock;
     private readonly IReadOnlyList<SignalDefinition> _loadedOverlay;
     private List<SignalRowViewModel> _rows = [];
 
@@ -221,6 +223,7 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
         _store = store;
         _sensors = sensors;
         _restart = restart;
+        _clock = clock ?? SystemClock.Instance;
 
         // What the pipeline was started with — the yardstick for "needs a restart". Taken from
         // the running catalog rather than the file, so a dropped overlay reads as pending too.
@@ -235,7 +238,12 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
         // another minute parked to see what the truck already said.
         Modules = new ModuleDiscoveryViewModel(vehicle, DefineDiscovered, discovery, clock, openFolder);
 
-        store.Changed += (_, _) => Rebuild();
+        store.Changed += (_, _) =>
+        {
+            // A plan made before the file changed would write over the change.
+            PlannedMove = null;
+            Rebuild();
+        };
         Rebuild();
     }
 
@@ -558,6 +566,93 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
                 _store.Remove(id);
                 CloseEditorIfSaved();
             });
+
+    // ── Keep in a database (ADR-0078) ─────────────────────────────────────────
+
+    /// <summary>Where the person's own CAN databases are: <c>dbc\</c> beside their signal file.</summary>
+    public string DatabaseFolder => UserSignalStore.DatabaseFolder(_store.Path);
+
+    /// <summary>A move worked out and waiting for MOVE, or null.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMovePlanned))]
+    private DbcMoveResult? _plannedMove;
+
+    /// <summary>True while a move is waiting to be confirmed.</summary>
+    public bool IsMovePlanned => PlannedMove is not null;
+
+    /// <summary>What the waiting move would do.</summary>
+    [ObservableProperty]
+    private string _movePreview = "";
+
+    /// <summary>What the last move, or the last look for one, came to.</summary>
+    [ObservableProperty]
+    private string _moveStatus = "";
+
+    /// <summary>Work out what would move, and show it before anything is written.</summary>
+    [RelayCommand]
+    private void PlanMove()
+    {
+        DbcMoveResult plan;
+
+        try
+        {
+            plan = DatabaseMove.Plan(_store, _vehicle.Shipped);
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            PlannedMove = null;
+            MoveStatus = $"A database in {DatabaseFolder} would not open: {ex.Message}";
+            return;
+        }
+
+        if (!plan.HasMoves)
+        {
+            PlannedMove = null;
+            MoveStatus = "Nothing to move: none of your confirmed signals is still kept here." + Stayed(plan);
+            return;
+        }
+
+        var files = plan.Moved.GroupBy(m => m.File, StringComparer.OrdinalIgnoreCase)
+            .Select(g => string.Create(CultureInfo.CurrentCulture, $"{g.Key} ({g.Count()})"));
+
+        MoveStatus = "";
+        MovePreview = string.Create(CultureInfo.CurrentCulture,
+            $"{plan.Moved.Count} signal{(plan.Moved.Count == 1 ? "" : "s")} will go into {string.Join(" and ", files)} in {DatabaseFolder}. ")
+            + "Each is read back first, so the dash asks and decodes exactly what it does now. "
+            + "Your signal file, and any database that changes, are copied to a .bak beside them first."
+            + Stayed(plan);
+        PlannedMove = plan;
+    }
+
+    /// <summary>Write the move that was shown.</summary>
+    [RelayCommand]
+    private void ConfirmMove()
+    {
+        if (PlannedMove is not { } plan)
+        {
+            return;
+        }
+
+        PlannedMove = null;
+        MovePreview = "";
+
+        var failed = DatabaseMove.Apply(plan, _store, _clock);
+
+        MoveStatus = failed ?? string.Create(CultureInfo.CurrentCulture,
+            $"Moved {plan.Moved.Count} signal{(plan.Moved.Count == 1 ? "" : "s")}. Your signal file now points into the database for them; the old one is kept as a .bak beside it. RESTART to read them from there.");
+        OnPropertyChanged(nameof(Problem));
+    }
+
+    [RelayCommand]
+    private void CancelMove()
+    {
+        PlannedMove = null;
+        MovePreview = "";
+    }
+
+    private static string Stayed(DbcMoveResult plan) => plan.Stayed.Count == 0 ? "" :
+        string.Create(CultureInfo.CurrentCulture, $" Staying here ({plan.Stayed.Count}): ")
+        + string.Join("; ", plan.Stayed.Select(s => $"{s.Id} — {s.Why}")) + ".";
 
     /// <summary>Close on success; on a write failure, stay open so nothing typed is lost.</summary>
     private void CloseEditorIfSaved()
