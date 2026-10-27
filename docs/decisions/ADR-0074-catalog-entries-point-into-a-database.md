@@ -1,6 +1,8 @@
 # ADR-0074 — A catalog entry can point into our own CAN database
 
-**Status:** Accepted · 2026-10-21
+**Status:** Accepted · 2026-10-21. Tried by the owner at the desk on 2026-10-27, on the simulator: the
+example pack loaded beside the truck's own, the broken reference was listed, and each card read
+through the database matched its built-in twin. Not yet tried against the truck's own answers.
 **Builds on:** [ADR-0073](ADR-0073-our-own-can-database.md) (stage 2 of its four),
 [ADR-0032](ADR-0032-signal-discovery-and-user-catalog.md) (the overlay),
 [ADR-0052](ADR-0052-nothing-vehicle-specific-shipped.md) (vehicle files are the user's),

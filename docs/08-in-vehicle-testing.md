@@ -762,7 +762,8 @@ The guide itself: [id-hunter](id-hunter.md).
 ## Pins 3/11 at the measured 500 kbit/s (Q21)
 
 **You need:**
-- the truck, engine **running**, parked;
+- the truck, engine **running**, parked — or, for a first look, the desk: the synthetic truck answers
+  a request from wherever the catalog says the value lives, so the pairs in step 3 match there too;
 - the adapter;
 - DashDeck built from develop with this change.
 
@@ -894,7 +895,8 @@ database must say exactly what the built-in card beside it says.
 - the two files in the repository's `docs/examples/`.
 
 1. Copy `obd2-standard.dbc` to `%LOCALAPPDATA%\DashDeck\dbc\` (make the folder), and
-   `dbc-test-vehicle.json` to `%LOCALAPPDATA%\DashDeck\vehicles\`. If Settings ▸ Vehicle decodes your
+   `dbc-test-vehicle.json` to `%LOCALAPPDATA%\DashDeck\vehicles\` — **not** beside the database:
+   a vehicle file in `dbc\` is never read, and nothing says so. If Settings ▸ Vehicle decodes your
    make as something other than *Ford*, change `"make"` in the copy to match.
 2. Start DashDeck and open **Settings ▸ Vehicle**. **Expect:**
    - the signal pack line names *DBC test (ADR-0074)* beside your own;
