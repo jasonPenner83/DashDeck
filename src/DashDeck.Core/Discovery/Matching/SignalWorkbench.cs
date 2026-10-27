@@ -80,6 +80,10 @@ public static class SignalWorkbench
             Unconfirmed = before.Unconfirmed || !SameSource(before, after),
             Placeholder = before.Placeholder && SameSource(before, after),
             Hidden = before.Hidden,
+
+            // A signal from our own database stays one while the edit leaves its request and decode
+            // alone; once they change, the change is the catalog's and the reference goes (ADR-0074).
+            Dbc = DashDeck.Core.Dbc.DbcReferences.Keep(before, after),
         };
 
     /// <summary>True when two definitions ask the same question and decode the answer the same way.</summary>

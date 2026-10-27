@@ -59,7 +59,8 @@ foreach (var problem in problems)
 
 // The shipped folder and the user's own (ADR-0052): what is specific to a vehicle is the user's.
 var userData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DashDeck");
-var packs = VehiclePacks.LoadFolders(FindCatalogFolder("vehicles"), Path.Combine(userData, "vehicles")).Packs;
+var packs = VehiclePacks.LoadFolders(
+    DashDeck.Core.Dbc.DbcLibrary.InFolder(Path.Combine(userData, "dbc")), FindCatalogFolder("vehicles"), Path.Combine(userData, "vehicles")).Packs;
 
 var folder = ArgValue("--out") ?? Path.Combine(
     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

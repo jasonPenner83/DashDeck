@@ -762,7 +762,8 @@ The guide itself: [id-hunter](id-hunter.md).
 ## Pins 3/11 at the measured 500 kbit/s (Q21)
 
 **You need:**
-- the truck, engine **running**, parked;
+- the truck, engine **running**, parked — or, for a first look, the desk: the synthetic truck answers
+  a request from wherever the catalog says the value lives, so the pairs in step 3 match there too;
 - the adapter;
 - DashDeck built from develop with this change.
 
@@ -881,6 +882,95 @@ about using it changes; this checks that the same file still loads the same, or 
 
 **A failure looks like:** fewer messages or signals than before, a door that no longer shows its
 *Ajar* text, or the hunter stopping on the file.
+
+## Values from your own CAN database (ADR-0074)
+
+A catalog entry can now say "this value is in that database" instead of giving its own request and
+decode. This tries it with standard values, so the answer is known: a card read through the
+database must say exactly what the built-in card beside it says.
+
+**You need:**
+- the truck, engine **running**, parked;
+- the tablet with this build;
+- the two files in the repository's `docs/examples/`.
+
+1. Copy `obd2-standard.dbc` to `%LOCALAPPDATA%\DashDeck\dbc\` (make the folder), and
+   `dbc-test-vehicle.json` to `%LOCALAPPDATA%\DashDeck\vehicles\` — **not** beside the database:
+   a vehicle file in `dbc\` is never read, and nothing says so. If Settings ▸ Vehicle decodes your
+   make as something other than *Ford*, change `"make"` in the copy to match.
+2. Start DashDeck and open **Settings ▸ Vehicle**. **Expect:**
+   - the signal pack line names *DBC test (ADR-0074)* beside your own;
+   - a red line: *Not asked for — your CAN databases could not say where these are:
+     dbcTest.missing: Module_7E0 in obd2-standard.dbc has no signal no_such_signal.* That one is
+     wrong on purpose.
+3. Add cards for **Speed (from DBC)**, **RPM (from DBC)** and **Coolant (from DBC)** (category
+   *Test*), each beside its built-in card. **Expect:** each pair reads the same, live, idling and
+   driving.
+4. In **Settings ▸ Sensors**, open *RPM (from DBC)*, change only its name, and save. Open
+   `%LOCALAPPDATA%\DashDeck\signals.user.json`. **Expect:** its entry has `"dbc"` and no `"decode"`.
+   Open it again, change the scale to 0.5, and save. **Expect:** the entry now has `"decode"` and no
+   `"dbc"`, and the card reads double. That is the edit kept, not lost.
+5. Clean up: open *RPM (from DBC)* again and press **REVERT TO SHIPPED**, then delete the two copied
+   files and restart.
+
+**A failure looks like:**
+- the dash not starting, or the whole pack left out;
+- a pair of cards that disagree;
+- no red line for `dbcTest.missing`;
+- step 4's first save writing a `"decode"`.
+
+## Seeing our database in CANExplorer (ADR-0073, ADR-0074)
+
+[CANExplorer](https://github.com/AKJ7/CANExplorer) opens a DBC with cantools, which reads our answer
+convention (checked in both directions). With the OBDLink EX it can **ask** the engine a question and
+show the answer **decoded by our database**, which checks a database outside DashDeck.
+
+**CANExplorer can write to the truck; DashDeck never does.** In its **Diagnostics** view use only
+**Raw request** with requests starting `01` or `22`, and **Data identifier** with **Read**. Never use
+Write, ECU reset, Session, Security access, Routine, Clear DTCs or flashing.
+
+**You need:**
+- the Windows laptop, with CANExplorer installed from its releases page
+  (`CANExplorer-<version>-windows-x86_64-setup.exe`; at SmartScreen's warning choose *More info →
+  Run anyway*);
+- the OBDLink EX on USB. Close DashDeck, FORScan, the tap, the hunter and the matcher first: the
+  adapter serves one program at a time;
+- the truck, engine **running**, parked;
+- `docs/examples/obd2-standard.dbc`, and later your own database.
+
+1. **Connect.** Press **Ctrl+N** and fill in:
+   - **Bus:** CAN;
+   - **Interface:** *Elm327Bus*;
+   - **Channel:** the EX's COM port (as Device Manager shows it, or **Detect**);
+   - **Protocol:** *Raw*, so the *Info* column shows the database's decoding;
+   - **Bitrate:** 500000;
+   - **Listen only:** off, or nothing can be asked.
+
+   Press **Connect**. **Expect:** the connection opens. The trace may stay quiet, because the OBD port
+   carries little traffic until something asks.
+2. **Load database…** in the toolbar, then choose `obd2-standard.dbc`.
+3. Open **Diagnostics**. Leave **Request ID** `7E0` and **Response ID** `7E8`. In **Raw request**, send
+   `01 0D`. **Expect:** a green positive response in the History.
+4. In the trace, filter on `7E8`. **Expect:** the answer's *Info* reads something like
+   `Module_7E0: … Pid01=13, vehicle_speed=0 km/h`, decoded by our file.
+5. Send `01 0C` and then `01 05`. **Expect:** `engine_rpm` around idle, and `engine_coolantTemp` the
+   same as the dash and the cluster.
+6. Optional: in **Signals**, tick `vehicle_speed` or `engine_rpm`. Each answered request adds a point
+   to the plot.
+7. **With your own database later (mode 22):** load it instead. Set the module's request and response
+   IDs (for example `7E0`/`7E8`), and use **Data identifier → Read** with the identifier, or **Raw
+   request** `22 XX XX`. **Expect:** the answer decoded under your signal's name, matching what the
+   dash shows for the entry that points to it.
+
+**What it cannot do with the EX:**
+- reach the MS-CAN modules on pins 3/11. Its ELM327 support runs the HS bus on pins 6/14 only;
+- ask anything while DashDeck or FORScan holds the adapter;
+- keep up with a busy bus: the adapter prints frames as text, a few hundred a second.
+
+**A failure looks like:**
+- the database refusing to load. Note its message;
+- a `7E8` answer with no decoded *Info* while the database is loaded;
+- a value that differs from the dash's for the same request.
 
 ## The serial tap — recording FORScan (ADR-0048)
 

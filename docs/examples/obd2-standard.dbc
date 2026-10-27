@@ -1,0 +1,162 @@
+VERSION ""
+
+
+NS_ :
+	NS_DESC_
+	CM_
+	BA_DEF_
+	BA_
+	VAL_
+	CAT_DEF_
+	CAT_
+	FILTER
+	BA_DEF_DEF_
+	EV_DATA_
+	ENVVAR_DATA_
+	SGTYPE_
+	SGTYPE_VAL_
+	BA_DEF_SGTYPE_
+	BA_SGTYPE_
+	SIG_TYPE_REF_
+	VAL_TABLE_
+	SIG_GROUP_
+	SIG_VALTYPE_
+	SIGTYPE_VALTYPE_
+	BO_TX_BU_
+	BA_DEF_REL_
+	BA_REL_
+	BA_DEF_DEF_REL_
+	BU_SG_REL_
+	BU_EV_REL_
+	BU_BO_REL_
+	SG_MUL_VAL_
+
+BS_:
+
+BU_:
+
+
+BO_ 2024 Module_7E0: 8 Vector__XXX
+ SG_ IsoTpLength : 7|8@0+ (1,0) [0|0] "" Vector__XXX
+ SG_ Service M : 15|8@0+ (1,0) [0|0] "" Vector__XXX
+ SG_ Pid01 m65M : 23|8@0+ (1,0) [0|0] "" Vector__XXX
+ SG_ engine_rpm m12 : 31|16@0+ (0.25,0) [0|8000] "rpm" Vector__XXX
+ SG_ engine_load m4 : 31|8@0+ (0.392156862745098,0) [0|100] "%" Vector__XXX
+ SG_ engine_absoluteLoad m67 : 31|16@0+ (0.392156862745098,0) [0|25700] "%" Vector__XXX
+ SG_ engine_timingAdvance m14 : 31|8@0+ (0.5,-64) [-64|63.5] "°" Vector__XXX
+ SG_ engine_runTime m31 : 31|16@0+ (1,0) [0|65535] "s" Vector__XXX
+ SG_ engine_warmupsSinceClear m48 : 31|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ engine_driverDemandTorque m97 : 31|8@0+ (1,-125) [-125|130] "%" Vector__XXX
+ SG_ engine_actualTorque m98 : 31|8@0+ (1,-125) [-125|130] "%" Vector__XXX
+ SG_ engine_referenceTorque m99 : 31|16@0+ (1,0) [0|65535] "Nm" Vector__XXX
+ SG_ engine_throttlePosition m17 : 31|8@0+ (0.392156862745098,0) [0|100] "%" Vector__XXX
+ SG_ engine_relativeThrottle m69 : 31|8@0+ (0.392156862745098,0) [0|100] "%" Vector__XXX
+ SG_ engine_throttleB m71 : 31|8@0+ (0.392156862745098,0) [0|100] "%" Vector__XXX
+ SG_ engine_acceleratorPedalD m73 : 31|8@0+ (0.392156862745098,0) [0|100] "%" Vector__XXX
+ SG_ engine_acceleratorPedalE m74 : 31|8@0+ (0.392156862745098,0) [0|100] "%" Vector__XXX
+ SG_ engine_commandedThrottle m76 : 31|8@0+ (0.392156862745098,0) [0|100] "%" Vector__XXX
+ SG_ engine_mafRate m16 : 31|16@0+ (0.01,0) [0|655] "g/s" Vector__XXX
+ SG_ engine_intakeManifoldPressure m11 : 31|8@0+ (1,0) [0|255] "kPa" Vector__XXX
+ SG_ engine_barometricPressure m51 : 31|8@0+ (1,0) [0|255] "kPa" Vector__XXX
+ SG_ engine_coolantTemp m5 : 31|8@0+ (1,-40) [-40|215] "°C" Vector__XXX
+ SG_ engine_oilTemp m92 : 31|8@0+ (1,-40) [-40|210] "°C" Vector__XXX
+ SG_ engine_intakeAirTemp m15 : 31|8@0+ (1,-40) [-40|215] "°C" Vector__XXX
+ SG_ ambient_airTemp m70 : 31|8@0+ (1,-40) [-40|215] "°C" Vector__XXX
+ SG_ engine_catalystTempB1S1 m60 : 31|16@0+ (0.1,-40) [-40|6513] "°C" Vector__XXX
+ SG_ fuel_levelPercent m47 : 31|8@0+ (0.392156862745098,0) [0|100] "%" Vector__XXX
+ SG_ engine_fuelRate m94 : 31|16@0+ (0.05,0) [0|3276] "L/h" Vector__XXX
+ SG_ fuel_pressure m10 : 31|8@0+ (3,0) [0|765] "kPa" Vector__XXX
+ SG_ fuel_railGaugePressure m35 : 31|16@0+ (10,0) [0|655350] "kPa" Vector__XXX
+ SG_ fuel_shortTermTrimB1 m6 : 31|8@0+ (0.78125,-100) [-100|99.2] "%" Vector__XXX
+ SG_ fuel_longTermTrimB1 m7 : 31|8@0+ (0.78125,-100) [-100|99.2] "%" Vector__XXX
+ SG_ fuel_ethanolPercent m82 : 31|8@0+ (0.392156862745098,0) [0|100] "%" Vector__XXX
+ SG_ vehicle_speed m13 : 31|8@0+ (1,0) [0|255] "km/h" Vector__XXX
+ SG_ vehicle_odometer m166 : 31|32@0+ (0.1,0) [0|2000000] "km" Vector__XXX
+ SG_ vehicle_distanceSinceClear m49 : 31|16@0+ (1,0) [0|65535] "km" Vector__XXX
+ SG_ emissions_commandedEgr m44 : 31|8@0+ (0.392156862745098,0) [0|100] "%" Vector__XXX
+ SG_ emissions_evapPurge m46 : 31|8@0+ (0.392156862745098,0) [0|100] "%" Vector__XXX
+ SG_ vehicle_controlModuleVoltage m66 : 31|16@0+ (0.001,0) [0|65.535] "V" Vector__XXX
+ SG_ diagnostics_checkEngine m1 : 31|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ diagnostics_dtcCount m1 : 30|7@0+ (1,0) [0|127] "" Vector__XXX
+
+
+CM_ "SAE J1979 mode 01 PIDs as the engine computer's answers on 7E8, in DashDeck's answer convention (ADR-0073). Made from catalog/signals.obd2-standard.json; a public standard, nothing vehicle-specific.";
+CM_ SG_ 2024 engine_rpm "Engine Speed";
+CM_ SG_ 2024 engine_load "Calculated Engine Load";
+CM_ SG_ 2024 engine_absoluteLoad "Absolute Load";
+CM_ SG_ 2024 engine_timingAdvance "Timing Advance";
+CM_ SG_ 2024 engine_runTime "Run Time Since Start";
+CM_ SG_ 2024 engine_warmupsSinceClear "Warm-ups Since Codes Cleared";
+CM_ SG_ 2024 engine_driverDemandTorque "Driver's Demanded Torque";
+CM_ SG_ 2024 engine_actualTorque "Actual Engine Torque";
+CM_ SG_ 2024 engine_referenceTorque "Engine Reference Torque";
+CM_ SG_ 2024 engine_throttlePosition "Throttle Position";
+CM_ SG_ 2024 engine_relativeThrottle "Relative Throttle Position";
+CM_ SG_ 2024 engine_throttleB "Absolute Throttle Position B";
+CM_ SG_ 2024 engine_acceleratorPedalD "Accelerator Pedal Position D";
+CM_ SG_ 2024 engine_acceleratorPedalE "Accelerator Pedal Position E";
+CM_ SG_ 2024 engine_commandedThrottle "Commanded Throttle Actuator";
+CM_ SG_ 2024 engine_mafRate "Mass Air Flow";
+CM_ SG_ 2024 engine_intakeManifoldPressure "Intake Manifold Pressure";
+CM_ SG_ 2024 engine_barometricPressure "Barometric Pressure";
+CM_ SG_ 2024 engine_coolantTemp "Coolant Temperature";
+CM_ SG_ 2024 engine_oilTemp "Engine Oil Temperature";
+CM_ SG_ 2024 engine_intakeAirTemp "Intake Air Temperature";
+CM_ SG_ 2024 ambient_airTemp "Ambient Air Temperature";
+CM_ SG_ 2024 engine_catalystTempB1S1 "Catalyst Temp - Bank 1 Sensor 1";
+CM_ SG_ 2024 fuel_levelPercent "Fuel Level";
+CM_ SG_ 2024 engine_fuelRate "Engine Fuel Rate";
+CM_ SG_ 2024 fuel_pressure "Fuel Pressure";
+CM_ SG_ 2024 fuel_railGaugePressure "Fuel Rail Gauge Pressure";
+CM_ SG_ 2024 fuel_shortTermTrimB1 "Short-Term Fuel Trim B1";
+CM_ SG_ 2024 fuel_longTermTrimB1 "Long-Term Fuel Trim B1";
+CM_ SG_ 2024 fuel_ethanolPercent "Ethanol Fuel %";
+CM_ SG_ 2024 vehicle_speed "Vehicle Speed";
+CM_ SG_ 2024 vehicle_odometer "Odometer";
+CM_ SG_ 2024 vehicle_distanceSinceClear "Distance Since Codes Cleared";
+CM_ SG_ 2024 emissions_commandedEgr "Commanded EGR";
+CM_ SG_ 2024 emissions_evapPurge "Commanded Evap Purge";
+CM_ SG_ 2024 vehicle_controlModuleVoltage "Control Module Voltage";
+CM_ SG_ 2024 diagnostics_checkEngine "Check Engine Light (MIL)";
+CM_ SG_ 2024 diagnostics_dtcCount "Stored Trouble Codes";
+BA_DEF_ "DashDeckBus" ENUM "Hs","Ms";
+BA_ "DashDeckBus" 0;
+SG_MUL_VAL_ 2024 Pid01 Service 65-65;
+SG_MUL_VAL_ 2024 engine_rpm Pid01 12-12;
+SG_MUL_VAL_ 2024 engine_load Pid01 4-4;
+SG_MUL_VAL_ 2024 engine_absoluteLoad Pid01 67-67;
+SG_MUL_VAL_ 2024 engine_timingAdvance Pid01 14-14;
+SG_MUL_VAL_ 2024 engine_runTime Pid01 31-31;
+SG_MUL_VAL_ 2024 engine_warmupsSinceClear Pid01 48-48;
+SG_MUL_VAL_ 2024 engine_driverDemandTorque Pid01 97-97;
+SG_MUL_VAL_ 2024 engine_actualTorque Pid01 98-98;
+SG_MUL_VAL_ 2024 engine_referenceTorque Pid01 99-99;
+SG_MUL_VAL_ 2024 engine_throttlePosition Pid01 17-17;
+SG_MUL_VAL_ 2024 engine_relativeThrottle Pid01 69-69;
+SG_MUL_VAL_ 2024 engine_throttleB Pid01 71-71;
+SG_MUL_VAL_ 2024 engine_acceleratorPedalD Pid01 73-73;
+SG_MUL_VAL_ 2024 engine_acceleratorPedalE Pid01 74-74;
+SG_MUL_VAL_ 2024 engine_commandedThrottle Pid01 76-76;
+SG_MUL_VAL_ 2024 engine_mafRate Pid01 16-16;
+SG_MUL_VAL_ 2024 engine_intakeManifoldPressure Pid01 11-11;
+SG_MUL_VAL_ 2024 engine_barometricPressure Pid01 51-51;
+SG_MUL_VAL_ 2024 engine_coolantTemp Pid01 5-5;
+SG_MUL_VAL_ 2024 engine_oilTemp Pid01 92-92;
+SG_MUL_VAL_ 2024 engine_intakeAirTemp Pid01 15-15;
+SG_MUL_VAL_ 2024 ambient_airTemp Pid01 70-70;
+SG_MUL_VAL_ 2024 engine_catalystTempB1S1 Pid01 60-60;
+SG_MUL_VAL_ 2024 fuel_levelPercent Pid01 47-47;
+SG_MUL_VAL_ 2024 engine_fuelRate Pid01 94-94;
+SG_MUL_VAL_ 2024 fuel_pressure Pid01 10-10;
+SG_MUL_VAL_ 2024 fuel_railGaugePressure Pid01 35-35;
+SG_MUL_VAL_ 2024 fuel_shortTermTrimB1 Pid01 6-6;
+SG_MUL_VAL_ 2024 fuel_longTermTrimB1 Pid01 7-7;
+SG_MUL_VAL_ 2024 fuel_ethanolPercent Pid01 82-82;
+SG_MUL_VAL_ 2024 vehicle_speed Pid01 13-13;
+SG_MUL_VAL_ 2024 vehicle_odometer Pid01 166-166;
+SG_MUL_VAL_ 2024 vehicle_distanceSinceClear Pid01 49-49;
+SG_MUL_VAL_ 2024 emissions_commandedEgr Pid01 44-44;
+SG_MUL_VAL_ 2024 emissions_evapPurge Pid01 46-46;
+SG_MUL_VAL_ 2024 vehicle_controlModuleVoltage Pid01 66-66;
+SG_MUL_VAL_ 2024 diagnostics_checkEngine Pid01 1-1;
+SG_MUL_VAL_ 2024 diagnostics_dtcCount Pid01 1-1;

@@ -110,18 +110,13 @@ public sealed record VehiclePack
 /// <summary>Loading the packs and picking the ones that fit.</summary>
 public static class VehiclePacks
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true,
-    };
+    private static readonly JsonSerializerOptions JsonOptions = SignalCatalog.ReadOptions();
 
     /// <summary>
-    /// Read one pack.
+    /// Read one pack, with its signals' database references followed into <paramref name="databases"/> (ADR-0074).
     /// </summary>
     /// <exception cref="InvalidDataException">The JSON is unreadable, has no make to match on, or a signal is invalid.</exception>
-    public static VehiclePack Parse(string json, string? fileName = null)
+    public static VehiclePack Parse(string json, string? fileName = null, Dbc.DbcLibrary? databases = null)
     {
         VehiclePack? pack;
 
@@ -137,6 +132,15 @@ public static class VehiclePacks
         if (pack is null)
         {
             throw new InvalidDataException($"{fileName ?? "pack"}: empty");
+        }
+
+        try
+        {
+            pack = pack with { Signals = Dbc.DbcReferences.Resolve(pack.Signals, databases ?? Dbc.DbcLibrary.None) };
+        }
+        catch (InvalidDataException ex)
+        {
+            throw new InvalidDataException($"{fileName ?? pack.Name}: {ex.Message}", ex);
         }
 
         if (string.IsNullOrWhiteSpace(pack.Match.Make))
@@ -179,7 +183,11 @@ public static class VehiclePacks
     /// Every pack in a folder, and why any could not be read. Never throws: a bad pack is left
     /// out and reported, and the standard catalog still runs.
     /// </summary>
-    public static (IReadOnlyList<VehiclePack> Packs, IReadOnlyList<string> Problems) LoadFolder(string? directory)
+    public static (IReadOnlyList<VehiclePack> Packs, IReadOnlyList<string> Problems) LoadFolder(string? directory) =>
+        LoadFolder(directory, Dbc.DbcLibrary.None);
+
+    /// <summary>Every pack in a folder, with database references followed into <paramref name="databases"/>.</summary>
+    public static (IReadOnlyList<VehiclePack> Packs, IReadOnlyList<string> Problems) LoadFolder(string? directory, Dbc.DbcLibrary databases)
     {
         var packs = new List<VehiclePack>();
         var problems = new List<string>();
@@ -193,7 +201,7 @@ public static class VehiclePacks
         {
             try
             {
-                packs.Add(Parse(File.ReadAllText(path), Path.GetFileName(path)));
+                packs.Add(Parse(File.ReadAllText(path), Path.GetFileName(path), databases));
             }
             catch (Exception ex) when (ex is InvalidDataException or IOException)
             {
@@ -209,7 +217,11 @@ public static class VehiclePacks
     /// <c>%LOCALAPPDATA%\DashDeck\vehicles\</c> (ADR-0052). A user file with a shipped one's
     /// name replaces it.
     /// </summary>
-    public static (IReadOnlyList<VehiclePack> Packs, IReadOnlyList<string> Problems) LoadFolders(params string?[] directories)
+    public static (IReadOnlyList<VehiclePack> Packs, IReadOnlyList<string> Problems) LoadFolders(params string?[] directories) =>
+        LoadFolders(Dbc.DbcLibrary.None, directories);
+
+    /// <summary>Every pack in several folders, with database references followed into <paramref name="databases"/> (ADR-0074).</summary>
+    public static (IReadOnlyList<VehiclePack> Packs, IReadOnlyList<string> Problems) LoadFolders(Dbc.DbcLibrary databases, params string?[] directories)
     {
         var byName = new Dictionary<string, VehiclePack>(StringComparer.OrdinalIgnoreCase);
         var order = new List<string>();
@@ -217,7 +229,7 @@ public static class VehiclePacks
 
         foreach (var directory in directories)
         {
-            var (packs, found) = LoadFolder(directory);
+            var (packs, found) = LoadFolder(directory, databases);
             problems.AddRange(found);
             foreach (var pack in packs)
             {

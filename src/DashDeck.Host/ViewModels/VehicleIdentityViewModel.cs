@@ -440,6 +440,9 @@ public sealed partial class VehicleIdentityViewModel : ObservableObject
     /// <summary>Why a shipped pack was left out, when one was.</summary>
     public string? PackProblem { get; }
 
+    /// <summary>Signals not asked for because their CAN database could not say where they are, and why (ADR-0074).</summary>
+    public string? DatabaseProblem { get; init; }
+
     /// <summary>True when what is stored differs from what the dash started with.</summary>
     public bool RestartNeeded => _store.Identity != _atLaunch;
 
