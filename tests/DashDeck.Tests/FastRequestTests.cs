@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using DashDeck.Abstractions;
 using DashDeck.Simulator;
 using DashDeck.Vehicle;
@@ -347,15 +346,14 @@ public sealed class FastRequestTests
         var rpm = Rpm;
 
         await adapter.RequestAsync(rpm, TestCancellation.Token);   // sets the filter
-        var watch = Stopwatch.StartNew();
+        var before = wire.LatencyChargedMs;
         for (var i = 0; i < 10; i++)
         {
             await adapter.RequestAsync(rpm, TestCancellation.Token);
         }
 
-        watch.Stop();
-
-        // Ten at 20 ms is 200; ten at 52 would be 520. Generous either side for a busy CI machine.
-        Assert.InRange(watch.ElapsedMilliseconds, 150, 450);
+        // Ten at 20 ms is 200; ten at 52 would be 520. What the truck charged, not a stopwatch: a
+        // busy CI machine once took 700 ms of wall clock for the same 200 and failed a release.
+        Assert.Equal(10 * SyntheticTransport.FastLatencyMs, wire.LatencyChargedMs - before);
     }
 }

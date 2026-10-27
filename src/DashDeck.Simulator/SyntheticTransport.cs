@@ -110,6 +110,12 @@ public sealed class SyntheticTransport : IStreamingTransport
     /// <summary>Requests deliberately dropped, so tests can assert the fault path runs.</summary>
     public int DroppedCount { get; private set; }
 
+    /// <summary>
+    /// The round-trip time the truck has charged so far, in milliseconds — what it waited, not what
+    /// the clock says it took, so a test can check the latency without timing a busy machine.
+    /// </summary>
+    public long LatencyChargedMs { get; private set; }
+
     public SimulatedF150 Truck => _truck;
 
     public Task ConnectAsync(CancellationToken ct)
@@ -166,6 +172,7 @@ public sealed class SyntheticTransport : IStreamingTransport
 
         if (latency > 0)
         {
+            LatencyChargedMs += latency;
             await Task.Delay(latency, ct).ConfigureAwait(false);
         }
 
