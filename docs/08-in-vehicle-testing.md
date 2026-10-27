@@ -919,6 +919,47 @@ database must say exactly what the built-in card beside it says.
 - no red line for `dbcTest.missing`;
 - step 4's first save writing a `"decode"`.
 
+## Moving your signals into your own database (ADR-0078)
+
+MOVE TO DATABASE takes the signals you have confirmed on the truck out of `signals.user.json` and into
+your own `truck-hs.dbc` (and `truck-ms.dbc` for pins 3/11), where other CAN tools can read them. The
+dash then reads them from there. Nothing it asks should change, and this checks that.
+
+**You need:**
+- the tablet with this build. The desk is fine: the move asks the truck nothing, and the cards in step
+  6 read simulated values there and live ones in the truck;
+- a card or two on the dash that shows one of your own signals, to compare before and after.
+
+1. Note what one of your own signals reads: its card, and its line in **Settings ▸ Sensors** (the
+   grey line under the name: id, bus, mode and PID, module).
+2. In **Settings ▸ Sensors**, scroll to **YOUR CAN DATABASE** and tap **MOVE TO DATABASE**.
+   **Expect** a box saying how many signals will go into which file, e.g. *12 signals will go into
+   truck-hs.dbc (10) and truck-ms.dbc (2)*. Any unconfirmed signals are listed after *Staying here*,
+   each with its reason. Nothing is written yet: `%LOCALAPPDATA%\DashDeck\dbc\` has no `truck-hs.dbc`.
+3. Tap **CANCEL**. **Expect** the box to go, and still no `truck-hs.dbc`.
+4. Tap **MOVE TO DATABASE** again, then **MOVE**. **Expect** *Moved 12 signals…* and the restart bar.
+   In `%LOCALAPPDATA%\DashDeck\`:
+   - `signals.user.json.before-move-<date>-<time>.bak`, your file as it was;
+   - `dbc\truck-hs.dbc` (and `truck-ms.dbc` if any moved there).
+5. Open `signals.user.json` in Notepad. **Expect** each moved entry to have a `"dbc"` block naming the
+   file, a message like `Module_726` and a signal like `ford_oilTemp`, and no `"decode"`, `"pid"` or
+   `"module"`. Its name, category, rate and min/max are still there. The ones that stayed are as they were.
+6. Tap **RESTART NOW**. **Expect:**
+   - no red line in Settings ▸ Vehicle or Settings ▸ Sensors about a database;
+   - the signal from step 1 shows the same grey line in Sensors as before;
+   - its card reads as it did.
+7. Tap **MOVE TO DATABASE** once more. **Expect** *Nothing to move*.
+8. If you like, open `truck-hs.dbc` in CANExplorer as the next section does. **Expect** one message
+   per module (`Module_7E0`, `Module_726`…), each signal with its name as its comment.
+
+**To undo it:** close the dash, copy the `.bak` over `signals.user.json`, and delete the `truck-*.dbc`
+files if you had none before.
+
+**A failure looks like:**
+- a signal you have confirmed listed under *Staying here* with a reason that does not fit it;
+- anything written before MOVE, or no `.bak`;
+- a red line after the restart, or a signal whose grey line or card changed.
+
 ## Seeing our database in CANExplorer (ADR-0073, ADR-0074)
 
 [CANExplorer](https://github.com/AKJ7/CANExplorer) opens a DBC with cantools, which reads our answer

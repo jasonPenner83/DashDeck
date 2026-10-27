@@ -2,6 +2,7 @@ using System.IO;
 using DashDeck.Abstractions;
 using DashDeck.Core;
 using DashDeck.Core.Catalog;
+using DashDeck.Core.Dbc;
 using DashDeck.Core.Discovery;
 using DashDeck.Host.Settings;
 using DashDeck.Host.ViewModels;
@@ -748,5 +749,123 @@ public sealed class SensorInventoryTests : IDisposable
         {
             Assert.Equal(expected, value);
         }
+    }
+
+    // ── Keep in a database (ADR-0078) ─────────────────────────────────────────
+
+    private sealed class StampClock : IClock
+    {
+        public DateTimeOffset UtcNow { get; } = new(2026, 10, 27, 12, 0, 0, TimeSpan.Zero);
+    }
+
+    /// <summary>A confirmed mode 22 signal of the person's, on an invented module.</summary>
+    private static SignalDefinition Found(string id = "ford.oilTemp", ushort did = 0x1234, bool unconfirmed = false) => new()
+    {
+        Id = id,
+        Name = "Oil",
+        Category = "Engine",
+        Mode = 0x22,
+        Pid = did,
+        Module = "726",
+        Decode = new DecodeSpec(0, 1, false, 1, -40, "°C"),
+        Unconfirmed = unconfirmed,
+    };
+
+    [Fact]
+    public void Move_shows_what_it_would_do_and_writes_nothing_until_confirmed()
+    {
+        var store = new UserSignalStore(FilePath);
+        store.Upsert(Found());
+        store.Upsert(Found("ford.guess", 0x1235, unconfirmed: true));
+        var inventory = new SensorInventoryViewModel(new FakeVehicle(Shipped()), store, clock: new StampClock());
+
+        inventory.PlanMoveCommand.Execute(null);
+
+        Assert.True(inventory.IsMovePlanned);
+        Assert.Contains("1 signal will go into truck-hs.dbc (1)", inventory.MovePreview, StringComparison.Ordinal);
+        Assert.Contains("ford.guess — unconfirmed", inventory.MovePreview, StringComparison.Ordinal);
+        Assert.False(Directory.Exists(inventory.DatabaseFolder));
+
+        inventory.CancelMoveCommand.Execute(null);
+
+        Assert.False(inventory.IsMovePlanned);
+        Assert.False(Directory.Exists(inventory.DatabaseFolder));
+    }
+
+    [Fact]
+    public void Move_writes_the_database_points_the_file_into_it_and_keeps_the_old_file()
+    {
+        var store = new UserSignalStore(FilePath);
+        store.Upsert(Found());
+        store.Upsert(Found("ford.guess", 0x1235, unconfirmed: true));
+        var before = File.ReadAllText(FilePath);
+        var inventory = new SensorInventoryViewModel(new FakeVehicle(Shipped()), store, clock: new StampClock());
+
+        inventory.PlanMoveCommand.Execute(null);
+        inventory.ConfirmMoveCommand.Execute(null);
+
+        Assert.False(inventory.IsMovePlanned);
+        Assert.StartsWith("Moved 1 signal.", inventory.MoveStatus, StringComparison.Ordinal);
+        Assert.True(File.Exists(Path.Combine(inventory.DatabaseFolder, "truck-hs.dbc")));
+
+        var backup = Directory.GetFiles(_dir, "signals.user.json.before-move-*.bak");
+        Assert.Equal(before, File.ReadAllText(Assert.Single(backup)));
+
+        // What the next launch reads: the moved one through the database, the guess as it was.
+        var reloaded = new UserSignalStore(FilePath);
+        var oil = reloaded.Definitions.Single(d => d.Id == "ford.oilTemp");
+        Assert.Equal(new DbcReference("truck-hs.dbc", "Module_726", "ford_oilTemp"), oil.Dbc);
+        Assert.Equal((Found().ToRequest(), Found().Decode), (oil.ToRequest(), oil.Decode));
+        Assert.Null(reloaded.Definitions.Single(d => d.Id == "ford.guess").Dbc);
+        var written = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(FilePath))!.AsArray()
+            .Single(n => (string?)n!["id"] == "ford.oilTemp")!.AsObject();
+        Assert.False(written.ContainsKey("decode"));
+    }
+
+    [Fact]
+    public void Moving_twice_keeps_the_database_as_it_was_and_backs_it_up()
+    {
+        var store = new UserSignalStore(FilePath);
+        store.Upsert(Found());
+        var inventory = new SensorInventoryViewModel(new FakeVehicle(Shipped()), store, clock: new StampClock());
+        inventory.PlanMoveCommand.Execute(null);
+        inventory.ConfirmMoveCommand.Execute(null);
+
+        store.Upsert(Found("ford.transTemp", 0x1236));
+        inventory.PlanMoveCommand.Execute(null);
+        inventory.ConfirmMoveCommand.Execute(null);
+
+        var database = Path.Combine(inventory.DatabaseFolder, "truck-hs.dbc");
+        var text = File.ReadAllText(database);
+        Assert.Contains("ford_oilTemp", text, StringComparison.Ordinal);
+        Assert.Contains("ford_transTemp", text, StringComparison.Ordinal);
+        Assert.Single(Directory.GetFiles(inventory.DatabaseFolder, "truck-hs.dbc.before-move-*.bak"));
+        Assert.All(new UserSignalStore(FilePath).Definitions, d => Assert.NotNull(d.Dbc));
+    }
+
+    [Fact]
+    public void Nothing_to_move_says_so()
+    {
+        var store = new UserSignalStore(FilePath);
+        store.Upsert(Found("ford.guess", 0x1235, unconfirmed: true));
+        var inventory = new SensorInventoryViewModel(new FakeVehicle(Shipped()), store);
+
+        inventory.PlanMoveCommand.Execute(null);
+
+        Assert.False(inventory.IsMovePlanned);
+        Assert.StartsWith("Nothing to move", inventory.MoveStatus, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_edit_after_planning_drops_the_plan()
+    {
+        var store = new UserSignalStore(FilePath);
+        store.Upsert(Found());
+        var inventory = new SensorInventoryViewModel(new FakeVehicle(Shipped()), store);
+
+        inventory.PlanMoveCommand.Execute(null);
+        store.Upsert(Found() with { Name = "Oil, renamed" });
+
+        Assert.False(inventory.IsMovePlanned);
     }
 }
