@@ -290,6 +290,15 @@ guarantee moved with it:** the gate used to refuse keystrokes, and now the field
 follows it while the view-model guarantees only that **no request leaves while moving**, which is
 the safety-relevant half.
 
+**The touch keyboard only when wanted** (ADR-0079): `Shell.TouchKeyboard` watches every `TextBox`
+with a class handler and asks for the keyboard when one is selected **and no keyboard is attached**
+(`TouchKeyboardRule` in Core: laptop posture from `SM_CONVERTIBLESLATEMODE` means the Type Cover;
+any enabled keyboard outside the local machine's container means Bluetooth or USB). It puts the
+keyboard away when focus leaves for anything that is not a field, and once at launch. Windows'
+`InputPane` first, `TabTip` only if that does not answer. Settings ▸ ABOUT shows what the rule sees.
+**Tools from ABOUT** (ADR-0079): `DashTools` lists the hunter, matcher and tap; OPEN takes two taps,
+writes a batch file that waits for the dash to exit, and closes the dash so the tool gets the adapter.
+
 **A place says what it is, and you can get directions to it.** A result carries what OSM knows —
 kind, hours, telephone, website — at **no extra request**, because `extratags` is an output option
 on the search already being made. It shows in a **MapLibre popup inside the page**, themed, because

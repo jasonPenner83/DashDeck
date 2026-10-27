@@ -1,7 +1,6 @@
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Controls;
-using DashDeck.Host.Maps;
 
 namespace DashDeck.Host.Views;
 
@@ -13,10 +12,9 @@ namespace DashDeck.Host.Views;
 /// Bound to the map's view-model rather than the search's own, so one DataContext reaches both the
 /// search and the commands that close it and move the map.
 /// <para>
-/// The only thing the code-behind does is get the field ready to type into: focus it, put the
-/// caret at the end, and ask Windows for its touch keyboard. On a mounted tablet with no keyboard
-/// attached that is the difference between a search you can use and a field that does nothing when
-/// you tap it.
+/// The only thing the code-behind does is get the field ready to type into: focus it and put the
+/// caret at the end. Selecting it is what brings the touch keyboard up, when no keyboard is
+/// attached (<see cref="Shell.TouchKeyboard"/>, ADR-0079).
 /// </para>
 /// </remarks>
 public partial class MapSearchPanel : UserControl
@@ -53,8 +51,6 @@ public partial class MapSearchPanel : UserControl
                 Field.Focus();
                 Keyboard.Focus(Field);
                 Field.CaretIndex = Field.Text.Length;
-
-                TouchKeyboard.Show();
             });
     }
 }

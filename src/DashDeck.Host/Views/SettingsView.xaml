@@ -2134,6 +2134,49 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
+                    <!--
+                        TOOLS (ADR-0079). Each wants the adapter, which serves one program at a
+                        time, so OPEN closes DashDeck and the tool opens once it has. Two taps, as
+                        CLOSE DASHDECK takes in the menu.
+                    -->
+                    <TextBlock Margin="0,26,0,0" Style="{StaticResource CaptionText}" Text="TOOLS" />
+                    <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="The programs that come with DashDeck. Each one uses the adapter and the adapter serves one program at a time, so OPEN closes DashDeck first and the tool opens a moment later. Start DashDeck again when you are done; close FORScan before opening one." />
+
+                    <ItemsControl Margin="0,14,0,0" ItemsSource="{Binding Tools}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="210" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="{Binding Name}" Style="{StaticResource MicroText}" />
+                                        <TextBlock Text="{Binding State}" Style="{StaticResource MicroText}"
+                                                   Foreground="{DynamicResource TextFaintBrush}" />
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Column="1" VerticalAlignment="Center"
+                                               Text="{Binding What}"
+                                               TextWrapping="Wrap"
+                                               Style="{StaticResource MicroText}" />
+
+                                    <Button Grid.Column="2" Margin="10,0,0,0"
+                                            Style="{StaticResource OptionChipButton}"
+                                            Content="{Binding Caption}"
+                                            IsEnabled="{Binding IsThere}"
+                                            Command="{Binding DataContext.OpenToolCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
                     <TextBlock Margin="2,6,0,0" MaxWidth="700" TextWrapping="Wrap"
                                Style="{StaticResource MicroText}"
                                Foreground="{DynamicResource AccentBrush}"
