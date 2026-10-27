@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashDeck.Abstractions;
 using DashDeck.Core.Catalog;
+using DashDeck.Core.Dbc;
 using DashDeck.Core.Discovery.Matching;
 using DashDeck.Vehicle.Tap;
 using Microsoft.Win32;
@@ -321,6 +322,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             _standard = SignalCatalog.FromFile(Path.Combine(folder, "signals.obd2-standard.json"));
             // The shipped folder and the user's own (ADR-0052): what is specific to a vehicle is the user's.
             var (packs, problems) = VehiclePacks.LoadFolders(
+                DbcLibrary.InFolder(DatabaseFolder),
                 Path.Combine(folder, "vehicles"),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DashDeck", "vehicles"));
             _packs = packs;
@@ -336,6 +338,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         RefreshStandings();
     }
 
+    /// <summary>The person's own CAN databases, which the overlay and vehicle files may refer into (ADR-0074).</summary>
+    private static string DatabaseFolder =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DashDeck", "dbc");
+
     private IReadOnlyList<SignalDefinition> ReadOverlay(out string? problem)
     {
         problem = null;
@@ -346,7 +352,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
         try
         {
-            return SignalCatalog.ParseList(File.ReadAllText(OverlayPath));
+            return SignalCatalog.ParseList(File.ReadAllText(OverlayPath), DbcLibrary.InFolder(DatabaseFolder));
         }
         catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException or InvalidDataException or UnauthorizedAccessException)
         {

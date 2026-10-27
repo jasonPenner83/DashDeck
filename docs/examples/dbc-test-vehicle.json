@@ -1,0 +1,48 @@
+// A vehicle file whose signals come from a CAN database (ADR-0074), for trying it on a real truck.
+//
+// Copy this file to %LOCALAPPDATA%\DashDeck\vehicles\ and obd2-standard.dbc, beside it here, to
+// %LOCALAPPDATA%\DashDeck\dbc\. Each signal below is a standard one under a new id, read through
+// the database instead of the catalog, so a card showing it should read exactly what the built-in
+// one beside it reads. Remove both files when you are done.
+//
+// "make" must be what Settings ▸ Vehicle decodes your VIN as; it is only here so the file has
+// something to match on (a vehicle file with no make would fit every vehicle).
+{
+  "name": "DBC test (ADR-0074)",
+  "match": { "make": "Ford" },
+  "signals": [
+    {
+      "id": "dbcTest.speed",
+      "name": "Speed (from DBC)",
+      "category": "Test",
+      "defaultRateHz": 4,
+      "min": 0,
+      "max": 255,
+      "dbc": { "file": "obd2-standard.dbc", "message": "Module_7E0", "signal": "vehicle_speed" }
+    },
+    {
+      "id": "dbcTest.rpm",
+      "name": "RPM (from DBC)",
+      "category": "Test",
+      "defaultRateHz": 4,
+      "min": 0,
+      "max": 8000,
+      "dbc": { "file": "obd2-standard.dbc", "message": "Module_7E0", "signal": "engine_rpm" }
+    },
+    {
+      "id": "dbcTest.coolant",
+      "name": "Coolant (from DBC)",
+      "category": "Test",
+      "defaultRateHz": 1,
+      "min": -40,
+      "max": 215,
+      "dbc": { "file": "obd2-standard.dbc", "message": "Module_7E0", "signal": "engine_coolantTemp" }
+    },
+    {
+      "id": "dbcTest.missing",
+      "name": "Not in the DBC (should say why)",
+      "category": "Test",
+      "dbc": { "file": "obd2-standard.dbc", "message": "Module_7E0", "signal": "no_such_signal" }
+    }
+  ]
+}

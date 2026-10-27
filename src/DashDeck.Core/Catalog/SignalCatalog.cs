@@ -1,5 +1,8 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization.Metadata;
 using DashDeck.Abstractions;
+using DashDeck.Core.Dbc;
 
 namespace DashDeck.Core.Catalog;
 
@@ -14,11 +17,34 @@ public sealed class SignalCatalog
 {
     private readonly Dictionary<string, SignalDefinition> _byId;
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions JsonOptions = ReadOptions();
+
+    /// <summary>
+    /// How catalog files are read: case aside, comments and trailing commas allowed, and
+    /// <c>decode</c> not insisted on, because a <c>dbc</c> reference leaves it to its database
+    /// (ADR-0074). An entry with neither is still refused, by <see cref="DbcReferences.Resolve"/>.
+    /// </summary>
+    internal static JsonSerializerOptions ReadOptions() => new()
     {
         PropertyNameCaseInsensitive = true,
         ReadCommentHandling = JsonCommentHandling.Skip,
         AllowTrailingCommas = true,
+        TypeInfoResolver = new DefaultJsonTypeInfoResolver
+        {
+            Modifiers =
+            {
+                info =>
+                {
+                    if (info.Type == typeof(SignalDefinition))
+                    {
+                        foreach (var property in info.Properties.Where(p => p.Name == nameof(SignalDefinition.Decode)))
+                        {
+                            property.IsRequired = false;
+                        }
+                    }
+                },
+            },
+        },
     };
 
     private SignalCatalog(IEnumerable<SignalDefinition> definitions)
@@ -36,16 +62,11 @@ public sealed class SignalCatalog
 
     public bool TryGet(string id, out SignalDefinition definition) => _byId.TryGetValue(id, out definition!);
 
-    public static SignalCatalog FromJson(string json)
-    {
-        var definitions = JsonSerializer.Deserialize<List<SignalDefinition>>(json, JsonOptions)
-            ?? throw new InvalidDataException("Signal catalog JSON did not deserialize to a list.");
+    /// <summary>Read and validate a catalog, following any database references into <paramref name="databases"/> (ADR-0074).</summary>
+    public static SignalCatalog FromJson(string json, DbcLibrary? databases = null) =>
+        FromDefinitions(ParseList(json, databases));
 
-        Validate(definitions);
-        return new SignalCatalog(definitions);
-    }
-
-    public static SignalCatalog FromFile(string path) => FromJson(File.ReadAllText(path));
+    public static SignalCatalog FromFile(string path, DbcLibrary? databases = null) => FromJson(File.ReadAllText(path), databases);
 
     /// <summary>Build a catalog from definitions already in hand, with the same validation.</summary>
     public static SignalCatalog FromDefinitions(IEnumerable<SignalDefinition> definitions)
@@ -78,15 +99,48 @@ public sealed class SignalCatalog
             .Concat(overlay));
     }
 
-    /// <summary>Parse a list of definitions without validating them as a catalog.</summary>
+    /// <summary>
+    /// Parse a list of definitions, with their database references followed (ADR-0074), without
+    /// validating them as a catalog.
+    /// </summary>
     /// <remarks>For the user's overlay file, which is only meaningful merged over the shipped one.</remarks>
-    public static List<SignalDefinition> ParseList(string json) =>
-        JsonSerializer.Deserialize<List<SignalDefinition>>(json, JsonOptions)
-            ?? throw new InvalidDataException("Signal catalog JSON did not deserialize to a list.");
+    /// <exception cref="JsonException">The JSON will not read.</exception>
+    /// <exception cref="InvalidDataException">The JSON is not a list, or an entry is written wrong.</exception>
+    public static List<SignalDefinition> ParseList(string json, DbcLibrary? databases = null)
+    {
+        var definitions = JsonSerializer.Deserialize<List<SignalDefinition>>(json, JsonOptions);
 
-    /// <summary>Write definitions in the same shape the catalog files use.</summary>
-    public static string ToJson(IEnumerable<SignalDefinition> definitions) =>
-        JsonSerializer.Serialize(definitions.ToList(), WriteOptions);
+        return [.. DbcReferences.Resolve(
+            definitions ?? throw new InvalidDataException("Signal catalog JSON did not deserialize to a list."),
+            databases ?? DbcLibrary.None)];
+    }
+
+    /// <summary>
+    /// Write definitions in the same shape the catalog files use. A definition that refers to a
+    /// database is written as the reference alone: what the database decides is left out, so it
+    /// stays the one place that says it (ADR-0074).
+    /// </summary>
+    public static string ToJson(IEnumerable<SignalDefinition> definitions)
+    {
+        var array = new JsonArray();
+
+        foreach (var definition in definitions)
+        {
+            var node = JsonSerializer.SerializeToNode(definition, WriteOptions)!.AsObject();
+
+            if (definition.Dbc is not null)
+            {
+                foreach (var key in node.Select(p => p.Key).Where(DbcReferences.DatabaseFields.Contains).ToList())
+                {
+                    node.Remove(key);
+                }
+            }
+
+            array.Add(node);
+        }
+
+        return array.ToJsonString(WriteOptions);
+    }
 
     private static readonly JsonSerializerOptions WriteOptions = new()
     {
@@ -203,6 +257,11 @@ public sealed class SignalCatalog
         foreach (var d in definitions)
         {
             problems.AddRange(Check(d));
+
+            if (d.Dbc is not null && !d.DbcResolved)
+            {
+                problems.Add($"'{d.Id}': its database reference was never followed");
+            }
         }
 
         if (problems.Count > 0)
