@@ -402,8 +402,12 @@ unanswerable reference is a placeholder with `DbcProblem` (never written), shown
 Vehicle (`LoadedCatalog.DatabaseProblem`). `ToJson` writes a referenced entry as the reference alone;
 `DbcReferences.Keep` keeps the reference through an edit only while request, decode, unit and states
 are unchanged (both editors use it). `DbcResolved` makes resolving idempotent. `docs/examples/` holds
-the standard mode 01 set as a DBC and a test vehicle file, kept in step by tests. Next: the editors
-writing layouts into the database (stage 3).
+the standard mode 01 set as a DBC and a test vehicle file, kept in step by tests. **Moving
+(ADR-0078):** Settings ▸ Sensors ▸ MOVE TO DATABASE moves confirmed overlay entries into
+`truck-hs.dbc`/`truck-ms.dbc` (`DbcMove.Plan` in Core, pure; `DatabaseMove` in Host does the files and
+`.before-move-…bak` copies). An entry moves only if it reads back through the database exactly as it
+was; unconfirmed ones and plain renames/hides of shipped signals stay. Next: the editors writing
+layouts into the database (the rest of stage 3).
 
 **The serial tap records FORScan** (ADR-0048): `src/DashDeck.SerialTap`, `SerialTap.exe` in
 `SerialTap\` beside the dash. Serial port monitors need filter drivers and kept failing, so the tap

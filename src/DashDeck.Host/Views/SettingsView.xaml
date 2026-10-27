@@ -1490,6 +1490,45 @@
                             <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
                                        TextWrapping="Wrap" Style="{StaticResource MicroText}"
                                        Text="{Binding UserFilePath, StringFormat=Your signals are saved to {0} and laid over the shipped catalog at launch.}" />
+
+                            <!-- Keep in a database (ADR-0078): where and how into the person's own DBC files. -->
+                            <TextBlock Style="{StaticResource FieldLabel}" Margin="0,24,0,0" Text="YOUR CAN DATABASE" />
+
+                            <TextBlock Margin="2,4,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                                       TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                       Text="{Binding DatabaseFolder, StringFormat=Move the signals you have confirmed on the truck into truck-hs.dbc and truck-ms.dbc in {0}. Other CAN tools can read them there; the dash reads them from there too and asks exactly what it asks now. Unconfirmed signals stay here until TEST has answered them.}" />
+
+                            <Button Style="{StaticResource StageLauncherButton}" MinWidth="220" Margin="0,10,0,0"
+                                    HorizontalAlignment="Left"
+                                    Command="{Binding PlanMoveCommand}">
+                                <TextBlock Text="MOVE TO DATABASE" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                            </Button>
+
+                            <Border Margin="0,12,0,0" Padding="16,12,12,12" CornerRadius="{DynamicResource PanelRadius}"
+                                    Background="{DynamicResource AccentWashBrush}"
+                                    BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                                    Visibility="{Binding IsMovePlanned, Converter={StaticResource BoolToVis}}">
+                                <StackPanel>
+                                    <TextBlock TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                               Foreground="{DynamicResource AccentBrush}"
+                                               Text="{Binding MovePreview}" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                        <Button Style="{StaticResource StageLauncherButton}" MinWidth="130"
+                                                Command="{Binding ConfirmMoveCommand}">
+                                            <TextBlock Text="MOVE" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                                        </Button>
+                                        <Button Style="{StaticResource StageLauncherButton}" MinWidth="130"
+                                                Command="{Binding CancelMoveCommand}">
+                                            <TextBlock Text="CANCEL" FontFamily="{DynamicResource MonoFont}" FontSize="13" />
+                                        </Button>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Margin="2,10,0,0" MaxWidth="620" HorizontalAlignment="Left"
+                                       TextWrapping="Wrap" Style="{StaticResource MicroText}"
+                                       Text="{Binding MoveStatus}"
+                                       Visibility="{Binding MoveStatus, Converter={StaticResource EmptyToCollapsed}}" />
                         </StackPanel>
                     </ScrollViewer>
 
