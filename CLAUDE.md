@@ -131,6 +131,12 @@ backlight is borrowed:** the launch level goes back on exit unless somebody move
 loan is in `settings.json` so a crash is undone next launch, and nothing is written unless the
 level wanted changes. The rules are in `DashDeck.Core.Brightness`; only `WmiBacklight` needs glass.
 
+**The screen stays on while plugged in** (ADR-0080). `Brightness.ScreenKeptOn`, on the shell's beat,
+reads `GetSystemPowerStatus` and while the tablet is on mains asks `SetThreadExecutionState`
+(continuous, display and system required). It lets go on battery, on an unknown power source and at
+exit. It is a request, so no power plan or timeout is changed (C1). The rule is `ScreenAwake` in Core.
+Settings ▸ DISPLAY ▸ SCREEN shows the line.
+
 **The GAUGES stage is a file** (ADR-0037): a *stage layout* is JSON of elements — gauges (`dial`,
 `arc`, `bar`, `lcarsBar`, `digital`, each tuned by `parts`), `text`, `clock` and `panel` — placed
 in pixels on a fixed 912 × 636 canvas scaled to the stage. A gauge's source is a signal, optionally
