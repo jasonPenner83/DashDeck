@@ -523,8 +523,28 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" PanningMode="VerticalOnly"
                           Visibility="{Binding IsDisplay, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="31,26,31,24">
+                    <!-- The screen stays on while the tablet is plugged in (ADR-0080). Nothing to
+                         set: it is a request to Windows that ends when DashDeck does. -->
+                    <TextBlock Style="{StaticResource CaptionText}" Text="SCREEN" />
+
+                    <Border Margin="0,14,0,0" Padding="16,12" CornerRadius="6"
+                            Background="{DynamicResource SurfaceBrush}">
+                        <TextBlock Text="{Binding ScreenOn.Status, Mode=OneWay, FallbackValue='Not running in this launch'}"
+                                   FontFamily="{DynamicResource MonoFont}" FontSize="16"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource TextHighBrush}"
+                                   TextWrapping="Wrap" />
+                    </Border>
+
+                    <TextBlock Margin="2,10,0,0"
+                               MaxWidth="620"
+                               HorizontalAlignment="Left"
+                               TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="While DashDeck is open and the tablet is plugged in, the screen stays on. On battery, or once DashDeck is closed, it sleeps and locks as Windows is set. No Windows setting is changed." />
+
                     <!-- The tablet's backlight, by day and by night (ADR-0068). -->
-                    <TextBlock Style="{StaticResource CaptionText}" Text="BRIGHTNESS" />
+                    <TextBlock Style="{StaticResource CaptionText}" Margin="0,30,0,0" Text="BRIGHTNESS" />
 
                     <Border Margin="0,14,0,0" Padding="16,12" CornerRadius="6"
                             Background="{DynamicResource SurfaceBrush}">

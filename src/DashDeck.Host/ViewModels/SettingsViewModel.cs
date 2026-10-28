@@ -164,8 +164,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         AdapterPortsViewModel adapter,
         DashDeck.Core.Location.ILocationSource? location = null,
         IClock? clock = null,
-        DashDeck.Host.Brightness.ScreenBrightness? brightness = null)
+        DashDeck.Host.Brightness.ScreenBrightness? brightness = null,
+        DashDeck.Host.Brightness.ScreenKeptOn? screenOn = null)
     {
+        ScreenOn = screenOn;
         Adapter = adapter;
         _location = location;
         _clock = clock ?? new SystemClock();
@@ -233,6 +235,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>Settings ▸ DISPLAY ▸ BRIGHTNESS: the backlight by day and by night (ADR-0068).</summary>
     public BrightnessSettingsViewModel Brightness { get; }
+
+    /// <summary>Whether the screen is being kept on while plugged in (ADR-0080); null when not running.</summary>
+    public DashDeck.Host.Brightness.ScreenKeptOn? ScreenOn { get; }
 
     /// <summary>Settings ▸ AUDIO: where the music comes from, and ducking (Q14, ADR-0060).</summary>
     public AudioSettingsViewModel Audio { get; }
