@@ -1392,6 +1392,59 @@ match again); TEST saying a number instead of a name.
 list reaches its end; a button inside a list that no longer answers a tap (it would need the same
 fix the card strip has, `DashboardView.HandleTap`).
 
+## The touch keyboard only when you need it (ADR-0079)
+
+**You need:** the tablet, the release with this change, and a Bluetooth keyboard if you have one. No
+truck needed.
+
+1. **Bare tablet.** Detach the Type Cover and disconnect any Bluetooth keyboard. Close DashDeck if
+   it is open, and start it. **Expect:** no on-screen keyboard when the dash comes up.
+2. Open **Settings ▸ ABOUT**. **Expect:** under THIS BUILD, a *Touch keyboard* line reading *no
+   keyboard attached; it comes up when a text field is selected*.
+3. Tap a text field: in **Settings ▸ Vehicle** (the fuel tank size) or in the map's **SEARCH**.
+   **Expect:** the Surface's keyboard comes up, and what you type goes into the field.
+4. Tap a button or a part of the page with no text field (a section name on the left). **Expect:**
+   the keyboard goes away.
+5. **Bluetooth keyboard.** Connect it and wait for Windows to say it is connected. Go back to
+   **ABOUT** (or tap ABOUT again). **Expect:** *a keyboard is attached:* and its name. Tap the same
+   text field. **Expect:** no on-screen keyboard, and the Bluetooth keyboard types into the field.
+6. **Type Cover.** Disconnect the Bluetooth keyboard and attach the Type Cover, open. **Expect:** the
+   ABOUT line says *the tablet is in laptop mode*, and tapping a field brings up no on-screen
+   keyboard.
+7. Close DashDeck and start it with the cover attached. **Expect:** no on-screen keyboard at launch.
+
+**A failure looks like:**
+- the keyboard at launch with no field selected. Say what was attached;
+- no keyboard on the bare tablet when a field is tapped. Read the ABOUT line and tell me what it
+  says. If it names a keyboard you do not have attached, tell me the name: that device counts as a
+  keyboard and needs looking at;
+- an on-screen keyboard with a Bluetooth keyboard connected. Check *Settings ▸ Time & language ▸
+  Typing ▸ Touch keyboard*: with it set to **Always**, Windows shows it whatever the dash does.
+
+## Opening the tools from Settings ▸ ABOUT (ADR-0079)
+
+**You need:** the tablet with the release, and the adapter if you want the tool to find the truck.
+FORScan closed.
+
+1. Open **Settings ▸ ABOUT** and scroll to **TOOLS**. **Expect:** three rows, **ID hunter**,
+   **ID matcher** and **Serial tap**, each with what it is for and an **OPEN** button. A row reading
+   *not in this install* means the release is missing that tool. Tell me.
+2. Tap **OPEN** beside **ID hunter** once. **Expect:** the button reads *TAP AGAIN: DASHDECK CLOSES*,
+   and nothing else happens. Wait five seconds and tap it again. **Expect:** it is armed again, and
+   still nothing opens.
+3. Tap **OPEN** twice, quickly. **Expect:** DashDeck closes, and a few seconds later the ID hunter's
+   window opens, with *Looking for the adapter…* finding the adapter as it does when you
+   double-click it.
+4. Quit the hunter (**Q**) and start DashDeck again. Do the same for **ID matcher**. **Expect:** the
+   matcher's window, with its port list.
+5. In Task Manager, **expect** no `DashDeck.Host` left running while the tool is open, and no
+   leftover `cmd` window.
+
+**A failure looks like:**
+- DashDeck closing and nothing opening within 30 seconds;
+- the tool saying the port is *in use*. DashDeck had not let go of it yet: tell me;
+- a black `cmd` window that stays open.
+
 ## Android Auto on the stage (ADR-0057)
 
 **At the desk first** (no dongle): `dotnet run --project src/DashDeck.Host -- --synthetic-dongle`.
