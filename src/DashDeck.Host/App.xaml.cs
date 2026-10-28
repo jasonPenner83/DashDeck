@@ -391,6 +391,11 @@ public partial class App : Application
             window.ForcedLandscape = e.Args.Contains("--landscape");
         }
         MainWindow = window;
+
+        // The touch keyboard comes up for a selected text field with no keyboard attached, and
+        // not with the app (ADR-0079).
+        Shell.TouchKeyboard.Watch(window);
+
         Shell.StartupTrace.Phase("showing the window");
         window.Show();
         Shell.StartupTrace.Ready();
