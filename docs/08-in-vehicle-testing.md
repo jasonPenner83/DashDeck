@@ -2182,6 +2182,31 @@ on to see whether the two fight.
 changing and then jumping back on its own with automatic brightness off. Send the box's line and
 whether automatic brightness was on.
 
+## The screen stays on while plugged in (ADR-0080)
+
+**You need:** the tablet with this release and its charger, at a desk or in the truck. A short Windows
+screen timeout makes this quick: *Settings ▸ System ▸ Power & battery ▸ Screen and sleep*, set
+*When plugged in, turn off my screen after* to **1 minute**. Put it back afterwards.
+
+1. Plug the tablet in and start DashDeck. Open **Settings ▸ DISPLAY**. **Expect:** under SCREEN,
+   *Kept on: the tablet is plugged in*.
+2. Go back to the dash and touch nothing for three minutes. **Expect:** the screen stays on and
+   unlocked.
+3. Unplug the charger. Within a second or two the SCREEN line reads *On battery: the screen sleeps
+   as Windows is set*. Touch nothing. **Expect:** the screen turns off after the *On battery*
+   timeout, as it would without DashDeck.
+4. Wake it, plug the charger back in, and open **Settings ▸ DISPLAY** again. **Expect:** *Kept on*.
+5. Close DashDeck (menu ▸ CLOSE DASHDECK) with the charger still in, and touch nothing. **Expect:**
+   the screen turns off after the plugged-in timeout: closing DashDeck gave it back.
+6. **In the truck:** drive for longer than the timeout. **Expect:** the dash stays on the whole way.
+   Turn the engine off and leave it. **Expect:** once the charger stops, the screen sleeps as set.
+
+**A failure looks like:**
+- the screen turning off or locking while plugged in with DashDeck open. Note what the SCREEN line
+  said;
+- *Windows would not keep the screen on*;
+- the screen never sleeping after DashDeck is closed.
+
 ## The tablet on its side (ADR-0077)
 
 **Added 2026-10-23; tried on the Surface 2026-10-26 and looked good.** The split and the shape rule

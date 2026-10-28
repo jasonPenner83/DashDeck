@@ -38,6 +38,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
     private readonly IClock _clock;
     private readonly ThemeService _theme;
     private readonly Brightness.ScreenBrightness _brightness;
+    private readonly Brightness.ScreenKeptOn _screenOn = new();
     private readonly DispatcherTimer _timer;
     private readonly string? _videoPath;
     private readonly Stage.UserAppStore _userApps;
@@ -229,6 +230,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         _brightness.Start();
         _brightness.Apply(theme.IsNight);
 
+        // The screen stays on while the tablet is plugged in (ADR-0080), asked on the beat below.
+        _screenOn.Apply();
+
         // The player outlives the panel, so it is made here and disposed with the shell. It is
         // allowed to fail: a missing native LibVLC must cost the music, never the whole dash.
 
@@ -343,7 +347,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         Shell.StartupTrace.Phase("shell: settings");
         Settings = new SettingsViewModel(
-            theme, Display, Sensors, _userApps, _launcher, Inventory, VehicleIdentity, Adapter, location, clock, _brightness);
+            theme, Display, Sensors, _userApps, _launcher, Inventory, VehicleIdentity, Adapter, location, clock, _brightness, _screenOn);
 
         // The MAPS destination (ADR-0062). Built before anything touches the stage, for two
         // ordering reasons that are both real: handing the map to the stage goes through the same
@@ -1670,6 +1674,7 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
 
         // Last, so the backlight is given back once nothing else is left to wait on.
         _brightness.Dispose();
+        _screenOn.Dispose();
 
         // The panel is just a view; the player and its ticker are the things holding resources.
     }
@@ -1697,6 +1702,9 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         // The backlight follows the same answer, so palette and panel never disagree about
         // whether it is night (ADR-0068). Writes nothing unless the level wanted has changed.
         _brightness.Apply(_theme.IsNight);
+
+        // Plugged in or not, looked at every second: the truck's charger can stop at any time.
+        _screenOn.Apply();
 
         // The status strip carries the weather now, so it is refreshed on the same beat as
         // the clock. Reading, never fetching — WeatherService owns the one request.
