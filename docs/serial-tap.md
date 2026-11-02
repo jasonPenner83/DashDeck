@@ -70,10 +70,28 @@ timestamps shows which request carries the value and how it scales.
 | `--baud n` | Its speed. 115200 (the OBDLink EX's) when left out. |
 | `--listen n` | The network port FORScan connects to. 35000 when left out. |
 | `--any` | Accept connections from other computers, not only this one. Then FORScan's IP is this PC's address. |
+| `--bluetooth COMn` | Serve a phone app over Bluetooth instead of TCP, on Windows' **incoming** Bluetooth port COMn. See below. |
 | `--out folder` | Where the logs go. |
 | `--quiet` | Do not show every line in the window; just record them. |
 
-## When it does not work
+## A phone app that talks to a Bluetooth adapter (Infocar, Torque, Car Scanner)
+
+The phone pairs with this computer and the app opens it as it would a Bluetooth ELM327. The tap
+stands between that and the real adapter on USB, and records everything as it does for FORScan.
+
+1. **Pair the phone with this computer.** On the phone, open Bluetooth and pair with this computer
+   by its name. Windows has to be discoverable: *Settings ▸ Bluetooth & devices*, with Bluetooth on.
+2. **Give the phone a port to open.** *Settings ▸ Bluetooth & devices ▸ Devices ▸ More Bluetooth
+   settings ▸ COM Ports ▸ Add… ▸ Incoming (device initiates the connection) ▸ OK.* Note the port it
+   lists as **Incoming**, for example COM8. Remove it there when you are done.
+3. Start the tap: `SerialTap\SerialTap.exe --port COM7 --bluetooth COM8` (COM7 the adapter, COM8 the
+   incoming port).
+4. In the app, choose a **Bluetooth** adapter and pick this computer from the list. Connect.
+
+The phone connecting is not shown, because a serial port has no connections. The first `>>` lines
+show the app has arrived. An answer the phone side cannot take (nobody is connected) is noted as
+*did not take* and dropped, and the tap carries on.
+
 
 - *Could not open COM7*: another program holds it — FORScan set to COM, DashDeck, the hunter. Close
   them.

@@ -430,7 +430,9 @@ layouts into the database (the rest of stage 3).
 to a Wi-Fi adapter, and `TapBridge` relays every byte both ways while `TapRecorder` writes
 timestamped `>>` command and `<<` answer lines to `%LOCALAPPDATA%\DashDeck\tap\tap-<time>.log`. It
 sends nothing of its own. The logs can hold the VIN — never in the repo. Reference:
-[`docs/serial-tap.md`](docs/serial-tap.md).
+[`docs/serial-tap.md`](docs/serial-tap.md). **A phone app over Bluetooth** (ADR-0048's addendum):
+`--bluetooth COMn` serves Windows' incoming Bluetooth serial port instead of TCP, through `PortBridge`.
+An answer with no phone to take it is dropped and noted, not fatal.
 
 **The ID matcher is where DashDeck's identifiers are managed** (ADR-0050): `src/DashDeck.IdMatcher`,
 `IdMatcher.exe` in `IdMatcher\` — a **desktop** WPF app for the laptop, keyboard and mouse (the owner's
