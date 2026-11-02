@@ -14,7 +14,9 @@ public sealed class AdapterPortsTests
     {
         public bool? Simulated { get; set; }
 
-        public bool IsSimulated => Simulated ?? LiveAdapter is null;
+        public bool IsSimulated => !IsWaitingForAdapter && (Simulated ?? LiveAdapter is null);
+
+        public bool IsWaitingForAdapter { get; set; }
 
         public AdapterLocation? LiveAdapter { get; set; }
 
@@ -261,5 +263,31 @@ public sealed class AdapterPortsTests
 
         Assert.Contains("reconnecting", vm.StatusText, StringComparison.Ordinal);
         Assert.Equal(SignalQuality.Stale, vm.StatusQuality);
+    }
+
+    [Fact]
+    public void With_simulated_data_off_and_no_adapter_it_says_there_is_nothing()
+    {
+        var rig = new Rig();
+        rig.Status.IsWaitingForAdapter = true;
+
+        var vm = rig.Make();
+
+        Assert.StartsWith("NO ADAPTER — none chosen, and simulated data is off", vm.StatusText, StringComparison.Ordinal);
+        Assert.Equal(SignalQuality.Unavailable, vm.StatusQuality);
+    }
+
+    [Fact]
+    public void With_simulated_data_off_it_says_what_it_is_watching_for()
+    {
+        var rig = new Rig();
+        rig.Status.IsWaitingForAdapter = true;
+        rig.Status.WatchedPort = "COM3";
+        rig.Status.FallbackReason = "COM3 isn't there — is the adapter plugged in? — switches to live when it answers";
+
+        var vm = rig.Make();
+
+        Assert.StartsWith("NO ADAPTER — COM3 isn't there", vm.StatusText, StringComparison.Ordinal);
+        Assert.Contains("nothing is shown until it answers", vm.StatusText, StringComparison.Ordinal);
     }
 }

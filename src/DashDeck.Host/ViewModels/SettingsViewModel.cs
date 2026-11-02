@@ -326,6 +326,21 @@ public sealed partial class SettingsViewModel : ObservableObject
         Adapter.RestartNeeded = true;
     }
 
+    /// <summary>ON/OFF for simulated data while no adapter answers (ADR-0082).</summary>
+    public string SimulateLabel => Display.SimulateWithoutAdapter ? "ON" : "OFF";
+
+    /// <summary>Flip the synthetic truck on or off for when no adapter answers. Applied at the next launch.</summary>
+    [RelayCommand]
+    private void ToggleSimulate()
+    {
+        Display.SimulateWithoutAdapter = !Display.SimulateWithoutAdapter;
+        OnPropertyChanged(nameof(SimulateLabel));
+        Adapter.ChoiceMessage = Display.SimulateWithoutAdapter
+            ? "Simulated data on: with no adapter, the synthetic truck runs, marked SIM. Restart to apply."
+            : "Simulated data off: with no adapter, nothing is shown until it answers. Restart to apply.";
+        Adapter.RestartNeeded = true;
+    }
+
     /// <summary>ON/OFF for the phone-GPS toggle (ADR-0027).</summary>
     public string GpsEnabledLabel => Display.GpsEnabled ? "ON" : "OFF";
 

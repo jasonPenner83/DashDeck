@@ -719,9 +719,12 @@ panels, never the stage occupant. Glass/LCARS have no columns yet (fall back to 
 ## Things that are easy to get wrong here
 
 1. **The truck is not always attached.** The adapter is real now, but the tablet is carried in
-   and out, and development happens at a desk. The synthetic vehicle (ADR-0005) is still the
-   default whenever the adapter is absent, and the dash goes live by itself when it answers
-   (ADR-0034). Do not write code that assumes a truck is attached, and do not defer work waiting
+   and out, and development happens at a desk. With no adapter answering the dash runs the
+   synthetic vehicle (ADR-0005) **only when Settings ▸ Vehicle ▸ SIMULATED DATA is on, or with
+   `--simulate`** (or a drive name, `--fault`, `--unplug`); off by default, it starts on
+   `NoAdapterTransport` instead — every value Unavailable, an amber `NO ADAPTER` banner,
+   `IsWaitingForAdapter` true — still watching (ADR-0082). Either way it goes live by itself when
+   the adapter answers (ADR-0034). Do not write code that assumes a truck is attached, and do not defer work waiting
    for one — but anything that touches the vehicle, the adapter or the cab screen is not done
    until it has been walked through in the truck (see *Working agreement*).
 2. **The Surface is a personal device.** No kiosk mode, no shell replacement, no services,

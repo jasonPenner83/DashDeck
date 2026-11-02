@@ -92,6 +92,10 @@ public sealed partial class DisplaySettings : ObservableObject
     [ObservableProperty]
     private bool _fastRequests = true;
 
+    /// <summary>The synthetic truck while no adapter answers (ADR-0082); applied at the next launch.</summary>
+    [ObservableProperty]
+    private bool _simulateWithoutAdapter;
+
     /// <summary>The master switch for clearing trouble codes (ADR-0055); off unless turned on.</summary>
     [ObservableProperty]
     private bool _allowClearCodes;
@@ -135,6 +139,7 @@ public sealed partial class DisplaySettings : ObservableObject
         AdapterBaudRate = stored.AdapterBaudRate;
         AdapterIdentity = stored.AdapterIdentity;
         FastRequests = stored.FastRequests;
+        SimulateWithoutAdapter = stored.SimulateWithoutAdapter;
         AllowClearCodes = stored.AllowClearCodes;
         SearchWhileMoving = stored.SearchWhileMoving;
         DuckUnderInstructions = stored.DuckUnderInstructions;
@@ -301,6 +306,14 @@ public sealed partial class DisplaySettings : ObservableObject
         if (_loaded)
         {
             SettingsStore.Update(stored => stored with { AllowClearCodes = value });
+        }
+    }
+
+    partial void OnSimulateWithoutAdapterChanged(bool value)
+    {
+        if (_loaded)
+        {
+            SettingsStore.Update(stored => stored with { SimulateWithoutAdapter = value });
         }
     }
 

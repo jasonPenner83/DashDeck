@@ -19,6 +19,9 @@ here, and the person who built it has walked the owner through it.
 - **The dash is on the real adapter.** Choose the adapter in **Settings ▸ Vehicle ▸ OBD-II
   adapter** and check that the **SIM badge has gone** from the status strip. While it shows, the
   numbers are from the simulator, whatever else is plugged in.
+- **At the desk, simulated data has to be on** for any step that expects the synthetic truck
+  (ADR-0082): **Settings ▸ Vehicle ▸ SIMULATED DATA — ON**, then RESTART NOW. It is off by default,
+  and then the dash shows no data until the adapter answers.
 - **Note the ignition state** for each step: **off**, **on** (engine off, dash lit), or
   **running**.
 - **When something doesn't match**, write down the step number and what you saw, and take a phone
@@ -2287,6 +2290,34 @@ screen timeout makes this quick: *Settings ▸ System ▸ Power & battery ▸ Sc
   said;
 - *Windows would not keep the screen on*;
 - the screen never sleeping after DashDeck is closed.
+
+## Simulated data on and off (ADR-0082)
+
+**You need:** the tablet, and the adapter for steps 5–6. No truck needed until step 6.
+
+1. Update and start DashDeck with the adapter **unplugged**. **Expect** (simulated data is off by
+   default):
+   - no SIM badge;
+   - an amber banner: *NO ADAPTER — NO DATA UNTIL IT ANSWERS · …* with why (the chosen port isn't
+     there, or none is chosen);
+   - every card and console value showing a dash, never a number.
+2. **Settings ▸ Vehicle.** **Expect:**
+   - the adapter status reads *NO ADAPTER — …, so nothing is shown until it answers*;
+   - a **SIMULATED DATA — OFF** button.
+3. Tap it. **Expect:** **SIMULATED DATA — ON**, the line *Simulated data on … Restart to apply*, and
+   **RESTART NOW**. Tap RESTART NOW. **Expect:** the SIM badge, the amber *SHOWING SIMULATED DATA*
+   banner, and moving numbers in the simulated colour.
+4. Turn it **OFF** again and restart. **Expect:** step 1 again.
+5. **Settings ▸ Sensors ▸ Modules ▸ SCAN** with no adapter. **Expect:** *No adapter is connected,
+   and simulated data is off — there is nothing to ask*, and your saved scan still there.
+6. **In the truck**, simulated data off, ignition on: plug the adapter in. **Expect:** within a few
+   seconds the banner goes, values appear in the live colour, and Settings ▸ Vehicle reads *LIVE —*.
+
+**A failure looks like:**
+- a number anywhere on screen with simulated data off and no adapter;
+- a SIM badge with simulated data off;
+- the dash not going live when the adapter is plugged in;
+- a saved module scan replaced by an empty one.
 
 ## The tablet on its side (ADR-0077)
 

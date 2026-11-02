@@ -54,7 +54,7 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     public event Action<AdapterLocation>? AdapterFound;
 
     /// <summary>The real adapter, while the dash is reading it; null while simulated.</summary>
-    public AdapterLocation? LiveAdapter => IsSimulated ? null : _link?.Current;
+    public AdapterLocation? LiveAdapter => IsLive ? _link?.Current : null;
 
     /// <summary>
     /// Pause DashDeck's own search for the adapter while the ports are tested, so the two never
@@ -67,7 +67,7 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// </remarks>
     public async Task<IDisposable> PauseSearchAsync(CancellationToken ct)
     {
-        if (_link is not { } link || (!IsSimulated && link.State == TransportState.Connected))
+        if (_link is not { } link || (IsLive && link.State == TransportState.Connected))
         {
             return NoPause.Instance;
         }
@@ -88,7 +88,7 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     public string? LinkProblem => _link?.LastProblem;
 
     /// <summary>The port being watched for an adapter while simulated, or null when none is chosen.</summary>
-    public string? WatchedPort => IsSimulated && _failover is { IsWatching: true } ? _link?.PreferredPort : null;
+    public string? WatchedPort => !IsLive && _failover is { IsWatching: true } ? _link?.PreferredPort : null;
 
     private void Adopt(AdapterLinkTransport? link)
     {
@@ -191,10 +191,19 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     public bool IsSimulated => Synthetic is not null;
 
     /// <summary>
+    /// True when no adapter has answered and simulated data is off (ADR-0082): nothing is read,
+    /// every value is Unavailable, and the strip says why. Ends when the adapter answers.
+    /// </summary>
+    public bool IsWaitingForAdapter => _switchable.Current is NoAdapterTransport;
+
+    /// <summary>True once the real adapter is the bottom of the pipeline.</summary>
+    private bool IsLive => !IsSimulated && !IsWaitingForAdapter;
+
+    /// <summary>
     /// Why the real adapter is not being read, when one is chosen and has not answered — and
     /// that it is being watched for. Null when none is chosen, or once the dash is live.
     /// </summary>
-    public string? FallbackReason => IsSimulated && _link is { } link && _failover is { IsWatching: true }
+    public string? FallbackReason => !IsLive && _link is { } link && _failover is { IsWatching: true }
         ? $"{link.LastProblem ?? $"looking for the adapter on {link.PreferredPort}"} — switches to live when it answers"
         : null;
 
@@ -306,6 +315,10 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// <param name="sources">The vehicle and the user's overlay; read once, at launch.</param>
     /// <param name="cancellationToken">Cancels start-up.</param>
     /// <param name="fastRequests">Mode 01 filtered to the engine computer (ADR-0049).</param>
+    /// <param name="simulate">
+    /// Run the synthetic truck until the adapter answers (ADR-0005). False starts with no data at
+    /// all instead, still watching for the adapter (ADR-0082) — Settings ▸ Vehicle ▸ SIMULATED DATA.
+    /// </param>
     /// <param name="locateBudget">
     /// How long to look for the adapter <em>before returning</em>. <see cref="TimeSpan.Zero"/> —
     /// what the shell passes — does not look at all: the stack comes up simulated and the watcher
@@ -317,7 +330,8 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         CatalogSources sources,
         CancellationToken cancellationToken,
         bool fastRequests = true,
-        TimeSpan? locateBudget = null)
+        TimeSpan? locateBudget = null,
+        bool simulate = true)
     {
         var loaded = LoadCatalog(sources);
         var drive = Drives.ByName(driveName);
@@ -358,9 +372,9 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         // The synthetic truck answers from the running catalog — whatever request each signal lives
         // at, the user's own included — and its placeholders by name (ADR-0052).
         var simulated = new SimulatedF150(drive);
-        IVehicleTransport bottom = found is not null
-            ? link!
-            : new SyntheticTransport(simulated, catalog: loaded.Catalog, reference: loaded.Reference) { Pins311BitRate = synthetic };
+        IVehicleTransport bottom = found is not null ? link!
+            : simulate ? new SyntheticTransport(simulated, catalog: loaded.Catalog, reference: loaded.Reference) { Pins311BitRate = synthetic }
+            : new NoAdapterTransport();
 
         var switchable = new SwitchableTransport(bottom);
 
@@ -369,10 +383,10 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         var elm = new ElmAdapter(switchable) { Pins311BitRate = found is not null ? measured : synthetic, FastRequests = fastRequests };
         var service = new VehicleService(elm, loaded.Catalog)
         {
-            Quality = found is not null ? SignalQuality.Live : SignalQuality.Simulated,
+            Quality = found is not null ? SignalQuality.Live : simulate ? SignalQuality.Simulated : SignalQuality.Unavailable,
 
             // Placeholders ask nothing; while simulated, they read the synthetic truck by name.
-            SimulatedValues = found is not null ? null : simulated.Reading,
+            SimulatedValues = found is null && simulate ? simulated.Reading : null,
 
             // The fuel estimate needs the engine's size (ADR-0081), which only the VIN decode says.
             // The correction is the shell's to set, from Settings.
@@ -426,7 +440,7 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// </returns>
     public AdapterChoice UseAdapterPort(string? port)
     {
-        if (!IsSimulated)
+        if (IsLive)
         {
             return string.Equals(port, _link?.Current?.Port, StringComparison.OrdinalIgnoreCase)
                 ? AdapterChoice.AlreadyConnected
@@ -543,7 +557,7 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
         // The link is disposed with the pipeline when it is at the bottom of it; while it is only
         // being watched for, it is this stack's to close — the serial port must be free for the
         // next launch (App.RequestRestart).
-        if (_link is not null && IsSimulated)
+        if (_link is not null && !IsLive)
         {
             await _link.DisposeAsync().ConfigureAwait(false);
         }

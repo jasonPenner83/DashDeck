@@ -55,6 +55,9 @@ public interface ISignalInventorySource
 
     /// <summary>True while the synthetic truck is answering, so a sweep's results can say so.</summary>
     bool IsSimulated { get; }
+
+    /// <summary>No adapter yet, and simulated data off (ADR-0082): there is nothing to ask.</summary>
+    bool IsWaitingForAdapter => false;
 }
 
 /// <summary>Where a definition comes from.</summary>
