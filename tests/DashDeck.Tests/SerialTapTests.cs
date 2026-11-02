@@ -215,6 +215,139 @@ public sealed class SerialTapTests
         Assert.Contains(lines, l => l.Contains("adapter lost", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task A_phone_on_the_bluetooth_port_talks_to_the_adapter_and_both_sides_are_recorded()
+    {
+        var lines = new List<string>();
+        var recorder = new TapRecorder(SystemClock.Instance, l => { lock (lines) { lines.Add(l); } });
+        var adapter = new FakeAdapter();
+        var phone = new PhonePort();
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        var run = new PortBridge(adapter, phone, recorder).RunAsync(cts.Token);
+
+        phone.Send("010C\r");
+        await WaitForAsync(() => phone.Received.EndsWith('>'), cts.Token);
+
+        Assert.Equal("010C\r", adapter.Received);
+        Assert.Equal("41 0C 1A F8\r\r>", phone.Received);
+
+        cts.Cancel();
+        await run;
+
+        string[] bodies;
+        lock (lines)
+        {
+            bodies = [.. lines.Select(Body)];
+        }
+
+        Assert.Contains(">>  010C", bodies);
+        Assert.Contains("<<  41 0C 1A F8", bodies);
+    }
+
+    [Fact]
+    public async Task An_answer_with_no_phone_to_take_it_is_noted_and_the_tap_carries_on()
+    {
+        var lines = new List<string>();
+        var recorder = new TapRecorder(SystemClock.Instance, l => { lock (lines) { lines.Add(l); } });
+        var adapter = new FakeAdapter();
+        var phone = new PhonePort { Away = true };
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        var run = new PortBridge(adapter, phone, recorder).RunAsync(cts.Token);
+
+        phone.Send("010C\r");
+        await WaitForAsync(() => { lock (lines) { return lines.Any(l => l.Contains("did not take", StringComparison.Ordinal)); } }, cts.Token);
+
+        // Back, and asking again: still served.
+        phone.Away = false;
+        phone.Send("010C\r");
+        await WaitForAsync(() => phone.Received.EndsWith('>'), cts.Token);
+
+        Assert.False(run.IsCompleted);
+
+        cts.Cancel();
+        await run;
+    }
+
+    [Fact]
+    public async Task Losing_the_adapter_ends_the_bluetooth_tap_and_says_so()
+    {
+        var lines = new List<string>();
+        var recorder = new TapRecorder(SystemClock.Instance, l => { lock (lines) { lines.Add(l); } });
+
+        await new PortBridge(new UnpluggedAdapter(), new PhonePort(), recorder).RunAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(20));
+
+        Assert.Contains(lines, l => l.Contains("adapter lost", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Windows' incoming Bluetooth port, as the tap sees it: what the phone sends arrives to be
+    /// read, and a write with no phone connected times out.
+    /// </summary>
+    private sealed class PhonePort : Stream
+    {
+        private readonly Channel<byte[]> _sent = Channel.CreateUnbounded<byte[]>();
+        private readonly StringBuilder _received = new();
+        private byte[] _pending = [];
+
+        public volatile bool Away;
+
+        public void Send(string text) => _sent.Writer.TryWrite(Encoding.ASCII.GetBytes(text));
+
+        public string Received
+        {
+            get
+            {
+                lock (_received)
+                {
+                    return _received.ToString();
+                }
+            }
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => true;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (_pending.Length == 0)
+            {
+                _pending = await _sent.Reader.ReadAsync(cancellationToken);
+            }
+
+            var n = Math.Min(buffer.Length, _pending.Length);
+            _pending.AsSpan(0, n).CopyTo(buffer.Span);
+            _pending = _pending[n..];
+            return n;
+        }
+
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (Away)
+            {
+                return ValueTask.FromException(new TimeoutException("The write timed out."));
+            }
+
+            lock (_received)
+            {
+                _received.Append(Encoding.ASCII.GetString(buffer.Span));
+            }
+
+            return ValueTask.CompletedTask;
+        }
+
+        public override Task FlushAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public override void Flush() { }
+        public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
     private sealed class UnpluggedAdapter : MemoryStream
     {
         public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) =>

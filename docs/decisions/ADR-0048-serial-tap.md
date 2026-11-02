@@ -50,7 +50,22 @@ port on the same PC. FORScan connects to it as a Wi-Fi adapter.**
 - Nothing reaches the dash. Whatever a capture shows still goes through TEST and the vehicle pack
   (ADR-0032, ADR-0033).
 
-## Rejected
+## Addendum — 2026-11-02: a phone app over Bluetooth
+
+The owner's Infocar would not connect over Wi-Fi, through the tap with `--any`, on the truck's
+hotspot or the phone's. Infocar also talks to Bluetooth ELM327 adapters.
+
+**`--bluetooth COMn`** has the tap serve Windows' incoming Bluetooth serial port instead of TCP. The
+phone pairs with the computer and the app opens it as a Bluetooth adapter. `PortBridge` relays
+between that port and the adapter, recording both ways as `TapBridge` does.
+- Windows lists the incoming port once the owner adds it under *More Bluetooth settings ▸ COM
+  Ports*. That is a Windows setting the owner makes and removes; nothing is installed.
+- A serial port has no connections, so the phone coming and going is not seen. An answer with no
+  phone to take it times out after two seconds, is noted and dropped, and the tap carries on.
+  Only losing the adapter or the port ends it.
+- The SPP service Windows offers is the standard one, but an app may list only devices whose name
+  looks like an adapter. The log, or the app's list, shows which.
+
 
 - **Writing a filter driver.** A kernel driver would be a third driver exception on a personal
   device, and the same thing that broke the monitors.

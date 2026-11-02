@@ -1080,6 +1080,36 @@ Write, ECU reset, Session, Security access, Routine, Clear DTCs or flashing.
 
 Send the log in any of these cases.
 
+## The serial tap — a phone app over Bluetooth (ADR-0048 addendum)
+
+**You need:**
+- the laptop (or tablet) with Bluetooth, the OBDLink EX on its USB, and this build's `SerialTap`;
+- the phone with Infocar (or another app that uses a Bluetooth ELM327);
+- the truck, ignition **on**, parked; DashDeck, the ID matcher and FORScan closed.
+
+1. **Pair.** On the phone, open Bluetooth and pair with the laptop by its name. **Expect:** both say
+   paired.
+2. **The incoming port.** On the laptop: *Settings ▸ Bluetooth & devices ▸ Devices ▸ More Bluetooth
+   settings ▸ COM Ports ▸ Add… ▸ Incoming ▸ OK*. **Expect:** a row with Direction **Incoming** and
+   a COM number, say COM8. Note it, and the EX's own port (Device Manager, say COM7).
+3. In a terminal in the DashDeck folder: `SerialTap\SerialTap.exe --port COM7 --bluetooth COM8`.
+   **Expect:** *Holding COM7 at 115200 baud, serving COM8*, and the log's path.
+4. In Infocar, set the adapter to **Bluetooth** and pick the laptop. Connect. **Expect:**
+   - `>>` lines in the tap window: `ATZ`, `ATE0` and so on, each with a `<<` answer;
+   - Infocar saying it is connected and reading the truck.
+5. Open **one** value in Infocar that you want, note what it shows, and make it change if you can.
+   **Expect:** the same request repeating in the tap with its answer. Repeat for each value.
+6. Ctrl+C in the tap. **Expect:** the totals and *Saved:* with the path. Send me the `.log` and the
+   list of values with what Infocar showed for each.
+7. Remove the incoming port again in *COM Ports* if you like.
+
+**A failure looks like:**
+- the laptop missing from Infocar's list while it is paired: Infocar may list only adapters by name.
+  Tell me what the list shows;
+- Infocar connecting but no `>>` lines in the tap: the incoming port number is not the one given;
+- *did not take* lines all the time while Infocar shows connected;
+- *Could not open COM8*: the port number, or something else holds it.
+
 ## Fast requests (ADR-0049)
 
 **You need:**

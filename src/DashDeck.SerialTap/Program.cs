@@ -12,10 +12,16 @@ using DashDeck.Vehicle.Tap;
 //   SerialTap --baud 115200         its speed (the OBDLink EX's, by default)
 //   SerialTap --listen 35000        the TCP port FORScan connects to (35000 by default)
 //   SerialTap --any                 accept connections from other machines, not just this one
+//   SerialTap --bluetooth COM8      serve a phone app on Windows' incoming Bluetooth port instead of TCP
 //   SerialTap --out <folder>        where the logs go
 //   SerialTap --quiet               do not echo every line to the window
 //
 // Then in FORScan: Settings ▸ Connection ▸ type WiFi, IP 127.0.0.1, port 35000. Connect.
+//
+// For an app that talks to a Bluetooth ELM327 (Infocar, Torque, Car Scanner): pair the phone with
+// this computer, add an Incoming COM port in Windows' Bluetooth settings (More Bluetooth settings ▸
+// COM Ports ▸ Add ▸ Incoming), start the tap with --bluetooth and that port, and in the app pick
+// this computer as the adapter.
 
 string? ArgValue(string name)
 {
@@ -27,7 +33,7 @@ bool Flag(string name) => args.Contains(name, StringComparer.OrdinalIgnoreCase);
 
 if (Flag("--help") || Flag("-h") || Flag("/?"))
 {
-    Console.WriteLine("SerialTap [--port COMn] [--baud n] [--listen tcpPort] [--any] [--out folder] [--quiet]");
+    Console.WriteLine("SerialTap [--port COMn] [--baud n] [--listen tcpPort] [--any] [--bluetooth COMn] [--out folder] [--quiet]");
     return 0;
 }
 
@@ -44,6 +50,14 @@ var baud = int.TryParse(ArgValue("--baud"), NumberStyles.Integer, CultureInfo.In
 var tcpPort = int.TryParse(ArgValue("--listen"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var l) ? l : 35000;
 var address = Flag("--any") ? IPAddress.Any : IPAddress.Loopback;
 var quiet = Flag("--quiet");
+var bluetooth = ArgValue("--bluetooth");
+
+if (bluetooth is not null && bluetooth.Equals(portName, StringComparison.OrdinalIgnoreCase))
+{
+    Console.WriteLine($"{portName} is the adapter. --bluetooth takes the incoming Bluetooth port, a different one.");
+    Pause();
+    return 2;
+}
 
 var folder = ArgValue("--out") ?? Path.Combine(
     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DashDeck", "tap");
@@ -88,7 +102,6 @@ void Write(string line)
 }
 
 var recorder = new TapRecorder(clock, Write);
-var bridge = new TapBridge(serial.BaseStream, recorder, new IPEndPoint(address, tcpPort));
 
 using var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) =>
@@ -96,6 +109,13 @@ Console.CancelKeyPress += (_, e) =>
     e.Cancel = true;
     cts.Cancel();
 };
+
+if (bluetooth is not null)
+{
+    return await ServeBluetoothAsync(bluetooth);
+}
+
+var bridge = new TapBridge(serial.BaseStream, recorder, new IPEndPoint(address, tcpPort));
 
 bridge.Started += at =>
 {
@@ -121,13 +141,55 @@ catch (Exception ex) when (ex is IOException or System.Net.Sockets.SocketExcepti
     Console.WriteLine($"Stopped: {ex.Message}");
 }
 
-recorder.Flush();
-Console.WriteLine();
-Console.WriteLine($"  {recorder.CommandLines} commands, {recorder.AnswerLines} answer lines " +
-                  $"({recorder.BytesToAdapter} bytes out, {recorder.BytesFromAdapter} in).");
-Console.WriteLine($"  Saved: {logPath}");
-Pause();
-return 0;
+return Finish();
+
+int Finish()
+{
+    recorder.Flush();
+    Console.WriteLine();
+    Console.WriteLine($"  {recorder.CommandLines} commands, {recorder.AnswerLines} answer lines " +
+                      $"({recorder.BytesToAdapter} bytes out, {recorder.BytesFromAdapter} in).");
+    Console.WriteLine($"  Saved: {logPath}");
+    Pause();
+    return 0;
+}
+
+// A phone app on Windows' incoming Bluetooth serial port, in place of a TCP connection.
+async Task<int> ServeBluetoothAsync(string programPort)
+{
+    using var phone = new SerialPort(programPort, baud, Parity.None, 8, StopBits.One)
+    {
+        Handshake = Handshake.None,
+
+        // With no phone connected a write waits for one; an answer nobody can take is dropped
+        // rather than holding up the adapter.
+        WriteTimeout = 2000,
+    };
+
+    try
+    {
+        phone.Open();
+    }
+    catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or ArgumentException or InvalidOperationException)
+    {
+        Console.WriteLine($"Could not open {programPort}: {ex.Message}");
+        Console.WriteLine("It should be the Incoming port in Windows' Bluetooth settings (More Bluetooth settings > COM Ports).");
+        Pause();
+        return 3;
+    }
+
+    log.WriteLine($"# SerialTap  {portName} @ {baud} baud  serving {programPort} (Bluetooth, incoming)  started {clock.UtcNow.ToLocalTime():yyyy-MM-dd HH:mm:ss zzz}");
+    log.WriteLine("# >> program to adapter    << adapter to program    -- notes");
+    Console.WriteLine();
+    Console.WriteLine($"  Holding {portName} at {baud} baud, serving {programPort}.");
+    Console.WriteLine($"  In the phone app: adapter type Bluetooth, and pick this computer ({Environment.MachineName}). Then connect.");
+    Console.WriteLine($"  Recording to {logPath}");
+    Console.WriteLine("  Ctrl+C to stop.");
+    Console.WriteLine();
+
+    await new PortBridge(serial.BaseStream, phone.BaseStream, recorder).RunAsync(cts.Token);
+    return Finish();
+}
 
 static string? PickPort()
 {
