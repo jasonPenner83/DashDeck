@@ -249,7 +249,7 @@ public sealed partial class DisplaySettings : ObservableObject
     /// <summary>A correction inside the range the estimate accepts; one for anything that is not a number.</summary>
     public static double ClampCorrection(double value) =>
         double.IsFinite(value) && value > 0
-            ? Math.Clamp(value, DashDeck.Core.Calculated.FuelModel.MinimumCorrection, DashDeck.Core.Calculated.FuelModel.MaximumCorrection)
+            ? Math.Clamp(value, DashDeck.Core.Calculated.CalculationFacts.MinimumCorrection, DashDeck.Core.Calculated.CalculationFacts.MaximumCorrection)
             : 1.0;
 
     partial void OnFuelTankLitresChanged(double value)

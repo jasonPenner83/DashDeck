@@ -136,11 +136,23 @@ public sealed class SignalCatalog
                 }
             }
 
+            // A calculated signal asks nothing and decodes nothing: its calculation says it all (ADR-0081).
+            if (definition.IsCalculated)
+            {
+                foreach (var key in node.Select(p => p.Key).Where(CalculatedLeavesOut.Contains).ToList())
+                {
+                    node.Remove(key);
+                }
+            }
+
             array.Add(node);
         }
 
         return array.ToJsonString(WriteOptions);
     }
+
+    private static readonly HashSet<string> CalculatedLeavesOut =
+        new(["bus", "kind", "mode", "pid", "module", "decode"], StringComparer.OrdinalIgnoreCase);
 
     private static readonly JsonSerializerOptions WriteOptions = new()
     {
@@ -211,10 +223,7 @@ public sealed class SignalCatalog
             problems.Add($"'{d.Id}': min is greater than max");
         }
 
-        if (d.Calculate is { } calculation && !Calculated.Calculations.IsKnown(calculation))
-        {
-            problems.Add($"'{d.Id}': calculate '{calculation}' is not one of {string.Join(", ", Calculated.Calculations.Known)}");
-        }
+        problems.AddRange(Calculated.Calculations.Check(d));
 
         if (!d.Placeholder && !d.IsCalculated && d.Mode == 0x01 && d.Pid == 0)
         {
@@ -258,6 +267,8 @@ public sealed class SignalCatalog
         {
             problems.Add($"duplicate signal id '{group.Key}'");
         }
+
+        problems.AddRange(Calculated.Calculations.Loops(definitions));
 
         foreach (var d in definitions)
         {

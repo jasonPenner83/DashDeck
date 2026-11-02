@@ -421,21 +421,23 @@ public sealed class VehicleService : IAsyncDisposable
             _lastPolled[definition.Id] = _clock.UtcNow;
         }
 
-        Bus.Publish(Calculations.Calculate(definition.Id, definition.Calculate!, Bus.Current, Fuel, definition.Decode.Unit));
+        Bus.Publish(Calculations.Calculate(definition, Find, Bus.Current, Facts));
     }
+
+    private SignalDefinition? Find(string id) => _catalog.TryGet(id, out var d) ? d : null;
 
     /// <summary>
-    /// The engine's facts and the person's correction, for the fuel estimate (ADR-0081). Set by the
-    /// host from the VIN decode and Settings ▸ Vehicle; replaced whole, so the worker always reads
-    /// one consistent model.
+    /// The engine's size and the person's correction, which formulas name as <c>displacement</c>
+    /// and <c>correction</c> (ADR-0081). Set by the host from the VIN decode and Settings ▸ Vehicle;
+    /// replaced whole, so the worker always reads one consistent set.
     /// </summary>
-    public FuelModel Fuel
+    public CalculationFacts Facts
     {
-        get => _fuel;
-        set => _fuel = value ?? FuelModel.Unknown;
+        get => _facts;
+        set => _facts = value ?? CalculationFacts.Unknown;
     }
 
-    private volatile FuelModel _fuel = FuelModel.Unknown;
+    private volatile CalculationFacts _facts = CalculationFacts.Unknown;
 
     /// <summary>
     /// The synthetic truck's quantities by signal id, for placeholders while simulated (ADR-0052);

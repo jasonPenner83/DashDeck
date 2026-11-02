@@ -1,170 +1,204 @@
+using System.Collections.Concurrent;
+using System.Globalization;
 using DashDeck.Abstractions;
+using DashDeck.Core.Catalog;
 
 namespace DashDeck.Core.Calculated;
 
 /// <summary>
-/// What an estimate of fuel use needs to know about the engine that the bus does not say (ADR-0081).
+/// What every calculation is told about the truck that the bus does not say (ADR-0081): the names
+/// <c>displacement</c> and <c>correction</c> in a formula.
 /// </summary>
-/// <param name="DisplacementLitres">The engine's size, from the VIN decode. Zero when not known: nothing is estimated.</param>
-/// <param name="Correction">
-/// The person's factor, tuned against fill-ups: litres pumped over litres the dash added up.
-/// One until they have a reason to change it.
-/// </param>
-public sealed record FuelModel(double DisplacementLitres, double Correction = 1.0)
+/// <param name="DisplacementLitres">The engine's size, from the VIN decode. Zero when not known.</param>
+/// <param name="Correction">The person's fuel estimate correction, from Settings ▸ Vehicle.</param>
+public sealed record CalculationFacts(double DisplacementLitres, double Correction = 1.0)
 {
-    /// <summary>How much of the cylinder fills each intake stroke, before the person's correction.</summary>
-    public const double VolumetricEfficiency = 0.85;
-
-    /// <summary>Petrol's air to fuel mass ratio at λ = 1.</summary>
-    public const double StoichiometricAfr = 14.7;
-
-    /// <summary>Petrol's density, grams per litre.</summary>
-    public const double FuelGramsPerLitre = 745;
-
-    /// <summary>The specific gas constant of air, J/(kg·K).</summary>
-    public const double AirGasConstant = 287.05;
-
-    /// <summary>Above this commanded λ the engine is taken to have cut fuel, coasting.</summary>
-    public const double FuelCutLambda = 1.5;
-
     /// <summary>The smallest and largest correction the person can set.</summary>
     public const double MinimumCorrection = 0.5;
 
     /// <inheritdoc cref="MinimumCorrection"/>
     public const double MaximumCorrection = 1.5;
 
-    /// <summary>Nothing known: every estimate reads Unavailable.</summary>
-    public static FuelModel Unknown { get; } = new(0);
-
-    /// <summary>True when there is enough to estimate with.</summary>
-    public bool CanEstimate => DisplacementLitres > 0 && double.IsFinite(DisplacementLitres);
+    /// <summary>Nothing known: a formula that needs the engine size reads Unavailable.</summary>
+    public static CalculationFacts Unknown { get; } = new(0);
 
     /// <summary>The correction, kept inside its range.</summary>
     public double ClampedCorrection => double.IsFinite(Correction) ? Math.Clamp(Correction, MinimumCorrection, MaximumCorrection) : 1.0;
 }
 
-/// <summary>One input a calculation reads: the signal, and whether it can do without it.</summary>
-public sealed record CalculationInput(string SignalId, bool Required);
+/// <summary>One input as it was when worked out: what it read, or that its default stood in.</summary>
+/// <param name="Name">The formula's name for it.</param>
+/// <param name="Signal">The signal.</param>
+/// <param name="Value">The number used, or NaN when there was none.</param>
+/// <param name="Unit">The reading's unit.</param>
+/// <param name="Defaulted">True when the signal had no reading and the default was used.</param>
+public readonly record struct WorkingInput(string Name, string Signal, double Value, string Unit, bool Defaulted);
+
+/// <summary>A calculated signal worked out, with everything that went into it, for Settings ▸ Sensors.</summary>
+/// <param name="Inputs">Each input, as read.</param>
+/// <param name="Constants">The constants and facts the formula had.</param>
+/// <param name="Formula">The formula used, after any case chose it; null when it could not be worked out.</param>
+/// <param name="Result">What came out.</param>
+public sealed record CalculationWorking(
+    IReadOnlyList<WorkingInput> Inputs,
+    IReadOnlyList<(string Name, double Value)> Constants,
+    string? Formula,
+    SignalValue Result)
+{
+    /// <summary>One line: each value going in, then what came out.</summary>
+    public override string ToString()
+    {
+        var parts = Inputs.Select(i => double.IsNaN(i.Value)
+                ? $"{i.Name} —"
+                : Number($"{i.Name} {i.Value:0.###}{(i.Unit.Length > 0 ? " " + i.Unit : "")}{(i.Defaulted ? " (default)" : "")}"))
+            .Concat(Constants.Select(c => Number($"{c.Name} {c.Value:0.###}")));
+
+        var result = Result.Quality is SignalQuality.Unavailable || double.IsNaN(Result.Value)
+            ? "no reading"
+            : Number($"{Result.Value:0.##} {Result.Unit}").Trim();
+
+        return $"{string.Join("  ·  ", parts)}  →  {result}";
+    }
+
+    private static string Number(FormattableString text) => text.ToString(CultureInfo.InvariantCulture);
+}
 
 /// <summary>
 /// Signals the dash works out from other signals instead of asking the truck for (ADR-0081).
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Why.</b> The 2.7 EcoBoost reports no airflow (<c>01 10</c>) and no fuel rate (<c>01 5E</c>),
-/// and the cluster shows no instant economy, so there is nothing to find. Fuel use is estimated
-/// from what the engine computer does report — manifold pressure, intake air temperature and RPM —
-/// by speed density, as phone apps do. Commanded λ (<c>01 44</c>) and the fuel trims correct it
-/// when the truck answers them.
+/// <b>The formula is in the catalog.</b> A calculated entry's <c>calculate</c> block names its
+/// inputs, its constants and its formula (<see cref="CalculationSpec"/>), so what the dash does
+/// can be read in the file and in Settings ▸ Sensors, and changed in the person's own signal file
+/// without a new build. This class only runs what the file says.
 /// </para>
 /// <para>
-/// <b>An estimate, and said to be one.</b> Volumetric efficiency is taken as a constant, so the
-/// number is off by however far the engine is from it, most under boost. The person's correction,
-/// set from fill-ups, takes out the steady part of that error.
+/// <b>Never a confident wrong number.</b> A required input with no reading, a fact the formula
+/// needs and does not have, or an answer that is not a number reads Unavailable. The result is no
+/// more trustworthy than the inputs it read: Stale over Simulated over Live.
 /// </para>
 /// <para>
-/// <b>Economy stopped.</b> Litres per hundred kilometres has no value at a standstill, so below
-/// <see cref="MovingKph"/> the economy signal reads litres per hour instead and says so in its
-/// unit. Anything that shows the reading's unit shows the change.
+/// An input that is itself calculated is worked out on the spot, so a chain reads the same moment
+/// throughout.
 /// </para>
-/// <para>Pure: the polling loop hands it the latest readings and publishes what comes back.</para>
 /// </remarks>
 public static class Calculations
 {
-    /// <summary>Estimated fuel flow, L/h.</summary>
-    public const string FuelFlow = "fuelFlow";
-
-    /// <summary>Instant economy, L/100km moving and L/h stopped.</summary>
-    public const string FuelEconomy = "fuelEconomy";
-
-    /// <summary>Below this speed the economy reads litres per hour.</summary>
-    public const double MovingKph = 3;
+    /// <summary>The unit fuel flow is in, and economy while stopped.</summary>
+    public const string FlowUnit = "L/h";
 
     /// <summary>The unit economy is in while moving.</summary>
     public const string EconomyUnit = "L/100km";
 
-    /// <summary>The unit fuel flow is in, and economy while stopped.</summary>
-    public const string FlowUnit = "L/h";
+    /// <summary>The engine's size in litres, 0 when not known.</summary>
+    public const string Displacement = "displacement";
 
-    /// <summary>The highest economy shown; slower than this is walking pace with the engine working.</summary>
-    public const double MaximumEconomy = 99.9;
+    /// <summary>The person's fuel estimate correction.</summary>
+    public const string Correction = "correction";
 
-    /// <summary>Every calculation there is.</summary>
-    public static IReadOnlyList<string> Known { get; } = [FuelFlow, FuelEconomy];
+    /// <summary>The names every formula is given, which an input or constant may not take.</summary>
+    public static IReadOnlyList<string> Facts { get; } = [Displacement, Correction];
 
-    private static readonly CalculationInput[] FlowInputs =
-    [
-        new("engine.intakeManifoldPressure", Required: true),
-        new("engine.intakeAirTemp", Required: true),
-        new("engine.rpm", Required: true),
-        new("fuel.commandedLambda", Required: false),
-        new("fuel.shortTermTrimB1", Required: false),
-        new("fuel.longTermTrimB1", Required: false),
-        new("fuel.shortTermTrimB2", Required: false),
-        new("fuel.longTermTrimB2", Required: false),
-    ];
+    /// <summary>How deep a chain of calculated inputs may go before it is taken to be a loop.</summary>
+    private const int MaximumDepth = 8;
 
-    private static readonly CalculationInput[] EconomyInputs =
-        [.. FlowInputs, new("vehicle.speed", Required: true)];
-
-    /// <summary>True for a calculation this build knows.</summary>
-    public static bool IsKnown(string? name) => name is not null && Known.Contains(name, StringComparer.Ordinal);
-
-    /// <summary>What a calculation reads; empty for one this build does not know.</summary>
-    public static IReadOnlyList<CalculationInput> InputsOf(string? name) => name switch
-    {
-        FuelFlow => FlowInputs,
-        FuelEconomy => EconomyInputs,
-        _ => [],
-    };
+    private static readonly ConcurrentDictionary<string, Formula?> Parsed = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// Work a calculated signal out from the latest readings.
+    /// What is wrong with a calculated definition as written, or nothing: a formula that will not
+    /// read, a name it uses that is not given, a name given twice.
     /// </summary>
-    /// <param name="signalId">The calculated signal's id, which the reading carries.</param>
-    /// <param name="name">Which calculation.</param>
-    /// <param name="read">The latest reading of an input, as the bus has it, staleness included.</param>
-    /// <param name="model">The engine's facts and the person's correction.</param>
-    /// <param name="unit">The catalog's unit for the signal, used when nothing can be worked out.</param>
-    public static SignalValue Calculate(string signalId, string name, Func<string, SignalValue> read, FuelModel model, string unit)
+    public static IEnumerable<string> Check(SignalDefinition d)
     {
-        ArgumentNullException.ThrowIfNull(read);
-        ArgumentNullException.ThrowIfNull(model);
+        ArgumentNullException.ThrowIfNull(d);
 
-        var inputs = InputsOf(name);
-
-        if (inputs.Count == 0 || !model.CanEstimate)
+        if (d.Calculate is not { } spec)
         {
-            return SignalValue.Missing(signalId, unit);
+            yield break;
         }
 
-        var readings = inputs.ToDictionary(i => i.SignalId, i => read(i.SignalId), StringComparer.Ordinal);
-        var required = inputs.Where(i => i.Required).Select(i => readings[i.SignalId]).ToList();
-
-        if (required.Any(v => !HasNumber(v)))
+        if (spec.Inputs.Count == 0)
         {
-            return SignalValue.Missing(signalId, unit);
+            yield return $"'{d.Id}': a calculation needs at least one input";
         }
 
-        var quality = required.Select(v => v.Quality).Aggregate(SignalQuality.Live, Worse);
-
-        // As new as its newest input. An input gone stale already makes the whole reading Stale,
-        // through its quality; a slow input such as intake temperature must not age a fresh one.
-        var at = required.Max(v => v.TimestampUtc);
-
-        var flow = FlowLitresPerHour(readings, model);
-
-        if (name == FuelFlow)
+        foreach (var (name, input) in spec.Inputs)
         {
-            return new SignalValue(signalId, flow, FlowUnit, at, quality);
+            if (string.IsNullOrWhiteSpace(input.Signal))
+            {
+                yield return $"'{d.Id}': input '{name}' names no signal";
+            }
+
+            if (input.Signal == d.Id)
+            {
+                yield return $"'{d.Id}': input '{name}' is the signal itself";
+            }
         }
 
-        var speed = readings["vehicle.speed"].Value;
+        var given = spec.Inputs.Keys.Concat(spec.Constants?.Keys ?? []).Concat(Facts).ToList();
 
-        return speed < MovingKph
-            ? new SignalValue(signalId, flow, FlowUnit, at, quality)
-            : new SignalValue(signalId, Math.Min(flow / speed * 100, MaximumEconomy), EconomyUnit, at, quality);
+        foreach (var twice in given.GroupBy(n => n, StringComparer.Ordinal).Where(g => g.Count() > 1))
+        {
+            yield return $"'{d.Id}': the name '{twice.Key}' is given twice (inputs, constants, and {string.Join(", ", Facts)} share one set of names)";
+        }
+
+        if ((spec.Formula is null) == (spec.Cases is not { Count: > 0 }))
+        {
+            yield return $"'{d.Id}': give a formula, or cases — one of the two";
+        }
+
+        if (spec.Cases is { Count: > 0 } cases && cases[^1].When is not null)
+        {
+            yield return $"'{d.Id}': the last case needs no \"when\", so there is always an answer";
+        }
+
+        foreach (var text in spec.Formulas)
+        {
+            if (Formula.TryParse(text, out var problem) is not { } formula)
+            {
+                yield return $"'{d.Id}': {problem}";
+                continue;
+            }
+
+            foreach (var unknown in formula.Names.Where(n => !given.Contains(n, StringComparer.Ordinal)))
+            {
+                yield return $"'{d.Id}': '{unknown}' in \"{text}\" is not an input, a constant, or one of {string.Join(", ", Facts)}";
+            }
+        }
     }
+
+    /// <summary>A calculated signal that reads itself, directly or through others; empty when there is none.</summary>
+    public static IEnumerable<string> Loops(IReadOnlyCollection<SignalDefinition> definitions)
+    {
+        var byId = definitions.GroupBy(d => d.Id, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+
+        foreach (var d in definitions.Where(d => d.IsCalculated))
+        {
+            if (Reaches(d.Id, d, byId, 0))
+            {
+                yield return $"'{d.Id}': its calculation reads itself through its inputs";
+            }
+        }
+
+        static bool Reaches(string target, SignalDefinition from, Dictionary<string, SignalDefinition> byId, int depth) =>
+            depth <= MaximumDepth
+            && from.Calculate is { } spec
+            && spec.Inputs.Values.Any(i => i.Signal == target
+                || (byId.TryGetValue(i.Signal, out var next) && Reaches(target, next, byId, depth + 1)));
+    }
+
+    /// <summary>Work a calculated signal out from the latest readings.</summary>
+    /// <param name="definition">The calculated signal.</param>
+    /// <param name="find">Another signal's definition by id, for an input that is itself calculated.</param>
+    /// <param name="read">The latest reading of a signal, as the bus has it, staleness included.</param>
+    /// <param name="facts">The engine's size and the correction.</param>
+    public static SignalValue Calculate(SignalDefinition definition, Func<string, SignalDefinition?> find, Func<string, SignalValue> read, CalculationFacts facts) =>
+        Work(definition, find, read, facts, 0).Result;
+
+    /// <summary>Work it out and keep everything that went in, for Settings ▸ Sensors.</summary>
+    public static CalculationWorking Explain(SignalDefinition definition, Func<string, SignalDefinition?> find, Func<string, SignalValue> read, CalculationFacts facts) =>
+        Work(definition, find, read, facts, 0);
 
     /// <summary>
     /// The unit to print beside a reading on a layout that wrote its own: the layout's, unless the
@@ -173,53 +207,120 @@ public static class Calculations
     public static string UnitShown(string layoutUnit, string? readingUnit) =>
         readingUnit == FlowUnit && layoutUnit == EconomyUnit ? FlowUnit : layoutUnit;
 
-    /// <summary>Speed density: air in from pressure, temperature and engine speed; fuel from air.</summary>
-    private static double FlowLitresPerHour(IReadOnlyDictionary<string, SignalValue> r, FuelModel model)
+    private static CalculationWorking Work(SignalDefinition d, Func<string, SignalDefinition?> find, Func<string, SignalValue> read, CalculationFacts facts, int depth)
     {
-        var mapKpa = r["engine.intakeManifoldPressure"].Value;
-        var iatC = r["engine.intakeAirTemp"].Value;
-        var rpm = r["engine.rpm"].Value;
+        ArgumentNullException.ThrowIfNull(d);
+        ArgumentNullException.ThrowIfNull(find);
+        ArgumentNullException.ThrowIfNull(read);
+        ArgumentNullException.ThrowIfNull(facts);
 
-        if (rpm <= 0 || mapKpa <= 0)
+        var missing = SignalValue.Missing(d.Id, d.Decode.Unit);
+
+        if (d.Calculate is not { } spec || depth > MaximumDepth)
         {
-            return 0;
+            return new CalculationWorking([], [], null, missing);
         }
 
-        var lambda = Optional(r, "fuel.commandedLambda") is { } l && l > 0 ? l : 1.0;
+        var values = new Dictionary<string, double>(StringComparer.Ordinal);
+        var inputs = new List<WorkingInput>();
+        var qualities = new List<SignalQuality>();
+        var newest = DateTimeOffset.MinValue;
+        var complete = true;
 
-        if (lambda > FuelModel.FuelCutLambda)
+        foreach (var (name, input) in spec.Inputs)
         {
-            // Coasting in gear with the injectors off: no fuel, whatever the air.
-            return 0;
+            var reading = find(input.Signal) is { IsCalculated: true } chained
+                ? Work(chained, find, read, facts, depth + 1).Result
+                : read(input.Signal);
+
+            if (HasNumber(reading))
+            {
+                values[name] = reading.Value;
+                inputs.Add(new WorkingInput(name, input.Signal, reading.Value, reading.Unit, Defaulted: false));
+                qualities.Add(reading.Quality);
+                newest = reading.TimestampUtc > newest ? reading.TimestampUtc : newest;
+            }
+            else if (input.Default is { } fallback)
+            {
+                values[name] = fallback;
+                inputs.Add(new WorkingInput(name, input.Signal, fallback, "", Defaulted: true));
+            }
+            else
+            {
+                inputs.Add(new WorkingInput(name, input.Signal, double.NaN, reading.Unit, Defaulted: false));
+                complete = false;
+            }
         }
 
-        // kg/m³ of the charge, then m³/s swept: a four-stroke fills each cylinder every other turn.
-        var density = mapKpa * 1000 / (FuelModel.AirGasConstant * (iatC + 273.15));
-        var swept = model.DisplacementLitres / 1000 * rpm / 120;
-        var airGramsPerSecond = density * swept * FuelModel.VolumetricEfficiency * 1000;
+        var constants = (spec.Constants ?? new Dictionary<string, double>()).Select(c => (c.Key, c.Value)).ToList();
 
-        var fuelGramsPerSecond = airGramsPerSecond / (FuelModel.StoichiometricAfr * lambda) * (1 + Trim(r) / 100);
+        foreach (var (name, value) in constants)
+        {
+            values[name] = value;
+        }
 
-        return Math.Max(0, fuelGramsPerSecond * 3600 / FuelModel.FuelGramsPerLitre * model.ClampedCorrection);
+        // The facts, shown only when the formula uses them. An engine size of 0 is not known: a
+        // formula that needs it has no answer rather than a zero.
+        var used = spec.Formulas.Select(Read).Where(f => f is not null).SelectMany(f => f!.Names).ToHashSet(StringComparer.Ordinal);
+
+        if (used.Contains(Displacement))
+        {
+            constants.Add((Displacement, facts.DisplacementLitres));
+            complete &= facts.DisplacementLitres > 0 && double.IsFinite(facts.DisplacementLitres);
+        }
+
+        if (used.Contains(Correction))
+        {
+            constants.Add((Correction, facts.ClampedCorrection));
+        }
+
+        values[Displacement] = facts.DisplacementLitres;
+        values[Correction] = facts.ClampedCorrection;
+
+        if (!complete || qualities.Count == 0)
+        {
+            return new CalculationWorking(inputs, constants, null, missing);
+        }
+
+        double Value(string name) => values.TryGetValue(name, out var v) ? v : double.NaN;
+
+        var (text, unit) = Choose(spec, Value);
+
+        if (text is null || Read(text) is not { } formula)
+        {
+            return new CalculationWorking(inputs, constants, text, missing);
+        }
+
+        var result = formula.Evaluate(Value);
+        unit ??= spec.Unit ?? d.Decode.Unit;
+
+        var answer = double.IsFinite(result)
+            ? new SignalValue(d.Id, result, unit, newest, qualities.Aggregate(SignalQuality.Live, Worse))
+            : SignalValue.Missing(d.Id, unit);
+
+        return new CalculationWorking(inputs, constants, text, answer);
     }
 
-    /// <summary>The fuel trims, short plus long, averaged over the banks that answered; zero when none did.</summary>
-    private static double Trim(IReadOnlyDictionary<string, SignalValue> r)
+    /// <summary>The formula to use, and its unit when a case gives one.</summary>
+    private static (string? Formula, string? Unit) Choose(CalculationSpec spec, Func<string, double> value)
     {
-        var banks = new[]
+        if (spec.Formula is { } single)
         {
-            (Optional(r, "fuel.shortTermTrimB1"), Optional(r, "fuel.longTermTrimB1")),
-            (Optional(r, "fuel.shortTermTrimB2"), Optional(r, "fuel.longTermTrimB2")),
+            return (single, null);
         }
-        .Where(b => b.Item1 is not null || b.Item2 is not null)
-        .Select(b => (b.Item1 ?? 0) + (b.Item2 ?? 0))
-        .ToList();
 
-        return banks.Count == 0 ? 0 : banks.Average();
+        foreach (var c in spec.Cases ?? [])
+        {
+            if (c.When is null || Read(c.When) is { } when && when.Evaluate(value) is var held && !double.IsNaN(held) && held != 0)
+            {
+                return (c.Formula, c.Unit);
+            }
+        }
+
+        return (null, null);
     }
 
-    private static double? Optional(IReadOnlyDictionary<string, SignalValue> r, string id) =>
-        r.TryGetValue(id, out var v) && HasNumber(v) ? v.Value : null;
+    private static Formula? Read(string text) => Parsed.GetOrAdd(text, t => Formula.TryParse(t, out _));
 
     /// <summary>A number to work with: usable, or stale with one still in it.</summary>
     private static bool HasNumber(SignalValue v) =>

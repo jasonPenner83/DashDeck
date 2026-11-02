@@ -1459,6 +1459,18 @@
                                                                     </StackPanel>
                                                                     <TextBlock Margin="0,3,0,0" Style="{StaticResource MicroText}"
                                                                                TextTrimming="CharacterEllipsis" Text="{Binding Detail}" />
+                                                                    <!-- A calculated signal (ADR-0081): its formula as the file
+                                                                         writes it, and the working with what the bus has now. -->
+                                                                    <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
+                                                                               FontFamily="{DynamicResource MonoFont}" FontSize="12"
+                                                                               Foreground="{DynamicResource TextMidBrush}"
+                                                                               Text="{Binding Formula}"
+                                                                               Visibility="{Binding IsCalculated, Converter={StaticResource BoolToVis}}" />
+                                                                    <TextBlock Margin="0,4,0,0" TextWrapping="Wrap"
+                                                                               FontFamily="{DynamicResource MonoFont}" FontSize="12"
+                                                                               Foreground="{Binding Quality, Converter={StaticResource ValueBrushToken}}"
+                                                                               Text="{Binding Working}"
+                                                                               Visibility="{Binding IsCalculated, Converter={StaticResource BoolToVis}}" />
                                                                 </StackPanel>
                                                                 <StackPanel Grid.Column="1" Orientation="Horizontal"
                                                                             VerticalAlignment="Center" Margin="12,0,0,0">

@@ -172,11 +172,12 @@ public sealed record SignalDefinition
     public bool Placeholder { get; init; }
 
     /// <summary>
-    /// Worked out by the dash from other signals rather than asked for (ADR-0081): the name of the
-    /// calculation, such as <c>fuelEconomy</c>, or null. It has no request; asking for it asks for
-    /// its inputs instead, and the polling loop works it out on its turn.
+    /// Worked out by the dash from other signals rather than asked for (ADR-0081): its inputs,
+    /// constants and formula, or null. It has no request; asking for it asks for its inputs
+    /// instead, and the polling loop works it out on its turn. Its unit is the calculation's, so
+    /// it needs no <see cref="Decode"/> written.
     /// </summary>
-    public string? Calculate { get; init; }
+    public Calculated.CalculationSpec? Calculate { get; init; }
 
     /// <summary>True for a signal the dash works out itself.</summary>
     [JsonIgnore]
