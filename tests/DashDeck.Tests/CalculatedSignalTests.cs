@@ -9,14 +9,16 @@ using DashDeck.Vehicle.Elm;
 namespace DashDeck.Tests;
 
 /// <summary>
-/// Signals the dash works out itself (ADR-0081): fuel flow by speed density, and instant economy
-/// from it — L/100km moving, L/h stopped.
+/// Signals the dash works out itself, from the formula the catalog writes (ADR-0081): fuel flow by
+/// speed density, and instant economy from it — L/100km moving, L/h stopped.
 /// </summary>
 public sealed class CalculatedSignalTests
 {
     private static readonly DateTimeOffset Noon = new(2026, 11, 2, 12, 0, 0, TimeSpan.Zero);
 
-    private static readonly FuelModel TwoSevenLitre = new(2.7);
+    private static readonly CalculationFacts TwoSevenLitre = new(2.7);
+
+    private static readonly SignalCatalog Catalog = TestCatalog.Load();
 
     /// <summary>The truck at idle in the owner's Infocar log: 40 kPa, 36 °C, 674 rpm, stopped.</summary>
     private static Dictionary<string, double> Idle() => new()
@@ -32,11 +34,51 @@ public sealed class CalculatedSignalTests
             ? new SignalValue(id, v, "", Noon, quality)
             : SignalValue.Missing(id);
 
-    private static SignalValue Economy(Dictionary<string, double> values, FuelModel? model = null, SignalQuality quality = SignalQuality.Live) =>
-        Calculations.Calculate("fuel.economy", Calculations.FuelEconomy, Read(values, quality), model ?? TwoSevenLitre, "L/100km");
+    private static SignalDefinition? Find(string id) => Catalog.TryGet(id, out var d) ? d : null;
 
-    private static SignalValue Flow(Dictionary<string, double> values, FuelModel? model = null) =>
-        Calculations.Calculate("fuel.flowEstimate", Calculations.FuelFlow, Read(values), model ?? TwoSevenLitre, "L/h");
+    private static SignalValue Economy(Dictionary<string, double> values, CalculationFacts? facts = null, SignalQuality quality = SignalQuality.Live) =>
+        Calculations.Calculate(Catalog["fuel.economy"], Find, Read(values, quality), facts ?? TwoSevenLitre);
+
+    private static SignalValue Flow(Dictionary<string, double> values, CalculationFacts? facts = null) =>
+        Calculations.Calculate(Catalog["fuel.flowEstimate"], Find, Read(values), facts ?? TwoSevenLitre);
+
+    /// <summary>What the first version worked out in code, before the formula moved into the catalog.</summary>
+    private static double WhatTheCodeDid(double map, double iat, double rpm, double lambda, double trim, double displacement, double correction)
+    {
+        if (lambda > 1.5)
+        {
+            return 0;
+        }
+
+        var density = map * 1000 / (287.05 * (iat + 273.15));
+        var swept = displacement / 1000 * rpm / 120;
+        var air = density * swept * 0.85 * 1000;
+        var fuel = air / (14.7 * lambda) * (1 + trim / 100);
+        return Math.Max(0, fuel * 3600 / 745 * correction);
+    }
+
+    [Theory]
+    [InlineData(40, 36, 674.25, 1.0, 0, 0, 1.0)]
+    [InlineData(40, 36, 674.25, 1.0, 3.125, 1.5625, 1.0)]
+    [InlineData(185, 48, 4200, 0.82, -1.5, 2.3, 1.0)]
+    [InlineData(95, 20, 1800, 1.0, 0, 0, 0.9)]
+    [InlineData(25, 30, 2400, 1.99, 0, 0, 1.0)]
+    public void The_formula_in_the_catalog_gives_what_the_code_did(double map, double iat, double rpm, double lambda, double stft, double ltft, double correction)
+    {
+        var values = new Dictionary<string, double>
+        {
+            ["engine.intakeManifoldPressure"] = map,
+            ["engine.intakeAirTemp"] = iat,
+            ["engine.rpm"] = rpm,
+            ["fuel.commandedLambda"] = lambda,
+            ["fuel.shortTermTrimB1"] = stft,
+            ["fuel.longTermTrimB1"] = ltft,
+        };
+
+        var flow = Flow(values, new CalculationFacts(2.7, correction));
+
+        Assert.Equal(WhatTheCodeDid(map, iat, rpm, lambda, stft + ltft, 2.7, correction), flow.Value, 9);
+    }
 
     [Fact]
     public void Stopped_at_idle_reads_litres_per_hour()
@@ -58,7 +100,7 @@ public sealed class CalculatedSignalTests
         var economy = Economy(cruising);
 
         Assert.Equal(Calculations.EconomyUnit, economy.Unit);
-        Assert.Equal(flow / 50 * 100, economy.Value, 6);
+        Assert.Equal(flow / 50 * 100, economy.Value, 9);
     }
 
     [Theory]
@@ -80,27 +122,19 @@ public sealed class CalculatedSignalTests
         values["engine.rpm"] = 3000;
         values["vehicle.speed"] = 4;
 
-        Assert.Equal(Calculations.MaximumEconomy, Economy(values).Value);
+        Assert.Equal(99.9, Economy(values).Value);
     }
 
     [Fact]
-    public void Trims_add_fuel_averaged_over_the_banks_that_answered()
+    public void Trims_add_fuel()
     {
         var plain = Flow(Idle()).Value;
 
         var trimmed = Idle();
-        trimmed["fuel.shortTermTrimB1"] = 3.125;
-        trimmed["fuel.longTermTrimB1"] = 1.5625;
-        trimmed["fuel.shortTermTrimB2"] = 0.78125;
-        trimmed["fuel.longTermTrimB2"] = 3.90625;
+        trimmed["fuel.shortTermTrimB1"] = 5;
+        trimmed["fuel.longTermTrimB1"] = 5;
 
-        Assert.Equal(plain * 1.046875, Flow(trimmed).Value, 6);
-
-        var oneBank = Idle();
-        oneBank["fuel.shortTermTrimB1"] = 5;
-        oneBank["fuel.longTermTrimB1"] = 5;
-
-        Assert.Equal(plain * 1.10, Flow(oneBank).Value, 6);
+        Assert.Equal(plain * 1.10, Flow(trimmed).Value, 9);
     }
 
     [Fact]
@@ -110,7 +144,7 @@ public sealed class CalculatedSignalTests
 
         var rich = Idle();
         rich["fuel.commandedLambda"] = 0.8;
-        Assert.Equal(plain / 0.8, Flow(rich).Value, 6);
+        Assert.Equal(plain / 0.8, Flow(rich).Value, 9);
 
         var coasting = Idle();
         coasting["fuel.commandedLambda"] = 1.99;
@@ -122,9 +156,9 @@ public sealed class CalculatedSignalTests
     {
         var plain = Flow(Idle()).Value;
 
-        Assert.Equal(plain * 1.2, Flow(Idle(), new FuelModel(2.7, 1.2)).Value, 6);
-        Assert.Equal(plain * FuelModel.MaximumCorrection, Flow(Idle(), new FuelModel(2.7, 9)).Value, 6);
-        Assert.Equal(plain * FuelModel.MinimumCorrection, Flow(Idle(), new FuelModel(2.7, 0.01)).Value, 6);
+        Assert.Equal(plain * 1.2, Flow(Idle(), new CalculationFacts(2.7, 1.2)).Value, 9);
+        Assert.Equal(plain * CalculationFacts.MaximumCorrection, Flow(Idle(), new CalculationFacts(2.7, 9)).Value, 9);
+        Assert.Equal(plain * CalculationFacts.MinimumCorrection, Flow(Idle(), new CalculationFacts(2.7, 0.01)).Value, 9);
     }
 
     [Fact]
@@ -151,7 +185,7 @@ public sealed class CalculatedSignalTests
     [Fact]
     public void Without_the_engine_size_there_is_no_reading()
     {
-        var economy = Economy(Idle(), FuelModel.Unknown);
+        var economy = Economy(Idle(), CalculationFacts.Unknown);
 
         Assert.Equal(SignalQuality.Unavailable, economy.Quality);
         Assert.Equal("L/100km", economy.Unit);
@@ -164,6 +198,31 @@ public sealed class CalculatedSignalTests
         Assert.Equal(quality, Economy(Idle(), quality: quality).Quality);
 
     [Fact]
+    public void The_working_says_what_went_in_and_what_came_out()
+    {
+        var working = Calculations.Explain(Catalog["fuel.flowEstimate"], Find, Read(Idle()), TwoSevenLitre).ToString();
+
+        Assert.Contains("map 40", working);
+        Assert.Contains("rpm 674.25", working);
+        Assert.Contains("lambda 1 (default)", working);
+        Assert.Contains("ve 0.85", working);
+        Assert.Contains("displacement 2.7", working);
+        Assert.EndsWith("→  1.91 L/h", working);
+    }
+
+    [Fact]
+    public void The_working_of_an_input_with_no_reading_says_so()
+    {
+        var values = Idle();
+        values.Remove("engine.rpm");
+
+        var working = Calculations.Explain(Catalog["fuel.flowEstimate"], Find, Read(values), TwoSevenLitre).ToString();
+
+        Assert.Contains("rpm —", working);
+        Assert.EndsWith("no reading", working);
+    }
+
+    [Fact]
     public void A_layout_that_says_litres_per_hundred_shows_litres_per_hour_when_the_reading_does()
     {
         Assert.Equal("L/h", Calculations.UnitShown("L/100km", "L/h"));
@@ -172,56 +231,139 @@ public sealed class CalculatedSignalTests
     }
 
     [Fact]
-    public void The_shipped_economy_is_worked_out_not_waiting_for_an_id()
+    public void The_shipped_economy_is_worked_out_in_the_open()
     {
-        var economy = TestCatalog.Load()["fuel.economy"];
+        var economy = Catalog["fuel.economy"];
 
-        Assert.Equal(Calculations.FuelEconomy, economy.Calculate);
+        Assert.NotNull(economy.Calculate);
         Assert.False(economy.Placeholder);
         Assert.False(economy.HasRequest);
+        Assert.Equal("L/100km", economy.Decode.Unit);
+        Assert.Equal("fuel.flowEstimate", economy.Calculate!.Inputs["flow"].Signal);
+    }
+
+    // ── Written by the person ─────────────────────────────────────────────────
+
+    private const string Boost = """
+        [{
+          "id": "engine.boost", "name": "Boost", "category": "Engine",
+          "calculate": {
+            "unit": "kPa",
+            "inputs": { "map": "engine.intakeManifoldPressure", "baro": { "signal": "engine.barometricPressure", "default": 101.3 } },
+            "formula": "map - baro"
+          }
+        }]
+        """;
+
+    [Fact]
+    public void A_new_calculation_can_be_written_in_the_signal_file()
+    {
+        var boost = Assert.Single(SignalCatalog.ParseList(Boost));
+        var merged = SignalCatalog.Overlay(Catalog, [boost]);
+
+        var values = new Dictionary<string, double> { ["engine.intakeManifoldPressure"] = 180, ["engine.barometricPressure"] = 98 };
+        var reading = Calculations.Calculate(merged["engine.boost"], id => merged.TryGet(id, out var d) ? d : null, Read(values), CalculationFacts.Unknown);
+
+        // Needs no engine size, so it reads without one.
+        Assert.Equal(82, reading.Value, 9);
+        Assert.Equal("kPa", reading.Unit);
     }
 
     [Fact]
-    public void An_unknown_calculation_is_refused()
+    public void A_calculation_reads_back_as_it_was_written()
     {
-        var problems = SignalCatalog.Check(new SignalDefinition
+        var written = SignalCatalog.ToJson([Catalog["fuel.flowEstimate"], Catalog["fuel.economy"]]);
+        var back = SignalCatalog.ParseList(written);
+
+        Assert.DoesNotContain("\"decode\"", written);
+        Assert.Contains("\"default\": 1", written);
+
+        foreach (var d in back)
         {
-            Id = "x.y",
-            Name = "X",
-            Calculate = "perpetualMotion",
-            Decode = new DecodeSpec(0, 1, false, 1, 0, ""),
-        });
+            var original = Catalog[d.Id];
+            Assert.Equal(original.Calculate!.Formulas, d.Calculate!.Formulas);
+            Assert.Equal(original.Calculate.Inputs.OrderBy(i => i.Key), d.Calculate.Inputs.OrderBy(i => i.Key));
+            Assert.Equal(original.Calculate.Constants?.OrderBy(i => i.Key), d.Calculate.Constants?.OrderBy(i => i.Key));
+            Assert.Equal(original.Decode, d.Decode);
+        }
+    }
 
-        Assert.Contains(problems, p => p.Contains("perpetualMotion", StringComparison.Ordinal));
+    [Theory]
+    [InlineData("\"formula\": \"map - bar0\"", "'bar0'")]
+    [InlineData("\"formula\": \"map -\"", "ends where")]
+    [InlineData("\"formula\": \"sqrt(map)\"", "'sqrt' is not a function")]
+    [InlineData("\"formula\": \"map\", \"cases\": [ { \"formula\": \"map\" } ]", "one of the two")]
+    [InlineData("\"cases\": [ { \"when\": \"map > 1\", \"formula\": \"map\" } ]", "last case")]
+    [InlineData("\"constants\": { \"map\": 1 }, \"formula\": \"map\"", "given twice")]
+    [InlineData("\"constants\": { \"displacement\": 3 }, \"formula\": \"map\"", "given twice")]
+    public void A_calculation_written_wrong_is_refused_with_the_reason(string body, string reason)
+    {
+        var json = $$"""
+            [{ "id": "x.y", "name": "X", "calculate": { "inputs": { "map": "engine.intakeManifoldPressure" }, {{body}} } }]
+            """;
+
+        var problems = SignalCatalog.Check(Assert.Single(SignalCatalog.ParseList(json)));
+
+        Assert.Contains(problems, p => p.Contains(reason, StringComparison.Ordinal));
     }
 
     [Fact]
-    public void Asking_for_economy_asks_for_its_inputs_and_costs_nothing_itself()
+    public void A_calculation_that_reads_itself_is_refused()
     {
-        var arbiter = new RequestArbiter(TestCatalog.Load()) { BudgetHz = 20 };
+        var json = """
+            [
+              { "id": "a.a", "name": "A", "calculate": { "inputs": { "b": "b.b" }, "formula": "b" } },
+              { "id": "b.b", "name": "B", "calculate": { "inputs": { "a": "a.a" }, "formula": "a" } }
+            ]
+            """;
+
+        var ex = Assert.Throws<InvalidDataException>(() => SignalCatalog.FromJson(json));
+
+        Assert.Contains("reads itself", ex.Message);
+    }
+
+    [Fact]
+    public void A_calculation_cannot_also_point_into_a_database()
+    {
+        var json = """
+            [{ "id": "x.y", "name": "X", "dbc": { "file": "truck-hs.dbc", "message": "M", "signal": "S" },
+               "calculate": { "inputs": { "map": "engine.intakeManifoldPressure" }, "formula": "map" } }]
+            """;
+
+        var ex = Assert.Throws<InvalidDataException>(() => SignalCatalog.ParseList(json));
+
+        Assert.Contains("cannot also refer to a database", ex.Message);
+    }
+
+    // ── Asking for it ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Asking_for_economy_asks_for_its_inputs_and_theirs_and_costs_nothing_itself()
+    {
+        var arbiter = new RequestArbiter(Catalog) { BudgetHz = 20 };
 
         using var demand = arbiter.Declare("fuel.economy", SignalPriority.Normal, 1);
         var plan = arbiter.CurrentPlan.Entries.ToDictionary(e => e.Signal.Id, e => e.RateHz);
 
-        Assert.Equal(1, plan["engine.rpm"]);
         Assert.Equal(1, plan["vehicle.speed"]);
+
+        // The fuel flow's inputs, through it.
+        Assert.Equal(1, plan["engine.rpm"]);
         Assert.Equal(1, plan["engine.intakeManifoldPressure"]);
         Assert.Equal(1, plan["fuel.commandedLambda"]);
+        Assert.Equal(0.5, plan["fuel.longTermTrimB1"]);
 
         // No faster than intake temperature is usually asked.
         Assert.Equal(0.2, plan["engine.intakeAirTemp"]);
 
-        // Inputs that are not in the catalog are simply not asked for.
-        Assert.False(plan.ContainsKey("fuel.shortTermTrimB2"));
-
-        Assert.True(plan.ContainsKey("fuel.economy"));
-        Assert.DoesNotContain(arbiter.CurrentPlan.Entries, e => e.Signal.Id == "fuel.economy" && e.Signal.HasRequest);
+        Assert.DoesNotContain(arbiter.CurrentPlan.Entries, e => e.Signal.IsCalculated && e.Signal.HasRequest);
+        Assert.Equal(arbiter.CurrentPlan.AllocatedHz, arbiter.CurrentPlan.Entries.Where(e => !e.Signal.IsCalculated).Sum(e => e.RateHz), 9);
     }
 
     [Fact]
     public void Withdrawing_economy_withdraws_its_inputs()
     {
-        var arbiter = new RequestArbiter(TestCatalog.Load()) { BudgetHz = 20 };
+        var arbiter = new RequestArbiter(Catalog) { BudgetHz = 20 };
 
         arbiter.Declare("fuel.economy", SignalPriority.Normal, 1).Dispose();
 
@@ -232,11 +374,11 @@ public sealed class CalculatedSignalTests
     public async Task The_simulated_truck_gives_an_economy_flagged_simulated()
     {
         var transport = new SyntheticTransport(new SimulatedF150(Drives.ColdStartCity), faults: SyntheticFaults.Perfect);
-        await using var service = new VehicleService(new ElmAdapter(transport), TestCatalog.Load())
+        await using var service = new VehicleService(new ElmAdapter(transport), Catalog)
         {
             Quality = SignalQuality.Simulated,
             SimulatedValues = transport.Truck.Reading,
-            Fuel = TwoSevenLitre,
+            Facts = TwoSevenLitre,
         };
 
         await service.StartAsync(TestCancellation.Token);

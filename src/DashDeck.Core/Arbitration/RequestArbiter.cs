@@ -1,5 +1,4 @@
 using DashDeck.Abstractions;
-using DashDeck.Core.Calculated;
 using DashDeck.Core.Catalog;
 
 namespace DashDeck.Core.Arbitration;
@@ -110,19 +109,12 @@ public sealed class RequestArbiter
 
         // A calculated signal asks for nothing itself (ADR-0081): it asks for its inputs, at its own
         // priority, each no faster than it wants and no faster than that input is usually asked.
+        // An input that is calculated in turn asks for its own.
         foreach (var d in snapshot)
         {
-            if (!_catalog.TryGet(d.SignalId, out var wanted) || !wanted.IsCalculated)
+            if (_catalog.TryGet(d.SignalId, out var wanted))
             {
-                continue;
-            }
-
-            foreach (var input in Calculations.InputsOf(wanted.Calculate))
-            {
-                if (_catalog.TryGet(input.SignalId, out var source) && source.HasRequest)
-                {
-                    demands.Add((input.SignalId, d.Priority, Math.Min(d.RequestedRateHz, source.DefaultRateHz)));
-                }
+                AddInputs(wanted, d.Priority, d.RequestedRateHz, demands, depth: 0);
             }
         }
 
@@ -180,6 +172,31 @@ public sealed class RequestArbiter
         }
 
         PlanChanged?.Invoke(plan);
+    }
+
+    private void AddInputs(SignalDefinition wanted, SignalPriority priority, double rateHz, List<(string SignalId, SignalPriority Priority, double RateHz)> demands, int depth)
+    {
+        if (wanted.Calculate is not { } spec || depth > 8)
+        {
+            return;
+        }
+
+        foreach (var input in spec.Inputs.Values)
+        {
+            if (!_catalog.TryGet(input.Signal, out var source))
+            {
+                continue;
+            }
+
+            if (source.IsCalculated)
+            {
+                AddInputs(source, priority, rateHz, demands, depth + 1);
+            }
+            else if (source.HasRequest)
+            {
+                demands.Add((input.Signal, priority, Math.Min(rateHz, source.DefaultRateHz)));
+            }
+        }
     }
 
     private sealed class Declaration(

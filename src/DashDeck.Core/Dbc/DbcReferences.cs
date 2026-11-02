@@ -45,7 +45,9 @@ public static class DbcReferences
             throw new InvalidDataException(string.Join("; ", problems));
         }
 
-        return [.. list.Select(d => d.Dbc is null || d.DbcResolved ? d : Follow(d, databases))];
+        return [.. list.Select(d => d.Calculate is { } calculation && (DecodeSpec?)d.Decode is null
+            ? d with { Decode = new DecodeSpec(0, 1, false, 1, 0, calculation.Unit ?? calculation.Cases?.LastOrDefault()?.Unit ?? "") }
+            : d.Dbc is null || d.DbcResolved ? d : Follow(d, databases))];
     }
 
     /// <summary>
@@ -73,6 +75,17 @@ public static class DbcReferences
 
         if (d.DbcResolved)
         {
+            yield break;
+        }
+
+        // A calculated signal's unit is its calculation's (ADR-0081); it reads no database.
+        if (d.Calculate is not null)
+        {
+            if (d.Dbc is not null)
+            {
+                yield return $"'{d.Id}': a calculated signal is worked out by the dash — it cannot also refer to a database";
+            }
+
             yield break;
         }
 

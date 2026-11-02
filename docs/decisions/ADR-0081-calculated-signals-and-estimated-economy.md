@@ -81,3 +81,57 @@ The owner asked for the same, with litres per hour while stationary.
 - Diesel. 14.7 and 745 g/L are petrol's; the fuel type from the VIN is not yet read.
 - A volumetric efficiency that varies with RPM and load.
 - Range from the estimate.
+
+## Addendum — 2026-11-02: the formula is in the catalog
+
+The owner asked where the calculation was, and wanted to see it. It was in code: the catalog said
+`"calculate": "fuelEconomy"` and nothing more. It now says the whole of it.
+
+**A `calculate` block holds the calculation:**
+```jsonc
+"calculate": {
+  "unit": "L/h",
+  "inputs": { "map": "engine.intakeManifoldPressure", "lambda": { "signal": "fuel.commandedLambda", "default": 1 } },
+  "constants": { "ve": 0.85 },
+  "formula": "map * ve / lambda"
+}
+```
+- **`inputs`** name each signal the formula reads. An input written as an id is required, and the
+  result is Unavailable without it. One written with a `default` uses that number when the signal
+  has no reading.
+- **`constants`** are numbers by name, with comments in the file saying what each one is.
+- **`formula`**, or **`cases`**: the first case whose `when` holds is used, and each case can give
+  its own `unit`. The last case has no `when`.
+- Every formula is also given `displacement` (the VIN's engine size; a formula that uses it has no
+  answer while it is 0) and `correction` (Settings ▸ Vehicle).
+- A calculated entry writes no `decode`, `bus`, `mode` or `pid`. Its unit is the calculation's.
+
+**`Formula` reads them.** It knows arithmetic, brackets, comparisons (1 or 0), `&&` and `||`, and
+`min`, `max`, `abs`, `clamp` and `if`, and evaluates only the branch taken. Nothing else: a formula
+cannot reach a file, the network or the truck. A formula is read when the catalog loads. Any of
+these is refused there with the reason and the character it went wrong at:
+- a formula that will not read;
+- a name it uses that is not an input, a constant or a fact;
+- a name given twice;
+- a formula and cases both, or neither;
+- a last case with a `when`;
+- a calculation that reads itself through its inputs;
+- a calculation that also points into a database.
+
+**Chains.** `fuel.economy` reads `fuel.flowEstimate`, which is calculated in turn. A calculated input
+is worked out on the spot, so the chain reads one moment. The arbiter plans the inputs' inputs.
+
+**Settings ▸ Sensors shows it.** A calculated signal's row lists each input and what it reads, the
+constants, and the formula or each case. Under that, a working line from the bus as it is now
+(`Calculations.Explain`), each value going in and what came out, such as
+`map 40 kPa · iat 36 °C · rpm 674 · lambda 1 (default) · ve 0.85 … → 1.91 L/h`. An input with no
+reading shows `—`. Tapping the row opens no editor, since there is no request or decode to edit; the
+row says to change it in the signal file.
+
+**The person can change it** by copying an entry into `signals.user.json`, or add their own, such as
+boost = map − baro. The overlay replaces the shipped entry by id, as it does for any signal.
+
+**One change in what it works out:** the fuel trims are bank 1's, short plus long. The code averaged
+the banks that answered, and bank 2's are not in the shipped catalog (ADR-0032). A formula in the
+person's file can add them. With bank 1 alone the catalog's formula gives exactly what the code did,
+and a test holds it to that across idle, boost, the fuel cut and a correction.

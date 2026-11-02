@@ -159,9 +159,12 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
     /// <summary>The fuel estimate's correction (ADR-0081), applied to the next reading.</summary>
     public double FuelCorrection
     {
-        get => _service.Fuel.Correction;
-        set => _service.Fuel = _service.Fuel with { Correction = value };
+        get => _service.Facts.Correction;
+        set => _service.Facts = _service.Facts with { Correction = value };
     }
+
+    /// <summary>The engine size and correction calculated signals are given (ADR-0081).</summary>
+    public CalculationFacts Facts => _service.Facts;
 
     /// <summary>
     /// The synthetic truck, or null when a real adapter is driving the stack.
@@ -373,7 +376,7 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
 
             // The fuel estimate needs the engine's size (ADR-0081), which only the VIN decode says.
             // The correction is the shell's to set, from Settings.
-            Fuel = new FuelModel(sources.Vehicle.DisplacementLitres ?? 0),
+            Facts = new CalculationFacts(sources.Vehicle.DisplacementLitres ?? 0),
         };
 
         await service.StartAsync(cancellationToken);

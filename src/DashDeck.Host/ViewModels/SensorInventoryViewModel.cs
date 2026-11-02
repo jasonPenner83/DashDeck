@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashDeck.Abstractions;
 using DashDeck.Core;
+using DashDeck.Core.Calculated;
 using DashDeck.Core.Catalog;
 using DashDeck.Core.Dbc;
 using DashDeck.Core.Discovery;
@@ -39,6 +40,9 @@ public interface ISignalInventorySource
 
     /// <summary>The vehicle packs laid over the catalog — where module names come from (ADR-0035).</summary>
     IReadOnlyList<VehiclePack> ActivePacks { get; }
+
+    /// <summary>The engine size and correction calculated signals are given (ADR-0081).</summary>
+    CalculationFacts Facts => CalculationFacts.Unknown;
 
     /// <summary>The standards' reference tables, with what the user's vehicle files add (ADR-0052).</summary>
     ObdReference Reference { get; }
@@ -81,7 +85,7 @@ public sealed partial class SignalRowViewModel(SignalDefinition definition, Sign
     public bool IsPending { get; } = pending;
 
     /// <summary>The quiet second line: id, bus, the request on the wire, and the module it goes to.</summary>
-    public string Detail => Definition.IsCalculated ? $"{Definition.Id}  ·  worked out by the dash from {string.Join(", ", DashDeck.Core.Calculated.Calculations.InputsOf(Definition.Calculate).Where(i => i.Required).Select(i => i.SignalId))}, nothing is asked"
+    public string Detail => Definition.IsCalculated ? $"{Definition.Id}  ·  worked out by the dash, nothing is asked  ·  change it in your signal file"
         : !Definition.HasRequest ? $"{Definition.Id}  ·  placeholder: no ID yet, nothing is asked" : string.Create(
         CultureInfo.InvariantCulture,
         $"{Definition.Id}  ·  {(Definition.Bus is CanBus.Ms ? "MS" : "HS")}  ·  {Definition.Mode:X2} {(Definition.Pid <= 0xFF ? Definition.Pid.ToString("X2", CultureInfo.InvariantCulture) : Definition.Pid.ToString("X4", CultureInfo.InvariantCulture))}{(Definition.ModuleAddress is { } module ? $"  ·  module {module:X3}" : "")}");
@@ -98,6 +102,46 @@ public sealed partial class SignalRowViewModel(SignalDefinition definition, Sign
         Definition.Unconfirmed ? "UNCONFIRMED — TEST IT" : "",
         Definition.Hidden ? "HIDDEN" : "",
     }.Where(t => t.Length > 0));
+
+    /// <summary>True for a signal the dash works out itself (ADR-0081): its formula and working are shown.</summary>
+    public bool IsCalculated => Definition.IsCalculated;
+
+    /// <summary>
+    /// The calculation as the catalog writes it: each input and what it reads, the constants, and the
+    /// formula, or each case with its condition.
+    /// </summary>
+    public string Formula => Definition.Calculate is not { } spec ? "" : string.Join(Environment.NewLine, Lines(spec));
+
+    private static IEnumerable<string> Lines(CalculationSpec spec)
+    {
+        foreach (var (name, input) in spec.Inputs)
+        {
+            yield return input.Default is { } fallback
+                ? string.Create(CultureInfo.InvariantCulture, $"{name} = {input.Signal}  (or {fallback:0.###} without it)")
+                : $"{name} = {input.Signal}";
+        }
+
+        foreach (var (name, value) in spec.Constants ?? new Dictionary<string, double>())
+        {
+            yield return string.Create(CultureInfo.InvariantCulture, $"{name} = {value:0.#####}");
+        }
+
+        if (spec.Formula is { } single)
+        {
+            yield return $"→ {single}{(spec.Unit is { Length: > 0 } unit ? $"   [{unit}]" : "")}";
+            yield break;
+        }
+
+        foreach (var c in spec.Cases ?? [])
+        {
+            var unit = c.Unit ?? spec.Unit;
+            yield return $"{(c.When is { } when ? $"when {when}" : "otherwise")} → {c.Formula}{(unit is { Length: > 0 } ? $"   [{unit}]" : "")}";
+        }
+    }
+
+    /// <summary>The calculation just now: each value going in and what came out.</summary>
+    [ObservableProperty]
+    private string _working = "";
 
     /// <summary>What the truck has said, in a word or a number.</summary>
     [ObservableProperty]
@@ -122,6 +166,14 @@ public sealed partial class SignalRowViewModel(SignalDefinition definition, Sign
 
         var value = vehicle.Signals.Current(Id);
         var status = vehicle.StatusOf(Id);
+
+        if (Definition.IsCalculated)
+        {
+            // Worked out here from what the bus has, so the working shows even while nothing on
+            // screen asks for it — then the inputs may be old or missing, and it says so.
+            var catalog = vehicle.Catalog;
+            Working = Calculations.Explain(Definition, id => catalog.TryGet(id, out var d) ? d : null, vehicle.Signals.Current, vehicle.Facts).ToString();
+        }
 
         (StatusText, Quality) = status switch
         {
@@ -481,7 +533,8 @@ public sealed partial class SensorInventoryViewModel : ObservableObject
     [RelayCommand]
     private void Edit(SignalRowViewModel? row)
     {
-        if (row is not null)
+        // A calculated signal has no request or decode to edit; its formula is in the signal file.
+        if (row is not null && !row.IsCalculated)
         {
             Editor = MakeEditor(row.Definition, isNew: false, row.Origin, note: null);
         }

@@ -686,9 +686,18 @@ no reading drawn as zero instead of a dash or NO DATA.
 1. **At the desk, simulated.** Start DashDeck with no adapter and tap **DASH**. **Expect:**
    - ECONOMY shows a number in the simulated colour, never stuck on 0;
    - while the synthetic truck is stopped it reads **L/h**, about 1–2; once it moves, **L/100km**.
-2. **Settings ▸ Sensors.** Find *Fuel Economy — Instant (estimated)*. **Expect:** *worked out by the
-   dash from engine.intakeManifoldPressure, engine.intakeAirTemp, engine.rpm, vehicle.speed, nothing is
-   asked*. Find *Commanded Lambda* and *Fuel Flow (estimated)* too.
+2. **Settings ▸ Sensors**, with DASH showing first so the inputs are being asked. Find *Fuel Flow
+   (estimated)*. **Expect:**
+   - *worked out by the dash, nothing is asked*;
+   - its calculation, line by line: `map = engine.intakeManifoldPressure`, `lambda =
+     fuel.commandedLambda (or 1 without it)`, the constants (`ve = 0.85`, `afr = 14.7` …), and
+     `→ if(lambda > fuelCut, 0, …)   [L/h]`;
+   - a working line in the reading's colour, such as `map 40 kPa · iat 36 °C · rpm 674 … → 1.91 L/h`,
+     changing as the engine does.
+
+   Find *Fuel Economy — Instant (estimated)*. **Expect:** `flow = fuel.flowEstimate`, `speed =
+   vehicle.speed`, then `when speed < moving → flow [L/h]` and `otherwise → min(flow / speed * 100,
+   most) [L/100km]`. Tapping either opens no editor: its formula is in the signal file.
 3. **In the truck, parked, engine idling, warm.** Tap **DASH**. **Expect:**
    - ECONOMY in the live colour, reading **L/h**, about 1.5–2.5;
    - blipping the throttle raises it for a moment.
@@ -704,9 +713,15 @@ no reading drawn as zero instead of a dash or NO DATA.
 6. Add an ECONOMY card on CARDS (MODIFY WIDGETS ▸ Fuel Economy — Instant). **Expect:** it switches
    between **L/h** and **L/100km** the same way.
 
+7. **Change it yourself (optional).** Open the folder in Settings ▸ Sensors and copy the
+   `fuel.flowEstimate` entry from `catalog\signals.obd2-standard.json` into your `signals.user.json`
+   (inside its `[ ]`). Change `"ve": 0.85` to `0.80` and save. Restart. **Expect:** the working line
+   shows `ve 0.8`, and the flow is about 6 % lower. Remove it from your file afterwards.
+
 **A failure looks like:**
-- ECONOMY showing a dash with the engine running. Check the engine size in Settings ▸ Vehicle, and
-  tell me what Settings ▸ Sensors says for manifold pressure, intake air temperature and RPM;
+- ECONOMY showing a dash with the engine running. Read the working line under *Fuel Flow (estimated)*
+  in Settings ▸ Sensors: an input showing `—` has no reading, and `displacement 0` means the engine
+  size is missing in Settings ▸ Vehicle;
 - a number while the engine is off;
 - **L/100km** while stopped, or **L/h** while moving;
 - a reading that never changes, or that is wildly off the truck's average even after the correction.
