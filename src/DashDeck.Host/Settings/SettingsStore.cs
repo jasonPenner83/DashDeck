@@ -90,6 +90,13 @@ public sealed record UserSettings
     public double FuelTankLitres { get; init; } = 136;
 
     /// <summary>
+    /// The fuel estimate's correction (ADR-0081): what the instant economy is multiplied by, set by
+    /// comparing it with the truck's own average. One until there is a reason to change it.
+    /// </summary>
+    [JsonPropertyName("fuelCorrection")]
+    public double FuelCorrection { get; init; } = 1.0;
+
+    /// <summary>
     /// The OBD-II adapter's virtual COM port, e.g. <c>COM7</c>. Empty means run the
     /// synthetic truck.
     /// </summary>

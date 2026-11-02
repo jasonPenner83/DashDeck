@@ -555,7 +555,8 @@ public sealed class SignalPairingTests
         var standings = SignalPairing.Stand(Standard(), [], []);
 
         var needs = standings.Where(s => s.NeedsId).Select(s => s.Definition.Id).ToList();
-        Assert.Contains("fuel.economy", needs);
+        Assert.Contains("fuel.range", needs);
+        Assert.DoesNotContain("fuel.economy", needs);   // worked out by the dash (ADR-0081)
         Assert.Contains("tire.frontLeft.pressure", needs);
         Assert.Contains("hvac.cabinTemp", needs);
         Assert.Contains("warning.doorAjar", needs);

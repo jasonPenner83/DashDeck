@@ -2,6 +2,7 @@
 using DashDeck.Core;
 using DashDeck.Core.Catalog;
 using DashDeck.Core.Discovery;
+using DashDeck.Core.Calculated;
 using DashDeck.Core.Identity;
 using DashDeck.Core.Link;
 using DashDeck.Simulator;
@@ -154,6 +155,13 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
 
     /// <summary>Named-signal access. This is all the UI is allowed to know about.</summary>
     public IVehicleSignals Signals => _service.Bus;
+
+    /// <summary>The fuel estimate's correction (ADR-0081), applied to the next reading.</summary>
+    public double FuelCorrection
+    {
+        get => _service.Fuel.Correction;
+        set => _service.Fuel = _service.Fuel with { Correction = value };
+    }
 
     /// <summary>
     /// The synthetic truck, or null when a real adapter is driving the stack.
@@ -362,6 +370,10 @@ public sealed class VehicleStack : IAsyncDisposable, ViewModels.ISignalInventory
 
             // Placeholders ask nothing; while simulated, they read the synthetic truck by name.
             SimulatedValues = found is not null ? null : simulated.Reading,
+
+            // The fuel estimate needs the engine's size (ADR-0081), which only the VIN decode says.
+            // The correction is the shell's to set, from Settings.
+            Fuel = new FuelModel(sources.Vehicle.DisplacementLitres ?? 0),
         };
 
         await service.StartAsync(cancellationToken);

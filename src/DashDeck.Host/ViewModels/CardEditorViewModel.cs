@@ -270,7 +270,7 @@ public sealed partial class CardEditorViewModel : ObservableObject
             RateHz = choice.DefaultRateHz,
             Unit = DisplayUnit.Auto.ToString(),
             Style = (keepStyle ? CardStyle.Bar : CardStyle.Number).ToString(),
-            Format = choice.Unit is "L/h" or "g/s" ? "0.0" : spec.Format,
+            Format = choice.Unit is "L/h" or "g/s" or "L/100km" ? "0.0" : spec.Format,
         };
     }
 

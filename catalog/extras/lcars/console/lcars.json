@@ -70,7 +70,8 @@
       "source": { "signal": "warning.tirePressure", "rateHz": 0.2 }, "parts": { "icon": "tpms", "litColour": "#FF9966", "unlitColour": "#26CC99CC" } },
 
     // ── The strip ──
-    // Economy and range are placeholders until the truck's own are found (ADR-0041): a dash on the truck.
+    // Range is a placeholder until the truck's own is found (ADR-0041): a dash on the truck. Economy is
+    // estimated by the dash (ADR-0081): L/100km moving, L/h stopped.
     { "id": "odometer", "style": "digital", "x": 214, "y": 292, "width": 210, "height": 72,
       "label": "ODOMETER", "unit": "km", "format": "#,0", "min": 0, "max": 2000000,
       "source": { "signal": "vehicle.odometer", "rateHz": 0.05 },

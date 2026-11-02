@@ -73,7 +73,7 @@
       "label": "ODOMETER", "unit": "km", "format": "#,0", "min": 0, "max": 2000000,
       "source": { "signal": "vehicle.odometer", "rateHz": 0.05 },
       "parts": { "valueSize": 22, "valueColour": "#F4F8FB", "labelColour": "#8A97A4" } },
-    // Economy — a placeholder until the truck's own is found (ADR-0041): a dash on the truck.
+    // Economy — estimated by the dash (ADR-0081): L/100km moving, L/h stopped.
     { "id": "economy", "style": "digital", "x": 272, "y": 306, "width": 230, "height": 68,
       "label": "ECONOMY", "unit": "L/100km", "format": "0.0", "min": 0, "max": 99.9,
       "source": { "signal": "fuel.economy", "rateHz": 1 },

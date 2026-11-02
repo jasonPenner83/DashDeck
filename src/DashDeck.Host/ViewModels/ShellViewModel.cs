@@ -222,6 +222,16 @@ public sealed partial class ShellViewModel : ObservableObject, IDisposable
         Shell.StartupTrace.Phase("shell: reading display settings");
         Display = new DisplaySettings();
 
+        // The fuel estimate's correction (ADR-0081) follows Settings as it is typed.
+        _vehicle.FuelCorrection = Display.FuelCorrection;
+        Display.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(DisplaySettings.FuelCorrection))
+            {
+                _vehicle.FuelCorrection = Display.FuelCorrection;
+            }
+        };
+
         // The tablet's backlight, by day and by night (ADR-0068). Started before anything slow so
         // a launch at night dims early; its reads and writes run on a worker of their own.
         Shell.StartupTrace.Phase("shell: the backlight");

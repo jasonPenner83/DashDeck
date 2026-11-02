@@ -433,7 +433,7 @@ public sealed partial class DashboardViewModel : ObservableObject, IDisposable
 
     /// <summary>A starting format that suits the signal, so a new card is not born ugly.</summary>
     private static string SuggestFormat(ValueChoice choice) =>
-        choice.Unit is "L/h" or "g/s" ? "0.0" : "0";
+        choice.Unit is "L/h" or "g/s" or "L/100km" ? "0.0" : "0";
 
     private void Move(IDashCard? card, int delta)
     {

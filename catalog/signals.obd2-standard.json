@@ -330,6 +330,19 @@
     "max": 99.2
   },
   {
+    // Commanded air-fuel equivalence ratio: below 1 rich (boost, warm-up), above 1 lean; very
+    // high while coasting with the fuel cut. The fuel estimate reads it (ADR-0081).
+    "id": "fuel.commandedLambda",
+    "name": "Commanded Lambda",
+    "category": "Fuel",
+    "bus": "Hs",
+    "pid": 68,
+    "decode": { "byteOffset": 0, "byteLength": 2, "signed": false, "scale": 0.000030517578125, "offset": 0, "unit": "" },
+    "defaultRateHz": 1,
+    "min": 0,
+    "max": 2
+  },
+  {
     "id": "fuel.ethanolPercent",
     "name": "Ethanol Fuel %",
     "category": "Fuel",
@@ -504,10 +517,14 @@
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "" }, "defaultRateHz": 0.2, "min": 0, "max": 1 },
 
   // ── Economy and range ─────────────────────────────────────────────────────
-  // (ADR-0041.) Many vehicles report no standard fuel rate but show instant economy and distance
-  // to empty on the cluster, so they have them under their own identifiers.
-  { "id": "fuel.economy", "placeholder": true, "name": "Fuel Economy — Instant", "category": "Fuel",
+  // (ADR-0041.) Instant economy is worked out by the dash (ADR-0081): fuel flow estimated from
+  // manifold pressure, intake air temperature and RPM by speed density, corrected by commanded λ
+  // and the trims, over speed. L/100km moving; L/h stopped, which the reading's unit says. Needs
+  // the engine size from Settings ▸ Vehicle; tuned by the fuel correction there.
+  { "id": "fuel.economy", "calculate": "fuelEconomy", "name": "Fuel Economy — Instant (estimated)", "category": "Fuel",
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "L/100km" }, "defaultRateHz": 1, "min": 0, "max": 99.9 },
+  { "id": "fuel.flowEstimate", "calculate": "fuelFlow", "name": "Fuel Flow (estimated)", "category": "Fuel",
+    "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "L/h" }, "defaultRateHz": 1, "min": 0, "max": 100 },
   { "id": "fuel.range", "placeholder": true, "name": "Distance to Empty", "category": "Fuel",
     "decode": { "byteOffset": 0, "byteLength": 1, "signed": false, "scale": 1, "offset": 0, "unit": "km" }, "defaultRateHz": 0.5, "min": 0, "max": 2000 },
 

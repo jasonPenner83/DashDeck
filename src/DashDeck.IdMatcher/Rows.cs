@@ -183,7 +183,9 @@ public sealed record SignalRow(SignalStanding Standing)
         _ => "STANDARD",
     }) + (Standing.Hidden ? " · HIDDEN" : "");
 
-    public string Where => !Definition.HasRequest
+    public string Where => Definition.IsCalculated
+        ? "worked out by the dash"
+        : !Definition.HasRequest
         ? "no ID yet"
         : Definition.Mode == 0x01 && Definition.Module is null
         ? $"01 {Definition.Pid:X2}"

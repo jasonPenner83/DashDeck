@@ -2,6 +2,7 @@ using System.Diagnostics;
 using DashDeck.Abstractions;
 using DashDeck.Core.Arbitration;
 using DashDeck.Core.Bus;
+using DashDeck.Core.Calculated;
 using DashDeck.Core.Catalog;
 using DashDeck.Vehicle;
 
@@ -302,6 +303,12 @@ public sealed class VehicleService : IAsyncDisposable
     {
         var definition = entry.Signal;
 
+        if (definition.IsCalculated)
+        {
+            PublishCalculated(definition);
+            return;
+        }
+
         if (!definition.HasRequest)
         {
             PublishPlaceholder(definition);
@@ -401,6 +408,34 @@ public sealed class VehicleService : IAsyncDisposable
 
         Bus.Publish(SignalValue.Missing(definition.Id, definition.Decode.Unit));
     }
+
+    /// <summary>
+    /// A calculated signal's turn (ADR-0081): nothing is asked. It is worked out from the latest
+    /// readings of its inputs, which the plan asks for on its behalf, and published with the least
+    /// trustworthy of their qualities — so a simulated input makes it Simulated, never Live.
+    /// </summary>
+    private void PublishCalculated(SignalDefinition definition)
+    {
+        lock (_statusLock)
+        {
+            _lastPolled[definition.Id] = _clock.UtcNow;
+        }
+
+        Bus.Publish(Calculations.Calculate(definition.Id, definition.Calculate!, Bus.Current, Fuel, definition.Decode.Unit));
+    }
+
+    /// <summary>
+    /// The engine's facts and the person's correction, for the fuel estimate (ADR-0081). Set by the
+    /// host from the VIN decode and Settings ▸ Vehicle; replaced whole, so the worker always reads
+    /// one consistent model.
+    /// </summary>
+    public FuelModel Fuel
+    {
+        get => _fuel;
+        set => _fuel = value ?? FuelModel.Unknown;
+    }
+
+    private volatile FuelModel _fuel = FuelModel.Unknown;
 
     /// <summary>
     /// The synthetic truck's quantities by signal id, for placeholders while simulated (ADR-0052);

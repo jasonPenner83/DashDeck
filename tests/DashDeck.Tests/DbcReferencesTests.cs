@@ -251,7 +251,7 @@ public class DbcReferencesTests
         Assert.Empty(answers.Problems);
         Assert.Equal(CanBus.Hs, DiagnosticAnswers.BusOf(db));
 
-        var asked = TestCatalog.Load().Definitions.Where(d => !d.Placeholder && d.Mode == 0x01 && d.Module is null).ToList();
+        var asked = TestCatalog.Load().Definitions.Where(d => d.HasRequest && d.Mode == 0x01 && d.Module is null).ToList();
         Assert.Equal(asked.Count, answers.Answers.Count);
 
         foreach (var d in asked)

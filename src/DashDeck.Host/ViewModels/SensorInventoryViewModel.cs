@@ -81,7 +81,8 @@ public sealed partial class SignalRowViewModel(SignalDefinition definition, Sign
     public bool IsPending { get; } = pending;
 
     /// <summary>The quiet second line: id, bus, the request on the wire, and the module it goes to.</summary>
-    public string Detail => !Definition.HasRequest ? $"{Definition.Id}  ·  placeholder: no ID yet, nothing is asked" : string.Create(
+    public string Detail => Definition.IsCalculated ? $"{Definition.Id}  ·  worked out by the dash from {string.Join(", ", DashDeck.Core.Calculated.Calculations.InputsOf(Definition.Calculate).Where(i => i.Required).Select(i => i.SignalId))}, nothing is asked"
+        : !Definition.HasRequest ? $"{Definition.Id}  ·  placeholder: no ID yet, nothing is asked" : string.Create(
         CultureInfo.InvariantCulture,
         $"{Definition.Id}  ·  {(Definition.Bus is CanBus.Ms ? "MS" : "HS")}  ·  {Definition.Mode:X2} {(Definition.Pid <= 0xFF ? Definition.Pid.ToString("X2", CultureInfo.InvariantCulture) : Definition.Pid.ToString("X4", CultureInfo.InvariantCulture))}{(Definition.ModuleAddress is { } module ? $"  ·  module {module:X3}" : "")}");
 

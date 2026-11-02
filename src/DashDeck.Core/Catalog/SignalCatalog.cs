@@ -211,7 +211,12 @@ public sealed class SignalCatalog
             problems.Add($"'{d.Id}': min is greater than max");
         }
 
-        if (!d.Placeholder && d.Mode == 0x01 && d.Pid == 0)
+        if (d.Calculate is { } calculation && !Calculated.Calculations.IsKnown(calculation))
+        {
+            problems.Add($"'{d.Id}': calculate '{calculation}' is not one of {string.Join(", ", Calculated.Calculations.Known)}");
+        }
+
+        if (!d.Placeholder && !d.IsCalculated && d.Mode == 0x01 && d.Pid == 0)
         {
             problems.Add($"'{d.Id}': pid is missing — a signal whose identifier is still to be found is a placeholder (\"placeholder\": true)");
         }
