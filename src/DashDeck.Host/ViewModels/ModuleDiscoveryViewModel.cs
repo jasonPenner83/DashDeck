@@ -734,6 +734,12 @@ public sealed partial class ModuleDiscoveryViewModel : ObservableObject
     /// </summary>
     private async Task<string?> RefuseIfMovingAsync()
     {
+        // Nothing would answer, and an empty result must never be saved over a real one (ADR-0082).
+        if (_vehicle.IsWaitingForAdapter)
+        {
+            return "No adapter is connected, and simulated data is off — there is nothing to ask. Connect the adapter, or turn SIMULATED DATA on in Settings ▸ Vehicle.";
+        }
+
         if (_vehicle.IsSimulated)
         {
             return null;

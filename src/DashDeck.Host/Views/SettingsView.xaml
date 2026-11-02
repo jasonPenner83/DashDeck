@@ -1072,6 +1072,21 @@
                                Style="{StaticResource MicroText}"
                                Text="Asks the engine computer's standard values listening for its answer alone, so the adapter stops waiting as soon as it arrives — FORScan's way, about twice the readings a second. Anything that comes back empty or busy is asked again the standard way. Turn it off if readings look wrong. Applies after a restart." />
 
+                    <!-- Simulated data (ADR-0082): the synthetic truck while no adapter answers, or nothing. -->
+                    <Button Style="{StaticResource StageLauncherButton}"
+                            Height="52" MinWidth="330" Margin="0,16,0,0"
+                            HorizontalAlignment="Left"
+                            Command="{Binding ToggleSimulateCommand}">
+                        <TextBlock FontFamily="{DynamicResource MonoFont}" FontSize="14">
+                            <Run Text="SIMULATED DATA —" />
+                            <Run Text="{Binding SimulateLabel, Mode=OneWay}" FontWeight="Bold" />
+                        </TextBlock>
+                    </Button>
+
+                    <TextBlock Margin="2,6,0,0" MaxWidth="620" HorizontalAlignment="Left" TextWrapping="Wrap"
+                               Style="{StaticResource MicroText}"
+                               Text="With no adapter answering, ON runs a synthetic truck so the dash can be tried at a desk; every number is marked SIM. OFF shows no data and says so, until the adapter answers. Either way the dash goes live by itself when it does. Applies after a restart." />
+
                     <Button Style="{StaticResource StageLauncherButton}" Height="48" Margin="0,10,0,0"
                             HorizontalAlignment="Left" Command="{Binding Adapter.RestartCommand}"
                             Visibility="{Binding Adapter.ShowRestart, Converter={StaticResource BoolToVis}}">

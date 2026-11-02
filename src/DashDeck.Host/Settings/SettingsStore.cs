@@ -130,6 +130,13 @@ public sealed record UserSettings
     public bool FastRequests { get; init; } = true;
 
     /// <summary>
+    /// Run the synthetic truck until the adapter answers (ADR-0005). Off by default (ADR-0082): with
+    /// no adapter the dash shows no data and says why. Applied at the next launch.
+    /// </summary>
+    [JsonPropertyName("simulateWithoutAdapter")]
+    public bool SimulateWithoutAdapter { get; init; }
+
+    /// <summary>
     /// The master switch for clearing trouble codes (ADR-0006 gate 2, ADR-0055). Off by default;
     /// read at the moment of clearing, so turning it off stops the next one at once.
     /// </summary>

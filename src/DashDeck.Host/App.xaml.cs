@@ -134,7 +134,8 @@ public partial class App : Application
                 new CatalogSources(identity, new Settings.UserSignalStore().Definitions),
                 CancellationToken.None,
                 fastRequests: stored.FastRequests,
-                locateBudget: TimeSpan.Zero);
+                locateBudget: TimeSpan.Zero,
+                simulate: stored.SimulateWithoutAdapter || WantsSimulation(e.Args));
         }
         catch (Exception ex)
         {
@@ -540,7 +541,15 @@ public partial class App : Application
     }
 
     /// <summary>The flags that take no value. Everything else consumes the argument after it.</summary>
-    private static readonly HashSet<string> Switches = ["--picker", "--edit", "--level", "--menu", "--synthetic-dongle"];
+    private static readonly HashSet<string> Switches = ["--picker", "--edit", "--level", "--menu", "--synthetic-dongle", "--simulate"];
+
+    /// <summary>
+    /// The synthetic truck asked for on the command line whatever Settings says (ADR-0082):
+    /// <c>--simulate</c>, a scripted drive by name, or <c>--fault</c> and <c>--unplug</c>, which
+    /// only mean anything to it.
+    /// </summary>
+    private static bool WantsSimulation(string[] args) =>
+        args.Contains("--simulate") || args.Contains("--fault") || args.Contains("--unplug") || PositionalArg(args) is not null;
 
     /// <summary>
     /// Record a fatal error where it can be read later.

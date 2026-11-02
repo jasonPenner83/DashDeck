@@ -70,4 +70,41 @@ public sealed class LaunchWithoutTheTruckTests
 
         Assert.True(stack.IsSimulated);
     }
+
+    [Fact]
+    public async Task With_simulated_data_off_it_comes_up_with_nothing_and_keeps_watching()
+    {
+        var adapter = new AdapterLinkOptions { PreferredPort = "COM_nonexistent_for_this_test" };
+
+        await using var stack = await VehicleStack.StartAsync(
+            adapter,
+            "cold-start-city",
+            Sources(),
+            CancellationToken.None,
+            locateBudget: TimeSpan.Zero,
+            simulate: false);
+
+        Assert.True(stack.IsWaitingForAdapter);
+        Assert.False(stack.IsSimulated);
+        Assert.Null(stack.Synthetic);
+        Assert.Null(stack.LiveAdapter);
+        Assert.Equal("COM_nonexistent_for_this_test", stack.WatchedPort);
+        Assert.Equal(SignalQuality.Unavailable, stack.Signals.Current("vehicle.speed").Quality);
+    }
+
+    [Fact]
+    public async Task With_simulated_data_off_and_no_adapter_chosen_nothing_is_watched()
+    {
+        await using var stack = await VehicleStack.StartAsync(
+            adapter: null,
+            "cold-start-city",
+            Sources(),
+            CancellationToken.None,
+            locateBudget: TimeSpan.Zero,
+            simulate: false);
+
+        Assert.True(stack.IsWaitingForAdapter);
+        Assert.Null(stack.WatchedPort);
+        Assert.Null(stack.FallbackReason);
+    }
 }

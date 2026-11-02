@@ -13,6 +13,9 @@ public interface IAdapterStatus
 {
     bool IsSimulated { get; }
 
+    /// <summary>No adapter yet, and simulated data off (ADR-0082): nothing is read.</summary>
+    bool IsWaitingForAdapter => false;
+
     /// <summary>The adapter being read, or null while simulated.</summary>
     AdapterLocation? LiveAdapter { get; }
 
@@ -188,6 +191,13 @@ public sealed partial class AdapterPortsViewModel : ObservableObject
             StatusText = $"LIVE — {live.Identity} on {live.Port} @ {live.BaudRate.ToString(CultureInfo.InvariantCulture)} baud"
                 + (live.Moved ? " · found it on a new port" : "");
             StatusQuality = SignalQuality.Live;
+        }
+        else if (_status.IsWaitingForAdapter)
+        {
+            StatusText = _status.WatchedPort is not null
+                ? $"NO ADAPTER — {_status.FallbackReason ?? $"looking for the adapter on {_status.WatchedPort}"}. Simulated data is off, so nothing is shown until it answers."
+                : "NO ADAPTER — none chosen, and simulated data is off. Test the ports and pick one.";
+            StatusQuality = SignalQuality.Unavailable;
         }
         else if (!_status.IsSimulated)
         {
