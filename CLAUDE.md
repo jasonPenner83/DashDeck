@@ -196,8 +196,13 @@ its own (`"consoleLayout"`), yours live in
 draws one of nine original icons (path data, `WarningIcons`) lit by `bit`/`below`/`equals`/`onAt`.
 Real lights: check engine (`diagnostics.checkEngine`, PID 01 bit 7 — **decodes can `mask`**, so
 `diagnostics.dtcCount` comes from the same byte), low fuel, hot coolant, low voltage; oil, seatbelt,
-door, brake and tyres are `warning.*` **placeholders**, and so are the economy and range figures,
-`fuel.economy` and `fuel.range` — the cluster shows both, so they are likely its identifiers to find. `vehicle.odometer` is PID `A6`. **CARDS** (`"type": "cards"`) shows the one `DashboardViewModel`; `IsShown` is false
+door, brake and tyres are `warning.*` **placeholders**, and so is `fuel.range`. **`fuel.economy` is
+calculated** (ADR-0081): the truck reports no MAF or fuel rate and the cluster no instant economy, so
+`"calculate": "fuelEconomy"` estimates fuel flow by speed density (MAP, IAT, RPM, engine size from the
+VIN, commanded λ `01 44` and trims when answered, × the correction in Settings ▸ Vehicle) over speed:
+**L/100km moving, L/h under 3 km/h**, the reading's unit saying which (`Calculations.UnitShown` for
+layouts). The arbiter plans a calculated signal's inputs for it; `VehicleService` works it out on its
+turn; quality is the worst input's. `vehicle.odometer` is PID `A6`. **CARDS** (`"type": "cards"`) shows the one `DashboardViewModel`; `IsShown` is false
 while it is off the stage, so no card declares; MODIFY WIDGETS puts CARDS on the stage first; a
 launcher file that never mentions `cards` gets it at the end of the grid. The card editor and
 component details can open over CLIMATE now, so both panels hide beneath them.

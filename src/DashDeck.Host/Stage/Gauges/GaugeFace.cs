@@ -105,7 +105,9 @@ public sealed class GaugeFace : Canvas, IReadingFace
             var text = _unknown ? _unknownText
                 : !showing ? _spec.Text("noData", "NO DATA")
                 : Number(reading.Value);
-            var unit = showing && !string.IsNullOrEmpty(_spec.Unit) && _spec.Style is not GaugeStyle.LcarsBar ? _spec.Unit : "";
+            var unit = showing && !string.IsNullOrEmpty(_spec.Unit) && _spec.Style is not GaugeStyle.LcarsBar
+                ? DashDeck.Core.Calculated.Calculations.UnitShown(_spec.Unit, reading.Unit)
+                : "";
 
             if (_spec.Parts.ContainsKey("unitSize"))
             {

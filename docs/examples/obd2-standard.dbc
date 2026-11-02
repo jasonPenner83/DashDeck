@@ -70,6 +70,7 @@ BO_ 2024 Module_7E0: 8 Vector__XXX
  SG_ fuel_shortTermTrimB1 m6 : 31|8@0+ (0.78125,-100) [-100|99.2] "%" Vector__XXX
  SG_ fuel_longTermTrimB1 m7 : 31|8@0+ (0.78125,-100) [-100|99.2] "%" Vector__XXX
  SG_ fuel_ethanolPercent m82 : 31|8@0+ (0.392156862745098,0) [0|100] "%" Vector__XXX
+ SG_ fuel_commandedLambda m68 : 31|16@0+ (3.0517578125E-05,0) [0|2] "" Vector__XXX
  SG_ vehicle_speed m13 : 31|8@0+ (1,0) [0|255] "km/h" Vector__XXX
  SG_ vehicle_odometer m166 : 31|32@0+ (0.1,0) [0|2000000] "km" Vector__XXX
  SG_ vehicle_distanceSinceClear m49 : 31|16@0+ (1,0) [0|65535] "km" Vector__XXX
@@ -111,6 +112,7 @@ CM_ SG_ 2024 fuel_railGaugePressure "Fuel Rail Gauge Pressure";
 CM_ SG_ 2024 fuel_shortTermTrimB1 "Short-Term Fuel Trim B1";
 CM_ SG_ 2024 fuel_longTermTrimB1 "Long-Term Fuel Trim B1";
 CM_ SG_ 2024 fuel_ethanolPercent "Ethanol Fuel %";
+CM_ SG_ 2024 fuel_commandedLambda "Commanded Lambda";
 CM_ SG_ 2024 vehicle_speed "Vehicle Speed";
 CM_ SG_ 2024 vehicle_odometer "Odometer";
 CM_ SG_ 2024 vehicle_distanceSinceClear "Distance Since Codes Cleared";
@@ -152,6 +154,7 @@ SG_MUL_VAL_ 2024 fuel_railGaugePressure Pid01 35-35;
 SG_MUL_VAL_ 2024 fuel_shortTermTrimB1 Pid01 6-6;
 SG_MUL_VAL_ 2024 fuel_longTermTrimB1 Pid01 7-7;
 SG_MUL_VAL_ 2024 fuel_ethanolPercent Pid01 82-82;
+SG_MUL_VAL_ 2024 fuel_commandedLambda Pid01 68-68;
 SG_MUL_VAL_ 2024 vehicle_speed Pid01 13-13;
 SG_MUL_VAL_ 2024 vehicle_odometer Pid01 166-166;
 SG_MUL_VAL_ 2024 vehicle_distanceSinceClear Pid01 49-49;

@@ -116,6 +116,10 @@ public sealed partial class DisplaySettings : ObservableObject
     [ObservableProperty]
     private int _nightBrightness = 30;
 
+    /// <summary>The fuel estimate's correction (ADR-0081), 0.5–1.5. Applied as it is typed.</summary>
+    [ObservableProperty]
+    private double _fuelCorrection = 1.0;
+
     public DisplaySettings()
     {
         var stored = SettingsStore.Load();
@@ -126,6 +130,7 @@ public sealed partial class DisplaySettings : ObservableObject
         GpsTransport = stored.GpsTransport;
         GpsSerialPort = stored.GpsSerialPort;
         FuelTankLitres = stored.FuelTankLitres;
+        FuelCorrection = ClampCorrection(stored.FuelCorrection);
         AdapterSerialPort = stored.AdapterSerialPort;
         AdapterBaudRate = stored.AdapterBaudRate;
         AdapterIdentity = stored.AdapterIdentity;
@@ -222,6 +227,30 @@ public sealed partial class DisplaySettings : ObservableObject
 
         SettingsStore.Update(stored => stored with { GpsSerialPort = value });
     }
+
+    partial void OnFuelCorrectionChanged(double value)
+    {
+        var clamped = ClampCorrection(value);
+
+        if (clamped != value)
+        {
+            FuelCorrection = clamped;
+            return;
+        }
+
+        if (!_loaded)
+        {
+            return;
+        }
+
+        SettingsStore.Update(stored => stored with { FuelCorrection = value });
+    }
+
+    /// <summary>A correction inside the range the estimate accepts; one for anything that is not a number.</summary>
+    public static double ClampCorrection(double value) =>
+        double.IsFinite(value) && value > 0
+            ? Math.Clamp(value, DashDeck.Core.Calculated.FuelModel.MinimumCorrection, DashDeck.Core.Calculated.FuelModel.MaximumCorrection)
+            : 1.0;
 
     partial void OnFuelTankLitresChanged(double value)
     {

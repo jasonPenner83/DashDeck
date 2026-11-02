@@ -897,7 +897,7 @@ public sealed record StageLayout
           "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
                      "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 16, "unitColour": "@textMid", "noData": "–" } },
 
-        // ── Range and economy ── the same down the right, aligned right. Placeholders until the truck's own are found.
+        // ── Range and economy ── the same down the right, aligned right. Range is a placeholder until the truck's own is found; economy is estimated (ADR-0081).
         { "id": "range", "style": "digital", "x": 236, "y": 246, "width": 188, "height": 66,
           "label": "RANGE", "unit": "km", "format": "0", "min": 0, "max": 2000,
           "source": { "signal": "fuel.range", "rateHz": 0.5 },
@@ -1082,7 +1082,7 @@ public sealed record StageLayout
           "parts": { "align": "left", "labelSize": 12, "labelWeight": "regular", "labelColour": "@textMid",
                      "valueSize": 34, "valueWeight": "light", "valueColour": "@textHigh", "unitSize": 16, "unitColour": "@textMid", "noData": "–" } },
 
-        // ── Range and economy ── the same, aligned right. Placeholders until the truck's own are found.
+        // ── Range and economy ── the same, aligned right. Range is a placeholder until the truck's own is found; economy is estimated (ADR-0081).
         { "id": "range", "style": "digital", "x": 652, "y": 34, "width": 220, "height": 66,
           "label": "RANGE", "unit": "km", "format": "0", "min": 0, "max": 2000,
           "source": { "signal": "fuel.range", "rateHz": 0.5 },
@@ -1333,7 +1333,13 @@ public sealed record StageLayout
 /// <summary>A gauge's reading: the number to draw, and how far to trust it.</summary>
 /// <param name="Value">The computed value, or NaN when there is none.</param>
 /// <param name="Quality">The worse of the qualities it was computed from.</param>
-public readonly record struct GaugeReading(double Value, SignalQuality Quality)
+/// <param name="Value">The number to draw, scaled as the layout asks.</param>
+/// <param name="Quality">How far it can be trusted.</param>
+/// <param name="Unit">
+/// The unit the reading itself came in, when it says one. A layout writes its own unit; this is
+/// only for the one case it cannot know about, economy switching to L/h when stopped (ADR-0081).
+/// </param>
+public readonly record struct GaugeReading(double Value, SignalQuality Quality, string? Unit = null)
 {
     /// <summary>True when there is a number to draw at all — Live, Simulated, or Stale (dimmed).</summary>
     public bool HasValue => !double.IsNaN(Value) && Quality is not SignalQuality.Unavailable;
@@ -1373,7 +1379,7 @@ public readonly record struct GaugeReading(double Value, SignalQuality Quality)
             }
         }
 
-        return new((value * source.Scale) + source.Offset, quality);
+        return new((value * source.Scale) + source.Offset, quality, primary.Unit);
     }
 
     /// <summary>

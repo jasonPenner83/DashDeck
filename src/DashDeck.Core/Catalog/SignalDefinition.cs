@@ -172,6 +172,17 @@ public sealed record SignalDefinition
     public bool Placeholder { get; init; }
 
     /// <summary>
+    /// Worked out by the dash from other signals rather than asked for (ADR-0081): the name of the
+    /// calculation, such as <c>fuelEconomy</c>, or null. It has no request; asking for it asks for
+    /// its inputs instead, and the polling loop works it out on its turn.
+    /// </summary>
+    public string? Calculate { get; init; }
+
+    /// <summary>True for a signal the dash works out itself.</summary>
+    [JsonIgnore]
+    public bool IsCalculated => Calculate is not null;
+
+    /// <summary>
     /// True when the person has hidden it (ADR-0051): it leaves the card editor's picker and the ID
     /// matcher's list, but stays in the catalog, so a card, screen or component that uses it keeps
     /// working. Set by an overlay entry; a built-in signal is hidden, never deleted.
@@ -220,9 +231,12 @@ public sealed record SignalDefinition
     public TimeSpan StalenessBudget => TimeSpan.FromSeconds(
         StalenessSeconds ?? Math.Max(2.0, 5.0 / Math.Max(DefaultRateHz, 0.05)));
 
-    /// <summary>True when there is something to ask: every signal except a placeholder (ADR-0052).</summary>
+    /// <summary>
+    /// True when there is something to ask: every signal except a placeholder (ADR-0052) and one the
+    /// dash works out itself (ADR-0081).
+    /// </summary>
     [JsonIgnore]
-    public bool HasRequest => !Placeholder;
+    public bool HasRequest => !Placeholder && !IsCalculated;
 
     public PidRequestSpec ToRequest() => new(Mode, Pid, Bus, ModuleAddress);
 

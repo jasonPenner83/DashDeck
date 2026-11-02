@@ -90,6 +90,7 @@ public sealed partial class SimulatedF150
             ["fuel.shortTermTrimB2"] = () => 0,
             ["fuel.longTermTrimB2"] = () => -1.6,
             ["fuel.ethanolPercent"] = () => 10,
+            ["fuel.commandedLambda"] = () => EnginePowerKw > 120 ? 0.85 : 1.0,
             ["fuel.economy"] = () => EconomyL100,
             ["fuel.range"] = () => RangeKm,
 

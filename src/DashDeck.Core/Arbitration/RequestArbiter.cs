@@ -1,4 +1,5 @@
 using DashDeck.Abstractions;
+using DashDeck.Core.Calculated;
 using DashDeck.Core.Catalog;
 
 namespace DashDeck.Core.Arbitration;
@@ -105,15 +106,35 @@ public sealed class RequestArbiter
             snapshot = [.. _declarations];
         }
 
+        var demands = snapshot.Select(d => (d.SignalId, d.Priority, RateHz: d.RequestedRateHz)).ToList();
+
+        // A calculated signal asks for nothing itself (ADR-0081): it asks for its inputs, at its own
+        // priority, each no faster than it wants and no faster than that input is usually asked.
+        foreach (var d in snapshot)
+        {
+            if (!_catalog.TryGet(d.SignalId, out var wanted) || !wanted.IsCalculated)
+            {
+                continue;
+            }
+
+            foreach (var input in Calculations.InputsOf(wanted.Calculate))
+            {
+                if (_catalog.TryGet(input.SignalId, out var source) && source.HasRequest)
+                {
+                    demands.Add((input.SignalId, d.Priority, Math.Min(d.RequestedRateHz, source.DefaultRateHz)));
+                }
+            }
+        }
+
         // Merge duplicates: two components wanting the same signal produce one poll, at the
         // higher rate and the higher priority.
-        var merged = snapshot
+        var merged = demands
             .GroupBy(d => d.SignalId, StringComparer.Ordinal)
             .Select(g => new
             {
                 Definition = _catalog[g.Key],
                 Priority = g.Max(d => d.Priority),
-                RateHz = g.Max(d => d.RequestedRateHz),
+                RateHz = g.Max(d => d.RateHz),
             })
             .OrderByDescending(x => x.Priority)
             .ThenByDescending(x => x.RateHz)

@@ -675,6 +675,42 @@ or as SHIPPED; a deleted LCARS coming back; Antonio missing from LCARS (ordinary
 screen that does not change when the theme does (other than one you picked by hand); a stage number with
 no reading drawn as zero instead of a dash or NO DATA.
 
+## Instant economy, estimated (ADR-0081)
+
+**You need:**
+- the tablet with this release and the adapter, in the truck;
+- the VIN looked up in **Settings ▸ Vehicle**, with the engine size reading **2.7**. Type it by hand
+  there if the lookup left it empty, then RESTART;
+- for step 5, a stretch of highway you can drive steadily for 10 minutes.
+
+1. **At the desk, simulated.** Start DashDeck with no adapter and tap **DASH**. **Expect:**
+   - ECONOMY shows a number in the simulated colour, never stuck on 0;
+   - while the synthetic truck is stopped it reads **L/h**, about 1–2; once it moves, **L/100km**.
+2. **Settings ▸ Sensors.** Find *Fuel Economy — Instant (estimated)*. **Expect:** *worked out by the
+   dash from engine.intakeManifoldPressure, engine.intakeAirTemp, engine.rpm, vehicle.speed, nothing is
+   asked*. Find *Commanded Lambda* and *Fuel Flow (estimated)* too.
+3. **In the truck, parked, engine idling, warm.** Tap **DASH**. **Expect:**
+   - ECONOMY in the live colour, reading **L/h**, about 1.5–2.5;
+   - blipping the throttle raises it for a moment.
+4. **Drive.** **Expect:**
+   - **L/100km** from walking pace up;
+   - high numbers pulling away;
+   - lower at a steady cruise, and **0.0** coasting downhill off the throttle (the fuel cut);
+   - **L/h** again whenever you stop.
+5. **Tune it.** Reset the truck's average economy at the start of a steady highway stretch. After about
+   10 minutes, compare it with what ECONOMY has been showing. If DashDeck reads about 10 % higher,
+   set **Settings ▸ Vehicle ▸ FUEL ESTIMATE CORRECTION** to **0.90**; about 10 % lower, **1.10**.
+   **Expect:** the next readings change straight away, with no restart.
+6. Add an ECONOMY card on CARDS (MODIFY WIDGETS ▸ Fuel Economy — Instant). **Expect:** it switches
+   between **L/h** and **L/100km** the same way.
+
+**A failure looks like:**
+- ECONOMY showing a dash with the engine running. Check the engine size in Settings ▸ Vehicle, and
+  tell me what Settings ▸ Sensors says for manifold pressure, intake air temperature and RPM;
+- a number while the engine is off;
+- **L/100km** while stopped, or **L/h** while moving;
+- a reading that never changes, or that is wildly off the truck's average even after the correction.
+
 ## The ID hunter — finding identifiers with a guide (ADR-0044)
 
 **You need:**
